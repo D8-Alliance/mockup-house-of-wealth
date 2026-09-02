@@ -1,0 +1,102 @@
+import { AuditEvent } from './auditTypes';
+
+export const INITIAL_AUDIT_EVENTS: AuditEvent[] = [
+  {
+    eventId: 'AUD-2026-001',
+    timestamp: '2026-08-11T08:14:00Z',
+    userId: 'USR-PAK-001',
+    userName: 'Ahmed Al-Mansoor',
+    organisationId: 'ORG-GULF-CAP',
+    countryNodeId: 'CN-PAK',
+    role: 'Country Admin',
+    action: 'login',
+    resourceType: 'Session',
+    resourceId: 'SES-9921',
+    result: 'Success',
+    metadata: { ip: '194.170.12.4', mfa: true, authMethod: 'Password+2FA' }
+  },
+  {
+    eventId: 'AUD-2026-002',
+    timestamp: '2026-08-11T08:20:15Z',
+    userId: 'USR-MYS-002',
+    userName: 'Tengku Dr. Hasmadi',
+    organisationId: 'ORG-D8-GOV',
+    countryNodeId: 'CN-MYS',
+    role: 'Shariah Advisor',
+    action: 'contract_approve',
+    resourceType: 'Contract',
+    resourceId: 'CT-MUD-402',
+    result: 'Success',
+    metadata: { certificateNo: 'FATWA-AAOIFI-2026-88', standard: 'AAOIFI Standard No. 13' }
+  },
+  {
+    eventId: 'AUD-2026-003',
+    timestamp: '2026-08-11T08:35:42Z',
+    userId: 'USR-TUR-003',
+    userName: 'Emin Yilmaz',
+    organisationId: 'ORG-BORS-IST',
+    countryNodeId: 'CN-TUR',
+    role: 'Project Sponsor',
+    action: 'project_submit',
+    resourceType: 'Project',
+    resourceId: 'PRJ-IST-TECH-01',
+    result: 'Success',
+    metadata: { projectName: 'Istanbul Tech Park Phase II', targetEquity: 2000000 }
+  },
+  {
+    eventId: 'AUD-2026-004',
+    timestamp: '2026-08-11T08:50:00Z',
+    userId: 'USR-IDN-004',
+    userName: 'Nurul Hidayah',
+    organisationId: 'ORG-NUSA-DEV',
+    countryNodeId: 'CN-IDN',
+    role: 'Compliance Officer',
+    action: 'user_update',
+    resourceType: 'User',
+    resourceId: 'USR-IDN-088',
+    result: 'Success',
+    metadata: { kycLevelChanged: 'Level 2 -> Level 3', biometricVerified: true }
+  },
+  {
+    eventId: 'AUD-2026-005',
+    timestamp: '2026-08-11T09:05:10Z',
+    userId: 'USR-EGY-005',
+    userName: 'Dr. Tariq Al-Hashimi',
+    organisationId: 'ORG-AL-EGY-FIN',
+    countryNodeId: 'CN-EGY',
+    role: 'Finance Officer',
+    action: 'financial_transaction',
+    resourceType: 'Disbursement',
+    resourceId: 'TX-EGY-8812',
+    result: 'Success',
+    metadata: { amountUSD: 340000, recipient: 'Upper Nile Solar Co.', swiftRef: 'SW-EG-993' }
+  },
+  {
+    eventId: 'AUD-2026-006',
+    timestamp: '2026-08-11T09:12:30Z',
+    userId: 'USR-PAK-001',
+    userName: 'Ahmed Al-Mansoor',
+    organisationId: 'ORG-GULF-CAP',
+    countryNodeId: 'CN-PAK',
+    role: 'Super Admin',
+    action: 'role_switch_demo',
+    resourceType: 'RBAC',
+    resourceId: 'ROLE-SYS-01',
+    result: 'Success',
+    metadata: { switchedFrom: 'Country Admin', switchedTo: 'Super Admin' }
+  },
+  {
+    eventId: 'AUD-2026-007',
+    timestamp: '2026-08-11T09:30:00Z',
+    userId: 'USR-BGD-006',
+    userName: 'Farhan Rahman',
+    organisationId: 'ORG-SILK-TEX',
+    countryNodeId: 'CN-BGD',
+    role: 'Project Sponsor',
+    action: 'project_create',
+    resourceType: 'Project',
+    resourceId: 'PRJ-BGD-TEX-02',
+    result: 'Success',
+    metadata: { name: 'Chittagong Eco Textile Expansion', estimatedBudget: 300000 }
+  }
+];
