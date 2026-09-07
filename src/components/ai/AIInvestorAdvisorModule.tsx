@@ -18,7 +18,7 @@ export const AIInvestorAdvisorModule: React.FC = () => {
 
   const [recommendation, setRecommendation] = useState<AIInvestorRecommendation>({
     suitablePools: [
-      { id: 'POOL-101', name: 'Islamabad Diplomatic Enclave Residential Sukuk', matchPercent: 96, yield: '8.5% p.a.', contract: 'Ijarah', risk: 'Low Risk (A+)' },
+      { id: 'POOL-101', name: 'Putrajaya Diplomatic Enclave Residential Sukuk', matchPercent: 96, yield: '8.5% p.a.', contract: 'Ijarah', risk: 'Low Risk (A+)' },
       { id: 'POOL-102', name: 'Malaysia SME Halal Export Supply Chain', matchPercent: 91, yield: '11.2% p.a.', contract: 'Mudarabah', risk: 'Medium Risk (A)' },
       { id: 'POOL-103', name: 'Indonesia Micro-Hydro Irrigation Waqf Pool', matchPercent: 88, yield: '6.2% p.a.', contract: 'Waqf', risk: 'Low Risk (A)' }
     ],

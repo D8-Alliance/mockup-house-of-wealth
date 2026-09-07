@@ -48,7 +48,7 @@ export const AdminGovernanceDashboards: React.FC<AdminGovernanceDashboardsProps>
 
   // Audit Logs Data
   const [auditLogs] = useState([
-    { id: 'LOG-88091', timestamp: '2026-08-05 18:42:10', actor: 'Dr. Tariq Al-Hashimi (Super Admin)', role: 'Super Admin', action: 'Approved Tokenization Pool #104 (Karachi Port Logistics)', hash: '0x88f21...90ab', status: 'Immutable Hash Certified' },
+    { id: 'LOG-88091', timestamp: '2026-08-05 18:42:10', actor: 'Dr. Tariq Al-Hashimi (Super Admin)', role: 'Super Admin', action: 'Approved Tokenization Pool #104 (Kuala Lumpur Port Logistics)', hash: '0x88f21...90ab', status: 'Immutable Hash Certified' },
     { id: 'LOG-88090', timestamp: '2026-08-05 17:15:33', actor: 'Sheikh Prof. Imran Usmani (Shariah Board)', role: 'Shariah Scholar', action: 'Issued Fatwa Certificate #FTW-2026-04', hash: '0x3c71a...88e1', status: 'Immutable Hash Certified' },
     { id: 'LOG-88089', timestamp: '2026-08-05 15:02:18', actor: 'Compliance Officer Amina Bello', role: 'Compliance Admin', action: 'Whitelisted PEP Match False Positive (Ref #AML-991)', hash: '0x11e99...44a2', status: 'Immutable Hash Certified' },
     { id: 'LOG-88088', timestamp: '2026-08-05 12:40:01', actor: 'System Auto-Engine', role: 'System Cron', action: 'Automated Zakat Purification Distribution to Waqf Pool', hash: '0x99a22...77c1', status: 'Immutable Hash Certified' },
@@ -78,7 +78,7 @@ export const AdminGovernanceDashboards: React.FC<AdminGovernanceDashboardsProps>
   const reportTemplates = [
     { id: 'REP-01', name: 'Comprehensive Enterprise Governance & Compliance Summary', category: 'Compliance', frequency: 'Monthly', desc: 'Full audit of KYC/KYB rates, sanction screenings, PEP hits, and AAOIFI fatwa status.' },
     { id: 'REP-02', name: 'AAOIFI Shariah Governance & Non-Compliant Income Purification Statement', category: 'Shariah', frequency: 'Quarterly', desc: 'Detailed breakdown of interest-free yield, non-compliant revenue purifications, and Sadaqah fund transfers.' },
-    { id: 'REP-03', name: 'D-8 Cross-Border Settlement & Treasury Revenue Ledger', category: 'Finance', frequency: 'Real-Time / Daily', desc: 'Multi-currency clearing flows across Pakistan, Malaysia, Indonesia, Turkey, Egypt, and Nigeria.' },
+    { id: 'REP-03', name: 'D-8 Cross-Border Settlement & Treasury Revenue Ledger', category: 'Finance', frequency: 'Real-Time / Daily', desc: 'Multi-currency clearing flows across Malaysia, Malaysia, Indonesia, Turkey, Egypt, and Nigeria.' },
     { id: 'REP-04', name: 'System Security, Encryption & Access Permission Matrix Audit', category: 'Security', frequency: 'Weekly', desc: 'Role permissions audit, failed auth attempts, RPC firewall triggers, and key rotations.' }
   ];
 
@@ -109,7 +109,7 @@ export const AdminGovernanceDashboards: React.FC<AdminGovernanceDashboardsProps>
             className="px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-bold text-slate-800 dark:text-slate-200"
           >
             <option>All D-8 Jurisdictions</option>
-            <option>Pakistan (Karachi Node)</option>
+            <option>Malaysia (Kuala Lumpur Node)</option>
             <option>Malaysia (KL Hub)</option>
             <option>Indonesia (Jakarta Hub)</option>
             <option>Turkey (Istanbul Node)</option>
@@ -179,7 +179,7 @@ export const AdminGovernanceDashboards: React.FC<AdminGovernanceDashboardsProps>
             <h3 className="font-extrabold text-base text-slate-900 dark:text-white">D-8 Regional Compliance Status Overview</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700/60 space-y-2">
-                <span className="font-bold text-slate-800 dark:text-slate-200 block">South Asia Node (Karachi / Islamabad)</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200 block">South Asia Node (Kuala Lumpur / Putrajaya)</span>
                 <p className="text-slate-500 text-[11px]">SECP & SBP Shariah Regulatory Framework Compliant. Zero unresolved sanctions.</p>
                 <span className="px-2.5 py-0.5 rounded text-[10px] font-black bg-emerald-500/10 text-emerald-600">100% Compliant</span>
               </div>

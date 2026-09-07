@@ -1,20 +1,19 @@
-import { AuthUser, AuthSession, LoginCredentials, AuthState } from '../types/authTypes';
+import { AuthUser, AuthSession, LoginCredentials, RegisterCredentials, AuthState } from '../types/authTypes';
 import { DEMO_PERSONAS } from './demoPersonas';
 import { mfaService } from './mfaService';
 import { auditLogger } from '../../audit/auditLogger';
 import { UserRole } from '../../rbac/types';
 
 export class MockAuthProvider {
-  private currentSession: AuthSession | null = {
-    sessionId: 'SES-DEMO-2026-99',
-    user: DEMO_PERSONAS['Country Admin'],
-    token: 'mock-jwt-token-d8-how',
-    isDemoSession: true,
-    mfaVerified: true,
-    expiresAt: new Date(Date.now() + 86400000).toISOString()
-  };
+  // App opens as a public Guest on the landing page. A session is only created
+  // after the user completes the identity-gateway sign-in flow.
+  private currentSession: AuthSession | null = null;
 
   private mode: 'DEMO' | 'PRODUCTION' = 'DEMO';
+
+  // Accounts created through the public Register flow (DEMO mode). Registered
+  // users can subsequently sign in with the same email + the selected role.
+  private registered: Record<string, { credentials: RegisterCredentials; user: AuthUser }> = {};
 
   public getAuthState(): AuthState {
     const isAuth = !!this.currentSession;
@@ -38,9 +37,33 @@ export class MockAuthProvider {
     this.mode = mode;
   }
 
+  /**
+   * Enter the app as an unauthenticated-but-browsing public Guest.
+   * Creates a Guest-session so role guards see an authenticated (Guest) actor
+   * and the public marketplace/dashboard render, while no real identity is
+   * granted. Sign-in upgrades this to a persona session.
+   */
+  public enterAsGuest(): void {
+    const persona = DEMO_PERSONAS['Guest'] || DEMO_PERSONAS['Country Admin'];
+    this.currentSession = {
+      sessionId: 'SES-GUEST-PUBLIC',
+      user: { ...persona, activeRole: 'Guest' },
+      token: 'mock-jwt-guest-session',
+      isDemoSession: true,
+      mfaVerified: true,
+      expiresAt: new Date(Date.now() + 86400000).toISOString()
+    };
+  }
+
   public login(credentials: LoginCredentials): { success: boolean; mfaRequired?: boolean; challengeId?: string; error?: string; session?: AuthSession } {
     const selectedRole = credentials.selectedRole || 'Country Admin';
-    const persona = DEMO_PERSONAS[selectedRole] || DEMO_PERSONAS['Country Admin'];
+
+    // A registered (self-signed up) account takes priority over demo personas.
+    const emailKey = credentials.email?.trim().toLowerCase();
+    const registeredEntry = emailKey ? this.registered[emailKey] : undefined;
+    const persona = registeredEntry
+      ? { ...registeredEntry.user, activeRole: registeredEntry.user.assignedRoles[0] }
+      : DEMO_PERSONAS[selectedRole] || DEMO_PERSONAS['Country Admin'];
 
     // Check account status
     if (persona.status === 'SUSPENDED') {
@@ -114,6 +137,69 @@ export class MockAuthProvider {
     });
 
     return { success: true, session: newSession };
+  }
+
+  /**
+   * Register a new organisation user through the public identity gateway.
+   * - DEMO mode:      provisions a local account + session immediately.
+   * - PRODUCTION mode: routes to the backend write path (server-side policy
+   *                    governs who may create accounts); a stub for this demo.
+   */
+  public register(credentials: RegisterCredentials): { success: boolean; error?: string; session?: AuthSession; user?: AuthUser } {
+    const emailKey = credentials.email.trim().toLowerCase();
+
+    if (!credentials.name || !credentials.email || !credentials.password || !credentials.organisation) {
+      return { success: false, error: 'Please complete all required fields.' };
+    }
+
+    if (this.registered[emailKey]) {
+      return { success: false, error: 'An account with this email address already exists.' };
+    }
+
+    const user: AuthUser = {
+      userId: `USR-REG-${Date.now().toString(36).toUpperCase()}`,
+      name: credentials.name.trim(),
+      email: credentials.email.trim(),
+      organisationId: `ORG-REG-${Date.now().toString(36).toUpperCase()}`,
+      organisationName: credentials.organisation.trim(),
+      countryNodeId: credentials.countryNodeId,
+      countryName: credentials.countryName,
+      assignedRoles: [credentials.selectedRole],
+      activeRole: credentials.selectedRole,
+      status: 'ACTIVE',
+      mfaStatus: 'Disabled',
+      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
+    };
+
+    this.registered[emailKey] = { credentials, user };
+
+    auditLogger.logEvent({
+      userId: user.userId,
+      organisationId: user.organisationId,
+      countryNodeId: user.countryNodeId,
+      role: user.activeRole,
+      action: 'REGISTER' as any,
+      resourceType: 'Authentication',
+      resourceId: user.email,
+      result: 'Success',
+      metadata: { mode: this.mode, accountSource: this.mode === 'DEMO' ? 'localhost' : 'backend' }
+    });
+
+    if (this.mode === 'PRODUCTION') {
+      // Production write-path handled by the backend; auto-login is deferred.
+      return { success: true, user };
+    }
+
+    const newSession: AuthSession = {
+      sessionId: `SES-REG-${Date.now()}`,
+      user: { ...user, activeRole: user.activeRole },
+      token: `mock-jwt-reg-${Math.random().toString(36).substring(2)}`,
+      isDemoSession: true,
+      mfaVerified: true,
+      expiresAt: new Date(Date.now() + 86400000).toISOString()
+    };
+    this.currentSession = newSession;
+    return { success: true, session: newSession, user };
   }
 
   public completeMfa(challengeId: string, otpCode: string, selectedRole: UserRole): { success: boolean; error?: string; session?: AuthSession } {

@@ -66,7 +66,7 @@ export const INVESTOR_ROLES: Record<string, RoleDefinition> = {
     notifications: ['Exclusive VIP tranche opened for Istanbul Harbor Sukuk', 'Personal Relationship Manager assigned'],
     demoUser: {
       name: 'Dr. Tariq Mansour',
-      email: 'tariq.hnwi@investor.pk',
+      email: 'tariq.hnwi@investor.my',
       organization: 'Private Wealth Accredited Member',
       avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80'
     }
@@ -102,13 +102,13 @@ export const INVESTOR_ROLES: Record<string, RoleDefinition> = {
       'Sovereign Capital Deployment Audit'
     ],
     notifications: [
-      'Institutional allocation unlocked for $5M Pakistan Sukuk Pool',
+      'Institutional allocation unlocked for $5M Malaysia Sukuk Pool',
       'Quarterly dividend disbursement credited to custody account'
     ],
     demoUser: {
       name: 'Malik Jahangir Khan',
-      email: 'jahangir.inst@pak-sovereign.org',
-      organization: 'Pakistan Sovereign Islamic Investment Fund',
+      email: 'jahangir.inst@malaysian-sovereign.org',
+      organization: 'Malaysian Sovereign Islamic Investment Fund',
       avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'
     }
   },

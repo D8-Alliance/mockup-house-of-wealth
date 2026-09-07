@@ -132,7 +132,7 @@ export const INITIAL_PAYMENT_ACCOUNTS: PaymentAccount[] = [
     id: 'ACC-MEEZAN-01',
     type: 'Bank Account',
     accountName: 'Ahmed Al-Mansoor',
-    institutionName: 'Meezan Bank Pakistan',
+    institutionName: 'Maybank Islamic Malaysia',
     accountNumber: 'PK36 MEZN 0001 0892 8374 8291',
     swiftBic: 'MEZNPKKAXXX',
     currency: 'USD',
@@ -152,7 +152,7 @@ export const INITIAL_BENEFICIARIES: BeneficiaryItem[] = [
     email: 'fatima.almansoor@example.org',
     phone: '+92 300 987 6543',
     identityNumber: '42101-1988123-1',
-    payoutMethod: 'Bank Transfer (Meezan Bank Pakistan)',
+    payoutMethod: 'Bank Transfer (Maybank Islamic Malaysia)',
     isPrimary: true
   },
   {
@@ -192,4 +192,3 @@ export const INITIAL_BENEFICIARIES: BeneficiaryItem[] = [
     isPrimary: false
   }
 ];
-

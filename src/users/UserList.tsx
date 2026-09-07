@@ -1,8 +1,40 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Users, Search, Filter, UserPlus, Shield, CheckCircle2, AlertTriangle, Key, Lock, Eye, ChevronRight, UserCheck } from 'lucide-react';
 import { AppUser, UserAccountStatus } from './userTypes';
-import { userService } from './userService';
 import { useRBAC } from '../rbac/RBACContext';
+import { apiClient, BackendUser } from '../services/apiClient';
+
+function mapBackendUser(user: BackendUser): AppUser {
+  const profile = user.profile || {};
+  const firstAssignment = user.assignedRoles[0];
+  const assignedRoles = user.assignedRoles.map(assignment => assignment.role);
+  return {
+    userId: user.id,
+    fullName: user.name,
+    email: user.email,
+    phone: profile.phone as string | undefined,
+    department: profile.department as string | undefined,
+    jobTitle: profile.jobTitle as string | undefined,
+    organisationId: firstAssignment?.organisationId || '',
+    countryNodeId: firstAssignment?.countryNodeId || '',
+    status: (profile.status as UserAccountStatus) || (user.isActive ? 'ACTIVE' : 'DEACTIVATED'),
+    primaryRole: (profile.primaryRole as string) || assignedRoles[0] || 'Guest',
+    assignedRoles,
+    mfaEnabled: Boolean(profile.mfaEnabled),
+    mfaStatus: (profile.mfaStatus as AppUser['mfaStatus']) || 'Disabled',
+    kycLevel: (profile.kycLevel as AppUser['kycLevel']) || 'Level 1',
+    verified: Boolean(profile.verified),
+    profilePhoto: (profile.profilePhoto as string) || '',
+    lastLogin: (profile.lastLogin as string) || 'Never',
+    joinedDate: (profile.joinedDate as string) || user.createdAt,
+    timezone: profile.timezone as string | undefined,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt,
+    createdBy: (profile.createdBy as string) || 'backend',
+    updatedBy: (profile.updatedBy as string) || 'backend',
+    roleHistory: (profile.roleHistory as AppUser['roleHistory']) || [],
+  };
+}
 
 interface UserListProps {
   onSelectUser: (user: AppUser) => void;
@@ -15,13 +47,19 @@ export const UserList: React.FC<UserListProps> = ({
   onOpenInviteModal,
   onOpenRoleAssignmentModal
 }) => {
-  const { currentRole, currentCountryNode, currentOrgId, currentUserId } = useRBAC();
+  const { currentRole, currentCountryNode, currentOrgId } = useRBAC();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [mfaFilter, setMfaFilter] = useState<string>('ALL');
+  const [allUsers, setAllUsers] = useState<AppUser[]>([]);
 
-  const allUsers = userService.getAllUsers();
+  useEffect(() => {
+    apiClient.getUsers()
+      .then(users => setAllUsers(users.map(mapBackendUser)))
+      .catch(error => console.error('User directory load failed', error));
+  }, []);
+
 
   // Tenant scoping check!
   const scopedUsers = allUsers.filter(user => {
@@ -48,8 +86,13 @@ export const UserList: React.FC<UserListProps> = ({
     return matchesSearch && matchesStatus && matchesRole && matchesMfa;
   });
 
-  const handleStatusChange = (userId: string, newStatus: UserAccountStatus) => {
-    userService.updateUserStatus(userId, newStatus, currentUserId || 'SYS-ADMIN-01');
+  const handleStatusChange = async (userId: string, newStatus: UserAccountStatus) => {
+    try {
+      const updated = await apiClient.updateUserStatus(userId, newStatus);
+      setAllUsers(users => users.map(user => user.userId === userId ? mapBackendUser(updated) : user));
+    } catch (error) {
+      console.error('User status update failed', error);
+    }
   };
 
   return (

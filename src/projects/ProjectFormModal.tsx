@@ -131,7 +131,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({ isOpen, onCl
                   className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
                 >
                   <option value="USD">USD ($)</option>
-                  <option value="PKR">PKR (₨)</option>
+                  <option value="MYR">MYR (₨)</option>
                   <option value="MYR">MYR (RM)</option>
                   <option value="TRY">TRY (₺)</option>
                   <option value="IDR">IDR (Rp)</option>

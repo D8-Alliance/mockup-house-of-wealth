@@ -153,7 +153,7 @@ export const PDPApplicationsAdminPanel: React.FC = () => {
             <option value="TUR">Türkiye (TUR)</option>
             <option value="NGA">Nigeria (NGA)</option>
             <option value="EGY">Egypt (EGY)</option>
-            <option value="PAK">Pakistan (PAK)</option>
+            <option value="MYS-P2">Malaysia (MYS-P2)</option>
             <option value="BGD">Bangladesh (BGD)</option>
             <option value="IRN">Iran (IRN)</option>
           </select>

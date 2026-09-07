@@ -67,6 +67,62 @@ export type UserRole =
   | 'AI Model Reviewer'
   | 'Guest';
 
+// Canonical, ordered list of every role in the UserRole union.
+export const USER_ROLES: readonly UserRole[] = [
+  'Super Admin',
+  'Country Admin',
+  'Organization Admin',
+  'Project Sponsor',
+  'Project Manager',
+  'Asset Owner',
+  'Asset Manager',
+  'Pool Manager',
+  'Retail Investor',
+  'HNWI Investor',
+  'Institutional Investor',
+  'Corporate Investor',
+  'Family Office',
+  'Portfolio Manager',
+  'Shariah Advisor',
+  'Shariah Reviewer',
+  'Shariah Committee',
+  'Compliance Officer',
+  'KYC Officer',
+  'KYB Officer',
+  'AML Officer',
+  'Risk Officer',
+  'Fraud Analyst',
+  'Legal Officer',
+  'Finance Officer',
+  'Treasury Officer',
+  'Settlement Officer',
+  'Reconciliation Officer',
+  'Auditor',
+  'Customer Support',
+  'System Administrator',
+  'Security Administrator',
+  'Data Administrator',
+  'AI Administrator',
+  'AI Model Reviewer',
+  'Guest',
+] as const;
+
+// Roles that may only be granted or revoked by a Super Admin. Country Admins and
+// other admin-tier actors must never be able to escalate a user into these.
+export const PRIVILEGED_ROLES: ReadonlySet<UserRole> = new Set<UserRole>([
+  'Super Admin',
+  'System Administrator',
+  'Security Administrator',
+  'Data Administrator',
+  'AI Administrator',
+]);
+
+// Runtime enum mirror of the UserRole union so Nest pipes/validators
+// (ParseEnumPipe, IsEnum) can operate on the string-literal union above.
+export const UserRoleEnum: Record<UserRole, UserRole> = Object.freeze(
+  Object.fromEntries(USER_ROLES.map((role) => [role, role])) as Record<UserRole, UserRole>,
+);
+
 export interface PolicyDecision {
   allowed: boolean;
   role: UserRole;

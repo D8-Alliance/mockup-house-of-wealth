@@ -36,7 +36,7 @@ export const ExecutiveDashboardWidgets: React.FC<ExecutiveDashboardWidgetsProps>
             </h3>
             <div className="space-y-3">
               {[
-                { country: 'Pakistan (PK)', code: 'PK', tvl: '$42.1M', status: 'Optimal', latency: '12ms' },
+                { country: 'Malaysia (MY)', code: 'PK', tvl: '$42.1M', status: 'Optimal', latency: '12ms' },
                 { country: 'Turkey (TR)', code: 'TR', tvl: '$31.8M', status: 'Optimal', latency: '18ms' },
                 { country: 'Indonesia (ID)', code: 'ID', tvl: '$28.4M', status: 'Optimal', latency: '24ms' },
                 { country: 'Malaysia (MY)', code: 'MY', tvl: '$22.0M', status: 'Optimal', latency: '15ms' },
@@ -86,7 +86,7 @@ export const ExecutiveDashboardWidgets: React.FC<ExecutiveDashboardWidgetsProps>
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard label="Regional Node TVL" value="$42,100,000 USD" sub="Pakistan Node #1" icon={<Building2 className="w-5 h-5 text-emerald-500" />} />
+          <MetricCard label="Regional Node TVL" value="$42,100,000 USD" sub="Malaysia Node #1" icon={<Building2 className="w-5 h-5 text-emerald-500" />} />
           <MetricCard label="Active Local Assets" value={assets.length.toString()} sub="Verified & Tokenized" icon={<Coins className="w-5 h-5 text-blue-500" />} />
           <MetricCard label="Active Smart Sukuk" value={contracts.length.toString()} sub="Mudarabah & Musharakah" icon={<FileCheck className="w-5 h-5 text-teal-500" />} />
           <MetricCard label="Regional Yield YTD" value="9.45% Avg" sub="Net Distribution" icon={<TrendingUp className="w-5 h-5 text-amber-500" />} />
@@ -105,10 +105,10 @@ export const ExecutiveDashboardWidgets: React.FC<ExecutiveDashboardWidgetsProps>
             <div className="space-y-3">
               <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700/60 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
-                  <h4 className="text-xs font-black text-slate-900 dark:text-white">Karachi Logistics Hub Tokenization ($12,500,000)</h4>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white">Kuala Lumpur Logistics Hub Tokenization ($12,500,000)</h4>
                   <p className="text-[11px] text-slate-500">Requested by Indus Logistics Group • Shariah Screened</p>
                 </div>
-                <button onClick={() => onQuickApprove("Karachi Logistics Hub")} className="px-3 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer">
+                <button onClick={() => onQuickApprove("Kuala Lumpur Logistics Hub")} className="px-3 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer">
                   Approve Regional Listing
                 </button>
               </div>

@@ -18,7 +18,7 @@ The House of Wealth backend has been hardened with critical security fixes addre
 
 ### 2. Tenant Scope Enforcement in Funding (Fixed)
 - **Issue**: `approve()` and `disburse()` methods didn't validate country node scope
-- **Risk**: Country Admin from Pakistan could approve funding for Malaysian projects
+- **Risk**: A Country Admin from one country node could approve funding for a different country node
 - **Fix Applied**: Added countryNodeId validation in both methods:
   ```typescript
   if (user.role !== 'Super Admin' && request.countryNodeId !== user.countryNodeId) {

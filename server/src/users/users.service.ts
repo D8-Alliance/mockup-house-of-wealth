@@ -3,14 +3,86 @@ import { UserRole as PrismaUserRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
-import { UserRole } from '../policy/permissions';
+import { UserRole, PRIVILEGED_ROLES } from '../policy/permissions';
+import { PolicyService } from '../policy/policy.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly policy: PolicyService,
   ) {}
+
+  async getCurrentUser(actor: AuthenticatedUser) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: actor.userId },
+      include: { roleAssignments: { where: { isActive: true } } },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return this.toDirectoryUser(user);
+  }
+
+  async listUsers(actor: AuthenticatedUser) {
+    const where = actor.role === 'Super Admin'
+      ? {}
+      : actor.role === 'Country Admin'
+        ? { roleAssignments: { some: { countryNodeId: actor.countryNodeId, isActive: true } } }
+        : { roleAssignments: { some: { organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, isActive: true } } };
+
+    const users = await this.prisma.user.findMany({
+      where,
+      include: { roleAssignments: { where: { isActive: true } } },
+      orderBy: { name: 'asc' },
+    });
+    return users.map((user) => this.toDirectoryUser(user));
+  }
+
+  async getAccess(actor: AuthenticatedUser) {
+    return {
+      userId: actor.userId,
+      role: actor.role,
+      assignedRoles: actor.assignedRoles,
+      countryNodeId: actor.countryNodeId,
+      organisationId: actor.organisationId,
+    };
+  }
+
+  async updateStatus(userId: string, status: string, actor: AuthenticatedUser) {
+    if (!['ACTIVE', 'PENDING', 'SUSPENDED', 'LOCKED', 'DEACTIVATED'].includes(status)) {
+      throw new BadRequestException('Unsupported user status');
+    }
+    if (!this.policy.can(actor.role, 'users', 'update')) {
+      throw new ForbiddenException(this.policy.evaluate(actor.role, 'users', 'update').reason);
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    if (actor.role === 'Country Admin' && !(await this.hasTenantAssignment(userId, actor.countryNodeId))) {
+      throw new ForbiddenException('User is outside your country node scope');
+    }
+    if (actor.role === 'Organization Admin' && !(await this.hasTenantAssignment(userId, actor.countryNodeId, actor.organisationId))) {
+      throw new ForbiddenException('User is outside your organisation scope');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        isActive: status === 'ACTIVE',
+        profile: { ...(user.profile as Record<string, unknown> | null), status },
+      },
+      include: { roleAssignments: { where: { isActive: true } } },
+    });
+    await this.audit.recordActor(actor, {
+      action: 'user.status_update',
+      resourceType: 'User',
+      resourceId: userId,
+      countryNodeId: actor.countryNodeId,
+      organisationId: actor.organisationId,
+      metadata: { status, targetUser: user.email },
+    });
+    return this.toDirectoryUser(updated);
+  }
 
   /**
    * Assign a role to a user in a specific organisation and country node.
@@ -26,6 +98,11 @@ export class UsersService {
     // Permission check: only Super Admin and Country Admin can assign roles
     if (actor.role !== 'Super Admin' && actor.role !== 'Country Admin') {
       throw new ForbiddenException('Only Super Admin or Country Admin can assign roles');
+    }
+
+    // Escalation guard: privileged roles can only be granted by a Super Admin.
+    if (PRIVILEGED_ROLES.has(role) && actor.role !== 'Super Admin') {
+      throw new ForbiddenException(`Only Super Admin can assign the privileged role "${role}"`);
     }
 
     // Tenant check: Country Admin can only assign roles in their own country node
@@ -110,6 +187,11 @@ export class UsersService {
       throw new ForbiddenException('Only Super Admin or Country Admin can revoke roles');
     }
 
+    // Escalation guard: privileged roles can only be revoked by a Super Admin.
+    if (PRIVILEGED_ROLES.has(role) && actor.role !== 'Super Admin') {
+      throw new ForbiddenException(`Only Super Admin can revoke the privileged role "${role}"`);
+    }
+
     // Tenant check
     if (actor.role === 'Country Admin' && countryNodeId !== actor.countryNodeId) {
       throw new ForbiddenException('Country Admin can only revoke roles in their own country node');
@@ -180,6 +262,30 @@ export class UsersService {
     });
 
     return assignment ? this.fromPrismaRole(assignment.role) : null;
+  }
+
+  private toDirectoryUser(user: any) {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      isActive: user.isActive,
+      profile: user.profile,
+      assignedRoles: user.roleAssignments.map((assignment: { role: PrismaUserRole; organisationId: string; countryNodeId: string }) => ({
+        role: this.fromPrismaRole(assignment.role),
+        organisationId: assignment.organisationId,
+        countryNodeId: assignment.countryNodeId,
+      })),
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+
+  private async hasTenantAssignment(userId: string, countryNodeId: string, organisationId?: string) {
+    return Boolean(await this.prisma.userRoleAssignment.findFirst({
+      where: { userId, countryNodeId, ...(organisationId ? { organisationId } : {}), isActive: true },
+      select: { id: true },
+    }));
   }
 
   private toPrismaRole(role: UserRole): PrismaUserRole {

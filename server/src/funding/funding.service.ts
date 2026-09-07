@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PolicyService } from '../policy/policy.service';
+import { assertTenantScope } from '../tenancy/tenant-scope';
 
 @Injectable()
 export class FundingService {
@@ -15,9 +16,7 @@ export class FundingService {
   async request(projectId: string, user: AuthenticatedUser): Promise<{ requestId: string; status: string }> {
     const project = await this.prisma.project.findUnique({ where: { projectId } });
     if (!project) throw new NotFoundException('Project not found');
-    if (user.role !== 'Super Admin' && project.countryNodeId !== user.countryNodeId) {
-      throw new ForbiddenException('Project is outside your country node scope');
-    }
+    assertTenantScope(user, project, 'Project');
     if (project.fundingRequired.lte(0)) {
       throw new BadRequestException('Project is fully funded');
     }
@@ -64,10 +63,8 @@ export class FundingService {
     if (request.status !== 'PENDING') {
       throw new BadRequestException(`Cannot approve a request in state "${request.status}"`);
     }
-    // Enforce tenant scope: only Super Admin can approve across country nodes
-    if (user.role !== 'Super Admin' && request.countryNodeId !== user.countryNodeId) {
-      throw new ForbiddenException('Request is outside your country node scope');
-    }
+    // Enforce tenant scope: only Super Admin crosses country/organisation boundaries
+    assertTenantScope(user, request, 'Request');
     if (!this.policy.can(user.role, 'approvals', 'approve')) {
       throw new ForbiddenException(this.policy.evaluate(user.role, 'approvals', 'approve').reason);
     }
@@ -96,10 +93,8 @@ export class FundingService {
     if (request.status !== 'APPROVED') {
       throw new BadRequestException(`Cannot disburse a request in state "${request.status}"`);
     }
-    // Enforce tenant scope: only Super Admin can disburse across country nodes
-    if (user.role !== 'Super Admin' && request.countryNodeId !== user.countryNodeId) {
-      throw new ForbiddenException('Request is outside your country node scope');
-    }
+    // Enforce tenant scope: only Super Admin crosses country/organisation boundaries
+    assertTenantScope(user, request, 'Request');
     if (!this.policy.can(user.role, 'approvals', 'disburse')) {
       throw new ForbiddenException(this.policy.evaluate(user.role, 'approvals', 'disburse').reason);
     }
@@ -123,9 +118,7 @@ export class FundingService {
   async list(projectId: string, user: AuthenticatedUser): Promise<unknown[]> {
     const project = await this.prisma.project.findUnique({ where: { projectId } });
     if (!project) throw new NotFoundException('Project not found');
-    if (user.role !== 'Super Admin' && project.countryNodeId !== user.countryNodeId) {
-      throw new ForbiddenException('Project is outside your country node scope');
-    }
+    assertTenantScope(user, project, 'Project');
     return this.prisma.fundingRequest.findMany({
       where: { projectId },
       orderBy: { requestedAt: 'desc' },

@@ -14,6 +14,7 @@ import { RBACProvider, useRBAC } from './rbac/RBACContext';
 import { TenancyProvider } from './tenancy/TenancyContext';
 import { RoleSwitcherBar } from './rbac/RoleSwitcherBar';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PublicLandingPage } from './components/landing/PublicLandingPage';
 
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -147,27 +148,25 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
 
 export default function App() {
   const initialUser: UserProfile = {
-    id: 'USR-8821',
-    name: 'Ahmed Al-Mansoor',
-    email: 'ahmed.almansoor@how.org',
-    role: 'Country Admin',
-    organization: 'House of Wealth - Pakistan Node',
-    organizationName: 'House of Wealth - Pakistan Node',
-    organisationId: 'ORG-GULF-CAP',
-    countryNodeId: 'CN-PAK',
-    country: 'Pakistan',
-    countryCode: 'PK',
-    verified: true,
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-    joinedDate: 'March 2024',
-    kycLevel: 'Level 3 Verified',
-    preferredCurrency: 'USD',
+    id: 'GUEST-001',
+    name: 'Guest Visitor',
+    email: 'visitor@public-d8.org',
+    role: 'Guest',
+    organization: 'Prospective D-8 Participant',
+    organizationName: 'Prospective D-8 Participant',
+    country: 'Malaysia',
+    countryCode: 'MY',
+    verified: false,
+    avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80',
+    joinedDate: '2026',
+    kycLevel: 'Level 1',
+    preferredCurrency: 'MYR',
     autoZakatPercent: 2.5,
-    twoFactorEnabled: true,
-    notifyEmail: true,
-    notifyPush: true,
+    twoFactorEnabled: false,
+    notifyEmail: false,
+    notifyPush: false,
     notifySMS: false,
-    timezone: 'Asia/Karachi'
+    timezone: 'Asia/Kuala_Lumpur'
   };
 
   const [user, setUser] = useState<UserProfile>(initialUser);
@@ -179,8 +178,29 @@ export default function App() {
   return (
     <RBACProvider currentUser={user} onUserRoleChange={handleUserRoleChange}>
       <TenancyProvider>
-        <MainAppContent user={user} setUser={setUser} />
+        <AppGate>
+          <MainAppContent user={user} setUser={setUser} />
+        </AppGate>
       </TenancyProvider>
     </RBACProvider>
   );
+}
+
+/**
+ * Entry gate for the public index page.
+ *
+ * - Unauthenticated visitors land on the D-8 public landing page (Guest view),
+ *   restricted to the 9 member-state country nodes. The landing page carries
+ *   the identity-gateway login.
+ * - After sign-in (or after choosing to continue browsing as a public Guest)
+ *   the full role-scoped application renders.
+ */
+function AppGate({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, guestBrowsing, enterGuestMode } = useRBAC();
+
+  if (!isAuthenticated && !guestBrowsing) {
+    return <PublicLandingPage onEnterPublicGuest={enterGuestMode} />;
+  }
+
+  return <>{children}</>;
 }

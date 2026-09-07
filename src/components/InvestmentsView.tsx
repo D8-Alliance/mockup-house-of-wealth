@@ -61,7 +61,7 @@ export const InvestmentsView: React.FC<InvestmentsViewProps> = ({
     },
     {
       id: 'INV-903',
-      poolName: 'Islamabad Enclave Luxury Tower Tokenized Yield',
+      poolName: 'Putrajaya Enclave Luxury Tower Tokenized Yield',
       category: 'Real Estate',
       principal: 500000,
       currentValuation: 562000,

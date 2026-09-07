@@ -251,49 +251,6 @@ export const INITIAL_PDP_COUNTRY_CONFIGS: Record<string, PDPCountryConfig> = {
       }
     ]
   },
-  PAK: {
-    countryCode: 'PAK',
-    countryName: 'Pakistan',
-    flagUrl: 'https://flagcdn.com/w80/pk.png',
-    primaryCurrency: 'PKR',
-    supportedCurrencies: ['PKR', 'USD'],
-    supportedLanguages: ['English', 'Urdu'],
-    enabledPdpTypes: ['Company', 'Organisation', 'Institution'],
-    regulatoryAuthority: 'State Bank of Pakistan (SBP) / SECP',
-    approvalWorkflow: 'Dual-Key (Compliance + Country Admin)',
-    defaultSettlementMethod: 'RTGS / Central Wire',
-    isEnabled: true,
-    requiredDocuments: [
-      {
-        docType: 'SECP_CERT',
-        label: 'SECP Certificate of Incorporation',
-        description: 'Securities and Exchange Commission of Pakistan registration certificate.',
-        applicableTypes: ['Company', 'Institution'],
-        mandatory: true
-      },
-      {
-        docType: 'FBR_NTN',
-        label: 'Federal Board of Revenue (FBR) NTN Certificate',
-        description: 'National Tax Number certificate for corporate entity.',
-        applicableTypes: ['Company', 'Institution'],
-        mandatory: true
-      },
-      {
-        docType: 'CNIC_REP_PAK',
-        label: 'Representative Computerized National Identity Card (CNIC)',
-        description: 'Valid NADRA CNIC or NICOP of the authorized director.',
-        applicableTypes: ['Company', 'Institution'],
-        mandatory: true
-      },
-      {
-        docType: 'BANK_CONFIRM_STATEMENT',
-        label: 'Bank Account Maintenance Certificate (AMC)',
-        description: 'Original bank maintenance certificate issued by Pakistani commercial bank.',
-        applicableTypes: ['Company', 'Institution'],
-        mandatory: true
-      }
-    ]
-  },
   BGD: {
     countryCode: 'BGD',
     countryName: 'Bangladesh',

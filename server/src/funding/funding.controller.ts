@@ -16,7 +16,7 @@ export class FundingController {
   }
 
   @Post('requests/:requestId/approve')
-  @Roles('Country Admin', 'Super Admin')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin')
   @RequirePermission('approvals', 'approve')
   approve(@Param('requestId') requestId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.fundingService.approve(requestId, user);

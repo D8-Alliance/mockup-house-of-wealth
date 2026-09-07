@@ -33,7 +33,7 @@ export const NotificationsView: React.FC = () => {
     {
       id: 'NOTIF-02',
       title: 'AAOIFI Shariah Compliance Audit Passed',
-      message: 'The annual Shariah audit for Karachi Port Commercial Pool has been completed with 100% compliance rating.',
+      message: 'The annual Shariah audit for Kuala Lumpur Port Commercial Pool has been completed with 100% compliance rating.',
       timestamp: '2 hours ago',
       type: 'compliance',
       read: false

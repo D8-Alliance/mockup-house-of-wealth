@@ -171,7 +171,7 @@ export const INITIAL_PROMOTED_SERVICES: PromotedProfessionalService[] = [
     badgeType: 'Promoted',
     headline: 'Global Shariah Advisory & AAOIFI Standard Structuring',
     description: 'Accredited Shariah advisory firm providing end-to-end Fatwa certification, Sukuk asset screening, and governance oversight across ASEAN and South Asia.',
-    location: 'Kuala Lumpur & Karachi',
+    location: 'Kuala Lumpur & Kuala Lumpur',
     verifiedCredentials: ['AAOIFI Fellow', 'SC Malaysia Registered', 'Bank Negara Shariah Committee Member'],
     rating: 4.9,
     reviewCount: 42,

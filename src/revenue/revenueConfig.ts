@@ -244,7 +244,7 @@ export const FUTURE_REVENUE_CONFIG: FutureRevenueItem[] = [
     description: '0.25% - 0.75% transaction fee applied upon successful closing and disbursement of capital pooling campaigns.',
     regulatoryStatus: 'FUTURE / REGULATORY REVIEW REQUIRED',
     projectedTimeline: 'Phase 2 (Post Sandbox Regulatory Clearance)',
-    targetJurisdictions: ['Securities Commission Malaysia (SC)', 'OJK Indonesia', 'CMB Turkey', 'SECP Pakistan']
+    targetJurisdictions: ['Securities Commission Malaysia (SC)', 'OJK Indonesia', 'CMB Turkey', 'Securities Commission Malaysia']
   },
   {
     id: 'fut_token_fee',
@@ -253,7 +253,7 @@ export const FUTURE_REVENUE_CONFIG: FutureRevenueItem[] = [
     description: 'Smart contract minting and on-chain ledger registry fee per tokenized Sukuk tranche issuance.',
     regulatoryStatus: 'FUTURE / REGULATORY REVIEW REQUIRED',
     projectedTimeline: 'Phase 3 (Post DLT License Authorization)',
-    targetJurisdictions: ['SECP Pakistan Regulatory Sandbox', 'SC Digital Asset Guidelines', 'Bappebti Indonesia']
+    targetJurisdictions: ['Securities Commission Malaysia Regulatory Sandbox', 'SC Digital Asset Guidelines', 'Bappebti Indonesia']
   },
   {
     id: 'fut_secondary_fee',

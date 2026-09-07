@@ -97,7 +97,7 @@ export interface PDPApplication {
   userId: string;
   userEmail: string;
   userMobile: string;
-  countryCode: string; // e.g. MYS, IDN, TUR, NGA, PAK, EGY, BGD, IRN
+  countryCode: string; // e.g. MYS, IDN, TUR, NGA, MYS-P2, EGY, BGD, IRN
   countryName: string;
   preferredLanguage: string;
   

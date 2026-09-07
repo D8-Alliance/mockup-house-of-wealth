@@ -19,11 +19,11 @@ interface PaymentAccountModalProps {
 }
 
 const COMMON_BANKS = [
-  'Meezan Bank Pakistan',
+  'Maybank Islamic Malaysia',
   'Bank Alfalah Islamic',
   'MCB Islamic Bank',
   'Faysal Bank Islamic',
-  'Habib Bank Islamic Pakistan',
+  'Maybank Islamic Malaysia',
   'Maybank Islamic Berhad',
   'Bank Islam Malaysia',
   'Kuwait Finance House (KFH)',
@@ -34,10 +34,10 @@ const COMMON_BANKS = [
 ];
 
 const COMMON_EWALLETS = [
-  'Easypaisa Pakistan',
-  'JazzCash Pakistan',
-  'Nayapay Pakistan',
-  'Sadapay Pakistan',
+  'Touch n Go eWallet Malaysia',
+  'Boost Malaysia',
+  'GrabPay Malaysia',
+  'BigPay Malaysia',
   'Touch \'n Go eWallet / D-8 Pay',
   'GrabPay Halal Hub',
   'GoPay Indonesia'
@@ -52,7 +52,7 @@ export const PaymentAccountModal: React.FC<PaymentAccountModalProps> = ({
 
   const [type, setType] = useState<'Bank Account' | 'E-Wallet'>(account?.type || 'Bank Account');
   const [accountName, setAccountName] = useState(account?.accountName || '');
-  const [institutionName, setInstitutionName] = useState(account?.institutionName || 'Meezan Bank Pakistan');
+  const [institutionName, setInstitutionName] = useState(account?.institutionName || 'Maybank Islamic Malaysia');
   const [accountNumber, setAccountNumber] = useState(account?.accountNumber || '');
   const [swiftBic, setSwiftBic] = useState(account?.swiftBic || '');
   const [currency, setCurrency] = useState(account?.currency || 'USD');
@@ -236,7 +236,7 @@ export const PaymentAccountModal: React.FC<PaymentAccountModalProps> = ({
                 className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="USD">USD ($)</option>
-                <option value="PKR">PKR (₨)</option>
+                <option value="MYR">MYR (₨)</option>
                 <option value="MYR">MYR (RM)</option>
                 <option value="IDR">IDR (Rp)</option>
                 <option value="TRY">TRY (₺)</option>

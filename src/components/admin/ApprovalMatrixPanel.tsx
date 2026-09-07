@@ -25,7 +25,7 @@ const APPROVAL_TIERS: ApprovalTierRule[] = [
   {
     tierId: 'TIER-1',
     tierName: 'Tier 1: Standard Operational Actions',
-    amountRange: 'Up to $250,000 USD (PKR 70M)',
+    amountRange: 'Up to $250,000 USD (MYR 70M)',
     requiredSignatures: 1,
     signersRequired: ['Project Reviewer', 'Pool Manager'],
     quorumDescription: 'Single signature from authorized operational officer or pool manager.',
@@ -35,7 +35,7 @@ const APPROVAL_TIERS: ApprovalTierRule[] = [
   {
     tierId: 'TIER-2',
     tierName: 'Tier 2: Medium Value Capital Actions',
-    amountRange: '$250,000 – $2,000,000 USD (PKR 70M – 560M)',
+    amountRange: '$250,000 – $2,000,000 USD (MYR 70M – 560M)',
     requiredSignatures: 2,
     signersRequired: ['Compliance Officer', 'Risk Officer'],
     quorumDescription: '2-Key Multi-Sig: Regulatory compliance clearance AND actuarial risk sign-off.',
@@ -45,7 +45,7 @@ const APPROVAL_TIERS: ApprovalTierRule[] = [
   {
     tierId: 'TIER-3',
     tierName: 'Tier 3: High Value & Shariah Structuring',
-    amountRange: '$2,000,000 – $10,000,000 USD (PKR 560M – 2.8B)',
+    amountRange: '$2,000,000 – $10,000,000 USD (MYR 560M – 2.8B)',
     requiredSignatures: 3,
     signersRequired: ['Compliance Officer', 'Shariah Advisor / Board Member', 'Country Admin'],
     quorumDescription: '3-Key Tripartite: Shariah Fatwa verification, AML clearance, and Regional Sovereign Node Admin sign-off.',
@@ -55,7 +55,7 @@ const APPROVAL_TIERS: ApprovalTierRule[] = [
   {
     tierId: 'TIER-4',
     tierName: 'Tier 4: Sovereign & Institutional Mega-Sukuk',
-    amountRange: 'Above $10,000,000 USD (PKR 2.8B+)',
+    amountRange: 'Above $10,000,000 USD (MYR 2.8B+)',
     requiredSignatures: 4,
     signersRequired: ['Super Admin', 'Shariah Committee Quorum', 'Executive Approver', 'Chief Risk Officer'],
     quorumDescription: '4-Eye Sovereign Board Quorum: Unanimous consensus with hardware-backed digital signature tokens.',
@@ -84,13 +84,13 @@ interface PendingApprovalItem {
 
 const INITIAL_APPROVAL_ITEMS: PendingApprovalItem[] = [
   {
-    id: 'APPR-PAK-101',
-    title: 'Karachi Port Logistics Hub Sukuk Pool Opening & Tranche A Minting',
+    id: 'APPR-MYS-P2-101',
+    title: 'Kuala Lumpur Port Logistics Hub Sukuk Pool Opening & Tranche A Minting',
     category: 'POOL_LAUNCH',
-    entity: 'Pak Sovereign Capital / Indus Port Terminal',
-    countryNode: 'CN-PAK',
+    entity: 'Malaysian Sovereign Capital / Indus Port Terminal',
+    countryNode: 'CN-MYS',
     amountUsd: 8200000,
-    amountFormatted: '$8,200,000 USD (PKR 2.30B)',
+    amountFormatted: '$8,200,000 USD (MYR 2.30B)',
     tier: 'TIER-3',
     submittedAt: '2026-08-16 10:00',
     requesterName: 'Ahmad bin Razak (Senior PDP)',
@@ -104,13 +104,13 @@ const INITIAL_APPROVAL_ITEMS: PendingApprovalItem[] = [
     shariahStatus: 'CERTIFIED'
   },
   {
-    id: 'APPR-PAK-102',
-    title: 'Islamabad Enclave Smart Residential Sukuk Phase 2 Allocation Release',
+    id: 'APPR-MYS-P2-102',
+    title: 'Putrajaya Enclave Smart Residential Sukuk Phase 2 Allocation Release',
     category: 'MILESTONE_PAYOUT',
     entity: 'Indus Asset Holdings',
-    countryNode: 'CN-PAK',
+    countryNode: 'CN-MYS',
     amountUsd: 3500000,
-    amountFormatted: '$3,500,000 USD (PKR 980M)',
+    amountFormatted: '$3,500,000 USD (MYR 980M)',
     tier: 'TIER-3',
     submittedAt: '2026-08-17 08:30',
     requesterName: 'Tariq Mehmood',

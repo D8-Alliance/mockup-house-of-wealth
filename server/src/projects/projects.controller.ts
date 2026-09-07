@@ -9,7 +9,7 @@ export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Get()
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor')
   @RequirePermission('marketplace', 'read')
   list(@CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.list(user);
@@ -22,7 +22,7 @@ export class ProjectsController {
   }
 
   @Post()
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Manager')
   @RequirePermission('assets', 'create')
   create(@Body() body: CreateProjectDto, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.create(body, user);

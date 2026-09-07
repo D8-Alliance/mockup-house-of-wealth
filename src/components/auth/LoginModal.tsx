@@ -7,6 +7,7 @@ import { authService } from '../../auth/services/authService';
 import { LoginForm } from '../../auth/components/LoginForm';
 import { MfaStep } from '../../auth/components/MfaStep';
 import { ForgotPasswordStep } from '../../auth/components/ForgotPasswordStep';
+import { RegisterForm } from '../../auth/components/RegisterForm';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -15,9 +16,9 @@ interface LoginModalProps {
 }
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSuccessLogin }) => {
-  const { currentRole, authMode } = useRBAC();
+  const { currentRole, authMode, loginUser } = useRBAC();
 
-  const [mode, setMode] = useState<'login' | 'mfa' | 'forgot'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'mfa' | 'forgot'>('login');
   const [email, setEmail] = useState('ahmed.almansoor@how.org');
   const [password, setPassword] = useState('••••••••••••');
   const [showPassword, setShowPassword] = useState(false);
@@ -100,12 +101,23 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
   };
 
   const performLoginSuccess = (role: UserRole) => {
+    loginUser(role);
     setSuccessMsg(`Authenticated successfully as ${role}`);
     setTimeout(() => {
       setSuccessMsg(null);
       if (onSuccessLogin) onSuccessLogin();
       onClose();
     }, 600);
+  };
+
+  const performRegisterSuccess = (role: UserRole, email: string) => {
+    loginUser(role, email);
+    setSuccessMsg(`Account registered successfully. Signed in as ${role}.`);
+    setTimeout(() => {
+      setSuccessMsg(null);
+      if (onSuccessLogin) onSuccessLogin();
+      onClose();
+    }, 800);
   };
 
   return (
@@ -134,10 +146,49 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
           </div>
           <p className="text-xs text-slate-300 font-medium mt-1">
             {mode === 'login' && 'Sign in to access your role-based financial workspace'}
+            {mode === 'register' && 'Create a new organisation account on the D-8 network'}
             {mode === 'mfa' && 'Two-Factor Authentication (2FA / MFA Required)'}
             {mode === 'forgot' && 'Reset your House of Wealth account password'}
           </p>
         </div>
+        {/* Tabs */}
+        {mode === 'login' || mode === 'register' ? (
+          <div className="px-6 sm:px-8 pb-0">
+            <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/80">
+              <button
+                onClick={() => { setMode('login'); setError(null); }}
+                className={`py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  mode === 'login'
+                    ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => { setMode('register'); setError(null); }}
+                className={`py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  mode === 'register'
+                    ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Register
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="px-6 sm:px-8 pb-0">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => { setMode('login'); setError(null); }}
+                className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+              >
+                ← Back to Sign In
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Body */}
         <div className="p-6 sm:p-8 space-y-6">
@@ -157,21 +208,40 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
           )}
 
           {mode === 'login' && (
-            <LoginForm
-              email={email}
-              setEmail={setEmail}
-              password={password}
-              setPassword={setPassword}
-              showPassword={showPassword}
-              setShowPassword={setShowPassword}
-              rememberMe={rememberMe}
-              setRememberMe={setRememberMe}
-              selectedRole={selectedRole}
-              setSelectedRole={setSelectedRole}
-              loading={loading}
-              onLoginSubmit={handleSubmitLogin}
-              onForgotPasswordClick={() => setMode('forgot')}
+            <>
+              <LoginForm
+                email={email}
+                setEmail={setEmail}
+                password={password}
+                setPassword={setPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                rememberMe={rememberMe}
+                setRememberMe={setRememberMe}
+                selectedRole={selectedRole}
+                setSelectedRole={setSelectedRole}
+                loading={loading}
+                onLoginSubmit={handleSubmitLogin}
+                onForgotPasswordClick={() => setMode('forgot')}
+                authMode={authMode}
+              />
+              <p className="text-center text-[11px] text-slate-500 dark:text-slate-400">
+                New to House of Wealth?{' '}
+                <button type="button" onClick={() => { setMode('register'); setError(null); }} className="font-extrabold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">
+                  Create an account
+                </button>
+              </p>
+            </>
+          )}
+
+          {mode === 'register' && (
+            <RegisterForm
               authMode={authMode}
+              loading={loading}
+              setLoading={setLoading}
+              onError={(msg) => setError(msg)}
+              onRegistered={performRegisterSuccess}
+              onLoginClick={() => setMode('login')}
             />
           )}
 

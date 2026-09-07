@@ -17,7 +17,7 @@ export const TimelineView: React.FC = () => {
       category: 'Shariah Board',
       time: 'Yesterday, 11:15',
       user: 'Shariah Advisor',
-      description: 'AAOIFI compliance certification issued for Islamabad Enclave Real Estate Pool.'
+      description: 'AAOIFI compliance certification issued for Putrajaya Enclave Real Estate Pool.'
     },
     {
       id: 3,

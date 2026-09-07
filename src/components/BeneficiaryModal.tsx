@@ -40,7 +40,7 @@ const DISTRIBUTION_TYPES: Array<'Profit Share' | 'Estate / Wasiyyah' | 'Zakat & 
 ];
 
 const PAYOUT_METHODS = [
-  'Bank Transfer (Meezan Bank Pakistan)',
+  'Bank Transfer (Maybank Islamic Malaysia)',
   'Bank Transfer (Bank Alfalah Islamic)',
   'Bank Transfer (Maybank Islamic)',
   'E-Wallet / Easypaisa & JazzCash D-8 Pay',

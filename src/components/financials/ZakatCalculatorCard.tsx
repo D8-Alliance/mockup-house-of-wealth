@@ -1,14 +1,30 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Coins, ShieldCheck } from 'lucide-react';
+import { apiClient, ZakatCalculation } from '../../services/apiClient';
 
 export const ZakatCalculatorCard: React.FC = () => {
   const [investedCapital, setInvestedCapital] = useState('1000000');
   const [liquidCash, setLiquidCash] = useState('150000');
   const [debtsOwed, setDebtsOwed] = useState('20000');
+  const [calculation, setCalculation] = useState<ZakatCalculation | null>(null);
+  const [calculationError, setCalculationError] = useState('');
 
-  const totalWealth = (parseFloat(investedCapital) || 0) + (parseFloat(liquidCash) || 0) - (parseFloat(debtsOwed) || 0);
-  const nisabThreshold = 6120; // 85g gold equivalent in USD
-  const zakatDue = totalWealth >= nisabThreshold ? Math.round(totalWealth * 0.025) : 0;
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      apiClient.calculateZakat({
+        investedCapital: parseFloat(investedCapital) || 0,
+        liquidCash: parseFloat(liquidCash) || 0,
+        debtsOwed: parseFloat(debtsOwed) || 0,
+      })
+        .then(setCalculation)
+        .catch((error: Error) => setCalculationError(error.message));
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [investedCapital, liquidCash, debtsOwed]);
+
+  const totalWealth = calculation?.netWealth ?? 0;
+  const nisabThreshold = calculation?.nisabThreshold ?? 6120;
+  const zakatDue = calculation?.zakatDue ?? 0;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -72,6 +88,7 @@ export const ZakatCalculatorCard: React.FC = () => {
             <span className="font-extrabold text-emerald-700 dark:text-emerald-300 text-sm">Zakat Obligation (2.5%):</span>
             <span className="font-black text-emerald-600 text-xl">${zakatDue.toLocaleString()} USD</span>
           </div>
+          {calculationError && <p className="text-xs text-rose-600">Backend calculation unavailable: {calculationError}</p>}
         </div>
 
         <button

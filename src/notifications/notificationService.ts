@@ -32,7 +32,7 @@ class NotificationService {
       message: 'Quaid-e-Azam Solar Infrastructure Pool target of $15,000,000 USD has been reached.',
       type: 'success',
       resourceType: 'pool',
-      resourceId: 'POOL-PAK-001',
+      resourceId: 'POOL-MYS-P2-001',
       read: true
     }
   ];

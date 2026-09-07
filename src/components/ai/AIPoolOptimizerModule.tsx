@@ -4,7 +4,7 @@ import { AIConfidenceBadge } from './AIConfidenceBadge';
 
 export const AIPoolOptimizerModule: React.FC = () => {
   const [rebalancingList, setRebalancingList] = useState([
-    { asset: 'Real Estate Sukuk (Karachi & KL)', currentPct: 55, targetPct: 40, action: 'Reduce 15%', reason: 'Overconcentrated in single-market property sector' },
+    { asset: 'Real Estate Sukuk (Kuala Lumpur & KL)', currentPct: 55, targetPct: 40, action: 'Reduce 15%', reason: 'Overconcentrated in single-market property sector' },
     { asset: 'SME Trade Finance (Malaysia Mudarabah)', currentPct: 20, targetPct: 30, action: 'Increase 10%', reason: 'Boost short-term liquidity & net yield' },
     { asset: 'Green Infrastructure Waqf (Indonesia Solar)', currentPct: 15, targetPct: 20, action: 'Increase 5%', reason: 'Enhance ESG rating & inflation resilience' },
     { asset: 'Liquid Reserve / Cash Buffer', currentPct: 10, targetPct: 10, action: 'Maintain', reason: 'Optimal operational buffer' }

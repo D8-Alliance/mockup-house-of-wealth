@@ -26,7 +26,10 @@ import {
   Download,
   LayoutDashboard,
   Sparkles,
-  Megaphone
+  Megaphone,
+  Newspaper,
+  MapPin,
+  Users
 } from 'lucide-react';
 import { AdminModuleSection } from '../types';
 import { AdminGovernanceDashboards } from './admin/AdminGovernanceDashboards';
@@ -41,6 +44,8 @@ import { MarketplaceMonetisationHub } from './revenue/MarketplaceMonetisationHub
 import { RevenueManagementHub } from './revenue/RevenueManagementHub';
 import { PDPApplicationsAdminPanel } from '../pdp/components/PDPApplicationsAdminPanel';
 import { PDPCountryConfigAdminPanel } from '../pdp/components/PDPCountryConfigAdminPanel';
+import { AdminShariahContentManager } from './info/AdminShariahContentManager';
+import { AdminPageContentManager } from './info/AdminPageContentManager';
 import { useRBAC } from '../rbac/RBACContext';
 
 export const AdminCenterView: React.FC = () => {
@@ -102,6 +107,15 @@ export const AdminCenterView: React.FC = () => {
         { id: 'shariah_templates', label: 'Contract Templates', icon: <FileText className="w-4 h-4" /> },
         { id: 'shariah_governance', label: 'Shariah Governance', icon: <Award className="w-4 h-4" /> },
         { id: 'shariah_fatwa', label: 'Fatwa Repository', icon: <BookOpen className="w-4 h-4" /> }
+      ]
+    },
+    {
+      group: 'Public Site Content',
+      items: [
+        { id: 'content_about', label: 'About D-8', icon: <Globe className="w-4 h-4 text-sky-500" /> },
+        { id: 'content_members', label: 'Member States', icon: <Users className="w-4 h-4 text-sky-500" /> },
+        { id: 'content_news', label: 'News & Updates', icon: <Newspaper className="w-4 h-4 text-sky-500" /> },
+        { id: 'content_contact', label: 'Contact', icon: <MapPin className="w-4 h-4 text-sky-500" /> }
       ]
     }
   ];
@@ -221,6 +235,12 @@ export const AdminCenterView: React.FC = () => {
 
           {activeSection === 'fin_ai_monetisation' && <AdminAIAnalyticsPanel />}
 
+          {activeSection === 'shariah_governance' && <AdminShariahContentManager />}
+
+          {['content_about', 'content_members', 'content_news', 'content_contact'].includes(activeSection) && (
+            <AdminPageContentManager />
+          )}
+
           {dashboardSections.includes(activeSection) && (
             <AdminGovernanceDashboards section={activeSection as any} />
           )}
@@ -236,7 +256,7 @@ export const AdminCenterView: React.FC = () => {
             />
           )}
 
-          {activeSection !== 'scoped_dashboard' && activeSection !== 'pdp_applications' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && (
+          {activeSection !== 'scoped_dashboard' && activeSection !== 'pdp_applications' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && (
             <AdminFinanceTemplates section={activeSection as any} />
           )}
         </div>

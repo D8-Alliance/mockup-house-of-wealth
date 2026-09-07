@@ -31,7 +31,7 @@ export const RevenueDashboardFilters: React.FC<RevenueDashboardFiltersProps> = (
     'Turkey',
     'Nigeria',
     'Egypt',
-    'Pakistan',
+    'Malaysia',
     'Bangladesh',
     'Iran',
     'Global'
@@ -47,7 +47,7 @@ export const RevenueDashboardFilters: React.FC<RevenueDashboardFiltersProps> = (
     'IsDB Private Equity Fund',
     'Amanie Advisors Sdn Bhd',
     'Cairo Islamic Venture Partners',
-    'Karachi Halal Chambers Syndicate'
+    'Kuala Lumpur Halal Chambers Syndicate'
   ];
 
   const revenueTypes = [

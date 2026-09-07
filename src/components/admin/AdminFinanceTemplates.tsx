@@ -24,7 +24,7 @@ export const AdminFinanceTemplates: React.FC<AdminFinanceTemplatesProps> = ({ se
 
   // Settlement Queue State
   const [settlements] = useState([
-    { id: 'SET-8812', sourceCurrency: 'PKR (Karachi Node)', destCurrency: 'MYR (KL Hub)', grossAmount: '$1,200,000 USD Equivalent', clearingBank: 'Islamic Development Bank (IsDB) Clearing', status: 'Cleared & Settled', timestamp: '2026-08-05 14:00' },
+    { id: 'SET-8812', sourceCurrency: 'MYR (Kuala Lumpur Node)', destCurrency: 'MYR (KL Hub)', grossAmount: '$1,200,000 USD Equivalent', clearingBank: 'Islamic Development Bank (IsDB) Clearing', status: 'Cleared & Settled', timestamp: '2026-08-05 14:00' },
     { id: 'SET-8811', sourceCurrency: 'TRY (Istanbul Node)', destCurrency: 'USD (Treasury Vault)', grossAmount: '$450,000 USD Equivalent', clearingBank: 'Ziraat Katilim Clearing', status: 'Settlement In Progress', timestamp: '2026-08-05 11:15' }
   ]);
 
@@ -58,7 +58,7 @@ export const AdminFinanceTemplates: React.FC<AdminFinanceTemplatesProps> = ({ se
     { id: 'SHB-01', name: 'Prof. Dr. Imran Habib', role: 'Chairman', affiliation: 'International Islamic University', status: 'Active' },
     { id: 'SHB-02', name: 'Dr. Nurul Izzah Binti Hassan', role: 'Board Member', affiliation: 'Islamic Finance Research Centre (KL)', status: 'Active' },
     { id: 'SHB-03', name: 'Dr. Bashir Al-Hassani', role: 'Board Member', affiliation: 'AAOIFI Governance Committee', status: 'Active' },
-    { id: 'SHB-04', name: 'Mufti Abdullah Zubair', role: 'Board Member', affiliation: 'Darul Uloom Karachi', status: 'Active' }
+    { id: 'SHB-04', name: 'Mufti Abdullah Zubair', role: 'Board Member', affiliation: 'Darul Uloom Kuala Lumpur', status: 'Active' }
   ]);
 
   return (

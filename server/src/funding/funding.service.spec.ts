@@ -1,0 +1,119 @@
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { FundingService } from './funding.service';
+import { PolicyService } from '../policy/policy.service';
+import { AuditService } from '../audit/audit.service';
+import { AuthenticatedUser } from '../auth/identity.service';
+import { PrismaService } from '../prisma.service';
+
+jest.mock('../prisma.service', () => ({ PrismaService: class {} }));
+jest.mock('../audit/audit.service', () => ({ AuditService: class {} }));
+
+const auditMock = {
+  recordActor: jest.fn().mockResolvedValue(undefined),
+};
+
+const policy = new PolicyService();
+
+function actor(
+  role: AuthenticatedUser['role'],
+  countryNodeId = 'CN-MYS',
+  organisationId = 'ORG-A',
+): AuthenticatedUser {
+  return {
+    userId: 'USR-A',
+    idpSubjectId: 'USR-A',
+    email: 'a@example.test',
+    name: 'A',
+    role,
+    countryNodeId,
+    organisationId,
+    assignedRoles: [role],
+  };
+}
+
+const prismaMock = {
+  project: { findUnique: jest.fn() },
+  wealthPool: { findFirst: jest.fn() },
+  fundingRequest: {
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+    update: jest.fn(),
+    create: jest.fn(),
+  },
+};
+
+const request = {
+  fundingRequestId: 'FRQ-1',
+  projectId: 'PRJ-1',
+  poolId: 'POOL-1',
+  organisationId: 'ORG-A',
+  countryNodeId: 'CN-MYS',
+  requestedAmount: '1000000',
+  status: 'PENDING',
+};
+
+describe('FundingService approval', () => {
+  const service = new FundingService(prismaMock as unknown as PrismaService, auditMock as unknown as AuditService, policy);
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('approves a funding request inside the caller tenant scope', async () => {
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'PENDING' });
+    prismaMock.fundingRequest.update.mockResolvedValue({ ...request, status: 'APPROVED' });
+
+    const result = await service.approve('FRQ-1', actor('Country Admin'));
+
+    expect(result.status).toBe('APPROVED');
+    expect(prismaMock.fundingRequest.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: 'APPROVED' }) }),
+    );
+    expect(auditMock.recordActor).toHaveBeenCalled();
+  });
+
+  it('lets an Organization Admin approve inside their own organisation and country (matrix approvals.approve)', async () => {
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'PENDING' });
+    prismaMock.fundingRequest.update.mockResolvedValue({ ...request, status: 'APPROVED' });
+
+    const result = await service.approve('FRQ-1', actor('Organization Admin', 'CN-MYS', 'ORG-A'));
+
+    expect(result.status).toBe('APPROVED');
+    expect(prismaMock.fundingRequest.update).toHaveBeenCalled();
+  });
+
+  it('rejects cross-country-node approval (cross-tenant access)', async () => {
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, countryNodeId: 'CN-IDN' });
+
+    await expect(service.approve('FRQ-1', actor('Country Admin', 'CN-MYS'))).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(prismaMock.fundingRequest.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects cross-organisation approval from an org-scoped approver (cross-tenant access)', async () => {
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, organisationId: 'ORG-B' });
+
+    await expect(service.approve('FRQ-1', actor('Organization Admin', 'CN-MYS', 'ORG-A'))).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(prismaMock.fundingRequest.update).not.toHaveBeenCalled();
+  });
+
+  it('does not approve a request when the state is no longer pending', async () => {
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'APPROVED' });
+
+    await expect(service.approve('FRQ-1', actor('Super Admin'))).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects an approver without the approvals.approve permission', async () => {
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'PENDING' });
+
+    await expect(service.approve('FRQ-1', actor('Project Sponsor'))).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prismaMock.fundingRequest.update).not.toHaveBeenCalled();
+  });
+
+  it('only disburses an already-approved request', async () => {
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'PENDING' });
+
+    await expect(service.disburse('FRQ-1', actor('Super Admin'))).rejects.toBeInstanceOf(BadRequestException);
+  });
+});

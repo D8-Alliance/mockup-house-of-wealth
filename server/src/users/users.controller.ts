@@ -1,13 +1,40 @@
-import { Controller, Post, Delete, Get, Param, Body } from '@nestjs/common';
+import { Controller, Post, Delete, Get, Patch, Param, Body, ParseEnumPipe } from '@nestjs/common';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { UsersService } from './users.service';
-import { UserRole } from '../policy/permissions';
+import { AssignRoleDto } from './assign-role.dto';
+import { UserRole, UserRoleEnum } from '../policy/permissions';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Get('me')
+  getCurrentUser(@CurrentUser() actor: AuthenticatedUser) {
+    return this.usersService.getCurrentUser(actor);
+  }
+
+  @Get('me/access')
+  getCurrentAccess(@CurrentUser() actor: AuthenticatedUser) {
+    return this.usersService.getAccess(actor);
+  }
+
+  @Get()
+  @RequirePermission('users', 'read')
+  listUsers(@CurrentUser() actor: AuthenticatedUser) {
+    return this.usersService.listUsers(actor);
+  }
+
+  @Patch(':userId/status')
+  @RequirePermission('users', 'update')
+  updateStatus(
+    @Param('userId') userId: string,
+    @Body() body: { status: string },
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.usersService.updateStatus(userId, body.status, actor);
+  }
 
   /**
    * Assign a role to a user in a specific organisation and country node.
@@ -19,7 +46,7 @@ export class UsersController {
   @RequirePermission('users', 'update')
   async assignRole(
     @Param('userId') userId: string,
-    @Body() body: { role: UserRole; organisationId: string; countryNodeId: string },
+    @Body() body: AssignRoleDto,
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return this.usersService.assignRole(
@@ -40,7 +67,7 @@ export class UsersController {
   @RequirePermission('users', 'update')
   async revokeRole(
     @Param('userId') userId: string,
-    @Param('role') role: UserRole,
+    @Param('role', new ParseEnumPipe(UserRoleEnum)) role: UserRole,
     @Param('organisationId') organisationId: string,
     @Param('countryNodeId') countryNodeId: string,
     @CurrentUser() actor: AuthenticatedUser,

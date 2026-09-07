@@ -35,7 +35,7 @@ export const SYSTEM_ROLES: Record<string, RoleDefinition> = {
       'Root System Security Log'
     ],
     notifications: [
-      'System-wide API latency spike on Pakistan Node',
+      'System-wide API latency spike on Malaysia Node',
       'New Country Node onboarding request from Nigeria',
       'Security anomaly detected on smart contract execution'
     ],

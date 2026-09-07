@@ -115,7 +115,7 @@ const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       { stepNo: 2, title: 'Mudarib Performance Incentive Calculation', actor: 'Yield Engine', type: 'AUTOMATED', description: 'Deduction of manager fee strictly based on pre-agreed 80/20 or 90/10 ratio.', slaHours: 1 },
       { stepNo: 3, title: 'Shariah Revenue Audit Check', actor: 'Shariah Auditor', type: 'COMPLIANCE_CHECK', description: 'One-click verification that no penalty interest or prohibited revenue was booked.', slaHours: 2 },
       { stepNo: 4, title: 'Zakat & Waqf Purification Automated Transfer', actor: 'Treasury Officer', type: 'SMART_CONTRACT', description: 'Purification funds routed automatically to Meezan Bank Waqf Trust escrow.', slaHours: 1 },
-      { stepNo: 5, title: 'Multi-Currency Wallet Disbursement', actor: 'Clearing Engine', type: 'SMART_CONTRACT', description: 'Net profits credited instantly to investor digital wallets in PKR/MYR/USD.', slaHours: 1 }
+      { stepNo: 5, title: 'Multi-Currency Wallet Disbursement', actor: 'Clearing Engine', type: 'SMART_CONTRACT', description: 'Net profits credited instantly to investor digital wallets in MYR/MYR/USD.', slaHours: 1 }
     ]
   }
 ];
@@ -136,10 +136,10 @@ interface ActiveInstance {
 
 const INITIAL_INSTANCES: ActiveInstance[] = [
   {
-    instanceId: 'INST-PAK-8910',
+    instanceId: 'INST-MYS-P2-8910',
     workflowId: 'WF-POOL-01',
     workflowName: '17-Stage Shariah Wealth Pooling',
-    targetEntity: 'Karachi Port Logistics Hub Sukuk ($8.2M)',
+    targetEntity: 'Kuala Lumpur Port Logistics Hub Sukuk ($8.2M)',
     currentStep: 4,
     totalSteps: 17,
     currentStepTitle: 'AAOIFI Shariah Board Review',
@@ -149,10 +149,10 @@ const INITIAL_INSTANCES: ActiveInstance[] = [
     progressPercent: 24
   },
   {
-    instanceId: 'INST-PAK-8911',
+    instanceId: 'INST-MYS-P2-8911',
     workflowId: 'WF-POOL-01',
     workflowName: '17-Stage Shariah Wealth Pooling',
-    targetEntity: 'Islamabad Enclave Residential Phase 2 ($3.5M)',
+    targetEntity: 'Putrajaya Enclave Residential Phase 2 ($3.5M)',
     currentStep: 11,
     totalSteps: 17,
     currentStepTitle: 'Investor Order Aggregation',

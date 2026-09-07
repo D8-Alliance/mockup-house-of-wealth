@@ -112,7 +112,7 @@ export const INITIAL_PREMIUM_REPORTS: PremiumReportItem[] = [
     id: 'REP-02',
     title: 'D-8 Cross-Border Sovereign Sukuk & Currency Spread Risk Matrix',
     category: 'Market Intelligence',
-    targetEntity: 'D-8 Multi-Jurisdiction Sovereign Basket (MYR, TRY, IDR, EGP, PKR)',
+    targetEntity: 'D-8 Multi-Jurisdiction Sovereign Basket (MYR, TRY, IDR, EGP, MYR)',
     summary: 'Macro intelligence evaluating currency volatility, hedging strategies using Islamic FX Wa’ad, and optimal diversification ratios.',
     requiredTier: 'PROFESSIONAL',
     creditsToUnlock: 30,
@@ -120,7 +120,7 @@ export const INITIAL_PREMIUM_REPORTS: PremiumReportItem[] = [
     rating: 'Institutional Grade',
     shariahAuditStatus: 'AAOIFI Standard 30 Mapped',
     publishedDate: '2026-08-11',
-    executiveSummary: 'Cross-border liquidity pooling across D-8 hubs requires active FX Wa’ad forward contracts to insulate local investors against Turkish Lira and Egyptian Pound swings while tapping USD/PKR liquidity.',
+    executiveSummary: 'Cross-border liquidity pooling across D-8 hubs requires active FX Wa’ad forward contracts to insulate local investors against Turkish Lira and Egyptian Pound swings while tapping USD/MYR liquidity.',
     riskMetrics: [
       { label: 'Currency Devaluation Risk', score: 62, verdict: 'Moderate - Requires Waad Hedging' },
       { label: 'Regulatory Transfer Risk', score: 22, verdict: 'Low (D-8 Bilateral Clearance)' },

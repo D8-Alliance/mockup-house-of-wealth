@@ -42,6 +42,16 @@ export interface LoginCredentials {
   rememberMe?: boolean;
 }
 
+export interface RegisterCredentials {
+  name: string;
+  email: string;
+  password: string;
+  organisation: string;
+  countryNodeId: string;
+  countryName: string;
+  selectedRole: UserRole;
+}
+
 export interface MfaChallenge {
   challengeId: string;
   userId: string;

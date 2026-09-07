@@ -5,6 +5,8 @@ import { hasPermission, getAccessibleTabs, isTabAccessible } from './rbacEngine'
 import { UserProfile, NavTab } from '../types';
 import { authService } from '../auth/services/authService';
 import { AuthState } from '../auth/types/authTypes';
+import { apiClient, BackendAccess, BackendUser } from '../services/apiClient';
+import { shariahContentService } from '../shariah/shariahContentService';
 
 interface RBACContextType {
   currentRole: UserRole;
@@ -15,8 +17,11 @@ interface RBACContextType {
   accessibleTabs: NavTab[];
   activeUser: UserProfile;
   isAuthenticated: boolean;
+  guestBrowsing: boolean;
   loginUser: (role: UserRole, email?: string) => void;
   logoutUser: () => void;
+  enterGuestMode: () => void;
+  exitGuestMode: () => void;
   showLoginModal: boolean;
   setShowLoginModal: (show: boolean) => void;
   authMode: 'DEMO' | 'PRODUCTION';
@@ -47,15 +52,30 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
   onUserRoleChange
 }) => {
   const [authState, setAuthState] = useState<AuthState>(authService.getAuthState());
-  const [currentRole, setCurrentRoleState] = useState<UserRole>('Country Admin');
+  const [currentRole, setCurrentRoleState] = useState<UserRole>('Guest');
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+  const [guestBrowsing, setGuestBrowsing] = useState<boolean>(false);
   const [authMode, setAuthModeState] = useState<'DEMO' | 'PRODUCTION'>('DEMO');
+  const [backendAccess, setBackendAccess] = useState<BackendAccess | null>(null);
+  const [backendUser, setBackendUser] = useState<BackendUser | null>(null);
 
   useEffect(() => {
     const state = authService.getAuthState();
     setAuthState(state);
     if (state.session?.user.activeRole) {
       setCurrentRoleState(state.session.user.activeRole);
+    }
+    if (state.isAuthenticated) {
+      Promise.all([apiClient.getCurrentAccess(), apiClient.getCurrentUser()])
+        .then(([access, user]) => {
+          setBackendAccess(access);
+          setBackendUser(user);
+          setCurrentRoleState(access.role as UserRole);
+        })
+        .catch(() => {
+          setBackendAccess(null);
+          setBackendUser(null);
+        });
     }
   }, []);
 
@@ -64,10 +84,12 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
   const setAuthMode = (mode: 'DEMO' | 'PRODUCTION') => {
     setAuthModeState(mode);
     authService.setMode(mode);
+    shariahContentService.setMode(mode);
     setAuthState(authService.getAuthState());
   };
 
   const setRole = (newRole: UserRole) => {
+    if (backendAccess && !backendAccess.assignedRoles.includes(newRole)) return;
     const success = authService.switchRole(newRole);
     if (success) {
       setCurrentRoleState(newRole);
@@ -90,6 +112,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
   const loginUser = (role: UserRole, email?: string) => {
     setCurrentRoleState(role);
     setAuthState(authService.getAuthState());
+    setGuestBrowsing(false);
     const newRoleDef = ROLE_DEFINITIONS[role];
     if (newRoleDef && onUserRoleChange) {
       const updatedUser: UserProfile = {
@@ -108,6 +131,18 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
     authService.logout();
     setAuthState(authService.getAuthState());
     setCurrentRoleState('Guest');
+    setGuestBrowsing(false);
+  };
+
+  const enterGuestMode = () => {
+    authService.enterAsGuest();
+    setAuthState(authService.getAuthState());
+    setCurrentRoleState('Guest');
+    setGuestBrowsing(true);
+  };
+
+  const exitGuestMode = () => {
+    setGuestBrowsing(false);
   };
 
   const checkPermission = (resource: ResourceModule, action: PermissionAction) => {
@@ -127,20 +162,20 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
     ...currentUser,
     id: sessionUser?.userId || 'GUEST-001',
     role: currentRole,
-    name: isAuthenticated ? (sessionUser?.name || roleDef.demoUser.name) : 'Guest Visitor',
-    email: isAuthenticated ? (sessionUser?.email || roleDef.demoUser.email) : 'visitor@public-d8.org',
+    name: isAuthenticated ? (backendUser?.name || sessionUser?.name || roleDef.demoUser.name) : 'Guest Visitor',
+    email: isAuthenticated ? (backendUser?.email || sessionUser?.email || roleDef.demoUser.email) : 'visitor@public-d8.org',
     organization: isAuthenticated ? (sessionUser?.organisationName || roleDef.demoUser.organization) : 'Public Visitor',
     avatarUrl: isAuthenticated ? (sessionUser?.avatarUrl || roleDef.demoUser.avatarUrl) : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
   };
 
   const tenantContext = {
-    userId: sessionUser?.userId || 'USR-GUEST',
-    organisationId: sessionUser?.organisationId || 'ORG-PUBLIC',
-    countryNodeId: sessionUser?.countryNodeId || 'CN-MYS',
+    userId: backendAccess?.userId || sessionUser?.userId || 'USR-GUEST',
+    organisationId: backendAccess?.organisationId || sessionUser?.organisationId || 'ORG-PUBLIC',
+    countryNodeId: backendAccess?.countryNodeId || sessionUser?.countryNodeId || 'CN-MYS',
     role: currentRole
   };
 
-  const assignedRoles: UserRole[] = sessionUser?.assignedRoles || [currentRole];
+  const assignedRoles: UserRole[] = (backendAccess?.assignedRoles as UserRole[]) || sessionUser?.assignedRoles || [currentRole];
 
   return (
     <RBACContext.Provider
@@ -153,8 +188,11 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
         accessibleTabs,
         activeUser,
         isAuthenticated,
+        guestBrowsing,
         loginUser,
         logoutUser,
+        enterGuestMode,
+        exitGuestMode,
         showLoginModal,
         setShowLoginModal,
         authMode,

@@ -11,6 +11,9 @@ import { PoolsModule } from './pools/pools.module';
 import { FundingModule } from './funding/funding.module';
 import { UsersModule } from './users/users.module';
 import { HealthModule } from './health/health.module';
+import { ZakatModule } from './zakat/zakat.module';
+import { MembershipModule } from './membership/membership.module';
+import { PdpModule } from './pdp/pdp.module';
 
 @Module({
   imports: [
@@ -23,6 +26,9 @@ import { HealthModule } from './health/health.module';
     FundingModule,
     UsersModule,
     HealthModule,
+    ZakatModule,
+    MembershipModule,
+    PdpModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: OidcGuard },

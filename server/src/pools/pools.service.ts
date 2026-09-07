@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PolicyService } from '../policy/policy.service';
 import { CreatePoolDto } from './pools.controller';
+import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 
 @Injectable()
 export class PoolsService {
@@ -14,7 +15,7 @@ export class PoolsService {
   ) {}
 
   async list(user: AuthenticatedUser) {
-    const where = user.role === 'Super Admin' ? {} : { countryNodeId: user.countryNodeId };
+    const where = tenantScopeFilter(user);
     if (user.role !== 'Super Admin' && !this.policy.can(user.role, 'pooling', 'read')) {
       throw new ForbiddenException(this.policy.evaluate(user.role, 'pooling', 'read').reason);
     }
@@ -24,19 +25,12 @@ export class PoolsService {
   async get(id: string, user: AuthenticatedUser) {
     const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: id } });
     if (!pool) throw new NotFoundException('Pool not found');
-    if (user.role !== 'Super Admin' && pool.countryNodeId !== user.countryNodeId) {
-      throw new ForbiddenException('Pool is outside your country node scope');
-    }
+    assertTenantScope(user, pool, 'Pool');
     return pool;
   }
 
   async create(dto: CreatePoolDto, user: AuthenticatedUser) {
-    if (user.role !== 'Super Admin' && dto.countryNodeId !== user.countryNodeId) {
-      throw new ForbiddenException('Cannot create a pool outside your country node scope');
-    }
-    if (user.role === 'Organization Admin' && dto.organisationId !== user.organisationId) {
-      throw new ForbiddenException('Cannot create a pool outside your organisation scope');
-    }
+    assertTenantScope(user, { countryNodeId: dto.countryNodeId, organisationId: dto.organisationId }, 'Target tenant');
 
     const [organisation, project] = await Promise.all([
       this.prisma.organisation.findFirst({

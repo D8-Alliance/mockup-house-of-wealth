@@ -8,14 +8,15 @@ class SessionManagerStore {
     mode: 'DEMO',
     session: {
       sessionId: 'SES-DEMO-99201',
-      userId: 'USR-PAK-001',
+      userId: 'USR-MYS-P2-001',
       userName: 'Ahmed Al-Mansoor',
       userEmail: 'ahmed.almansoor@how.org',
-      organisationId: 'ORG-GULF-CAP',
-      countryNodeId: 'CN-PAK',
+      organisationId: 'ORG-MYS-P2-CAP',
+      countryNodeId: 'CN-MYS',
       activeRole: 'Country Admin',
       assignedRoles: ['Country Admin', 'Super Admin', 'Project Sponsor'],
-      token: 'jwt-demo-token-d8-how',
+      // The mock backend reads identity claims from the first JWT segment.
+      token: `${btoa(JSON.stringify({ mock: 'MYS-P2-001', role: 'Country Admin', countryNode: 'CN-MYS', org: 'ORG-MYS-P2-CAP' }))}.demo-token`,
       isDemoSession: true,
       mfaVerified: true,
       expiresAt: new Date(Date.now() + 86400000).toISOString()

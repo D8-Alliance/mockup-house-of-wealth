@@ -56,7 +56,7 @@ export const INITIAL_POOLS: Pool[] = [
   },
   {
     id: 'POOL-103',
-    name: 'Karachi Port Green Logistics Hub Pool',
+    name: 'Kuala Lumpur Port Green Logistics Hub Pool',
     category: 'Property / Logistics',
     sponsorName: 'Indus Industrial Realty',
     targetAmount: 15000000,
@@ -66,7 +66,7 @@ export const INITIAL_POOLS: Pool[] = [
     contractType: 'Musharakah',
     expectedYieldPercent: 9.8,
     durationMonths: 48,
-    country: 'Pakistan',
+    country: 'Malaysia',
     countryCode: 'PK',
     investorsCount: 180,
     riskRating: 'A+',
@@ -140,7 +140,7 @@ export const INITIAL_DISTRIBUTIONS: ProfitDistributionRecord[] = [
   {
     id: 'DIST-902',
     poolId: 'POOL-103',
-    poolName: 'Karachi Port Green Logistics Hub Pool',
+    poolName: 'Kuala Lumpur Port Green Logistics Hub Pool',
     distributionDate: '2026-08-15',
     grossProfitAmount: 320000,
     mudaribSharePercent: 15,
@@ -154,7 +154,7 @@ export const INITIAL_CAPITAL_CALLS: CapitalCall[] = [
   {
     id: 'CALL-401',
     poolId: 'POOL-103',
-    poolName: 'Karachi Port Green Logistics Hub Pool',
+    poolName: 'Kuala Lumpur Port Green Logistics Hub Pool',
     calledAmount: 500000,
     dueDate: '2026-08-25',
     status: 'Pending',
@@ -193,7 +193,7 @@ export const INITIAL_SECONDARY_ORDERS: SecondaryMarketOrder[] = [
   {
     id: 'SEC-802',
     poolId: 'POOL-103',
-    poolName: 'Karachi Port Green Logistics Hub Pool',
+    poolName: 'Kuala Lumpur Port Green Logistics Hub Pool',
     sellerName: 'Indus Family Office',
     tokenUnits: 200,
     unitPrice: 2500,

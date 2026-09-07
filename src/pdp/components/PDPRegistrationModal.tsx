@@ -15,8 +15,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { PDPApplication } from '../pdpTypes';
-import { pdpService } from '../pdpService';
-import { useRBAC } from '../../rbac/RBACContext';
+import { apiClient } from '../../services/apiClient';
 import { 
   Step1Credentials, 
   Step2PDPType, 
@@ -58,7 +57,6 @@ export const PDPRegistrationModal: React.FC<PDPRegistrationModalProps> = ({
   onSubmitted,
   initialData
 }) => {
-  const { currentUserId, currentRole } = useRBAC();
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [formData, setFormData] = useState<Partial<PDPApplication>>({
     countryCode: 'MYS',
@@ -117,9 +115,13 @@ export const PDPRegistrationModal: React.FC<PDPRegistrationModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSaveDraft = () => {
-    const saved = pdpService.createOrSaveDraft(formData, currentUserId || 'USR-8821', currentRole);
-    setFormData(saved);
+  const handleSaveDraft = async () => {
+    try {
+      const saved = await apiClient.savePdpDraft(formData, formData.id);
+      setFormData(saved);
+    } catch (error) {
+      console.error('PDP draft save failed', error);
+    }
   };
 
   const handleNext = () => {
@@ -134,13 +136,15 @@ export const PDPRegistrationModal: React.FC<PDPRegistrationModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const saved = pdpService.createOrSaveDraft(formData, currentUserId || 'USR-8821', currentRole);
-    const submitted = pdpService.submitApplication(saved.id, currentUserId || 'USR-8821', currentRole);
-    if (submitted) {
+    try {
+      const saved = await apiClient.savePdpDraft(formData, formData.id);
+      const submitted = await apiClient.submitPdpApplication(saved.id);
       if (onSubmitted) onSubmitted(submitted);
       onClose();
+    } catch (error) {
+      console.error('PDP application submission failed', error);
     }
   };
 

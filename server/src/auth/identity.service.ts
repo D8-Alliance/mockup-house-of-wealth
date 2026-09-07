@@ -1,6 +1,8 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { createPublicKey, createHmac, createVerify, KeyObject } from 'node:crypto';
 import { UserRole } from '../policy/permissions';
+import { UserRole as PrismaUserRole } from '@prisma/client';
+import { PrismaService } from '../prisma.service';
 
 export interface AuthenticatedUser {
   userId: string;
@@ -10,6 +12,7 @@ export interface AuthenticatedUser {
   role: UserRole;
   countryNodeId: string;
   organisationId: string;
+  assignedRoles: UserRole[];
 }
 
 export interface JwtPayload {
@@ -30,6 +33,8 @@ export interface JwtPayload {
 export class IdentityService {
   private readonly logger = new Logger(IdentityService.name);
 
+  constructor(private readonly prisma: PrismaService) {}
+
   public async verifyToken(token: string): Promise<AuthenticatedUser> {
     if (!token) {
       throw new UnauthorizedException('Missing bearer token');
@@ -46,18 +51,75 @@ export class IdentityService {
       throw new UnauthorizedException('Token has no subject');
     }
 
-    // Extract role from JWT claims (e.g., app_metadata.role for Auth0, roles for Keycloak)
-    const roleClaim = (payload.app_metadata as any)?.role || (payload as any)?.roles?.[0] || (payload as any)?.role || 'Country Admin';
-    
-    return {
-      userId: `USR-${payload.sub}`,
-      idpSubjectId: payload.sub,
+    // The JWT only establishes *who* the caller is. Roles and capabilities are
+    // resolved exclusively from the database (resolveDatabaseIdentity); token
+    // role claims are deliberately ignored so a forged or claim-stripped token
+    // escalates nothing and there is never an implicit default role.
+    return this.resolveDatabaseIdentity(payload.sub, {
       email: (payload.email as string) ?? `${payload.sub}@internal`,
       name: (payload.name as string) ?? payload.sub,
-      role: (roleClaim as UserRole),
       countryNodeId: (payload as any)?.country_node_id || process.env.DEFAULT_COUNTRY_NODE || 'CN-MYS',
       organisationId: (payload as any)?.organisation_id || process.env.DEFAULT_ORGANISATION || 'ORG-PUBLIC',
+    });
+  }
+
+  private async resolveDatabaseIdentity(subject: string, claims: Omit<AuthenticatedUser, 'userId' | 'idpSubjectId' | 'assignedRoles' | 'role'>): Promise<AuthenticatedUser> {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        OR: [
+          { id: subject },
+          { id: `USR-${subject}` },
+          { idpSubjectId: subject },
+          { idpSubjectId: `USR-${subject}` },
+        ],
+      },
+      include: {
+        roleAssignments: {
+          where: {
+            isActive: true,
+            countryNodeId: claims.countryNodeId,
+            organisationId: claims.organisationId,
+          },
+          orderBy: { assignedAt: 'asc' },
+        },
+      },
+    });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('User is not provisioned or is inactive');
+    }
+
+    const assignedRoles = user.roleAssignments.map((assignment) => this.fromPrismaRole(assignment.role));
+    if (assignedRoles.length === 0) {
+      throw new UnauthorizedException('User has no active role in this organisation and country');
+    }
+
+    return {
+      userId: user.id,
+      idpSubjectId: user.idpSubjectId,
+      email: user.email,
+      name: user.name,
+      role: assignedRoles[0],
+      countryNodeId: claims.countryNodeId,
+      organisationId: claims.organisationId,
+      assignedRoles,
     };
+  }
+
+  private fromPrismaRole(role: PrismaUserRole): UserRole {
+    return role.replace(/_/g, ' ') as UserRole;
+  }
+
+  private async verifyMockToken(token: string): Promise<AuthenticatedUser> {
+    const headerB64 = token.split('.')[0] ?? '';
+    const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8') || '{}') as { mock?: string; countryNode?: string; org?: string };
+    const mockSub = header.mock ?? 'mock-user';
+    return this.resolveDatabaseIdentity(`USR-${mockSub}`, {
+      email: 'mock@houseofwealth.local',
+      name: 'Mock API User',
+      countryNodeId: header.countryNode ?? process.env.DEFAULT_COUNTRY_NODE ?? 'CN-MYS',
+      organisationId: header.org ?? process.env.DEFAULT_ORGANISATION ?? 'ORG-PUBLIC',
+    });
   }
 
   private async verifyOidcToken(token: string): Promise<JwtPayload> {
@@ -145,22 +207,6 @@ export class IdentityService {
     });
   }
 
-  private verifyMockToken(token: string): AuthenticatedUser {
-    const headerB64 = token.split('.')[0] ?? '';
-    const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8') || '{}') as { mock?: string; role?: string; countryNode?: string; org?: string };
-    const mockSub = header.mock ?? 'mock-user';
-    const roleClaim = header.role ?? 'Country Admin';
-    
-    return {
-      userId: `USR-${mockSub}`,
-      idpSubjectId: mockSub,
-      email: 'mock@houseofwealth.local',
-      name: 'Mock API User',
-      role: (roleClaim as UserRole),
-      countryNodeId: header.countryNode ?? process.env.DEFAULT_COUNTRY_NODE ?? 'CN-MYS',
-      organisationId: header.org ?? process.env.DEFAULT_ORGANISATION ?? 'ORG-PUBLIC',
-    };
-  }
 
   private decodeJson<T>(b64: string): T {
     try {

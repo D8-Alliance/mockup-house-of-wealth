@@ -22,7 +22,7 @@ export const AIDueDiligenceFraudModule: React.FC = () => {
       entity: 'Deed #TR-IST-2024-8892',
       severity: 'Warning',
       timestamp: '2026-08-05 15:10',
-      details: 'Deed metadata matches active asset on Pakistan Node (Asset #AST-102). Potential double tokenization attempt.',
+      details: 'Deed metadata matches active asset on Malaysia Node (Asset #AST-102). Potential double tokenization attempt.',
       status: 'Flagged'
     },
     {

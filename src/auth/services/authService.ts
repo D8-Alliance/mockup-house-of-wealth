@@ -1,5 +1,5 @@
 import { mockAuthProvider } from './mockAuthProvider';
-import { AuthState, LoginCredentials, AuthSession } from '../types/authTypes';
+import { AuthState, LoginCredentials, RegisterCredentials, AuthSession, AuthUser } from '../types/authTypes';
 import { UserRole } from '../../rbac/types';
 import { auditLogger } from '../../audit/auditLogger';
 
@@ -7,9 +7,11 @@ export interface IAuthProvider {
   getAuthState(): AuthState;
   login(credentials: LoginCredentials): { success: boolean; mfaRequired?: boolean; challengeId?: string; error?: string; session?: AuthSession };
   completeMfa(challengeId: string, otpCode: string, selectedRole: UserRole): { success: boolean; error?: string; session?: AuthSession };
+  register(credentials: RegisterCredentials): { success: boolean; error?: string; session?: AuthSession; user?: AuthUser };
   logout(): void;
   switchRole(targetRole: UserRole): boolean;
   setMode(mode: 'DEMO' | 'PRODUCTION'): void;
+  enterAsGuest(): void;
 }
 
 class AuthService {
@@ -35,6 +37,10 @@ class AuthService {
     return this.provider.completeMfa(challengeId, otpCode, selectedRole);
   }
 
+  public register(credentials: RegisterCredentials) {
+    return this.provider.register(credentials);
+  }
+
   public logout(): void {
     this.provider.logout();
   }
@@ -45,6 +51,10 @@ class AuthService {
 
   public setMode(mode: 'DEMO' | 'PRODUCTION'): void {
     this.provider.setMode(mode);
+  }
+
+  public enterAsGuest(): void {
+    this.provider.enterAsGuest();
   }
 
   public requestPasswordReset(email: string): { success: boolean; message: string } {

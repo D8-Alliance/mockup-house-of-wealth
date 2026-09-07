@@ -42,7 +42,7 @@ export const GOVERNANCE_ROLES: Record<string, RoleDefinition> = {
     demoUser: {
       name: 'Ahmed Al-Mansoor',
       email: 'ahmed.almansoor@how.org',
-      organization: 'House of Wealth - Pakistan Node',
+      organization: 'House of Wealth - Malaysia Node',
       avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
     }
   },

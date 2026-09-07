@@ -18,7 +18,7 @@ const auditLogRows = [
 export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ section }) => {
   // KYC Queue State
   const [kycList, setKycList] = useState([
-    { id: 'KYC-1092', name: 'Zaid Al-Mansoor', country: 'Pakistan', docType: 'CNIC & Passport', livenessScore: 98, status: 'Pending Review', submittedDate: '2026-08-05 14:10' },
+    { id: 'KYC-1092', name: 'Zaid Al-Mansoor', country: 'Malaysia', docType: 'CNIC & Passport', livenessScore: 98, status: 'Pending Review', submittedDate: '2026-08-05 14:10' },
     { id: 'KYC-1091', name: 'Siti Nurhaliza', country: 'Malaysia', docType: 'MyKad National ID', livenessScore: 99, status: 'Verified', submittedDate: '2026-08-05 11:30' },
     { id: 'KYC-1090', name: 'Bambang Soetjipto', country: 'Indonesia', docType: 'KTP ID Card', livenessScore: 84, status: 'Re-upload Requested', submittedDate: '2026-08-04 18:45' },
     { id: 'KYC-1089', name: 'Mehmet Yilmaz', country: 'Turkey', docType: 'Turkish Passport', livenessScore: 96, status: 'Verified', submittedDate: '2026-08-04 15:20' }
@@ -28,7 +28,7 @@ export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ sectio
   const [kybList, setKybList] = useState([
     { id: 'KYB-302', companyName: 'Bosphorus Cold Chain Logistics A.S.', country: 'Turkey', tradeLicense: 'TR-IST-884920', uboName: 'Ahmet Yilmaz (85% Owner)', leiCode: '2549008892110034', status: 'Pending Approval', riskGrade: 'Low Risk' },
     { id: 'KYB-301', companyName: 'Nusantara Halal Export Group Pt.', country: 'Indonesia', tradeLicense: 'ID-JKT-119283', uboName: 'Dian Sastro (100% Owner)', leiCode: '5493003310022394', status: 'Verified', riskGrade: 'Low Risk' },
-    { id: 'KYB-300', companyName: 'D-8 Agritech Ventures Ltd.', country: 'Pakistan', tradeLicense: 'PK-ISB-998231', uboName: 'Tariq Al-Mansoor (60% Owner)', leiCode: '9845001192837482', status: 'Verified', riskGrade: 'Low Risk' }
+    { id: 'KYB-300', companyName: 'D-8 Agritech Ventures Ltd.', country: 'Malaysia', tradeLicense: 'MY-KL-998231', uboName: 'Tariq Al-Mansoor (60% Owner)', leiCode: '9845001192837482', status: 'Verified', riskGrade: 'Low Risk' }
   ]);
 
   // AML Alerts State

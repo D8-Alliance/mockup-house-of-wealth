@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { AppUser } from './userTypes';
 import { Shield, X, Check, AlertTriangle, Plus, Trash2 } from 'lucide-react';
-import { userService } from './userService';
 import { useRBAC } from '../rbac/RBACContext';
+import { apiClient } from '../services/apiClient';
 
 interface RoleAssignmentModalProps {
   user: AppUser | null;
@@ -32,7 +32,7 @@ export const RoleAssignmentModal: React.FC<RoleAssignmentModalProps> = ({
   onClose,
   onUpdated
 }) => {
-  const { currentUserId } = useRBAC();
+  const { currentOrgId, currentCountryNode } = useRBAC();
   const [selectedPrimary, setSelectedPrimary] = useState<string>(user?.primaryRole || 'Project Sponsor');
   const [assignedRoles, setAssignedRoles] = useState<string[]>(user?.assignedRoles || ['Project Sponsor']);
   const [reason, setReason] = useState('');
@@ -52,20 +52,27 @@ export const RoleAssignmentModal: React.FC<RoleAssignmentModalProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reason) return;
-
-    userService.assignRoles(
-      user.userId || (user as any).id,
-      selectedPrimary,
-      assignedRoles,
-      currentUserId || 'SYS-ADMIN-01',
-      reason
-    );
-
-    onUpdated();
-    onClose();
+    const userId = user.userId || (user as any).id;
+    const organisationId = user.organisationId || currentOrgId;
+    const countryNodeId = user.countryNodeId || currentCountryNode;
+    try {
+      const currentRoles = user.assignedRoles || [];
+      await Promise.all([
+        ...assignedRoles
+          .filter(role => !currentRoles.includes(role))
+          .map(role => apiClient.assignRole(userId, role, organisationId, countryNodeId)),
+        ...currentRoles
+          .filter(role => !assignedRoles.includes(role))
+          .map(role => apiClient.revokeRole(userId, role, organisationId, countryNodeId)),
+      ]);
+      onUpdated();
+      onClose();
+    } catch (error) {
+      console.error('Role assignment failed', error);
+    }
   };
 
   return (

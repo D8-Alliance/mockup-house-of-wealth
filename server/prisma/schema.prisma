@@ -65,6 +65,7 @@ model User {
   email          String   @unique
   name           String  
   isActive       Boolean  @default(true)
+  profile        Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -252,4 +253,75 @@ model AuditEvent {
   @@index([resourceType, resourceId])
   @@index([countryNodeId])
   @@index([createdAt])
+}
+
+// Server-owned zakat calculation snapshots.
+model ZakatCalculation {
+  id               String   @id @default(cuid())
+  userId           String
+  currency         String   @default("USD")
+  investedCapital  Decimal  @db.Decimal(18, 2)
+  liquidCash       Decimal  @db.Decimal(18, 2)
+  debtsOwed        Decimal  @db.Decimal(18, 2)
+  nisabThreshold   Decimal  @db.Decimal(18, 2)
+  zakatRate        Decimal  @db.Decimal(5, 4)
+  netWealth        Decimal  @db.Decimal(18, 2)
+  zakatDue         Decimal  @db.Decimal(18, 2)
+  createdAt        DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+// Membership state is keyed by the authenticated identity subject because
+// OIDC users may not yet have a local User row.
+model MembershipSubscription {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  planId               String
+  tier                 String
+  billingInterval      String
+  status               String   @default("Active")
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  autoRenew            Boolean  @default(true)
+  paymentMethodSummary String   @default("Simulated Payment Gateway")
+  aiCreditsRemaining   Int
+  aiCreditsTotal       Int
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model MembershipBillingRecord {
+  id              String   @id @default(cuid())
+  userId          String
+  invoiceNumber   String   @unique
+  planId          String
+  billingInterval String
+  amountMYR       Decimal  @db.Decimal(18, 2)
+  amountUSD       Decimal  @db.Decimal(18, 2)
+  status          String   @default("Paid")
+  paymentMethod   String
+  createdAt       DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model PdpApplication {
+  id                String   @id @default(cuid())
+  applicationNumber String   @unique
+  userId            String
+  userEmail         String
+  countryCode       String
+  countryName       String
+  organisationName  String
+  pdpType           String
+  status            String   @default("DRAFT")
+  kybStatus         String   @default("IN_PROGRESS")
+  payload           Json
+  submittedAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId])
+  @@index([countryCode, status])
 }

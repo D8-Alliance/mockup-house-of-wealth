@@ -29,8 +29,8 @@ export const TenancyProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [countryNodes] = useState<CountryNode[]>(INITIAL_COUNTRY_NODES);
   const [organisations, setOrganisations] = useState<Organisation[]>(organisationService.getAllOrganisations());
 
-  const [activeCountryNodeId, setActiveCountryNodeId] = useState<string>('CN-PAK');
-  const [activeOrganisationId, setActiveOrganisationId] = useState<string>('ORG-GULF-CAP');
+  const [activeCountryNodeId, setActiveCountryNodeId] = useState<string>('CN-MYS');
+  const [activeOrganisationId, setActiveOrganisationId] = useState<string>('ORG-MYS-P2-CAP');
 
   const activeCountryNode = countryNodes.find(c => c.countryNodeId === activeCountryNodeId || c.id === activeCountryNodeId) || countryNodes[0];
   const activeOrganisation = organisations.find(o => o.organisationId === activeOrganisationId || (o as any).id === activeOrganisationId) || organisations[0];

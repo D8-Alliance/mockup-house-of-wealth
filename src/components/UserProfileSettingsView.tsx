@@ -468,7 +468,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
               <div className="relative">
                 <input 
                   type="text"
-                  value={formData.organization || 'Pakistan Central Islamic Fund'}
+                  value={formData.organization || 'Malaysia Central Islamic Fund'}
                   onChange={e => setFormData({ ...formData, organization: e.target.value })}
                   className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
@@ -485,7 +485,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
                 onChange={e => setFormData({ ...formData, country: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
               >
-                <option value="Pakistan">Pakistan (🇵🇰)</option>
+                <option value="Malaysia">Malaysia (🇲🇾)</option>
                 <option value="Malaysia">Malaysia (🇲🇾)</option>
                 <option value="Turkey">Turkey (🇹🇷)</option>
                 <option value="Indonesia">Indonesia (🇮🇩)</option>
@@ -501,11 +501,11 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
                 Preferred Timezone
               </label>
               <select
-                value={formData.timezone || 'Asia/Karachi'}
+                value={formData.timezone || 'Asia/Kuala_Lumpur'}
                 onChange={e => setFormData({ ...formData, timezone: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
               >
-                <option value="Asia/Karachi">(GMT+05:00) Pakistan Standard Time - Karachi / Islamabad</option>
+                <option value="Asia/Kuala_Lumpur">(GMT+05:00) Malaysia Standard Time - Kuala Lumpur</option>
                 <option value="Asia/Kuala_Lumpur">(GMT+08:00) Malaysia Time - Kuala Lumpur</option>
                 <option value="Europe/Istanbul">(GMT+03:00) Turkey Time - Istanbul</option>
                 <option value="Asia/Jakarta">(GMT+07:00) Western Indonesia Time - Jakarta</option>
@@ -684,7 +684,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
                         Current Session
                       </span>
                     </div>
-                    <span className="text-[10px] text-slate-400">Islamabad, Pakistan • IP 194.187.240.12</span>
+                    <span className="text-[10px] text-slate-400">Putrajaya, Malaysia • IP 194.187.240.12</span>
                   </div>
                 </div>
                 <span className="text-xs font-bold text-emerald-500">Active Now</span>
@@ -740,7 +740,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
                 className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
               >
                 <option value="USD">USD ($) - United States Dollar</option>
-                <option value="PKR">PKR (₨) - Pakistani Rupee</option>
+                <option value="MYR">MYR (₨) - Malaysiai Rupee</option>
                 <option value="MYR">MYR (RM) - Malaysian Ringgit</option>
                 <option value="TRY">TRY (₺) - Turkish Lira</option>
                 <option value="IDR">IDR (Rp) - Indonesian Rupiah</option>

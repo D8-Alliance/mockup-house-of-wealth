@@ -33,6 +33,7 @@ import { CancelDowngradeModal } from './CancelDowngradeModal';
 import { CreditBalanceModal } from './CreditBalanceModal';
 import { PremiumReportsCatalog } from './PremiumReportsCatalog';
 import { FutureRevenueSection } from './FutureRevenueSection';
+import { apiClient } from '../../services/apiClient';
 
 interface MembershipViewProps {
   userId?: string;
@@ -85,9 +86,14 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
     setSelectedPlanForUpgrade({ plan: targetPlan, interval: 'monthly' });
   };
 
-  const handleConfirmUpgrade = (planId: string, interval: BillingInterval, method: string) => {
-    revenueService.upgradeMembership(userId, planId, interval, method);
-    setSelectedPlanForUpgrade(null);
+  const handleConfirmUpgrade = async (planId: string, interval: BillingInterval, method: string) => {
+    try {
+      const updatedMembership = await apiClient.upgradeMembership({ planId, billingInterval: interval, paymentMethod: method });
+      setMembership(updatedMembership as UserMembership);
+      setSelectedPlanForUpgrade(null);
+    } catch (error) {
+      console.error('Membership upgrade failed', error);
+    }
   };
 
   const handleConfirmCancelDowngrade = () => {

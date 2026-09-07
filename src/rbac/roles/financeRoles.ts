@@ -48,7 +48,7 @@ export const FINANCE_ROLES: Record<string, RoleDefinition> = {
     role: 'Treasury Officer',
     title: 'Cross-Border Treasury & FX Liquidity Manager',
     category: 'Operational Management',
-    description: 'Manages multi-currency foreign exchange swaps (USD/PKR/TRY/MYR/IDR), reserve ratio maintenance, and banking liquidity rails.',
+    description: 'Manages multi-currency foreign exchange swaps (USD/MYR/TRY/MYR/IDR), reserve ratio maintenance, and banking liquidity rails.',
     badgeColor: 'bg-blue-600/10 text-blue-700 dark:text-blue-300 border-blue-600/30',
     accessibleTabs: ['dashboard', 'wallet', 'financials', 'ledger', 'profile'],
     permissions: {
