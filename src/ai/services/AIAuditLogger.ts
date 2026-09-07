@@ -66,11 +66,14 @@ class AIAuditLoggerService {
   }
 
   public getLogs(userId?: string, role?: string): AIAuditEvent[] {
-    return this.logs.filter(l => {
-      if (role === 'Super Admin' || role === 'AI Administrator') return true;
-      if (userId && l.userId === userId) return true;
-      return true;
-    });
+    const isAdministrator = role === 'Super Admin' || role === 'AI Administrator' || role === 'Auditor';
+    if (isAdministrator) {
+      return [...this.logs];
+    }
+    if (!userId) {
+      return [];
+    }
+    return this.logs.filter(l => l.userId === userId);
   }
 
   public getAllLogs(): AIAuditEvent[] {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, ShieldAlert, AlertTriangle, CheckCircle2, Scale, BrainCircuit, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Scale, BrainCircuit, RefreshCw } from 'lucide-react';
 import { AIContractAnalysis } from '../../types';
 import { AIConfidenceBadge } from './AIConfidenceBadge';
 

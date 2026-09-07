@@ -170,7 +170,7 @@ export const AdminRevenueConfig: React.FC<AdminRevenueConfigProps> = ({ onBack }
                 <div>
                   <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     <span>{pkg.title}</span>
-                    <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[9px] font-bold">
+                    <span className="px-1.5 py-[2px] rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[9px] font-bold">
                       {pkg.badgeText}
                     </span>
                   </div>

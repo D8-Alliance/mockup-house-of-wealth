@@ -6,10 +6,7 @@ import {
   Eye, 
   MousePointerClick, 
   Users, 
-  DollarSign, 
-  ShieldAlert, 
-  TrendingUp,
-  Tag
+  ShieldAlert
 } from 'lucide-react';
 import { marketplaceMonetisationService } from '../../revenue/marketplaceMonetisationService';
 import { PROMOTION_DISCLAIMER_TEXT } from '../../revenue/marketplaceMonetisationConfig';

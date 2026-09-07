@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Globe, ArrowLeft, Building2, Users, FolderKanban, Coins, ShieldCheck, FileSpreadsheet, CheckCircle2 } from 'lucide-react';
+import { Globe, ArrowLeft, Building2, Users, FolderKanban, Coins, ShieldCheck, FileSpreadsheet } from 'lucide-react';
 import { CountryNode } from './countryNodeTypes';
 import { organisationService } from '../organisations/organisationService';
 import { userService } from '../users/userService';

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, Send, Download, FileText, Sparkles, CheckCircle2, FileSpreadsheet } from 'lucide-react';
+import { Bot, Send, Download, FileText, CheckCircle2, FileSpreadsheet } from 'lucide-react';
 import { AIExecutiveSummaryReport } from './AITypes';
 import { AIConfidenceBadge } from './AIConfidenceBadge';
 

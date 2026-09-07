@@ -2,12 +2,7 @@ import React, { useState } from 'react';
 import { 
   Check, 
   Sparkles, 
-  ShieldCheck, 
-  Zap, 
-  Users, 
-  Layers, 
-  Headphones, 
-  FileText 
+  Zap
 } from 'lucide-react';
 import { MembershipPlan, MembershipTier, BillingInterval } from '../../revenue/revenueTypes';
 
@@ -63,7 +58,7 @@ export const PlanComparisonTable: React.FC<PlanComparisonTableProps> = ({
               }`}
             >
               <span>Annual (Save 17%)</span>
-              <span className="px-1.5 py-0.2 bg-emerald-700 text-white rounded text-[10px]">2 mo free</span>
+              <span className="px-1.5 py-[2px] bg-emerald-700 text-white rounded text-[10px]">2 mo free</span>
             </button>
           </div>
 

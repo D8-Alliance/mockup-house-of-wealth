@@ -13,6 +13,7 @@ import {
 import { RBACProvider, useRBAC } from './rbac/RBACContext';
 import { TenancyProvider } from './tenancy/TenancyContext';
 import { RoleSwitcherBar } from './rbac/RoleSwitcherBar';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -25,18 +26,12 @@ import { AssetRegistrationWizardModal } from './components/AssetRegistrationWiza
 import { PDPRegistrationModal } from './pdp/components/PDPRegistrationModal';
 import { LoginModal } from './components/auth/LoginModal';
 
-function MainAppContent() {
+function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.Dispatch<React.SetStateAction<UserProfile>> }) {
   const [currentTab, setTab] = useState<NavTab>('dashboard');
   const [lang, setLang] = useState<LanguageCode>('en');
   const [darkMode, setDarkMode] = useState<boolean>(false);
 
-  const { activeUser, showLoginModal, setShowLoginModal } = useRBAC();
-
-  const [user, setUser] = useState<UserProfile>(activeUser);
-
-  useEffect(() => {
-    setUser(activeUser);
-  }, [activeUser.role, activeUser.name]);
+  const { showLoginModal, setShowLoginModal } = useRBAC();
 
   const [assets, setAssets] = useState<AssetItem[]>(INITIAL_ASSETS);
   const [contracts, setContracts] = useState<ContractItem[]>(INITIAL_CONTRACTS);
@@ -64,22 +59,23 @@ function MainAppContent() {
   }, [darkMode]);
 
   const handleAddAsset = (newAsset: AssetItem) => {
-    setAssets([newAsset, ...assets]);
+    setAssets(prev => [newAsset, ...prev]);
     setAssetRegisterOpen(false);
     setTab('assets');
   };
 
   const handleAddContract = (newContract: ContractItem) => {
-    setContracts([newContract, ...contracts]);
+    setContracts(prev => [newContract, ...prev]);
     setContractWizardOpen(false);
     setTab('contracts');
   };
 
   return (
-    <div 
-      dir={isRtl ? 'rtl' : 'ltr'} 
-      className="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200"
-    >
+    <ErrorBoundary>
+      <div 
+        dir={isRtl ? 'rtl' : 'ltr'} 
+        className="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200"
+      >
       <RoleSwitcherBar />
 
       <Navbar
@@ -116,19 +112,19 @@ function MainAppContent() {
         />
       </main>
 
-      <Footer setTab={setTab} />
+      <Footer setTab={setTab} onOpenCodeReview={() => setCodeReviewOpen(true)} />
 
       {codeReviewOpen && <CodeReviewModal onClose={() => setCodeReviewOpen(false)} />}
       {contractWizardOpen && (
         <ContractWizardModal 
           onClose={() => setContractWizardOpen(false)} 
-          onSubmitContract={handleAddContract}
+          onComplete={handleAddContract}
         />
       )}
       {assetRegisterOpen && (
         <AssetRegistrationWizardModal 
           onClose={() => setAssetRegisterOpen(false)} 
-          onSubmitAsset={handleAddAsset}
+          onAddAsset={handleAddAsset}
         />
       )}
       {pdpRegisterOpen && (
@@ -143,8 +139,9 @@ function MainAppContent() {
           onClose={() => setSelectedContractPerf(null)} 
         />
       )}
-      {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
-    </div>
+      {showLoginModal && <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />}
+      </div>
+    </ErrorBoundary>
   );
 }
 
@@ -155,6 +152,9 @@ export default function App() {
     email: 'ahmed.almansoor@how.org',
     role: 'Country Admin',
     organization: 'House of Wealth - Pakistan Node',
+    organizationName: 'House of Wealth - Pakistan Node',
+    organisationId: 'ORG-GULF-CAP',
+    countryNodeId: 'CN-PAK',
     country: 'Pakistan',
     countryCode: 'PK',
     verified: true,
@@ -170,10 +170,16 @@ export default function App() {
     timezone: 'Asia/Karachi'
   };
 
+  const [user, setUser] = useState<UserProfile>(initialUser);
+
+  const handleUserRoleChange = (updatedUser: UserProfile) => {
+    setUser(updatedUser);
+  };
+
   return (
-    <RBACProvider initialUser={initialUser}>
+    <RBACProvider currentUser={user} onUserRoleChange={handleUserRoleChange}>
       <TenancyProvider>
-        <MainAppContent />
+        <MainAppContent user={user} setUser={setUser} />
       </TenancyProvider>
     </RBACProvider>
   );

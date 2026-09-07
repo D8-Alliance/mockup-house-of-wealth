@@ -2,25 +2,11 @@ import React, { useState } from 'react';
 import { 
   UserCheck, 
   Search, 
-  Filter, 
-  Shield, 
   ShieldCheck, 
   Plus, 
   Users, 
   KeyRound, 
-  CheckCircle2, 
-  Copy, 
-  Eye, 
-  Edit3, 
-  Layers, 
-  ArrowRight, 
-  ChevronRight,
-  Building2,
-  Lock,
-  ExternalLink,
-  Award,
-  BookOpen,
-  DollarSign
+  CheckCircle2
 } from 'lucide-react';
 import { UserRole, RoleDefinition, ResourceModule } from '../../rbac/types';
 import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';

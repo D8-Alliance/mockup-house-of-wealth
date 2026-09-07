@@ -37,7 +37,7 @@ export const RevenueManagementHub: React.FC = () => {
   >(null);
 
   const isSuperAdmin = currentRole === 'Super Admin' || currentRole === 'System Administrator';
-  const isFinance = currentRole === 'Finance Officer' || currentRole === 'Finance' || currentRole === 'Treasury Officer';
+  const isFinance = currentRole === 'Finance Officer' || currentRole === 'Treasury Officer';
   const isAuditor = currentRole === 'Auditor';
   const isCountryAdmin = currentRole === 'Country Admin';
   const isPDP = currentRole === 'Project Sponsor' || currentRole === 'Project Manager';

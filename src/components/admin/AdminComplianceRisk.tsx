@@ -1,31 +1,21 @@
 import React, { useState } from 'react';
 import { 
-  UserCheck, 
-  Building2, 
-  ShieldAlert, 
-  Search, 
-  CheckCircle2, 
-  XCircle, 
-  AlertTriangle, 
-  Plus, 
-  Filter, 
-  FileSpreadsheet, 
-  Activity, 
-  Check, 
-  RefreshCw, 
-  Eye, 
-  Download,
-  Lock,
-  ExternalLink
+  Building2
 } from 'lucide-react';
 
 interface AdminComplianceRiskProps {
   section: 'compliance_kyc' | 'compliance_kyb' | 'compliance_aml' | 'compliance_pep' | 'compliance_sanctions' | 'risk_register' | 'risk_incidents' | 'sys_auditlogs';
 }
 
-export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ section }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+const auditLogRows = [
+  { time: '2026-08-05 16:30:21', actor: 'Admin System (auto)', action: 'Compliance Screening Threshold Update', resource: 'AML-ENGINE', result: 'Success' },
+  { time: '2026-08-05 14:12:07', actor: 'Samira Binti K. (Security Admin)', action: 'Permission Matrix Changed', resource: 'RBAC-MATRIX', result: 'Success' },
+  { time: '2026-08-05 11:55:40', actor: 'Dr. Zulkifli (Risk Officer)', action: 'Risk Register Record Updated', resource: 'RSK-01', result: 'Success' },
+  { time: '2026-08-05 09:48:12', actor: 'Yusuf Taskin (Compliance Officer)', action: 'KYB Entity Verified', resource: 'KYB-302', result: 'Success' },
+  { time: '2026-08-04 22:03:55', actor: 'System (Scheduled Job)', action: 'Sanctions List Synchronization', resource: 'SNC-LIST', result: 'Failure' }
+];
 
+export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ section }) => {
   // KYC Queue State
   const [kycList, setKycList] = useState([
     { id: 'KYC-1092', name: 'Zaid Al-Mansoor', country: 'Pakistan', docType: 'CNIC & Passport', livenessScore: 98, status: 'Pending Review', submittedDate: '2026-08-05 14:10' },
@@ -307,6 +297,48 @@ export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ sectio
                 <span className={`font-bold px-2.5 py-1 rounded-full ${s.status.includes('Frozen') ? 'bg-rose-500/10 text-rose-600' : 'bg-emerald-500/10 text-emerald-600'}`}>{s.status}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* SYSTEM AUDIT LOGS */}
+      {section === 'sys_auditlogs' && (
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">System Audit Logs</h3>
+              <p className="text-xs text-slate-500">Immutable record of administrator, compliance, and security actions.</p>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-900/60 font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-200/60 dark:border-slate-700/60 text-[11px]">
+                  <th className="p-3.5">Timestamp</th>
+                  <th className="p-3.5">Actor</th>
+                  <th className="p-3.5">Action</th>
+                  <th className="p-3.5">Resource</th>
+                  <th className="p-3.5">Result</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                {auditLogRows.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30">
+                    <td className="p-3.5 font-mono text-slate-500">{row.time}</td>
+                    <td className="p-3.5 font-bold text-slate-800 dark:text-slate-200">{row.actor}</td>
+                    <td className="p-3.5 text-slate-600 dark:text-slate-300">{row.action}</td>
+                    <td className="p-3.5 font-mono text-purple-600">{row.resource}</td>
+                    <td className="p-3.5">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                        row.result === 'Success' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-600'
+                      }`}>
+                        {row.result}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

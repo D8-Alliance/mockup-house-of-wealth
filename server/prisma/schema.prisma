@@ -1,0 +1,255 @@
+// House of Wealth - Prisma schema (PostgreSQL)
+// Persistence layer for the backend API.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+// Mirror of the frontend UserRole union so the policy engine and IdP mapping
+// share a single server-side source of truth.
+enum UserRole {
+  Super_Admin
+  Country_Admin
+  Organization_Admin
+  Project_Sponsor
+  Project_Manager
+  Asset_Owner
+  Asset_Manager
+  Pool_Manager
+  Retail_Investor
+  HNWI_Investor
+  Institutional_Investor
+  Corporate_Investor
+  Family_Office
+  Portfolio_Manager
+  Shariah_Advisor
+  Shariah_Reviewer
+  Shariah_Committee
+  Compliance_Officer
+  KYC_Officer
+  KYB_Officer
+  AML_Officer
+  Risk_Officer
+  Fraud_Analyst
+  Legal_Officer
+  Finance_Officer
+  Treasury_Officer
+  Settlement_Officer
+  Reconciliation_Officer
+  Auditor
+  Customer_Support
+  System_Administrator
+  Security_Administrator
+  Data_Administrator
+  AI_Administrator
+  AI_Model_Reviewer
+  Guest
+}
+
+// Users are provisioned from the Identity Provider (Auth0 / Entra / Keycloak / Okta)
+// via their OIDC subject identifier. This table stores the server-side profile and
+// role mapping only; authentication is delegated to the IdP.
+model User {
+  id             String   @id @default(cuid())
+  idpProvider    String // 'auth0' | 'azure' | 'keycloak' | 'okta'
+  idpSubjectId   String // OIDC `sub` claim
+  email          String   @unique
+  name           String  
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // User can have multiple roles per organisation/country node
+  roleAssignments UserRoleAssignment[]
+
+  @@unique([idpProvider, idpSubjectId])
+  @@index([email])
+}
+
+// User role assignments are scoped to a specific organisation and country node.
+// A user can have multiple roles within a single org/country, or roles across multiple orgs.
+model UserRoleAssignment {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           UserRole
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  countryNodeId  String
+  countryNode    CountryNode @relation(fields: [countryNodeId], references: [code], onDelete: Cascade)
+  assignedBy     String   // userId of the admin who made this assignment
+  assignedAt     DateTime @default(now())
+  revokedBy      String?
+  revokedAt      DateTime?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, role, organisationId, countryNodeId])
+  @@index([role])
+  @@index([countryNodeId])
+}
+
+// ---------------------------------------------------------------------------
+// Tenancy
+// ---------------------------------------------------------------------------
+
+model CountryNode {
+  code                      String            @id
+  name                      String
+  currency                  String
+  timezone                  String
+  regulatoryProfile         String
+  status                    String
+  verificationStatus        String
+  activeOrganisationsCount  Int               @default(0)
+  activeUsersCount          Int               @default(0)
+  activeProjectsCount       Int               @default(0)
+  activePoolsCount          Int               @default(0)
+  flagUrl                   String
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+  
+  organisations             Organisation[]
+  projects                  Project[]
+  pools                     WealthPool[]
+  auditEvents               AuditEvent[]
+  userRoleAssignments       UserRoleAssignment[]
+}
+
+model Organisation {
+  id            String        @id @default(cuid())
+  name          String
+  countryNodeId String
+  countryNode   CountryNode   @relation(fields: [countryNodeId], references: [code])
+  status        String        @default("ACTIVE")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  projects            Project[]
+  pools               WealthPool[]
+  auditEvents         AuditEvent[]
+  userRoleAssignments UserRoleAssignment[]
+
+  @@index([countryNodeId])
+}
+
+// ---------------------------------------------------------------------------
+// Domain
+// ---------------------------------------------------------------------------
+
+model Project {
+  projectId                  String              @id @default(cuid())
+  projectCode                String              @unique
+  projectName                String
+  description                String
+  organisationId             String
+  countryNodeId              String
+  sector                     String
+  totalProjectCost           Decimal             @db.Decimal(18, 2)
+  sponsorContribution        Decimal             @db.Decimal(18, 2)
+  fundingRequired            Decimal             @db.Decimal(18, 2)
+  proposedShariahContract    String
+  status                     String
+  projectSponsorId           String
+  createdAt                  DateTime            @default(now())
+  updatedAt                  DateTime            @updatedAt
+
+  organisation               Organisation        @relation(fields: [organisationId], references: [id])
+  countryNode                CountryNode         @relation(fields: [countryNodeId], references: [code])
+  pools                      WealthPool[]
+  fundingRequests            FundingRequest[]
+
+  @@index([countryNodeId])
+  @@index([organisationId])
+  @@index([status])
+}
+
+model WealthPool {
+  poolId              String          @id @default(cuid())
+  poolName            String
+  currency            String
+  investmentStructure String
+  indicativeExpectedReturn Decimal    @db.Decimal(5, 2)
+  status              String          @default("OPEN")
+  projectId           String
+  organisationId      String
+  countryNodeId       String
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  project             Project         @relation(fields: [projectId], references: [projectId])
+  organisation        Organisation    @relation(fields: [organisationId], references: [id])
+  countryNode         CountryNode     @relation(fields: [countryNodeId], references: [code])
+  fundingRequests     FundingRequest[]
+
+  @@index([countryNodeId])
+  @@index([projectId])
+}
+
+model FundingRequest {
+  fundingRequestId String       @id @default(cuid())
+  projectId        String
+  poolId           String?
+  organisationId   String
+  countryNodeId    String
+  requestedAmount  Decimal      @db.Decimal(18, 2)
+  currency         String       @default("USD")
+  purpose          String       @default("Project funding")
+  status           String       @default("PENDING") // PENDING | APPROVED | DISBURSED | REJECTED
+  requestedBy      String
+  requestedAt      DateTime     @default(now())
+  approvedBy       String?
+  approvedAt       DateTime?
+  disbursedBy      String?
+  disbursedAt      DateTime?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  project          Project      @relation(fields: [projectId], references: [projectId])
+  pool             WealthPool?  @relation(fields: [poolId], references: [poolId])
+
+  @@index([countryNodeId])
+  @@index([projectId])
+}
+
+// ---------------------------------------------------------------------------
+// Append-only audit log
+// ---------------------------------------------------------------------------
+
+// Insert-only by application convention. CREATE TRIGGER blocks UPDATE/DELETE at
+// the database layer (see prisma/migrations/*/migration.sql) so rows are
+// tamper-evident even if the application or a client is compromised.
+model AuditEvent {
+  id             String   @id @default(cuid())
+  userId         String
+  userEmail      String?
+  action         String // e.g. "funding.request", "project.create"
+  resourceType   String // e.g. "FundingRequest", "Project"
+  resourceId     String
+  organisationId String?
+  countryNodeId  String?
+  result         String   @default("Success")
+  metadata       Json
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  countryNode   CountryNode?   @relation(fields: [countryNodeId], references: [code])
+  organisation  Organisation?  @relation(fields: [organisationId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([resourceType, resourceId])
+  @@index([countryNodeId])
+  @@index([createdAt])
+}

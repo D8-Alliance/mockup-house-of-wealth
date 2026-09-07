@@ -4,7 +4,10 @@ import { aiGovernanceService } from './AIGovernanceService';
 import { aiAuditLogger } from './AIAuditLogger';
 
 class AIOrchestratorService {
-  public async executeAIRequest<T = any>(request: AIRequest): Promise<AIResponse<T>> {
+  public async executeAIRequest<T = any>(
+    request: AIRequest,
+    responseBuilder?: (base: AIResponse) => AIResponse<T>
+  ): Promise<AIResponse<T>> {
     const isEnabled = aiGovernanceService.isFeatureEnabled(request.module);
 
     if (!isEnabled) {
@@ -33,11 +36,15 @@ class AIOrchestratorService {
         requiresHumanReview: true,
         generatedAt: new Date().toISOString()
       };
-      return disabledResponse;
+      return disabledResponse as AIResponse<T>;
     }
 
     // Call provider
     const rawResponse = await defaultAIProvider.analyze(request);
+
+    // Apply optional domain-specific response builder so the returned,
+    // audit-logged content is exactly what callers consume.
+    const finalResponse = responseBuilder ? responseBuilder(rawResponse) : (rawResponse as AIResponse<T>);
 
     // Record AI Audit Event
     aiAuditLogger.logEvent({
@@ -48,14 +55,14 @@ class AIOrchestratorService {
       role: request.role,
       aiFeature: request.module,
       inputContextSummary: `${request.action} on ${JSON.stringify(request.context || {}).slice(0, 100)}`,
-      outputSummary: String(rawResponse.recommendation?.title || 'AI Recommendation generated'),
-      recommendation: String(rawResponse.recommendation?.summary || 'Analysis complete'),
-      confidenceLevel: rawResponse.confidence.level,
-      riskFlagsCount: rawResponse.riskFlags.length,
+      outputSummary: String((finalResponse as any).recommendation?.title || 'AI Recommendation generated'),
+      recommendation: String((finalResponse as any).recommendation?.summary || 'Analysis complete'),
+      confidenceLevel: finalResponse.confidence.level,
+      riskFlagsCount: finalResponse.riskFlags.length,
       humanDecision: 'PENDING'
     });
 
-    return rawResponse;
+    return finalResponse;
   }
 }
 

@@ -13,7 +13,7 @@ export const AuditTrailView: React.FC = () => {
   const filteredEvents = allEvents.filter(e => {
     // Tenant filtering based on role
     if (tenantContext.role !== 'Super Admin' && tenantContext.role !== 'Security Administrator') {
-      if (tenantContext.role === 'Country Admin' || tenantContext.role === 'National Regulator') {
+      if (tenantContext.role === 'Country Admin') {
         if (e.countryNodeId && e.countryNodeId !== tenantContext.countryNodeId) return false;
       } else {
         if (e.organisationId && e.organisationId !== tenantContext.organisationId) return false;

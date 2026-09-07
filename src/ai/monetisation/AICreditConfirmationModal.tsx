@@ -80,11 +80,11 @@ export const AICreditConfirmationModal: React.FC<AICreditConfirmationModalProps>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.2 rounded-full border border-purple-500/20">
+              <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-[2px] rounded-full border border-purple-500/20">
                 {op.category} Operation
               </span>
               {op.badge && (
-                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded">
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-[2px] rounded">
                   {op.badge}
                 </span>
               )}

@@ -20,9 +20,6 @@ import {
   Cpu, 
   Server, 
   Calendar,
-  Check,
-  Eye,
-  Plus
 } from 'lucide-react';
 import { AdminModuleSection } from '../../types';
 import { AdminReportsView } from './AdminReportsView';

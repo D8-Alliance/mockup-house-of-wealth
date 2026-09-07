@@ -6,12 +6,9 @@ import { useRBAC } from '../rbac/RBACContext';
 import { filterByTenant, TenantContext } from './tenantFilter';
 import { organisationService } from '../organisations/organisationService';
 import { userService } from '../users/userService';
+import { countryNodeService } from '../countryNodes/countryNodeService';
 
-export const INITIAL_COUNTRY_NODES: CountryNode[] = [
-  { id: 'CN-PAK', countryNodeId: 'CN-PAK', code: 'PAK', countryCode: 'PAK', name: 'Pakistan', countryName: 'Pakistan', flagUrl: '🇵🇰', currency: 'PKR / USD', timezone: 'Asia/Karachi', centralBankApproval: true, activeOrganisationsCount: 12, activeUsersCount: 98, activeProjectsCount: 16, activePoolsCount: 6, status: 'ACTIVE', verificationStatus: 'VERIFIED', createdAt: '2024-01-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z', regulatoryProfile: 'SBP / SECP', region: 'South Asia' },
-  { id: 'CN-TUR', countryNodeId: 'CN-TUR', code: 'TUR', countryCode: 'TUR', name: 'Turkey', countryName: 'Turkey', flagUrl: '🇹🇷', currency: 'TRY / USD', timezone: 'Europe/Istanbul', centralBankApproval: true, activeOrganisationsCount: 8, activeUsersCount: 64, activeProjectsCount: 10, activePoolsCount: 4, status: 'ACTIVE', verificationStatus: 'VERIFIED', createdAt: '2024-01-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z', regulatoryProfile: 'SPK / BDDK', region: 'Eurasia' },
-  { id: 'CN-MYS', countryNodeId: 'CN-MYS', code: 'MYS', countryCode: 'MYS', name: 'Malaysia', countryName: 'Malaysia', flagUrl: '🇲🇾', currency: 'MYR / USD', timezone: 'Asia/Kuala_Lumpur', centralBankApproval: true, activeOrganisationsCount: 18, activeUsersCount: 142, activeProjectsCount: 24, activePoolsCount: 8, status: 'ACTIVE', verificationStatus: 'VERIFIED', createdAt: '2024-01-01T00:00:00Z', updatedAt: '2026-08-01T00:00:00Z', regulatoryProfile: 'Bank Negara Malaysia / SC', region: 'Southeast Asia' }
-];
+export const INITIAL_COUNTRY_NODES: CountryNode[] = countryNodeService.getAllCountryNodes();
 
 interface TenancyContextType {
   activeCountryNode: CountryNode;

@@ -3,6 +3,7 @@ import { INITIAL_INVESTMENT_ORDERS, INITIAL_INVESTOR_PROFILES } from '../data/mo
 import { poolService } from '../pooling/poolService';
 import { auditLogger } from '../audit/auditLogger';
 import { notificationService } from '../notifications/notificationService';
+import { generateNumericId } from '../utils/id';
 
 class InvestmentService {
   private orders: InvestmentOrder[] = [...INITIAL_INVESTMENT_ORDERS];
@@ -61,7 +62,7 @@ class InvestmentService {
       throw new Error(`Validation Error: Maximum investment limit per investor for this pool is ${pool.maximumInvestment.toLocaleString()} ${pool.currency}.`);
     }
 
-    const newId = `INV-ORD-${Date.now().toString().slice(-4)}`;
+    const newId = generateNumericId('INV-ORD', 6);
 
     const newOrder: InvestmentOrder = {
       investmentId: newId,

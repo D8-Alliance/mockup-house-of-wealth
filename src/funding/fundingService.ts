@@ -4,6 +4,7 @@ import { poolService } from '../pooling/poolService';
 import { projectService } from '../projects/projectService';
 import { auditLogger } from '../audit/auditLogger';
 import { notificationService } from '../notifications/notificationService';
+import { generateNumericId } from '../utils/id';
 
 class FundingService {
   private requests: FundingRequest[] = [...INITIAL_FUNDING_REQUESTS];
@@ -42,7 +43,7 @@ class FundingService {
     const pool = poolService.getPoolById(poolId);
 
     const newReq: FundingRequest = {
-      id: `FUND-REQ-${Date.now().toString().slice(-4)}`,
+      id: generateNumericId('FUND-REQ', 6),
       projectId,
       projectName: project?.projectName || 'Project',
       poolId,
@@ -91,7 +92,7 @@ class FundingService {
     req.disbursedAt = new Date().toISOString();
 
     const disb: Disbursement = {
-      id: `DISB-${Date.now().toString().slice(-4)}`,
+      id: generateNumericId('DISB', 6),
       fundingRequestId: req.id,
       projectId: req.projectId,
       trancheNumber: this.disbursements.length + 1,

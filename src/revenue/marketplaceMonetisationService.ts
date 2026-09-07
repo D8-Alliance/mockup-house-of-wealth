@@ -12,6 +12,7 @@ import {
   INITIAL_PROMOTED_SERVICES,
   INITIAL_SPONSORED_MARKETPLACE_BANNER
 } from './marketplaceMonetisationConfig';
+import { generateNumericId } from '../utils/id';
 
 class MarketplaceMonetisationService {
   private packages: PromotionPackage[] = [...INITIAL_PROMOTION_PACKAGES];
@@ -140,7 +141,7 @@ class MarketplaceMonetisationService {
     });
 
     const newCampaign: PromotionCampaign = {
-      id: `CMP-${Date.now().toString().slice(-6)}`,
+      id: `CMP-${generateNumericId('CMP', 6)}`,
       targetId: projectId,
       targetType: 'PROJECT',
       targetTitle: projectTitle,
@@ -203,7 +204,7 @@ class MarketplaceMonetisationService {
   }): PromotedProfessionalService {
     const pkg = this.packages.find(p => p.id === 'pkg_service_promo_30d') || this.packages[4];
     const newService: PromotedProfessionalService = {
-      id: `SRV-${Date.now().toString().slice(-5)}`,
+      id: `SRV-${generateNumericId('SRV', 5)}`,
       companyName: options.companyName,
       category: options.category,
       badgeType: pkg.badgeType,
@@ -213,7 +214,7 @@ class MarketplaceMonetisationService {
       verifiedCredentials: options.verifiedCredentials.length ? options.verifiedCredentials : ['Accredited Shariah Practice', 'Verified Member'],
       rating: 5.0,
       reviewCount: 1,
-      activeCampaignId: `CMP-${Date.now().toString().slice(-6)}`,
+      activeCampaignId: `CMP-${generateNumericId('CMP', 6)}`,
       contactEmail: options.contactEmail,
       views: 12,
       inquiries: 1

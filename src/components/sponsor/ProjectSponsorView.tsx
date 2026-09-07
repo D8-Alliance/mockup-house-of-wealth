@@ -12,7 +12,7 @@ import {
 import { PDPSubscriptionCard } from '../revenue/PDPSubscriptionCard';
 import { ProjectPromotionModal } from '../revenue/ProjectPromotionModal';
 import { revenueService } from '../../revenue/revenueService';
-import { PDPSubscription, ProjectPromotionPackage, HoWCreditBalance } from '../../revenue/revenueTypes';
+import { PDPSubscription, PDPPlan, HoWCreditBalance } from '../../revenue/revenueTypes';
 import { pdpService } from '../../pdp/pdpService';
 import { PDPApplication } from '../../pdp/pdpTypes';
 import { PDPRegistrationModal } from '../../pdp/components/PDPRegistrationModal';
@@ -75,15 +75,15 @@ export const ProjectSponsorView: React.FC = () => {
     }
   };
 
-  const handleConfirmPromotion = (pkg: ProjectPromotionPackage, useCredits: boolean) => {
+  const handleConfirmPromotion = (packageId: string, method: 'cash' | 'credits') => {
     if (projectToPromote) {
-      revenueService.promoteProject(projectToPromote.id, projectToPromote.title, pkg.id, useCredits, userId);
+      revenueService.promoteProject(projectToPromote.id, projectToPromote.title, packageId, method === 'credits', userId);
       setProjectToPromote(null);
     }
   };
 
-  const handleUpgradePDP = (planId: string) => {
-    revenueService.upgradePDPSubscription(sponsorOrgId, planId, 'Corporate FPX Bank Transfer');
+  const handleUpgradePDP = (plan: PDPPlan) => {
+    revenueService.upgradePDPSubscription(sponsorOrgId, plan.id, 'Corporate FPX Bank Transfer');
   };
 
   const filteredProjects = projects.filter(p => {
@@ -219,10 +219,9 @@ export const ProjectSponsorView: React.FC = () => {
       {/* PDP Subscription Status Card */}
       {activeTab === 'dashboard' && (
         <PDPSubscriptionCard
-          subscription={pdpSub}
-          currentPlan={currentPDPPlan}
-          allPlans={pdpPlans}
-          onUpgrade={handleUpgradePDP}
+          currentTierId={pdpSub.planId}
+          activeProjectsCount={pdpSub.activeProjectsCount}
+          onSelectPDPPlan={handleUpgradePDP}
         />
       )}
 
@@ -435,7 +434,8 @@ export const ProjectSponsorView: React.FC = () => {
       {/* Promotion Package Modal */}
       {projectToPromote && (
         <ProjectPromotionModal
-          project={{ id: projectToPromote.id, title: projectToPromote.title }}
+          projectId={projectToPromote.id}
+          projectTitle={projectToPromote.title}
           availableCredits={creditBalance.availableCredits}
           onClose={() => setProjectToPromote(null)}
           onConfirmPromotion={handleConfirmPromotion}

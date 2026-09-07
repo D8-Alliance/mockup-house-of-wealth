@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Save, Layers, Lock } from 'lucide-react';
+import { X, Save } from 'lucide-react';
 import { poolService } from './poolService';
 import { Project } from '../projects/projectTypes';
 import { useRBAC } from '../rbac/RBACContext';

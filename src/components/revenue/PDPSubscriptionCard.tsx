@@ -5,8 +5,6 @@ import {
   Layers, 
   Zap, 
   Star, 
-  CheckCircle2, 
-  ArrowUpRight, 
   Check, 
   X 
 } from 'lucide-react';

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, ShieldAlert, FileSearch, CheckCircle2, Search, Eye } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 import { AIFraudAlert } from '../../types';
 import { AIConfidenceBadge } from './AIConfidenceBadge';
 

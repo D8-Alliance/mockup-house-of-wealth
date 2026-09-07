@@ -40,7 +40,7 @@ export const UpgradePromptBanner: React.FC<UpgradePromptBannerProps> = ({
           <div>
             <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <span>{title}</span>
-              <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.2 rounded-full border border-emerald-500/20">
+              <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-[2px] rounded-full border border-emerald-500/20">
                 {getBadge()}
               </span>
             </div>

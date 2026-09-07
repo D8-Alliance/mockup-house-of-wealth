@@ -2,16 +2,7 @@ import React, { useState } from 'react';
 import { 
   Play, 
   RotateCcw, 
-  CheckCircle2, 
-  ShieldCheck, 
-  BookOpen, 
-  UserCheck, 
-  AlertTriangle, 
-  Layers, 
-  DollarSign, 
   Activity, 
-  Coins, 
-  Award,
   ArrowRight
 } from 'lucide-react';
 import { projectService } from '../projects/projectService';

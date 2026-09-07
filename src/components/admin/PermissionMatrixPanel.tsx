@@ -2,17 +2,9 @@ import React, { useState } from 'react';
 import { 
   KeyRound, 
   Search, 
-  Filter, 
   ShieldCheck, 
-  ShieldAlert, 
-  Check, 
-  X, 
   Download, 
   Play, 
-  Layers, 
-  HelpCircle,
-  Lock,
-  Unlock,
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
@@ -35,16 +27,6 @@ const ALL_MODULES: { key: ResourceModule; label: string; iconDesc: string }[] = 
   { key: 'reports', label: 'Regulatory Reports', iconDesc: 'Central Bank Exports' },
   { key: 'profile', label: 'User Profile & Wallet', iconDesc: 'Account & Custody' }
 ];
-
-const ACTION_COLORS: Record<PermissionAction, { bg: string; text: string; label: string }> = {
-  create: { bg: 'bg-emerald-500/10 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-500/30', text: 'text-emerald-600', label: 'C' },
-  read: { bg: 'bg-blue-500/10 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-500/30', text: 'text-blue-600', label: 'R' },
-  update: { bg: 'bg-amber-500/10 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-500/30', text: 'text-amber-600', label: 'U' },
-  delete: { bg: 'bg-red-500/10 dark:bg-red-950/40 text-red-700 dark:text-red-300 border-red-500/30', text: 'text-red-600', label: 'D' },
-  approve: { bg: 'bg-purple-500/10 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-500/30', text: 'text-purple-600', label: 'A' },
-  audit: { bg: 'bg-indigo-500/10 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-500/30', text: 'text-indigo-600', label: 'Aud' },
-  export: { bg: 'bg-teal-500/10 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-500/30', text: 'text-teal-600', label: 'Exp' }
-};
 
 export const PermissionMatrixPanel: React.FC = () => {
   const { currentRole } = useRBAC();
@@ -320,7 +302,7 @@ export const PermissionMatrixPanel: React.FC = () => {
                             {role.role}
                           </span>
                           {isCurrent && (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500 text-white">
+                            <span className="px-1.5 py-[2px] rounded text-[9px] font-bold bg-emerald-500 text-white">
                               You
                             </span>
                           )}

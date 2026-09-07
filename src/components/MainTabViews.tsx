@@ -157,25 +157,28 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'investments' && (
         <RoleGuard tab="investments">
-          <InvestmentsView lang={lang} setTab={setTab} />
+          <InvestmentsView
+            lang={lang}
+            onNavigateMarketplace={() => setTab('marketplace')}
+          />
         </RoleGuard>
       )}
 
       {currentTab === 'wallet' && (
         <RoleGuard tab="wallet">
-          <WalletView lang={lang} />
+          <WalletView />
         </RoleGuard>
       )}
 
       {currentTab === 'financials' && (
         <RoleGuard tab="financials">
-          <FinancialsView lang={lang} />
+          <FinancialsView />
         </RoleGuard>
       )}
 
       {currentTab === 'documents' && (
         <RoleGuard tab="documents">
-          <DocumentsView lang={lang} />
+          <DocumentsView />
         </RoleGuard>
       )}
 

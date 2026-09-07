@@ -116,7 +116,7 @@ export const PDPCountryConfigAdminPanel: React.FC = () => {
             >
               <img src={c.flagUrl} alt={c.countryName} className="w-4 h-3 rounded object-cover" />
               <span>{c.countryName} ({c.countryCode})</span>
-              <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${isSelected ? 'bg-purple-800 text-purple-200' : 'bg-slate-100 dark:bg-slate-700'}`}>
+              <span className={`text-[10px] px-1.5 py-[2px] rounded font-mono ${isSelected ? 'bg-purple-800 text-purple-200' : 'bg-slate-100 dark:bg-slate-700'}`}>
                 {c.primaryCurrency}
               </span>
             </button>
@@ -217,7 +217,7 @@ export const PDPCountryConfigAdminPanel: React.FC = () => {
                   <p className="text-[11px] text-slate-500">{doc.description}</p>
                   <div className="flex gap-1 pt-1">
                     {doc.applicableTypes.map(type => (
-                      <span key={type} className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-[9px] font-bold text-slate-600 dark:text-slate-400">
+                      <span key={type} className="px-1.5 py-[2px] rounded bg-slate-200 dark:bg-slate-800 text-[9px] font-bold text-slate-600 dark:text-slate-400">
                         {type}
                       </span>
                     ))}

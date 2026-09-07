@@ -3,6 +3,7 @@ import { INITIAL_DISTRIBUTIONS } from '../data/mockPoolingWorkflowDataPart3';
 import { poolService } from '../pooling/poolService';
 import { auditLogger } from '../audit/auditLogger';
 import { notificationService } from '../notifications/notificationService';
+import { generateNumericId } from '../utils/id';
 
 class DistributionService {
   private distributions: DistributionRecord[] = [...INITIAL_DISTRIBUTIONS];
@@ -39,7 +40,7 @@ class DistributionService {
     if (!pool) throw new Error('Pool not found');
 
     const newDist: DistributionRecord = {
-      id: `DIST-${Date.now().toString().slice(-4)}`,
+      id: generateNumericId('DIST', 6),
       poolId,
       poolName: pool.poolName,
       projectId: pool.projectId,

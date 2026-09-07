@@ -71,7 +71,7 @@ export const BuyAICreditsModal: React.FC<BuyAICreditsModalProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.2 rounded-full border border-amber-500/20">
+              <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-[2px] rounded-full border border-amber-500/20">
                 On-Demand Top-Up
               </span>
               <span className="text-[10px] text-slate-400">Never Expire</span>

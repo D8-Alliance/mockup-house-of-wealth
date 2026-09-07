@@ -1,20 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  DollarSign, 
-  TrendingUp, 
-  CreditCard, 
-  FileCheck, 
-  FileText, 
-  BookOpen, 
-  Award, 
-  Plus, 
-  Edit2, 
-  Download, 
-  CheckCircle2, 
-  ShieldCheck, 
-  Lock, 
-  Eye, 
-  Code
+  Edit2
 } from 'lucide-react';
 import { AdminRevenueDashboard } from '../revenue/AdminRevenueDashboard';
 import { AdminRevenueConfig } from '../revenue/AdminRevenueConfig';
@@ -58,6 +44,21 @@ export const AdminFinanceTemplates: React.FC<AdminFinanceTemplatesProps> = ({ se
   const [contractTemplates] = useState([
     { id: 'TPL-CON-01', title: 'AAOIFI Standard Mudarabah Investment Agreement', type: 'Mudarabah', profitSplit: '80% Capital Provider / 20% Mudarib', lossSplit: '100% Capital Provider (unless negligence)' },
     { id: 'TPL-CON-02', title: 'AAOIFI Standard Ijarah Muntahia Bittamleek (Lease-to-Own)', type: 'Ijarah', profitSplit: 'Fixed Rental Lease Yield', lossSplit: 'Lessor bears structural risk' }
+  ]);
+
+  // Digital Signature Registry State
+  const [signatureRegistry] = useState([
+    { id: 'SIG-01', signatory: 'Prof. Dr. Imran Habib', role: 'Chairman, Supreme Shariah Board', keyId: 'HSM-KEY-ALPHA-8842', status: 'Active', attestations: 142 },
+    { id: 'SIG-02', signatory: 'Yusuf Al-Mansoor', role: 'Head of Finance & Treasury', keyId: 'HSM-KEY-BETA-7731', status: 'Active', attestations: 89 },
+    { id: 'SIG-03', signatory: 'Aisha Bint Tariq', role: 'Compliance Officer (Signing Authority)', keyId: 'HSM-KEY-GAMMA-7719', status: 'Active', attestations: 64 }
+  ]);
+
+  // Shariah Board Members State
+  const [shariahBoardMembers] = useState([
+    { id: 'SHB-01', name: 'Prof. Dr. Imran Habib', role: 'Chairman', affiliation: 'International Islamic University', status: 'Active' },
+    { id: 'SHB-02', name: 'Dr. Nurul Izzah Binti Hassan', role: 'Board Member', affiliation: 'Islamic Finance Research Centre (KL)', status: 'Active' },
+    { id: 'SHB-03', name: 'Dr. Bashir Al-Hassani', role: 'Board Member', affiliation: 'AAOIFI Governance Committee', status: 'Active' },
+    { id: 'SHB-04', name: 'Mufti Abdullah Zubair', role: 'Board Member', affiliation: 'Darul Uloom Karachi', status: 'Active' }
   ]);
 
   return (
@@ -199,6 +200,57 @@ export const AdminFinanceTemplates: React.FC<AdminFinanceTemplatesProps> = ({ se
                 <p className="text-slate-500">Loss Allocation Rule: <strong className="text-slate-800 dark:text-slate-200">{c.lossSplit}</strong></p>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* DIGITAL SIGNATURE MANAGEMENT */}
+      {section === 'sys_digitalsig' && (
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+          <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">Digital Signature & E-Signature Control Registry</h3>
+          <p className="text-xs text-slate-500">Track authorized signatories, signature keys, and attestation status for financial documents.</p>
+          <div className="space-y-3 text-xs">
+            {signatureRegistry.map(row => (
+              <div key={row.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-purple-600 font-bold">{row.id}</span>
+                    <span className="font-extrabold text-slate-900 dark:text-white text-sm">{row.signatory}</span>
+                  </div>
+                  <p className="text-slate-500">Role: {row.role} • Key: <span className="font-mono">{row.keyId}</span></p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-600">
+                    {row.status}
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/10 text-purple-600">
+                    {row.attestations} Attestations
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* SHARIAH GOVERNANCE */}
+      {section === 'shariah_governance' && (
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+          <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">Shariah Governance & Board Oversight</h3>
+          <p className="text-xs text-slate-500">Supreme Shariah Board composition, review cadence, and governance controls.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            {shariahBoardMembers.map(member => (
+              <div key={member.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700/60 space-y-1.5">
+                <span className="font-mono text-purple-600 font-bold text-[10px]">{member.id} • {member.role}</span>
+                <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">{member.name}</h4>
+                <p className="text-slate-500">{member.affiliation}</p>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-600">{member.status}</span>
+              </div>
+            ))}
+          </div>
+          <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-xs text-purple-700 dark:text-purple-300 space-y-1">
+            <p className="font-extrabold">Annual Governance Review Schedule</p>
+            <p>Shariah Audit Sign-Off Deadline: Q4 2026 • New Product Structure Review: Bimonthly • Ijarah Pool Certification: Quarterly</p>
           </div>
         </div>
       )}

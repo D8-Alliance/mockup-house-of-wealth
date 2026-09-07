@@ -137,7 +137,7 @@ export const CreditBalanceModal: React.FC<CreditBalanceModalProps> = ({
                   }`}
                 >
                   {pack.popular && (
-                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.2 rounded-full text-[9px] font-black uppercase bg-amber-500 text-white shadow">
+                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-[2px] rounded-full text-[9px] font-black uppercase bg-amber-500 text-white shadow">
                       Best Value
                     </span>
                   )}

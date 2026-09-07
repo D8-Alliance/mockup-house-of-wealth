@@ -37,13 +37,13 @@ const RBACContext = createContext<RBACContextType | undefined>(undefined);
 
 interface RBACProviderProps {
   children: ReactNode;
-  initialUser: UserProfile;
+  currentUser: UserProfile;
   onUserRoleChange?: (updatedUser: UserProfile) => void;
 }
 
 export const RBACProvider: React.FC<RBACProviderProps> = ({
   children,
-  initialUser,
+  currentUser,
   onUserRoleChange
 }) => {
   const [authState, setAuthState] = useState<AuthState>(authService.getAuthState());
@@ -75,7 +75,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
       const newRoleDef = ROLE_DEFINITIONS[newRole];
       if (newRoleDef && onUserRoleChange) {
         const updatedUser: UserProfile = {
-          ...initialUser,
+          ...currentUser,
           role: newRole,
           name: newRoleDef.demoUser.name,
           email: newRoleDef.demoUser.email,
@@ -93,7 +93,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
     const newRoleDef = ROLE_DEFINITIONS[role];
     if (newRoleDef && onUserRoleChange) {
       const updatedUser: UserProfile = {
-        ...initialUser,
+        ...currentUser,
         role: role,
         name: newRoleDef.demoUser.name,
         email: email || newRoleDef.demoUser.email,
@@ -124,7 +124,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
   const sessionUser = authState.session?.user;
 
   const activeUser: UserProfile = {
-    ...initialUser,
+    ...currentUser,
     id: sessionUser?.userId || 'GUEST-001',
     role: currentRole,
     name: isAuthenticated ? (sessionUser?.name || roleDef.demoUser.name) : 'Guest Visitor',

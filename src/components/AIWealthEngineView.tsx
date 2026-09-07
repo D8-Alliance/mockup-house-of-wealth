@@ -168,7 +168,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
               {tab.icon}
               <span>{tab.label}</span>
               {tab.badge && (
-                <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full font-mono ${
+                <span className={`text-[9px] font-black px-1.5 py-[2px] rounded-full font-mono ${
                   isActive ? 'bg-white/20 text-white' : 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'
                 }`}>
                   {tab.badge}

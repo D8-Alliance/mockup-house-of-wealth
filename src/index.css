@@ -6,6 +6,26 @@
   }
 }
 
+/* Fade-in entrance animation.
+   Both `animate-fadeIn` and `animate-fade-in` spellings are used across the
+   codebase; define a single keyframe and expose both class variants so the
+   animation renders consistently regardless of which spelling a component uses. */
+@keyframes how-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeIn,
+.animate-fade-in {
+  animation: how-fade-in 0.35s ease-out both;
+}
+
 /* Custom scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

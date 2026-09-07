@@ -239,7 +239,7 @@ export const AdminAIAnalyticsPanel: React.FC = () => {
                 <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
                   <td className="p-3 font-sans">
                     <div className="font-bold text-slate-900 dark:text-white">{log.userName}</div>
-                    <span className="text-[9.5px] font-mono text-purple-600 bg-purple-500/10 px-1.5 py-0.2 rounded">
+                    <span className="text-[9.5px] font-mono text-purple-600 bg-purple-500/10 px-1.5 py-[2px] rounded">
                       {log.userTier}
                     </span>
                   </td>

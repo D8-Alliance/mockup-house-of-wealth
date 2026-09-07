@@ -2,24 +2,7 @@ import React, { useState } from 'react';
 import { 
   GitPullRequest, 
   Play, 
-  RotateCcw, 
-  CheckCircle2, 
-  Clock, 
-  AlertTriangle, 
-  ShieldCheck, 
-  ArrowRight, 
-  Layers, 
-  Cpu, 
-  Sliders, 
-  Activity, 
-  Check, 
-  ChevronRight, 
-  FileText, 
-  Building2, 
-  Coins, 
-  Award,
-  RefreshCw,
-  Plus
+  RefreshCw
 } from 'lucide-react';
 import { WORKFLOW_STEPS } from '../../workflows/WorkflowTimeline';
 import { useRBAC } from '../../rbac/RBACContext';
@@ -275,7 +258,7 @@ export const WorkflowEnginePanel: React.FC = () => {
               }`}
             >
               <span>Live Instances</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+              <span className="px-1.5 py-[2px] rounded-full text-[10px] bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
                 {instances.length}
               </span>
             </button>

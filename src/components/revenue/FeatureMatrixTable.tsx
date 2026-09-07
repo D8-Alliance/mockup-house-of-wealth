@@ -180,7 +180,7 @@ export const FeatureMatrixTable: React.FC<FeatureMatrixTableProps> = ({
                       <span className="font-bold text-slate-900 dark:text-white">
                         {item.name}
                       </span>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.2 rounded">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-[2px] rounded">
                         {item.category}
                       </span>
                     </div>

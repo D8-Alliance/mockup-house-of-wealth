@@ -2,6 +2,7 @@ import { WealthPool } from './poolTypes';
 import { INITIAL_WEALTH_POOLS } from '../data/mockPoolingWorkflowDataPart3';
 import { auditLogger } from '../audit/auditLogger';
 import { notificationService } from '../notifications/notificationService';
+import { generateNumericId } from '../utils/id';
 
 class PoolService {
   private pools: WealthPool[] = [...INITIAL_WEALTH_POOLS];
@@ -19,7 +20,7 @@ class PoolService {
   }
 
   public createPool(poolData: Partial<WealthPool>, userId: string, userRole: string): WealthPool {
-    const newId = `POOL-${poolData.countryNodeId || 'MYS'}-${Date.now().toString().slice(-3)}`;
+    const newId = `POOL-${poolData.countryNodeId || 'MYS'}-${generateNumericId('P', 4)}`;
     const newCode = `POOL-${(poolData.poolName || 'SUKUK').toUpperCase().slice(0, 8)}-${Math.floor(100 + Math.random() * 900)}`;
 
     const newPool: WealthPool = {

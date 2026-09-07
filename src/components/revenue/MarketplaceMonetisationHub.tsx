@@ -5,10 +5,7 @@ import {
   History, 
   BarChart3, 
   Sliders, 
-  Building2, 
-  Tag, 
-  ShieldAlert,
-  Coins
+  Building2
 } from 'lucide-react';
 import { SponsoredMarketplaceBanner } from './SponsoredMarketplaceBanner';
 import { PDPPromotionCard } from './PDPPromotionCard';

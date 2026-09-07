@@ -11,6 +11,7 @@ import {
   AI_CREDIT_TOPUP_PACKAGES 
 } from './aiCreditPricingConfig';
 import { revenueService } from '../../revenue/revenueService';
+import { generateNumericId } from '../../utils/id';
 
 class AIMonetisationService {
   private operations: AIOperationConfig[] = [...AI_OPERATIONS_PRICING_CONFIG];
@@ -219,7 +220,7 @@ class AIMonetisationService {
 
     const newBalance = currentBalance.remainingCredits - op.creditCost;
     const logEntry: AIUsageLogEntry = {
-      id: `AILOG-${Date.now().toString().slice(-4)}`,
+      id: generateNumericId('AILOG', 6),
       userId,
       userName: meta?.userName || 'Ahmad Farhan (Active Investor)',
       userTier: currentBalance.userTier,

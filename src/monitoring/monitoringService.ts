@@ -2,6 +2,7 @@ import { ProjectMilestoneItem, ProjectProgressUpdate } from './monitoringTypes';
 import { INITIAL_MILESTONES, INITIAL_PROGRESS_UPDATES } from '../data/mockPoolingWorkflowDataPart3';
 import { auditLogger } from '../audit/auditLogger';
 import { notificationService } from '../notifications/notificationService';
+import { generateNumericId } from '../utils/id';
 
 class MonitoringService {
   private milestones: ProjectMilestoneItem[] = [...INITIAL_MILESTONES];
@@ -17,7 +18,7 @@ class MonitoringService {
 
   public addMilestone(milestone: Partial<ProjectMilestoneItem>, userId: string, userRole: string): ProjectMilestoneItem {
     const newM: ProjectMilestoneItem = {
-      id: `MILE-${Date.now().toString().slice(-4)}`,
+      id: generateNumericId('MILE', 6),
       projectId: milestone.projectId || 'PROJ-MYS-001',
       title: milestone.title || 'New Project Milestone',
       targetDate: milestone.targetDate || '2026-12-31',
@@ -57,7 +58,7 @@ class MonitoringService {
 
   public addProgressUpdate(update: Partial<ProjectProgressUpdate>, userId: string, userRole: string): ProjectProgressUpdate {
     const newU: ProjectProgressUpdate = {
-      id: `UPD-${Date.now().toString().slice(-4)}`,
+      id: generateNumericId('UPD', 6),
       projectId: update.projectId || 'PROJ-MYS-001',
       title: update.title || 'Project Progress Report',
       description: update.description || '',

@@ -18,6 +18,7 @@ import {
   PDP_PLANS_CONFIG, 
   PROJECT_PROMOTION_PACKAGES 
 } from './revenueConfig';
+import { generateNumericId } from '../utils/id';
 import { 
   INITIAL_USER_MEMBERSHIP, 
   INITIAL_CREDIT_BALANCE, 
@@ -148,7 +149,7 @@ class RevenueService {
 
     // Record Billing Invoice
     const newInvoice: BillingRecord = {
-      id: `INV-${Date.now().toString().slice(-6)}`,
+      id: `INV-${generateNumericId('INV', 6)}`,
       userId,
       invoiceNumber: `HOW-INV-${userId.replace('USR-', '')}-${new Date().getMonth() + 1}`,
       date: new Date().toISOString().slice(0, 10),
@@ -256,7 +257,7 @@ class RevenueService {
     this.creditBalances.set(userId, updated);
 
     const tx: CreditTransaction = {
-      id: `CTX-${Date.now().toString().slice(-5)}`,
+      id: `CTX-${generateNumericId('CTX', 5)}`,
       userId,
       amount: credits,
       isDebit: false,
@@ -268,9 +269,9 @@ class RevenueService {
     this.creditTransactions = [tx, ...this.creditTransactions];
 
     const newInvoice: BillingRecord = {
-      id: `INV-${Date.now().toString().slice(-6)}`,
+      id: `INV-${generateNumericId('INV', 6)}`,
       userId,
-      invoiceNumber: `HOW-INV-CREDIT-${Date.now().toString().slice(-4)}`,
+      invoiceNumber: `HOW-INV-CREDIT-${generateNumericId('INV', 4)}`,
       date: new Date().toISOString().slice(0, 10),
       description: `HoW AI Credits Pack (${credits} Credits)`,
       amountMYR: priceMYR,
@@ -302,7 +303,7 @@ class RevenueService {
     });
 
     const tx: CreditTransaction = {
-      id: `CTX-${Date.now().toString().slice(-5)}`,
+      id: `CTX-${generateNumericId('CTX', 5)}`,
       userId,
       amount,
       isDebit: true,
@@ -386,9 +387,9 @@ class RevenueService {
 
     // Record invoice
     const newInvoice: BillingRecord = {
-      id: `INV-PDP-${Date.now().toString().slice(-5)}`,
+      id: `INV-PDP-${generateNumericId('PDP', 5)}`,
       userId: orgId,
-      invoiceNumber: `HOW-PDP-${Date.now().toString().slice(-4)}`,
+      invoiceNumber: `HOW-PDP-${generateNumericId('PDP', 4)}`,
       date: new Date().toISOString().slice(0, 10),
       description: `${plan.name} Monthly Subscription`,
       amountMYR: plan.priceMYR,
@@ -422,9 +423,9 @@ class RevenueService {
       if (!success) return false;
     } else if (pkg.priceMYR > 0) {
       const newInvoice: BillingRecord = {
-        id: `INV-PRM-${Date.now().toString().slice(-5)}`,
+        id: `INV-PRM-${generateNumericId('PRM', 5)}`,
         userId,
-        invoiceNumber: `HOW-PRM-${Date.now().toString().slice(-4)}`,
+        invoiceNumber: `HOW-PRM-${generateNumericId('PRM', 4)}`,
         date: new Date().toISOString().slice(0, 10),
         description: `Marketplace Listing Boost: ${projectTitle} (${pkg.title})`,
         amountMYR: pkg.priceMYR,

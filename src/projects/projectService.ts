@@ -4,6 +4,7 @@ import { auditLogger } from '../audit/auditLogger';
 import { notificationService } from '../notifications/notificationService';
 import { dueDiligenceService } from '../dueDiligence/dueDiligenceService';
 import { shariahService } from '../shariah/shariahService';
+import { generateNumericId } from '../utils/id';
 import { complianceService } from '../compliance/complianceService';
 import { riskService } from '../risk/riskService';
 
@@ -44,7 +45,7 @@ class ProjectService {
   }
 
   public createProject(projectData: Partial<Project>, userId: string, userRole: string): Project {
-    const newId = `PROJ-${projectData.countryNodeId || 'MYS'}-${Date.now().toString().slice(-3)}`;
+    const newId = `PROJ-${projectData.countryNodeId || 'MYS'}-${generateNumericId('P', 4)}`;
     const newCode = `${projectData.countryNodeId || 'MYS'}-PROJ-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newProject: Project = {

@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
 import { 
   X, 
-  Sparkles, 
-  Star, 
-  TrendingUp, 
   ShieldAlert, 
   CheckCircle2, 
-  Coins, 
-  CreditCard 
+  Coins
 } from 'lucide-react';
 import { ProjectPromotionPackage } from '../../revenue/revenueTypes';
 import { PROJECT_PROMOTION_PACKAGES } from '../../revenue/revenueConfig';
@@ -85,7 +81,7 @@ export const ProjectPromotionModal: React.FC<ProjectPromotionModalProps> = ({
                     <span className="font-extrabold text-sm text-slate-900 dark:text-white">
                       {pkg.title}
                     </span>
-                    <span className="px-2 py-0.2 rounded-md text-[9px] font-black uppercase bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                    <span className="px-2 py-[2px] rounded-md text-[9px] font-black uppercase bg-amber-500/20 text-amber-700 dark:text-amber-300">
                       {pkg.badgeText}
                     </span>
                   </div>

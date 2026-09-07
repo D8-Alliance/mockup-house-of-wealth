@@ -242,7 +242,7 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono font-bold text-purple-600">{inv.invoiceNumber}</span>
-                    <span className="px-2 py-0.2 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                    <span className="px-2 py-[2px] rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
                       {inv.status}
                     </span>
                   </div>

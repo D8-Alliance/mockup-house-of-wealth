@@ -15,6 +15,7 @@ import {
   INITIAL_AI_CREDIT_SALES_DATA,
   INITIAL_PROMOTION_SALES_DATA
 } from './revenueManagementData';
+import { generateNumericId } from '../utils/id';
 
 class RevenueManagementService {
   private metrics: RevenueSummaryMetrics = { ...INITIAL_REVENUE_METRICS_DATA };
@@ -110,7 +111,7 @@ class RevenueManagementService {
     const netMYR = Number((item.amountMYR - taxMYR).toFixed(2));
     const newTxn: RevenueTransactionItem = {
       ...item,
-      id: `TXN-${Date.now().toString().slice(-6)}`,
+      id: `TXN-${generateNumericId('TXN', 6)}`,
       taxMYR,
       netMYR
     };

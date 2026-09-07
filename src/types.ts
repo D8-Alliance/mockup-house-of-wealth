@@ -23,8 +23,11 @@ export interface UserProfile {
   name: string;
   email: string;
   phone?: string;
-  role: string;
-  organization?: string;
+    role: string;
+    organization?: string;
+    organizationName?: string;
+    organisationId?: string;
+    countryNodeId?: string;
   bio?: string;
   country: string;
   countryCode: string;

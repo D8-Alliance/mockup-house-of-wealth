@@ -15,9 +15,8 @@ export class AIService {
       timestamp: new Date().toISOString()
     };
 
-    const response = await aiOrchestrator.executeAIRequest(req);
-    return {
-      ...response,
+    return aiOrchestrator.executeAIRequest(req, (base) => ({
+      ...base,
       recommendation: {
         primaryStructure: 'Musharakah (Joint Venture Capital)',
         secondaryStructure: 'Mudarabah (Capital Provider & Managing Partner)',
@@ -40,7 +39,7 @@ export class AIService {
           'Profit sharing formula must be documented pre-execution'
         ]
       }
-    };
+    }));
   }
 
   public static async generateContractDraft(params: any, user: any): Promise<AIResponse> {
@@ -56,9 +55,8 @@ export class AIService {
       timestamp: new Date().toISOString()
     };
 
-    const res = await aiOrchestrator.executeAIRequest(req);
-    return {
-      ...res,
+    return aiOrchestrator.executeAIRequest(req, (base) => ({
+      ...base,
       recommendation: {
         title: `DRAFT SHARIAH AGREEMENT (${params.contractType || 'MUDARABAH'})`,
         watermark: 'AI-GENERATED DRAFT • NOT FINAL LEGAL DOCUMENT • NOT FINAL SHARIAH APPROVAL',
@@ -74,7 +72,7 @@ RECITALS & SHARIAH TERMS:
 5. Management Fee: 1.5% p.a. Mudarib fee deducted from realized revenues.
 6. Governing Law & Shariah Oversight: D-8 Shariah Advisory Council & Local Courts.`
       }
-    };
+    }));
   }
 
   public static async matchInvestmentPools(investorProfile: any, pools: any[], user: any): Promise<AIResponse> {
@@ -90,7 +88,6 @@ RECITALS & SHARIAH TERMS:
       timestamp: new Date().toISOString()
     };
 
-    const res = await aiOrchestrator.executeAIRequest(req);
     const matches = pools.slice(0, 3).map((p, idx) => ({
       poolId: p.poolId,
       poolName: p.poolName,
@@ -115,14 +112,14 @@ RECITALS & SHARIAH TERMS:
       ]
     }));
 
-    return {
-      ...res,
+    return aiOrchestrator.executeAIRequest(req, (base) => ({
+      ...base,
       recommendation: {
         summary: '3 Wealth Pools appear potentially aligned with your stated preferences.',
         disclaimer: 'AI-generated suitability indication. Does not constitute regulated financial advice.',
         matches
       }
-    };
+    }));
   }
 
   public static async analyzeProject(project: any, user: any): Promise<AIResponse> {
@@ -138,9 +135,8 @@ RECITALS & SHARIAH TERMS:
       timestamp: new Date().toISOString()
     };
 
-    const res = await aiOrchestrator.executeAIRequest(req);
-    return {
-      ...res,
+    return aiOrchestrator.executeAIRequest(req, (base) => ({
+      ...base,
       recommendation: {
         projectHealthScore: 78,
         projectedNPV: '$3,450,000 USD',
@@ -163,6 +159,6 @@ RECITALS & SHARIAH TERMS:
           'Attach third-party environmental & RSPO sustainability certification'
         ]
       }
-    };
+    }));
   }
 }

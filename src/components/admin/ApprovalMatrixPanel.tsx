@@ -2,23 +2,11 @@ import React, { useState } from 'react';
 import { 
   ShieldCheck, 
   CheckCircle2, 
-  XCircle, 
-  AlertTriangle, 
-  Clock, 
   KeyRound, 
   UserCheck, 
   FileText, 
   Building2, 
-  DollarSign, 
-  Layers, 
-  ChevronRight, 
-  Check, 
-  RotateCcw,
-  Plus,
-  Lock,
-  Eye,
-  Sliders,
-  CheckCheck
+  Check
 } from 'lucide-react';
 import { useRBAC } from '../../rbac/RBACContext';
 
@@ -244,7 +232,7 @@ export const ApprovalMatrixPanel: React.FC = () => {
               }`}
             >
               <span>Pending Queue</span>
-              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+              <span className="px-1.5 py-[2px] rounded-full text-[10px] bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
                 {approvalItems.filter(i => i.status === 'PENDING').length}
               </span>
             </button>
