@@ -3,6 +3,7 @@ import { INITIAL_AUDIT_EVENTS } from '../../src/audit/mockAuditEvents';
 import { INITIAL_COUNTRY_NODES } from '../../src/countryNodes/mockCountryNodes';
 import { INITIAL_ORGANISATIONS } from '../../src/organisations/mockOrganisations';
 import { INITIAL_APP_USERS } from '../../src/users/mockUsers';
+import { DEMO_PERSONAS } from '../../src/auth/services/demoPersonas';
 import { INITIAL_PROJECTS } from '../../src/data/mockPoolingWorkflowData';
 import {
   INITIAL_FUNDING_REQUESTS,
@@ -248,6 +249,82 @@ async function seed(): Promise<void> {
             countryNodeId: user.countryNodeId,
             assignedBy: fallbackAssigner,
             assignedAt: date(user.createdAt),
+            isActive: true
+          }
+        });
+        roleAssignmentCount += 1;
+      }
+    }
+
+    // DEMO-mode sign-in issues a session for one of these personas, and the
+    // mock identity path resolves that persona against this table. Without a
+    // row here the backend rejects the caller as unprovisioned.
+    const personaAssignedAt = new Date('2026-01-01T00:00:00.000Z');
+    for (const [personaKey, persona] of Object.entries(DEMO_PERSONAS)) {
+      // The public Guest has no backend identity by design.
+      if (!persona.userId.startsWith('USR-')) continue;
+
+      const [organisation, countryNode, emailOwner] = await Promise.all([
+        tx.organisation.findUnique({ where: { id: persona.organisationId } }),
+        tx.countryNode.findUnique({ where: { code: persona.countryNodeId } }),
+        tx.user.findUnique({ where: { email: persona.email } })
+      ]);
+
+      if (!organisation || !countryNode) {
+        console.warn(`Skipping demo persona '${personaKey}': ${persona.organisationId} / ${persona.countryNodeId} is not seeded.`);
+        continue;
+      }
+      if (emailOwner && emailOwner.id !== persona.userId) {
+        console.warn(`Skipping demo persona '${personaKey}': ${persona.email} already belongs to ${emailOwner.id}.`);
+        continue;
+      }
+
+      await tx.user.upsert({
+        where: { id: persona.userId },
+        // Personas that double as INITIAL_APP_USERS keep their seeded profile.
+        update: { isActive: persona.status === 'ACTIVE' },
+        create: {
+          id: persona.userId,
+          idpProvider: 'mock',
+          idpSubjectId: persona.userId,
+          email: persona.email,
+          name: persona.name,
+          isActive: persona.status === 'ACTIVE'
+        }
+      });
+
+      // The API resolves the effective role as the earliest active assignment,
+      // so stagger assignedAt to make the persona's activeRole win that sort.
+      const orderedRoles = [
+        persona.activeRole,
+        ...persona.assignedRoles.filter((assigned) => assigned !== persona.activeRole)
+      ];
+
+      for (const [index, rawRole] of orderedRoles.entries()) {
+        const role = toRole(rawRole);
+        if (!role) {
+          console.warn(`Skipping unsupported role '${rawRole}' for demo persona '${personaKey}'.`);
+          continue;
+        }
+
+        const assignedAt = new Date(personaAssignedAt.getTime() + index * 1000);
+        await tx.userRoleAssignment.upsert({
+          where: {
+            userId_role_organisationId_countryNodeId: {
+              userId: persona.userId,
+              role,
+              organisationId: persona.organisationId,
+              countryNodeId: persona.countryNodeId
+            }
+          },
+          update: { isActive: true, assignedBy: fallbackAssigner, assignedAt },
+          create: {
+            userId: persona.userId,
+            role,
+            organisationId: persona.organisationId,
+            countryNodeId: persona.countryNodeId,
+            assignedBy: fallbackAssigner,
+            assignedAt,
             isActive: true
           }
         });

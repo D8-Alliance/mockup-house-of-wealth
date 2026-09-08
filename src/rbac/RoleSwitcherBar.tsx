@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 export const RoleSwitcherBar: React.FC = () => {
-  const { currentRole, setRole, roleDef, setShowLoginModal, isAuthenticated, authMode, setAuthMode, assignedRoles } = useRBAC();
+  const { currentRole, setRole, roleDef, setShowLoginModal, isAuthenticated, authMode, setAuthMode, assignedRoles, activeUser, tenantContext } = useRBAC();
   const [isOpen, setIsOpen] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,13 +43,14 @@ export const RoleSwitcherBar: React.FC = () => {
         {/* Left Info Pill */}
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
-            onClick={() => setAuthMode(authMode === 'DEMO' ? 'PRODUCTION' : 'DEMO')}
+            onClick={() => setAuthMode('PRODUCTION')}
+            disabled={authMode === 'PRODUCTION'}
             className={`flex items-center gap-1.5 px-2.5 py-1 font-extrabold rounded-lg border cursor-pointer transition-all ${
               authMode === 'DEMO' 
                 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30' 
                 : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30'
             }`}
-            title="Click to toggle between DEMO MODE and PRODUCTION MODE"
+            title={authMode === 'PRODUCTION' ? 'Production authentication is enforced' : 'Switch to production authentication'}
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span className="tracking-wide uppercase font-mono text-[10px]">{authMode} MODE</span>
@@ -166,7 +167,7 @@ export const RoleSwitcherBar: React.FC = () => {
         {/* Right Action Controls */}
         <div className="flex items-center gap-3">
           <div className="hidden lg:flex items-center gap-2 text-[11px] text-slate-400">
-            <span>Org: <strong className="text-white">{roleDef.demoUser.organization}</strong></span>
+            <span>Org: <strong className="text-white">{activeUser.organizationName || tenantContext.organisationId}</strong></span>
           </div>
 
           <button

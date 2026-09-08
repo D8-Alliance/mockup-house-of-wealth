@@ -47,8 +47,10 @@ export class AuditService {
         },
       });
     } catch (err) {
-      // Audit failures must never break the primary operation.
       this.logger.error(`Failed to write audit event: ${String(err)}`);
+      // A successful mutation without an audit record is not an acceptable
+      // result for this system. Callers can surface the failure and retry.
+      throw err;
     }
   }
 

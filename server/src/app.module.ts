@@ -14,6 +14,7 @@ import { HealthModule } from './health/health.module';
 import { ZakatModule } from './zakat/zakat.module';
 import { MembershipModule } from './membership/membership.module';
 import { PdpModule } from './pdp/pdp.module';
+import { ContractsModule } from './contracts/contracts.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { PdpModule } from './pdp/pdp.module';
     ZakatModule,
     MembershipModule,
     PdpModule,
+    ContractsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: OidcGuard },

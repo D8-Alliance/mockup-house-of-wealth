@@ -1,6 +1,6 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { createPublicKey, createHmac, createVerify, KeyObject } from 'node:crypto';
-import { UserRole } from '../policy/permissions';
+import { createPublicKey, createHmac, createVerify, KeyObject, timingSafeEqual, createHash } from 'node:crypto';
+import { PRIVILEGED_ROLES, UserRole } from '../policy/permissions';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 
@@ -17,6 +17,10 @@ export interface AuthenticatedUser {
 
 export interface JwtPayload {
   sub?: string;
+  iss?: string;
+  aud?: string | string[];
+  exp?: number;
+  amr?: string[];
   email?: string;
   name?: string;
   [key: string]: unknown;
@@ -40,10 +44,18 @@ export class IdentityService {
       throw new UnauthorizedException('Missing bearer token');
     }
 
-    const authMode = process.env.AUTH_MODE ?? 'mock';
+    const authMode = process.env.AUTH_MODE;
+
+    if (!authMode) {
+      throw new UnauthorizedException('AUTH_MODE is not configured');
+    }
 
     if (authMode === 'mock') {
       return this.verifyMockToken(token);
+    }
+
+    if (authMode !== 'oidc') {
+      throw new UnauthorizedException(`Unsupported AUTH_MODE: ${authMode}`);
     }
 
     const payload = await this.verifyOidcToken(token);
@@ -55,12 +67,17 @@ export class IdentityService {
     // resolved exclusively from the database (resolveDatabaseIdentity); token
     // role claims are deliberately ignored so a forged or claim-stripped token
     // escalates nothing and there is never an implicit default role.
-    return this.resolveDatabaseIdentity(payload.sub, {
+    const identity = await this.resolveDatabaseIdentity(payload.sub, {
       email: (payload.email as string) ?? `${payload.sub}@internal`,
       name: (payload.name as string) ?? payload.sub,
       countryNodeId: (payload as any)?.country_node_id || process.env.DEFAULT_COUNTRY_NODE || 'CN-MYS',
       organisationId: (payload as any)?.organisation_id || process.env.DEFAULT_ORGANISATION || 'ORG-PUBLIC',
     });
+    if (this.requiresMfa(identity.role) && !payload.amr?.some((method: string) => method === 'otp' || method === 'webauthn')) {
+      throw new UnauthorizedException('MFA is required for this role');
+    }
+    await this.ensureSession(token, payload, identity);
+    return identity;
   }
 
   private async resolveDatabaseIdentity(subject: string, claims: Omit<AuthenticatedUser, 'userId' | 'idpSubjectId' | 'assignedRoles' | 'role'>): Promise<AuthenticatedUser> {
@@ -84,7 +101,6 @@ export class IdentityService {
         },
       },
     });
-
     if (!user || !user.isActive) {
       throw new UnauthorizedException('User is not provisioned or is inactive');
     }
@@ -122,6 +138,46 @@ export class IdentityService {
     });
   }
 
+  public async revokeToken(token: string): Promise<void> {
+    await this.prisma.session.updateMany({
+      where: { tokenHash: this.hashToken(token), revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  private async ensureSession(token: string, payload: JwtPayload, identity: AuthenticatedUser): Promise<void> {
+    const tokenHash = this.hashToken(token);
+    const existing = await this.prisma.session.findUnique({ where: { tokenHash } });
+    const expiresAt = new Date((payload.exp as number) * 1000);
+    if (existing?.revokedAt || (existing && existing.expiresAt.getTime() <= Date.now())) {
+      throw new UnauthorizedException('Session is revoked or expired');
+    }
+    if (!existing) {
+      await this.prisma.session.create({
+        data: {
+          userId: identity.userId,
+          tokenHash,
+          activeRole: this.toPrismaRole(identity.role),
+          countryNodeId: identity.countryNodeId,
+          organisationId: identity.organisationId,
+          expiresAt,
+        },
+      });
+    }
+  }
+
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private requiresMfa(role: UserRole): boolean {
+    return PRIVILEGED_ROLES.has(role) || ['Country Admin', 'Organization Admin', 'Finance Officer', 'Compliance Officer', 'Auditor'].includes(role);
+  }
+
+  private toPrismaRole(role: UserRole): PrismaUserRole {
+    return role.replace(/ /g, '_') as PrismaUserRole;
+  }
+
   private async verifyOidcToken(token: string): Promise<JwtPayload> {
     const parts = token.split('.');
     if (parts.length !== 3) {
@@ -133,10 +189,15 @@ export class IdentityService {
     const payload = this.decodeJson<JwtPayload>(payloadB64);
 
     const now = Math.floor(Date.now() / 1000);
-    if (typeof payload.exp === 'number' && payload.exp < now) {
+    if (typeof payload.exp !== 'number' || payload.exp <= now) {
       throw new UnauthorizedException('Token expired');
     }
-    if (typeof payload.aud === 'string' && process.env.OIDC_AUDIENCE && payload.aud !== process.env.OIDC_AUDIENCE) {
+    if (!process.env.OIDC_ISSUER || payload.iss !== process.env.OIDC_ISSUER) {
+      throw new UnauthorizedException('Token issuer mismatch');
+    }
+    const audience = process.env.OIDC_AUDIENCE;
+    const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+    if (!audience || !audiences.includes(audience)) {
       throw new UnauthorizedException('Token audience mismatch');
     }
 
@@ -164,7 +225,7 @@ export class IdentityService {
       .update(`${headerB64}.${payloadB64}`)
       .digest('base64url');
     const provided = token.split('.')[2];
-    if (expected !== provided) {
+    if (!provided || expected.length !== provided.length || !timingSafeEqual(Buffer.from(expected), Buffer.from(provided))) {
       throw new UnauthorizedException('Invalid token signature');
     }
     return payload;
@@ -195,7 +256,7 @@ export class IdentityService {
       throw new UnauthorizedException('Failed to fetch JWKS');
     }
     const jwks = (await res.json()) as { keys?: { kid?: string; n?: string; e?: string }[] };
-    const key = jwks.keys?.find((k) => !kid || k.kid === kid) ?? jwks.keys?.[0];
+    const key = kid ? jwks.keys?.find((k) => k.kid === kid) : jwks.keys?.[0];
     if (!key || !key.n || !key.e) {
       throw new UnauthorizedException('No usable JWKS key');
     }

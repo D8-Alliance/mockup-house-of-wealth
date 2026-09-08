@@ -1,10 +1,10 @@
-import { sessionManager } from '../auth/sessionManager';
+import { authService } from '../auth/services/authService';
 import { PDPApplication } from '../pdp/pdpTypes';
 
-const API_BASE_URL = `http://${window.location.hostname}:3001`;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3001`;
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = sessionManager.getAuthState().session?.token;
+  const token = authService.getAuthState().session?.token;
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {

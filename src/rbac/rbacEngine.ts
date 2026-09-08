@@ -22,11 +22,7 @@ export function hasPermission(
  */
 export function getAccessibleTabs(role: UserRole): NavTab[] {
   const roleDef = ROLE_DEFINITIONS[role];
-  const tabs: NavTab[] = roleDef ? [...roleDef.accessibleTabs] : (['dashboard', 'marketplace'] as NavTab[]);
-  if (!tabs.includes('membership')) {
-    tabs.push('membership');
-  }
-  return tabs;
+  return roleDef ? [...roleDef.accessibleTabs] : [];
 }
 
 /**
@@ -44,7 +40,6 @@ export function canApproveWorkflow(role: UserRole, workflowName: string): boolea
  * Checks whether a role has read access to a specific tab.
  */
 export function isTabAccessible(role: UserRole, tab: NavTab): boolean {
-  if (tab === 'membership') return true;
   const roleDef = ROLE_DEFINITIONS[role];
   if (!roleDef) return false;
   return roleDef.accessibleTabs.includes(tab);

@@ -59,18 +59,19 @@ enum UserRole {
 // via their OIDC subject identifier. This table stores the server-side profile and
 // role mapping only; authentication is delegated to the IdP.
 model User {
-  id             String   @id @default(cuid())
-  idpProvider    String // 'auth0' | 'azure' | 'keycloak' | 'okta'
-  idpSubjectId   String // OIDC `sub` claim
-  email          String   @unique
-  name           String  
-  isActive       Boolean  @default(true)
-  profile        Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id           String   @id @default(cuid())
+  idpProvider  String // 'auth0' | 'azure' | 'keycloak' | 'okta'
+  idpSubjectId String // OIDC `sub` claim
+  email        String   @unique
+  name         String
+  isActive     Boolean  @default(true)
+  profile      Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   // User can have multiple roles per organisation/country node
   roleAssignments UserRoleAssignment[]
+  sessions        Session[]
 
   @@unique([idpProvider, idpSubjectId])
   @@index([email])
@@ -79,21 +80,21 @@ model User {
 // User role assignments are scoped to a specific organisation and country node.
 // A user can have multiple roles within a single org/country, or roles across multiple orgs.
 model UserRoleAssignment {
-  id             String   @id @default(cuid())
+  id             String       @id @default(cuid())
   userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   role           UserRole
   organisationId String
   organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   countryNodeId  String
-  countryNode    CountryNode @relation(fields: [countryNodeId], references: [code], onDelete: Cascade)
-  assignedBy     String   // userId of the admin who made this assignment
-  assignedAt     DateTime @default(now())
+  countryNode    CountryNode  @relation(fields: [countryNodeId], references: [code], onDelete: Cascade)
+  assignedBy     String // userId of the admin who made this assignment
+  assignedAt     DateTime     @default(now())
   revokedBy      String?
   revokedAt      DateTime?
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@unique([userId, role, organisationId, countryNodeId])
   @@index([role])
@@ -105,42 +106,47 @@ model UserRoleAssignment {
 // ---------------------------------------------------------------------------
 
 model CountryNode {
-  code                      String            @id
-  name                      String
-  currency                  String
-  timezone                  String
-  regulatoryProfile         String
-  status                    String
-  verificationStatus        String
-  activeOrganisationsCount  Int               @default(0)
-  activeUsersCount          Int               @default(0)
-  activeProjectsCount       Int               @default(0)
-  activePoolsCount          Int               @default(0)
-  flagUrl                   String
-  createdAt                 DateTime          @default(now())
-  updatedAt                 DateTime          @updatedAt
-  
-  organisations             Organisation[]
-  projects                  Project[]
-  pools                     WealthPool[]
-  auditEvents               AuditEvent[]
-  userRoleAssignments       UserRoleAssignment[]
+  code                     String   @id
+  name                     String
+  currency                 String
+  timezone                 String
+  regulatoryProfile        String
+  status                   String
+  verificationStatus       String
+  activeOrganisationsCount Int      @default(0)
+  activeUsersCount         Int      @default(0)
+  activeProjectsCount      Int      @default(0)
+  activePoolsCount         Int      @default(0)
+  flagUrl                  String
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  organisations       Organisation[]
+  projects            Project[]
+  pools               WealthPool[]
+  contracts           Contract[]
+  auditEvents         AuditEvent[]
+  fundingRequests     FundingRequest[]
+  userRoleAssignments UserRoleAssignment[]
 }
 
 model Organisation {
-  id            String        @id @default(cuid())
+  id            String      @id @default(cuid())
   name          String
   countryNodeId String
-  countryNode   CountryNode   @relation(fields: [countryNodeId], references: [code])
-  status        String        @default("ACTIVE")
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  
+  countryNode   CountryNode @relation(fields: [countryNodeId], references: [code])
+  status        String      @default("ACTIVE")
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
   projects            Project[]
   pools               WealthPool[]
   auditEvents         AuditEvent[]
   userRoleAssignments UserRoleAssignment[]
+  fundingRequests     FundingRequest[]
+  contracts           Contract[]
 
+  @@unique([id, countryNodeId])
   @@index([countryNodeId])
 }
 
@@ -149,26 +155,26 @@ model Organisation {
 // ---------------------------------------------------------------------------
 
 model Project {
-  projectId                  String              @id @default(cuid())
-  projectCode                String              @unique
-  projectName                String
-  description                String
-  organisationId             String
-  countryNodeId              String
-  sector                     String
-  totalProjectCost           Decimal             @db.Decimal(18, 2)
-  sponsorContribution        Decimal             @db.Decimal(18, 2)
-  fundingRequired            Decimal             @db.Decimal(18, 2)
-  proposedShariahContract    String
-  status                     String
-  projectSponsorId           String
-  createdAt                  DateTime            @default(now())
-  updatedAt                  DateTime            @updatedAt
+  projectId               String   @id @default(cuid())
+  projectCode             String   @unique
+  projectName             String
+  description             String
+  organisationId          String
+  countryNodeId           String
+  sector                  String
+  totalProjectCost        Decimal  @db.Decimal(18, 2)
+  sponsorContribution     Decimal  @db.Decimal(18, 2)
+  fundingRequired         Decimal  @db.Decimal(18, 2)
+  proposedShariahContract String
+  status                  String
+  projectSponsorId        String
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
-  organisation               Organisation        @relation(fields: [organisationId], references: [id])
-  countryNode                CountryNode         @relation(fields: [countryNodeId], references: [code])
-  pools                      WealthPool[]
-  fundingRequests            FundingRequest[]
+  organisation    Organisation     @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode     CountryNode      @relation(fields: [countryNodeId], references: [code])
+  pools           WealthPool[]
+  fundingRequests FundingRequest[]
 
   @@index([countryNodeId])
   @@index([organisationId])
@@ -176,48 +182,50 @@ model Project {
 }
 
 model WealthPool {
-  poolId              String          @id @default(cuid())
-  poolName            String
-  currency            String
-  investmentStructure String
-  indicativeExpectedReturn Decimal    @db.Decimal(5, 2)
-  status              String          @default("OPEN")
-  projectId           String
-  organisationId      String
-  countryNodeId       String
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
+  poolId                   String   @id @default(cuid())
+  poolName                 String
+  currency                 String
+  investmentStructure      String
+  indicativeExpectedReturn Decimal  @db.Decimal(5, 2)
+  status                   String   @default("OPEN")
+  projectId                String
+  organisationId           String
+  countryNodeId            String
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
 
-  project             Project         @relation(fields: [projectId], references: [projectId])
-  organisation        Organisation    @relation(fields: [organisationId], references: [id])
-  countryNode         CountryNode     @relation(fields: [countryNodeId], references: [code])
-  fundingRequests     FundingRequest[]
+  project         Project          @relation(fields: [projectId], references: [projectId])
+  organisation    Organisation     @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode     CountryNode      @relation(fields: [countryNodeId], references: [code])
+  fundingRequests FundingRequest[]
 
   @@index([countryNodeId])
   @@index([projectId])
 }
 
 model FundingRequest {
-  fundingRequestId String       @id @default(cuid())
+  fundingRequestId String    @id @default(cuid())
   projectId        String
   poolId           String?
   organisationId   String
   countryNodeId    String
-  requestedAmount  Decimal      @db.Decimal(18, 2)
-  currency         String       @default("USD")
-  purpose          String       @default("Project funding")
-  status           String       @default("PENDING") // PENDING | APPROVED | DISBURSED | REJECTED
+  requestedAmount  Decimal   @db.Decimal(18, 2)
+  currency         String    @default("USD")
+  purpose          String    @default("Project funding")
+  status           String    @default("PENDING") // PENDING | APPROVED | DISBURSED | REJECTED
   requestedBy      String
-  requestedAt      DateTime     @default(now())
+  requestedAt      DateTime  @default(now())
   approvedBy       String?
   approvedAt       DateTime?
   disbursedBy      String?
   disbursedAt      DateTime?
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  project          Project      @relation(fields: [projectId], references: [projectId])
-  pool             WealthPool?  @relation(fields: [poolId], references: [poolId])
+  project      Project      @relation(fields: [projectId], references: [projectId])
+  pool         WealthPool?  @relation(fields: [poolId], references: [poolId])
+  organisation Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode  CountryNode  @relation(fields: [countryNodeId], references: [code])
 
   @@index([countryNodeId])
   @@index([projectId])
@@ -245,8 +253,8 @@ model AuditEvent {
   userAgent      String?
   createdAt      DateTime @default(now())
 
-  countryNode   CountryNode?   @relation(fields: [countryNodeId], references: [code])
-  organisation  Organisation?  @relation(fields: [organisationId], references: [id])
+  countryNode  CountryNode?  @relation(fields: [countryNodeId], references: [code])
+  organisation Organisation? @relation(fields: [organisationId], references: [id])
 
   @@index([userId])
   @@index([action])
@@ -257,17 +265,17 @@ model AuditEvent {
 
 // Server-owned zakat calculation snapshots.
 model ZakatCalculation {
-  id               String   @id @default(cuid())
-  userId           String
-  currency         String   @default("USD")
-  investedCapital  Decimal  @db.Decimal(18, 2)
-  liquidCash       Decimal  @db.Decimal(18, 2)
-  debtsOwed        Decimal  @db.Decimal(18, 2)
-  nisabThreshold   Decimal  @db.Decimal(18, 2)
-  zakatRate        Decimal  @db.Decimal(5, 4)
-  netWealth        Decimal  @db.Decimal(18, 2)
-  zakatDue         Decimal  @db.Decimal(18, 2)
-  createdAt        DateTime @default(now())
+  id              String   @id @default(cuid())
+  userId          String
+  currency        String   @default("USD")
+  investedCapital Decimal  @db.Decimal(18, 2)
+  liquidCash      Decimal  @db.Decimal(18, 2)
+  debtsOwed       Decimal  @db.Decimal(18, 2)
+  nisabThreshold  Decimal  @db.Decimal(18, 2)
+  zakatRate       Decimal  @db.Decimal(5, 4)
+  netWealth       Decimal  @db.Decimal(18, 2)
+  zakatDue        Decimal  @db.Decimal(18, 2)
+  createdAt       DateTime @default(now())
 
   @@index([userId, createdAt])
 }
@@ -307,21 +315,125 @@ model MembershipBillingRecord {
 }
 
 model PdpApplication {
-  id                String   @id @default(cuid())
-  applicationNumber String   @unique
+  id                String    @id @default(cuid())
+  applicationNumber String    @unique
   userId            String
   userEmail         String
   countryCode       String
   countryName       String
   organisationName  String
   pdpType           String
-  status            String   @default("DRAFT")
-  kybStatus         String   @default("IN_PROGRESS")
+  status            String    @default("DRAFT")
+  kybStatus         String    @default("IN_PROGRESS")
   payload           Json
   submittedAt       DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([userId])
   @@index([countryCode, status])
+}
+
+// ---------------------------------------------------------------------------
+// Month 1 contract and session foundation
+// ---------------------------------------------------------------------------
+
+model Contract {
+  id             String   @id @default(cuid())
+  contractNumber String   @unique
+  contractType   String
+  status         String   @default("DRAFT")
+  organisationId String
+  countryNodeId  String
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation       @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode  CountryNode        @relation(fields: [countryNodeId], references: [code])
+  versions     ContractVersion[]
+  parties      ContractParty[]
+  approvals    ContractApproval[]
+  events       ContractEvent[]
+
+  @@index([organisationId, countryNodeId])
+  @@index([status])
+}
+
+model ContractVersion {
+  id         String   @id @default(cuid())
+  contractId String
+  version    Int
+  content    Json
+  status     String   @default("DRAFT")
+  createdBy  String
+  createdAt  DateTime @default(now())
+
+  contract  Contract           @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  approvals ContractApproval[]
+
+  @@unique([contractId, version])
+}
+
+model ContractParty {
+  id             String   @id @default(cuid())
+  contractId     String
+  partyType      String
+  displayName    String
+  userId         String?
+  organisationId String?
+  createdAt      DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+}
+
+model ContractApproval {
+  id           String    @id @default(cuid())
+  contractId   String
+  versionId    String
+  approverId   String
+  status       String    @default("PENDING")
+  decisionNote String?
+  decidedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  contract Contract        @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  version  ContractVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([contractId, status])
+}
+
+model ContractEvent {
+  id         String   @id @default(cuid())
+  contractId String
+  eventType  String
+  fromStatus String?
+  toStatus   String?
+  actorId    String
+  metadata   Json
+  createdAt  DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId, createdAt])
+}
+
+model Session {
+  id             String    @id @default(cuid())
+  userId         String
+  tokenHash      String    @unique
+  activeRole     UserRole?
+  countryNodeId  String
+  organisationId String
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
 }

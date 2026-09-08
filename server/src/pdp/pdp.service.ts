@@ -13,6 +13,14 @@ export class PdpService {
   ) {}
 
   async saveDraft(actor: AuthenticatedUser, input: SavePdpApplicationDto) {
+    const [countryNode, organisation] = await Promise.all([
+      this.prisma.countryNode.findUnique({ where: { code: actor.countryNodeId } }),
+      this.prisma.organisation.findUnique({ where: { id: actor.organisationId } }),
+    ]);
+    if (!countryNode || !organisation || organisation.countryNodeId !== countryNode.code) {
+      throw new ForbiddenException('Authenticated tenant is not valid');
+    }
+
     const existing = input.id
       ? await this.prisma.pdpApplication.findUnique({ where: { id: input.id } })
       : await this.prisma.pdpApplication.findFirst({
@@ -31,10 +39,10 @@ export class PdpService {
       ? await this.prisma.pdpApplication.update({
           where: { id: existing.id },
           data: {
-            userEmail: input.userEmail,
-            countryCode: input.countryCode,
-            countryName: input.countryName,
-            organisationName: input.organisationName,
+            userEmail: actor.email,
+            countryCode: countryNode.code.replace(/^CN-/, ''),
+            countryName: countryNode.name,
+            organisationName: organisation.name,
             pdpType: input.pdpType,
             payload: input.payload as Prisma.InputJsonValue,
             kybStatus: 'IN_PROGRESS',
@@ -44,10 +52,10 @@ export class PdpService {
           data: {
             applicationNumber: await this.nextApplicationNumber(),
             userId: actor.userId,
-            userEmail: input.userEmail,
-            countryCode: input.countryCode,
-            countryName: input.countryName,
-            organisationName: input.organisationName,
+            userEmail: actor.email,
+            countryCode: countryNode.code.replace(/^CN-/, ''),
+            countryName: countryNode.name,
+            organisationName: organisation.name,
             pdpType: input.pdpType,
             payload: input.payload as Prisma.InputJsonValue,
           },
