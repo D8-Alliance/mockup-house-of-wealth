@@ -8,7 +8,7 @@ const K = {
   revisions: (id: string) => `how.page.${id}.revisions`
 };
 
-type Mode = 'DEMO' | 'PRODUCTION';
+type Mode = 'DEMO' | 'PRE_PRODUCTION' | 'PRODUCTION';
 
 function clone(content: PageContent): PageContent {
   return JSON.parse(JSON.stringify(content)) as PageContent;
@@ -28,7 +28,7 @@ export class PageContentService {
   private listeners: Set<() => void> = new Set();
 
   get isProduction(): boolean {
-    return this.mode === 'PRODUCTION';
+    return this.mode !== 'DEMO';
   }
 
   setMode(mode: Mode): void {
@@ -85,7 +85,7 @@ export class PageContentService {
     localStorage.setItem(K.draft(id), JSON.stringify(draft));
     localStorage.setItem(K.status(pageId), 'draft');
     this.record(pageId, draft, 'draft', editorName, note);
-    if (this.mode === 'PRODUCTION') this.pushChanges(pageId, draft, 'draft', editorName, note);
+    if (this.mode !== 'DEMO') this.pushChanges(pageId, draft, 'draft', editorName, note);
     this.emit();
     return draft;
   }
@@ -97,7 +97,7 @@ export class PageContentService {
     localStorage.setItem(K.draft(id), JSON.stringify(published));
     localStorage.setItem(K.status(pageId), 'published');
     this.record(pageId, published, 'published', editorName, note);
-    if (this.mode === 'PRODUCTION') this.pushChanges(pageId, published, 'published', editorName, note);
+    if (this.mode !== 'DEMO') this.pushChanges(pageId, published, 'published', editorName, note);
     this.emit();
     return published;
   }

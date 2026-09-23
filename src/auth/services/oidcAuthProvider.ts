@@ -135,7 +135,7 @@ export class OidcAuthProvider {
     sessionStorage.removeItem(storageKey);
   }
   switchRole(_role: UserRole) { return false; }
-  setMode(_mode: 'DEMO' | 'PRODUCTION') {}
+  setMode(_mode: 'DEMO' | 'PRE_PRODUCTION' | 'PRODUCTION') {}
   enterAsGuest() {}
 
   private readSession(): AuthSession | null {

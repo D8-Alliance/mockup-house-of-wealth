@@ -83,6 +83,19 @@ export const PDPApplicationDetailModal: React.FC<PDPApplicationDetailModalProps>
     onClose();
   };
 
+  const handleDocumentDownload = (title: string, fileUrl: string) => {
+    if (!fileUrl) return;
+
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = title;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   const isComplianceOrAdmin = currentRole.includes('Admin') || currentRole.includes('Compliance') || currentRole.includes('Risk') || currentRole.includes('Auditor');
 
   return (
@@ -276,7 +289,13 @@ export const PDPApplicationDetailModal: React.FC<PDPApplicationDetailModalProps>
                     }`}>
                       {doc.status}
                     </span>
-                    <button className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer">
+                    <button
+                      type="button"
+                      onClick={() => handleDocumentDownload(doc.title, doc.fileUrl)}
+                      title={`Download ${doc.title}`}
+                      aria-label={`Download ${doc.title}`}
+                      className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer"
+                    >
                       <Download className="w-4 h-4" />
                     </button>
                   </div>

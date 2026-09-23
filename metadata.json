@@ -1,5 +1,5 @@
 {
-  "name": "House of Wealth",
+  "name": "Wealth Pooling",
   "description": "Islamic Circular Economy Platform for D-8 countries featuring Shariah-compliant asset management, Mudarabah/Musharakah smart contracts, wealth pooling, and multi-language support.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

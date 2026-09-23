@@ -10,9 +10,10 @@ import {
   Info,
   ArrowRight
 } from 'lucide-react';
-import { marketplaceMonetisationService } from '../../revenue/marketplaceMonetisationService';
 import { PROMOTION_DISCLAIMER_TEXT } from '../../revenue/marketplaceMonetisationConfig';
 import { PromotionPackage } from '../../revenue/marketplaceMonetisationTypes';
+import { marketplaceMonetisationService } from '../../revenue/marketplaceMonetisationService';
+import { apiClient } from '../../services/apiClient';
 
 interface PromoteProjectModalProps {
   projectId: string;
@@ -36,6 +37,8 @@ export const PromoteProjectModal: React.FC<PromoteProjectModalProps> = ({
   const [startDate, setStartDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [payMethod, setPayMethod] = useState<'RM' | 'CREDITS'>('RM');
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [promotionError, setPromotionError] = useState('');
 
   const calculateEndDate = () => {
     if (selectedPkg.durationDays === 0) return 'Continuous';
@@ -44,16 +47,26 @@ export const PromoteProjectModal: React.FC<PromoteProjectModalProps> = ({
     return d.toISOString().slice(0, 10);
   };
 
-  const handlePromote = (e: React.FormEvent) => {
+  const handlePromote = async (e: React.FormEvent) => {
     e.preventDefault();
-    marketplaceMonetisationService.promoteProject(
-      projectId,
-      projectTitle,
-      orgName,
-      selectedPkg.id,
-      startDate,
-      payMethod === 'CREDITS' ? 'HoW AI Credits' : 'D-8 Wealth Wallet / Corporate FPX'
-    );
+    setIsSubmitting(true);
+    setPromotionError('');
+    try {
+      const result = await apiClient.createProjectPromotion(projectId, {
+        packageId: selectedPkg.id,
+        startDate,
+        paymentMethod: payMethod,
+      });
+      if (result.status === 'PENDING_PAYMENT') {
+        setPromotionError('Payment is pending. The promotion will activate after payment confirmation.');
+        return;
+      }
+    } catch (error) {
+      setPromotionError(error instanceof Error ? error.message : 'Unable to activate promotion.');
+      return;
+    } finally {
+      setIsSubmitting(false);
+    }
     setIsSubmitted(true);
     setTimeout(() => {
       if (onSuccess) onSuccess();
@@ -203,12 +216,14 @@ export const PromoteProjectModal: React.FC<PromoteProjectModalProps> = ({
               >
                 <div className="flex items-center gap-2">
                   <Coins className="w-4 h-4" />
-                  <span>HoW Credits ({selectedPkg.creditsCost} Cr)</span>
+                  <span>Wealth Pooling Credits ({selectedPkg.creditsCost} Cr)</span>
                 </div>
               </button>
             </div>
           </div>
         )}
+
+        {promotionError && <div role="alert" className="rounded-xl bg-rose-50 p-3 text-xs font-semibold text-rose-700">{promotionError}</div>}
 
         {/* Mandatory Regulatory Disclosure */}
         <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-[10.5px] text-amber-900 dark:text-amber-300 space-y-1.5">
@@ -233,10 +248,12 @@ export const PromoteProjectModal: React.FC<PromoteProjectModalProps> = ({
           <button
             type="button"
             onClick={handlePromote}
-            disabled={isSubmitted}
+            disabled={isSubmitted || isSubmitting}
             className="w-2/3 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
-            {isSubmitted ? (
+            {isSubmitting ? (
+              <span>Processing...</span>
+            ) : isSubmitted ? (
               <span className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-slate-950" /> Promotion Activated!
               </span>

@@ -13,7 +13,7 @@ interface UpgradePromptBannerProps {
 
 export const UpgradePromptBanner: React.FC<UpgradePromptBannerProps> = ({
   title = 'Unlock Advanced AI Intelligence',
-  subtitle = 'Available with HoW Plus & Professional tiers. Enhance your portfolio decision-making with deep AAOIFI clause screening and predictive scenario modeling.',
+  subtitle = 'Available with Wealth Pooling Plus & Professional tiers. Enhance your portfolio decision-making with deep AAOIFI clause screening and predictive scenario modeling.',
   requiredTier = 'PLUS',
   onViewPlans,
   compact = false,
@@ -22,11 +22,11 @@ export const UpgradePromptBanner: React.FC<UpgradePromptBannerProps> = ({
   const getBadge = () => {
     switch (requiredTier) {
       case 'ENTERPRISE':
-        return 'Available with HoW Enterprise';
+        return 'Available with Wealth Pooling Enterprise';
       case 'PROFESSIONAL':
-        return 'Available with HoW Professional';
+        return 'Available with Wealth Pooling Professional';
       default:
-        return 'Available with HoW Plus';
+        return 'Available with Wealth Pooling Plus';
     }
   };
 

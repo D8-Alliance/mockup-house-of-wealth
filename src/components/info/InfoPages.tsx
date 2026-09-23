@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { WealthPoolingLogo } from '../WealthPoolingLogo';
 import {
   ArrowRight,
   Award,
@@ -64,7 +65,7 @@ function SectionHeading({
     <div className="mb-8">
       <div className="flex items-center gap-2 text-emerald-500 mb-2">
         {icon}
-        <span className="text-xs font-black uppercase tracking-widest">D-8 House of Wealth</span>
+        <span className="text-xs font-black uppercase tracking-widest">D-8 Wealth Pooling</span>
       </div>
       <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">{title}</h1>
       {subtitle && <p className="mt-3 text-sm text-slate-500 dark:text-slate-400 max-w-2xl">{subtitle}</p>}
@@ -137,16 +138,7 @@ function InfoHeader({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 gap-4">
             <button onClick={() => onNavigate('home')} className="flex items-center gap-3 cursor-pointer bg-transparent border-0">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <div className="text-left">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 dark:text-white">House of Wealth</span>
-                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">D-8</span>
-                </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">Islamic Circular Economy Platform</p>
-              </div>
+              <WealthPoolingLogo compact />
             </button>
 
             <div className="hidden lg:flex items-center gap-5 text-xs font-bold text-slate-600 dark:text-slate-300">
@@ -206,7 +198,7 @@ export function InfoPageLayout({ children, pageId, onNavigate, onSignIn }: InfoP
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-emerald-500" />
-            <span className="font-bold text-white">House of Wealth</span>
+            <span className="font-bold text-white">Wealth Pooling</span>
             <span>· Islamic Circular Economy Platform</span>
           </div>
           <div className="flex items-center gap-4">

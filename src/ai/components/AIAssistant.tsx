@@ -32,7 +32,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     {
       id: 'msg-1',
       sender: 'AI',
-      text: `Assalamu Alaikum ${userName}! I am your House of Wealth AI Assistant. How can I assist you with Shariah wealth pooling, contract structure, due diligence, or risk assessment today? (1 Credit per query)`,
+      text: `Assalamu Alaikum ${userName}! I am your Wealth Pooling AI Assistant. How can I assist you with Shariah wealth pooling, contract structure, due diligence, or risk assessment today? (1 Credit per query)`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       confidence: { level: 'HIGH', scorePercent: 96, disclaimer: 'AI guidance requires human review.' }
     }
@@ -90,7 +90,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     setIsTyping(true);
 
     setTimeout(() => {
-      let aiReply = 'I have analyzed your query based on current House of Wealth database parameters.';
+      let aiReply = 'I have analyzed your query based on current Wealth Pooling database parameters.';
       
       const q = textToSend.toLowerCase();
       if (q.includes('match') || q.includes('profile') || q.includes('pools')) {
@@ -168,7 +168,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
         {isTyping && (
           <div className="flex items-center gap-2 text-slate-400 text-[10px] italic">
             <Sparkles className="w-3 h-3 text-purple-500 animate-spin" />
-            AI is analyzing House of Wealth records (-1 credit)...
+            AI is analyzing Wealth Pooling records (-1 credit)...
           </div>
         )}
       </div>

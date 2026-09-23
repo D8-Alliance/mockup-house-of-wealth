@@ -11,6 +11,8 @@ import {
 import { marketplaceMonetisationService } from '../../revenue/marketplaceMonetisationService';
 import { PROMOTION_DISCLAIMER_TEXT } from '../../revenue/marketplaceMonetisationConfig';
 import { PromoteProjectModal } from './PromoteProjectModal';
+import { apiClient } from '../../services/apiClient';
+import { authService } from '../../auth/services/authService';
 
 interface PDPPromotionCardProps {
   projectId: string;
@@ -32,16 +34,38 @@ export const PDPPromotionCard: React.FC<PDPPromotionCardProps> = ({
     marketplaceMonetisationService.getPDPPromotionDetails(projectId, projectTitle, orgName)
   );
 
+  const refreshPromotionDetails = async () => {
+    const session = authService.getAuthState().session;
+    if (session?.user.activeRole !== 'Project Sponsor') return;
+
+    try {
+      const campaigns = await apiClient.getProjectPromotions(projectId);
+      const campaign = campaigns.find((item) => item.status === 'ACTIVE' || item.status === 'PENDING_PAYMENT');
+      if (!campaign) {
+        setPdpDetails({ hasPromotion: false, promotionStatus: 'Organic (Free Listing)', badgeType: null, packageName: 'Free Project Listing', startDate: '-', endDate: 'Continuous', views: 0, clicks: 0, leads: 0, promotionCost: 0, currency: 'MYR', campaignId: null, ctr: 0, conversionRate: 0 });
+        return;
+      }
+      const views = campaign.views || 0;
+      const clicks = campaign.clicks || 0;
+      setPdpDetails({ hasPromotion: true, promotionStatus: `${campaign.badgeType} (${campaign.status})`, badgeType: campaign.badgeType, packageName: campaign.packageName, startDate: campaign.startDate.slice(0, 10), endDate: campaign.endDate?.slice(0, 10) || 'Continuous', views, clicks, leads: campaign.investorLeads || 0, promotionCost: Number(campaign.priceMYR), currency: 'MYR', campaignId: campaign.id, ctr: views ? Number(((clicks / views) * 100).toFixed(2)) : 0, conversionRate: 0 });
+    } catch {
+      // Keep the local marketplace preview available for non-production/demo sessions.
+    }
+  };
+
   useEffect(() => {
+    void refreshPromotionDetails();
     const update = () => {
-      setPdpDetails(marketplaceMonetisationService.getPDPPromotionDetails(projectId, projectTitle, orgName));
+      if (authService.getAuthState().session?.user.activeRole !== 'Project Sponsor') {
+        setPdpDetails(marketplaceMonetisationService.getPDPPromotionDetails(projectId, projectTitle, orgName));
+      }
     };
     const unsub = marketplaceMonetisationService.subscribe(update);
     return unsub;
   }, [projectId, projectTitle, orgName]);
 
   const handlePromotionSuccess = () => {
-    setPdpDetails(marketplaceMonetisationService.getPDPPromotionDetails(projectId, projectTitle, orgName));
+    void refreshPromotionDetails();
     if (onRefresh) onRefresh();
   };
 

@@ -26,12 +26,20 @@ export const ContractWizardModal: React.FC<ContractWizardModalProps> = ({
   const [investorRatio, setInvestorRatio] = useState(60);
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [signatureDrawn, setSignatureDrawn] = useState(false);
+  const [finishError, setFinishError] = useState('');
 
   const managerRatio = 100 - investorRatio;
 
   const handleFinish = () => {
-    if (!agreedTerms || !signatureDrawn) {
-      alert("Please accept the AAOIFI compliance terms and draw your signature.");
+    const amount = Number(capitalAmount);
+
+    if (!signatureDrawn || !agreedTerms) {
+      setFinishError('Attach the signature confirmation and accept the contract terms before submitting.');
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setFinishError('Enter an initial capital amount greater than zero.');
       return;
     }
 
@@ -39,16 +47,16 @@ export const ContractWizardModal: React.FC<ContractWizardModalProps> = ({
       title: `${contractType} Agreement #${Math.floor(100 + Math.random() * 900)}`,
       type: contractType,
       counterparty: 'D-8 Certified Investor Pool',
-      status: 'Active',
+      status: 'Pending',
       maturityDate: 'Oct 24, 2027',
-      value: Number(capitalAmount),
-      valueDisplay: `$${Number(capitalAmount).toLocaleString()}`,
+      value: amount,
+      valueDisplay: `$${amount.toLocaleString()}`,
       profitRatio: `${investorRatio} : ${managerRatio}`,
       mySharePercent: investorRatio,
       managerSharePercent: managerRatio,
       nextDistributionDate: 'Nov 15, 2026',
-      currentValue: Number(capitalAmount),
-      totalInvested: Number(capitalAmount),
+      currentValue: amount,
+      totalInvested: amount,
       ytdProfit: 0
     });
   };
@@ -172,7 +180,7 @@ export const ContractWizardModal: React.FC<ContractWizardModalProps> = ({
         {step === 4 && (
           <div className="space-y-5 animate-fade-in">
             <h3 className="text-base font-bold text-slate-900 dark:text-white">
-              Digital Signature & Smart Contract Deployment
+               Digital Signature & Contract Submission
             </h3>
 
             {/* Signature Box */}
@@ -187,12 +195,12 @@ export const ContractWizardModal: React.FC<ContractWizardModalProps> = ({
               {signatureDrawn ? (
                 <div className="flex flex-col items-center gap-1">
                   <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                  <span className="font-bold text-xs">Digital Signature Attached (SHA-256 Verified)</span>
+                  <span className="font-bold text-xs">Signature Confirmation Recorded (MVP)</span>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-1">
                   <PenTool className="w-6 h-6" />
-                  <span className="text-xs font-semibold">Click here to attach authorized E-Signature</span>
+                  <span className="text-xs font-semibold">Click here to record signature confirmation</span>
                 </div>
               )}
             </div>
@@ -204,8 +212,12 @@ export const ContractWizardModal: React.FC<ContractWizardModalProps> = ({
                 onChange={e => setAgreedTerms(e.target.checked)}
                 className="mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
               />
-              <span>I confirm that all contract parameters comply with Shariah governance guidelines and authorize instant deployment to the D-8 ledger.</span>
+              <span>I confirm that all contract parameters comply with Shariah governance guidelines and authorize submission for deployment review.</span>
             </label>
+
+            {finishError && (
+              <p role="alert" className="text-xs font-semibold text-rose-600 dark:text-rose-400">{finishError}</p>
+            )}
           </div>
         )}
 
@@ -233,7 +245,7 @@ export const ContractWizardModal: React.FC<ContractWizardModalProps> = ({
               className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white shadow-lg shadow-emerald-600/30 flex items-center gap-1.5 cursor-pointer"
             >
               <Sparkles className="w-4 h-4" />
-              <span>Deploy Smart Contract</span>
+               <span>Submit for Deployment Review</span>
             </button>
           )}
         </div>

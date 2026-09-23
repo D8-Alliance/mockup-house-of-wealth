@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   FileText, 
   Upload, 
@@ -93,27 +93,56 @@ export const Step7Documents: React.FC<StepProps> = ({ formData, setFormData }) =
   const config = pdpService.getCountryConfig(formData.countryCode || 'MYS');
   const requiredList = config?.requiredDocuments || [];
   const currentDocs = formData.documents || [];
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadTarget, setUploadTarget] = useState<{ docType: string; label: string } | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
-  const handleSimulateUpload = (docType: string, label: string) => {
-    const fakeFileName = `${docType.toLowerCase()}_${formData.organisationName ? formData.organisationName.replace(/\s+/g, '_') : 'pdp_entity'}_2026.pdf`;
-    const newDoc: PDPDocument = {
-      id: `DOC-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      documentType: docType,
-      title: fakeFileName,
-      fileSize: '2.4 MB',
-      uploadedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      fileUrl: `https://mock-d8-storage.org/kyb/${fakeFileName}`,
-      status: 'PENDING',
-      required: true
-    };
+  const handleFileSelected = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !uploadTarget) return;
+    if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
+      setUploadError('Only PDF or scan image files are supported.');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('Files must be 10 MB or smaller.');
+      event.target.value = '';
+      return;
+    }
 
-    setFormData(prev => {
-      const existing = (prev.documents || []).filter(d => d.documentType !== docType);
-      return {
-        ...prev,
-        documents: [...existing, newDoc]
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result !== 'string') return;
+      const fileSize = file.size >= 1024 * 1024
+        ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
+        : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+      const newDoc: PDPDocument = {
+        id: `DOC-${crypto.randomUUID()}`,
+        documentType: uploadTarget.docType,
+        title: file.name,
+        fileSize,
+        uploadedAt: new Date().toISOString(),
+        fileUrl: reader.result,
+        status: 'PENDING',
+        required: true
       };
-    });
+      setFormData(prev => ({
+        ...prev,
+        documents: [...(prev.documents || []).filter(d => d.documentType !== uploadTarget.docType), newDoc]
+      }));
+      setUploadError(null);
+      setUploadTarget(null);
+      event.target.value = '';
+    };
+    reader.onerror = () => setUploadError('The selected file could not be read.');
+    reader.readAsDataURL(file);
+  };
+
+  const openFilePicker = (docType: string, label: string) => {
+    setUploadError(null);
+    setUploadTarget({ docType, label });
+    fileInputRef.current?.click();
   };
 
   const handleRemoveDoc = (docId: string) => {
@@ -125,6 +154,8 @@ export const Step7Documents: React.FC<StepProps> = ({ formData, setFormData }) =
 
   return (
     <div className="space-y-4 animate-fadeIn text-xs">
+      <input ref={fileInputRef} type="file" accept="application/pdf,image/*" className="hidden" onChange={handleFileSelected} />
+      {uploadError && <p className="text-xs font-semibold text-red-600" role="alert">{uploadError}</p>}
       <div>
         <h4 className="text-sm font-black text-slate-900 dark:text-white">
           Mandatory Regulatory Document Repository ({config?.countryName})
@@ -181,7 +212,7 @@ export const Step7Documents: React.FC<StepProps> = ({ formData, setFormData }) =
                   ) : (
                     <button
                       type="button"
-                      onClick={() => handleSimulateUpload(req.docType, req.label)}
+                      onClick={() => openFilePicker(req.docType, req.label)}
                       className="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-sm"
                     >
                       <Upload className="w-3.5 h-3.5" />
@@ -422,7 +453,7 @@ export const Step9Compliance: React.FC<StepProps> = ({ formData, setFormData }) 
     {
       key: 'termsAndConditionsAccepted' as const,
       title: 'D-8 Wealth Pooling Platform Operating Terms',
-      desc: 'We accept the House of Wealth multi-jurisdiction terms of participation and settlement rules.'
+      desc: 'We accept the Wealth Pooling multi-jurisdiction terms of participation and settlement rules.'
     },
     {
       key: 'privacyConsentGranted' as const,

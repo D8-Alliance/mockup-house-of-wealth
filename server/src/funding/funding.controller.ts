@@ -1,10 +1,14 @@
-import { Controller, Get, Param, Post } from '@nestjs/common';
+import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { FundingService } from './funding.service';
+import { FeatureModuleGuard } from '../modules/feature-module.guard';
+import { RequireFeatureModule } from '../modules/feature-module.decorator';
 
 @Controller('funding')
+@UseGuards(FeatureModuleGuard)
+@RequireFeatureModule('WEALTH_POOLING')
 export class FundingController {
   constructor(private readonly fundingService: FundingService) {}
 

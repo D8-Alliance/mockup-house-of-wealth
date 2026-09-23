@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { MetricCard } from './MetricCard';
 import { ExecutiveDashboardWidgets } from './ExecutiveDashboardWidgets';
+import { apiClient, DashboardSummary } from '../../services/apiClient';
 
 interface RoleDashboardViewProps {
   user: UserProfile;
@@ -38,6 +39,11 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
 }) => {
   const { currentRole, roleDef, checkPermission } = useRBAC();
   const [approvalActionDone, setApprovalActionDone] = useState<string | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+
+  React.useEffect(() => {
+    void apiClient.getDashboardSummary().then(setSummary).catch(() => setSummary(null));
+  }, []);
 
   const handleQuickApprove = (itemTitle: string) => {
     setApprovalActionDone(itemTitle);
@@ -126,12 +132,12 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                Data Provider Architecture
+                Delivery Partner Architecture
               </span>
               <span className="text-xs text-slate-400 font-mono">D-8 Wealth Pooling</span>
             </div>
             <h3 className="text-lg font-black text-slate-900 dark:text-white">
-              Are you a Pool, Product, or Project Data Provider (PDP)?
+              Are you a Pool, Product, or Project Delivery Partner (PDP)?
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-300 max-w-2xl">
               Complete the 10-step institutional onboarding to register your organisation, certify Shariah governance, submit bank settlement coordinates, and originate D-8 wealth pools.
@@ -164,13 +170,13 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
         onQuickApprove={handleQuickApprove}
       />
 
-      {/* Investor / Participant Perspectives */}
+      {/* Database-backed dashboard summary */}
       {['Investor', 'Asset Owner', 'Organization Admin', 'Pool Manager', 'Customer Support', 'Guest', 'Shariah Advisor', 'Compliance Officer', 'Risk Officer', 'Finance Officer', 'Auditor'].includes(currentRole) && !['Super Admin', 'Country Admin'].includes(currentRole) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard label="Portfolio Valuation" value="$1,240,500" sub="+12.4% YTD Return" icon={<Coins className="w-5 h-5 text-emerald-500" />} />
-          <MetricCard label="Active Contracts" value={contracts.length.toString()} sub="Mudarabah & Wakalah" icon={<FileCheck className="w-5 h-5 text-blue-500" />} />
-          <MetricCard label="Shariah Status" value="100% Compliant" sub="Verified by AAOIFI" icon={<Award className="w-5 h-5 text-teal-500" />} />
-          <MetricCard label="Next Profit Payout" value="Aug 15, 2026" sub="$4,250 Est." icon={<Clock className="w-5 h-5 text-amber-500" />} />
+          <MetricCard label="Project Value" value={summary ? `$${summary.totalProjectValue.toLocaleString()}` : 'Loading...'} sub="Database total" icon={<Coins className="w-5 h-5 text-emerald-500" />} />
+          <MetricCard label="Funding Required" value={summary ? `$${summary.fundingRequired.toLocaleString()}` : 'Loading...'} sub={`${summary?.projectCount ?? 0} projects in scope`} icon={<FileCheck className="w-5 h-5 text-blue-500" />} />
+          <MetricCard label="Active Pools" value={summary ? summary.activePoolCount.toString() : 'Loading...'} sub="Database count" icon={<Award className="w-5 h-5 text-teal-500" />} />
+          <MetricCard label="Active Contracts" value={summary ? summary.contractCount.toString() : 'Loading...'} sub="Database count" icon={<Clock className="w-5 h-5 text-amber-500" />} />
         </div>
       )}
 

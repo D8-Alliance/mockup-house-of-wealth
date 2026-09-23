@@ -107,7 +107,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="text-xs text-purple-300 font-mono">D-8 Wealth Pooling Platform</span>
             </div>
             <h3 className="text-lg font-black text-white mt-0.5">
-              Become a Pool / Product / Project Data Provider (PDP)
+              Become a Pool / Product / Project Delivery Partner (PDP)
             </h3>
             <p className="text-xs text-slate-300 mt-1 max-w-2xl">
               Complete corporate KYB accreditation to tokenize institutional infrastructure, originate real-world projects, and issue Shariah wealth pools across D-8 member nations.
@@ -251,7 +251,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="w-24 h-24 rounded-full bg-emerald-500/20 flex items-center justify-center z-10 animate-pulse">
                   <div className="w-16 h-16 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 text-white font-bold text-xs flex-col">
                     <Building2 className="w-6 h-6" />
-                    <span className="text-[9px] uppercase tracking-wider font-extrabold mt-0.5">HoW Pool</span>
+                    <span className="text-[9px] uppercase tracking-wider font-extrabold mt-0.5">Wealth Pool</span>
                   </div>
                 </div>
 

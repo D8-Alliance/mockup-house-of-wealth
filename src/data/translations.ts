@@ -23,7 +23,7 @@ export const LANGUAGES: LanguageOption[] = [
 
 export const TRANSLATIONS: Record<LanguageCode, Record<string, string>> = {
   en: {
-    brand: 'House of Wealth',
+    brand: 'Wealth Pooling',
     tagline: 'Islamic Circular Economy Platform',
     dashboard: 'Dashboard',
     marketplace: 'Asset Marketplace',

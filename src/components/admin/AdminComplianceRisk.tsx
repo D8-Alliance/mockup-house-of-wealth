@@ -21,7 +21,7 @@ export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ sectio
     { id: 'KYC-1092', name: 'Zaid Al-Mansoor', country: 'Malaysia', docType: 'CNIC & Passport', livenessScore: 98, status: 'Pending Review', submittedDate: '2026-08-05 14:10' },
     { id: 'KYC-1091', name: 'Siti Nurhaliza', country: 'Malaysia', docType: 'MyKad National ID', livenessScore: 99, status: 'Verified', submittedDate: '2026-08-05 11:30' },
     { id: 'KYC-1090', name: 'Bambang Soetjipto', country: 'Indonesia', docType: 'KTP ID Card', livenessScore: 84, status: 'Re-upload Requested', submittedDate: '2026-08-04 18:45' },
-    { id: 'KYC-1089', name: 'Mehmet Yilmaz', country: 'Turkey', docType: 'Turkish Passport', livenessScore: 96, status: 'Verified', submittedDate: '2026-08-04 15:20' }
+    { id: 'KYC-1089', name: 'Ahmad bin Razak', country: 'Malaysia', docType: 'Malaysian MyKad', livenessScore: 96, status: 'Verified', submittedDate: '2026-08-04 15:20' }
   ]);
 
   // KYB Queue State

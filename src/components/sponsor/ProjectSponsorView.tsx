@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { SponsorProject, WorkflowStage, SponsorOrgType } from './SponsorTypes';
-import { INITIAL_SPONSOR_PROJECTS } from './SponsorData';
 import { SponsorKPICards } from './SponsorKPICards';
 import { ProjectRegistrationModal } from './ProjectRegistrationModal';
 import { ProjectDetailView } from './ProjectDetailView';
@@ -10,17 +9,37 @@ import {
   CheckCircle2, AlertTriangle, FileText, CreditCard, ExternalLink, RefreshCw
 } from 'lucide-react';
 import { PDPSubscriptionCard } from '../revenue/PDPSubscriptionCard';
-import { ProjectPromotionModal } from '../revenue/ProjectPromotionModal';
+import { PromoteProjectModal } from '../revenue/PromoteProjectModal';
 import { revenueService } from '../../revenue/revenueService';
-import { PDPSubscription, PDPPlan, HoWCreditBalance } from '../../revenue/revenueTypes';
+  import { PDPSubscription, PDPPlan, HoWCreditBalance } from '../../revenue/revenueTypes';
 import { pdpService } from '../../pdp/pdpService';
 import { PDPApplication } from '../../pdp/pdpTypes';
 import { PDPRegistrationModal } from '../../pdp/components/PDPRegistrationModal';
 import { PDPPoolCreationModal } from '../../pdp/components/PDPPoolCreationModal';
 import { PDPApplicationDetailModal } from '../../pdp/components/PDPApplicationDetailModal';
+import { apiClient } from '../../services/apiClient';
+import { authService } from '../../auth/services/authService';
+
+const PROJECT_CATEGORIES: SponsorProject['category'][] = ['Green Energy & Solar', 'Agro-Industrial', 'SME Export', 'Commercial Real Estate', 'Social Waqf Housing'];
+
+const mapProjectCategory = (sector: string, projectName: string): SponsorProject['category'] => {
+  if (PROJECT_CATEGORIES.includes(sector as SponsorProject['category'])) return sector as SponsorProject['category'];
+  return sector.toLowerCase().includes('housing') || projectName.toLowerCase().includes('waqf') ? 'Social Waqf Housing' : 'Green Energy & Solar';
+};
+
+const mapShariahContract = (contract: string): SponsorProject['shariahContract'] => {
+  if (contract === 'Ijarah') return 'Ijarah (Lease)';
+  if (contract === 'Mudarabah') return 'Mudarabah (Profit Share)';
+  if (contract === 'Musharakah') return 'Musharakah (Partnership)';
+  if (contract === 'Istisna') return 'Istisna (Manufacturing)';
+  if (contract === 'Murabahah') return 'Murabahah (Cost-Plus)';
+  if (contract === 'Wakalah') return 'Wakalah (Agency Investment)';
+  return contract as SponsorProject['shariahContract'];
+};
 
 export const ProjectSponsorView: React.FC = () => {
-  const [projects, setProjects] = useState<SponsorProject[]>(INITIAL_SPONSOR_PROJECTS);
+  const [projects, setProjects] = useState<SponsorProject[]>([]);
+  const [projectLoadError, setProjectLoadError] = useState('');
   const [selectedProject, setSelectedProject] = useState<SponsorProject | null>(null);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [projectToPromote, setProjectToPromote] = useState<SponsorProject | null>(null);
@@ -62,23 +81,71 @@ export const ProjectSponsorView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterOrgType, setFilterOrgType] = useState<string>('ALL');
 
+  useEffect(() => {
+    void apiClient.getProjects()
+      .then((backendProjects) => {
+        setProjectLoadError('');
+        const projectsFromDatabase: SponsorProject[] = backendProjects.map((item) => ({
+          id: item.projectId,
+          title: item.projectName,
+          orgName: item.organisationId,
+          orgType: item.sponsorEntityType || 'GLC / Sovereign-Backed Enterprise',
+          category: mapProjectCategory(item.sector, item.projectName),
+          shariahContract: mapShariahContract(item.proposedShariahContract),
+          targetFunding: Number(item.fundingRequired),
+          raisedFunding: 0,
+          expectedYield: 'Pending assessment',
+          tenureMonths: 0,
+          location: item.countryNodeId,
+          country: item.countryNodeId,
+          workflowStage: item.status === 'DUE_DILIGENCE' ? 'Shariah Review' : item.status === 'APPROVED' ? 'Approved' : 'Draft',
+          healthScore: 0,
+          milestones: [],
+          disbursements: [],
+          documents: [],
+          team: [],
+          comms: [],
+          description: item.description,
+        }));
+        setProjects(projectsFromDatabase);
+      })
+      .catch((error) => {
+        setProjects([]);
+        setProjectLoadError(error instanceof Error ? error.message : 'Unable to load projects from the backend.');
+      });
+  }, []);
+
   const currentPDPPlan = pdpPlans.find(p => p.id === pdpSub.planId) || pdpPlans[1];
 
-  const handleCreateProject = (newProj: SponsorProject) => {
-    setProjects([newProj, ...projects]);
+  const handleCreateProject = async (newProj: SponsorProject, documents: { businessPlan?: File; financialProjection?: File }) => {
+    const session = authService.getAuthState().session;
+    if (!session) throw new Error('Your session has expired. Please sign in again.');
+
+    const backendProject = await apiClient.createProject({
+      projectCode: `PDP-${Date.now()}`,
+      projectName: newProj.title,
+      description: newProj.description,
+      organisationId: session.user.organisationId,
+      countryNodeId: session.user.countryNodeId,
+      sector: newProj.category,
+      totalProjectCost: newProj.targetFunding,
+      sponsorContribution: 0,
+      fundingRequired: newProj.targetFunding,
+      proposedShariahContract: newProj.shariahContract,
+      projectSponsorId: session.user.userId,
+      sponsorEntityType: newProj.orgType,
+    });
+
+    if (documents.businessPlan) await apiClient.uploadProjectDocument(backendProject.projectId, documents.businessPlan);
+    if (documents.financialProjection) await apiClient.uploadProjectDocument(backendProject.projectId, documents.financialProjection);
+
+    setProjects([{ ...newProj, id: backendProject.projectId, workflowStage: 'Draft' }, ...projects]);
   };
 
   const handleUpdateStage = (projectId: string, newStage: WorkflowStage) => {
     setProjects(prev => prev.map(p => p.id === projectId ? { ...p, workflowStage: newStage } : p));
     if (selectedProject && selectedProject.id === projectId) {
       setSelectedProject(prev => prev ? { ...prev, workflowStage: newStage } : null);
-    }
-  };
-
-  const handleConfirmPromotion = (packageId: string, method: 'cash' | 'credits') => {
-    if (projectToPromote) {
-      revenueService.promoteProject(projectToPromote.id, projectToPromote.title, packageId, method === 'credits', userId);
-      setProjectToPromote(null);
     }
   };
 
@@ -107,13 +174,14 @@ export const ProjectSponsorView: React.FC = () => {
   const isPdpActive = pdpApp?.status === 'ACTIVE';
 
   return (
-    <div className="space-y-6 animate-fadeIn">
+      <div className="space-y-6 animate-fadeIn">
+      {projectLoadError && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-xs font-semibold text-rose-700">{projectLoadError}</p>}
       {/* Banner / Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-gradient-to-r from-slate-900 via-purple-950/40 to-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl text-white">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
-              Pool & Project Data Provider (PDP) Portal
+               Pool & Project Delivery Partner (PDP) Portal
             </span>
             <span className="text-xs text-slate-400">• FELDA Technoplant / GLC Sovereign Node (MYS)</span>
           </div>
@@ -124,6 +192,14 @@ export const ProjectSponsorView: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          <button
+            onClick={() => setIsRegisterModalOpen(true)}
+            className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 font-black text-slate-950 text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Register Project</span>
+          </button>
+
           <button
             onClick={() => setIsPdpOnboardingModalOpen(true)}
             className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 font-bold text-slate-200 text-xs rounded-xl border border-slate-700 shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
@@ -231,7 +307,7 @@ export const ProjectSponsorView: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white">PDP Corporate Identity & Regulatory Verification</h3>
-              <p className="text-slate-500">Official accreditation on the D-8 House of Wealth decentralized ledger.</p>
+               <p className="text-slate-500">Official accreditation on the D-8 Wealth Pooling decentralized ledger.</p>
             </div>
             <button
               onClick={() => setIsPdpOnboardingModalOpen(true)}
@@ -380,20 +456,24 @@ export const ProjectSponsorView: React.FC = () => {
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-base font-bold text-slate-900 dark:text-white">Project Sponsor Enterprise Financial & Audit Reports</h3>
-            <button className="px-3 py-1.5 bg-purple-600 text-white rounded-xl text-xs font-semibold flex items-center gap-1">
-              <FileSpreadsheet className="w-4 h-4" /> Export All (PDF / Excel)
-            </button>
+            <span className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-xl text-xs font-semibold flex items-center gap-1">
+              <FileSpreadsheet className="w-4 h-4" /> Reports coming soon
+            </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
               <h4 className="font-bold text-slate-900 dark:text-white mb-1">FELDA Bio-Refinery IRR & Cash Flow Model</h4>
               <p className="text-slate-500 mb-2">Detailed 5-year projected yield calculations under SEDA Feed-in tariff rates.</p>
-              <button className="text-purple-600 font-bold">Download Report (PDF)</button>
+              <button type="button" disabled className="text-slate-400 dark:text-slate-500 font-bold cursor-not-allowed" title="Report generation is not available yet">
+                Download Report (PDF) - Coming soon
+              </button>
             </div>
             <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
               <h4 className="font-bold text-slate-900 dark:text-white mb-1">D-8 Shariah Compliance & Asset Audit Trail</h4>
               <p className="text-slate-500 mb-2">Verified certificate from D-8 Shariah Advisory Council.</p>
-              <button className="text-purple-600 font-bold">Download Certificate (PDF)</button>
+              <button type="button" disabled className="text-slate-400 dark:text-slate-500 font-bold cursor-not-allowed" title="Certificate download is not available yet">
+                Download Certificate (PDF) - Coming soon
+              </button>
             </div>
           </div>
         </div>
@@ -433,12 +513,13 @@ export const ProjectSponsorView: React.FC = () => {
 
       {/* Promotion Package Modal */}
       {projectToPromote && (
-        <ProjectPromotionModal
+        <PromoteProjectModal
           projectId={projectToPromote.id}
           projectTitle={projectToPromote.title}
+          orgName={projectToPromote.orgName}
           availableCredits={creditBalance.availableCredits}
           onClose={() => setProjectToPromote(null)}
-          onConfirmPromotion={handleConfirmPromotion}
+          onSuccess={() => setProjectToPromote(null)}
         />
       )}
     </div>

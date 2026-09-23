@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { AIHumanDecision } from '../types/aiCoreTypes';
-import { aiAuditLogger } from '../services/AIAuditLogger';
-import { CheckCircle, XCircle, Edit3, Send, AlertTriangle } from 'lucide-react';
+import { CheckCircle, XCircle, Edit3, AlertTriangle } from 'lucide-react';
 
 interface AIReviewPanelProps {
   aiRequestId: string;
   userId: string;
   roleName: string;
-  onDecisionSubmitted?: (decision: AIHumanDecision, note: string) => void;
+  onDecisionSubmitted?: (decision: Exclude<AIHumanDecision, 'PENDING'>, note: string) => Promise<void> | void;
 }
 
 export const AIReviewPanel: React.FC<AIReviewPanelProps> = ({
@@ -19,19 +18,27 @@ export const AIReviewPanel: React.FC<AIReviewPanelProps> = ({
   const [decision, setDecision] = useState<AIHumanDecision>('PENDING');
   const [overrideReason, setOverrideReason] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleApplyDecision = (selectedDecision: AIHumanDecision) => {
+  const handleApplyDecision = async (selectedDecision: Exclude<AIHumanDecision, 'PENDING'>) => {
     if ((selectedDecision === 'OVERRIDDEN' || selectedDecision === 'MODIFIED') && !overrideReason.trim()) {
-      alert('Please provide a justification note when modifying or overriding the AI recommendation.');
+      setError('Please provide a justification note when modifying or overriding the AI recommendation.');
       return;
     }
 
-    setDecision(selectedDecision);
-    aiAuditLogger.updateHumanDecision(aiRequestId, selectedDecision, userId, overrideReason);
-    setSubmitted(true);
-
-    if (onDecisionSubmitted) {
-      onDecisionSubmitted(selectedDecision, overrideReason);
+    setSubmitting(true);
+    setError('');
+    try {
+      if (onDecisionSubmitted) {
+        await onDecisionSubmitted(selectedDecision, overrideReason);
+      }
+      setDecision(selectedDecision);
+      setSubmitted(true);
+    } catch (submissionError) {
+      setError(submissionError instanceof Error ? submissionError.message : 'Unable to record the human decision.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -74,9 +81,14 @@ export const AIReviewPanel: React.FC<AIReviewPanelProps> = ({
         />
       </div>
 
+      {error && (
+        <p role="alert" className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">{error}</p>
+      )}
+
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <button
           onClick={() => handleApplyDecision('ACCEPTED')}
+          disabled={submitting}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11px] cursor-pointer"
         >
           <CheckCircle className="w-3.5 h-3.5" />
@@ -85,6 +97,7 @@ export const AIReviewPanel: React.FC<AIReviewPanelProps> = ({
 
         <button
           onClick={() => handleApplyDecision('MODIFIED')}
+          disabled={submitting}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[11px] cursor-pointer"
         >
           <Edit3 className="w-3.5 h-3.5" />
@@ -93,6 +106,7 @@ export const AIReviewPanel: React.FC<AIReviewPanelProps> = ({
 
         <button
           onClick={() => handleApplyDecision('OVERRIDDEN')}
+          disabled={submitting}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-[11px] cursor-pointer"
         >
           <AlertTriangle className="w-3.5 h-3.5" />
@@ -101,6 +115,7 @@ export const AIReviewPanel: React.FC<AIReviewPanelProps> = ({
 
         <button
           onClick={() => handleApplyDecision('REJECTED')}
+          disabled={submitting}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-[11px] cursor-pointer"
         >
           <XCircle className="w-3.5 h-3.5" />

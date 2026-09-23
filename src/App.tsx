@@ -113,7 +113,7 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
         />
       </main>
 
-      <Footer setTab={setTab} onOpenCodeReview={() => setCodeReviewOpen(true)} />
+      <Footer setTab={setTab} />
 
       {codeReviewOpen && <CodeReviewModal onClose={() => setCodeReviewOpen(false)} />}
       {contractWizardOpen && (

@@ -46,7 +46,7 @@ export const CancelDowngradeModal: React.FC<CancelDowngradeModalProps> = ({
               <CheckCircle2 className="w-10 h-10" />
             </div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white">
-              {mode === 'downgrade' ? 'Downgraded to HoW Free' : 'Subscription Cancelled'}
+              {mode === 'downgrade' ? 'Downgraded to Wealth Pooling Free' : 'Subscription Cancelled'}
             </h3>
             <p className="text-xs text-slate-500">
               Your account has been updated. You will continue to retain open access to explore and invest in all Shariah asset pools.
@@ -59,7 +59,7 @@ export const CancelDowngradeModal: React.FC<CancelDowngradeModalProps> = ({
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                {mode === 'downgrade' ? 'Switch to HoW Free Plan?' : 'Cancel Subscription Auto-Renewal?'}
+              {mode === 'downgrade' ? 'Switch to Wealth Pooling Free Plan?' : 'Cancel Subscription Auto-Renewal?'}
               </h2>
               <p className="text-xs text-slate-500">
                 {mode === 'downgrade'

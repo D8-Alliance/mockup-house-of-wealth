@@ -96,7 +96,7 @@ export const ProjectPromotionModal: React.FC<ProjectPromotionModalProps> = ({
                   </div>
                   {pkg.creditsCost > 0 && (
                     <div className="text-[10px] text-slate-400">
-                      or {pkg.creditsCost} HoW Credits
+                       or {pkg.creditsCost} Wealth Pooling Credits
                     </div>
                   )}
                 </div>
@@ -114,7 +114,7 @@ export const ProjectPromotionModal: React.FC<ProjectPromotionModalProps> = ({
           <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <Coins className="w-4 h-4 text-amber-500" />
-              <span>Use HoW AI Credits ({availableCredits} available)</span>
+               <span>Use Wealth Pooling Credits ({availableCredits} available)</span>
             </div>
             <input
               type="checkbox"

@@ -174,9 +174,10 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
   },
   'Project Sponsor': {
     dashboard: ['read'],
-    assets: ['read'],
+    assets: ['create', 'read'],
     marketplace: ['read'],
     pooling: ['read'],
+    approvals: ['create'],
     profile: ['read', 'update'],
   },
   'Project Manager': {

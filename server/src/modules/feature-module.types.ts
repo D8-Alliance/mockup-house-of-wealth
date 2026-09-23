@@ -1,0 +1,15 @@
+export const FEATURE_MODULE_KEYS = [
+  'ASSET_REGISTRATION',
+  'WEALTH_POOLING',
+  'SHARIAH_GOVERNANCE',
+  'AI_INTELLIGENCE',
+  'CONTRACTS',
+  'DOCUMENT_VAULT',
+  'FINANCIAL_LEDGER',
+  'SECONDARY_MARKET',
+  'KYC_VERIFICATION',
+  'KYB_VERIFICATION',
+] as const;
+
+export type FeatureModuleKey = (typeof FEATURE_MODULE_KEYS)[number];
+export type FeatureModuleMode = 'ACTIVE' | 'MANUAL_REVIEW' | 'DISABLED';

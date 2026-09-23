@@ -8,7 +8,7 @@ export const INITIAL_SHARIAH_CONTENT: ShariahContent = {
   id: SHARIAH_CONTENT_ID,
   title: 'Shariah Governance',
   subtitle:
-    'House of Wealth embeds Shariah compliance at every layer — from instrument design and smart contracts to an independent supervisory review. Every marketplace offering is screened and certified against AAOIFI standards.',
+    'Wealth Pooling embeds Shariah compliance at every layer — from instrument design and smart contracts to an independent supervisory review. Every marketplace offering is screened and certified against AAOIFI standards.',
   intro:
     'This framework adapts ten standard digital-culture values for the Islamic Digital Economy. The selected terms align with Islamic ethics, Muamalat, and responsible economic practices, grounded in the teachings of the Quran and Hadith. In a SuperApp environment, these values become more than slogans — they guide product design, governance, user experience, transaction rules, data practices, social-finance programmes and the way economic value is created and distributed.',
   values: [

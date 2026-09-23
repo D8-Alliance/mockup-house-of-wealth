@@ -86,6 +86,7 @@ export interface AssetItem {
   collateralPercent: number;
   liquidityPercent: number;
   imageUrl: string;
+  imageUrls?: string[];
   description?: string;
   owner?: string;
   custodian?: string;

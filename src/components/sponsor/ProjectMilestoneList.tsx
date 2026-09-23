@@ -10,13 +10,23 @@ export const ProjectMilestoneList: React.FC<ProjectMilestoneListProps> = ({ init
   const [milestones, setMilestones] = useState<ProjectMilestone[]>(initialMilestones);
   const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
   const [newMilestoneAmount, setNewMilestoneAmount] = useState('');
+  const [newMilestoneDate, setNewMilestoneDate] = useState('');
+  const [error, setError] = useState('');
 
   const handleAddMilestone = () => {
-    if (!newMilestoneTitle) return;
+    if (!newMilestoneTitle.trim()) {
+      setError('Enter a milestone title before adding it.');
+      return;
+    }
+    if (!newMilestoneDate) {
+      setError('Choose a target date before adding the milestone.');
+      return;
+    }
+    setError('');
     const newM: ProjectMilestone = {
       id: `M-${milestones.length + 1}`,
       title: newMilestoneTitle,
-      targetDate: '2026-12-31',
+      targetDate: newMilestoneDate,
       completionPct: 0,
       disbursementAmount: parseFloat(newMilestoneAmount) || 500000,
       status: 'Upcoming',
@@ -26,6 +36,7 @@ export const ProjectMilestoneList: React.FC<ProjectMilestoneListProps> = ({ init
     setMilestones([...milestones, newM]);
     setNewMilestoneTitle('');
     setNewMilestoneAmount('');
+    setNewMilestoneDate('');
   };
 
   return (
@@ -68,28 +79,47 @@ export const ProjectMilestoneList: React.FC<ProjectMilestoneListProps> = ({ init
         ))}
       </div>
 
-      <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-2">
-        <input 
-          type="text" 
-          value={newMilestoneTitle} 
-          onChange={(e) => setNewMilestoneTitle(e.target.value)} 
-          placeholder="New Milestone Title..." 
-          className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
-        />
-        <input 
-          type="number" 
-          value={newMilestoneAmount} 
-          onChange={(e) => setNewMilestoneAmount(e.target.value)} 
-          placeholder="Disbursement $" 
-          className="w-32 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs"
-        />
+      <div className="rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/60 p-4 dark:border-amber-500/30 dark:bg-amber-500/5">
+        <p className="mb-3 text-xs font-black uppercase tracking-wide text-amber-800 dark:text-amber-300">Add a new milestone</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <label className="flex-1 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+            Milestone title
+            <input
+              type="text"
+              value={newMilestoneTitle}
+              onChange={(e) => setNewMilestoneTitle(e.target.value)}
+              placeholder="e.g. Land acquisition completed"
+              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            />
+          </label>
+          <label className="w-full text-[11px] font-bold text-slate-600 dark:text-slate-300 sm:w-36">
+            Disbursement amount
+            <input
+              type="number"
+              value={newMilestoneAmount}
+              onChange={(e) => setNewMilestoneAmount(e.target.value)}
+              placeholder="500000"
+              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            />
+          </label>
+          <label className="w-full text-[11px] font-bold text-slate-600 dark:text-slate-300 sm:w-40">
+            Target date
+            <input
+              type="date"
+              value={newMilestoneDate}
+              onChange={(e) => setNewMilestoneDate(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs text-slate-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            />
+          </label>
         <button 
           onClick={handleAddMilestone} 
-          className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg text-xs flex items-center gap-1 justify-center cursor-pointer"
+          className="flex items-center justify-center gap-1 rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-black text-white shadow-sm hover:bg-amber-600"
         >
           <Plus className="w-4 h-4" /> Add Milestone
         </button>
+        </div>
       </div>
+      {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-xs font-semibold text-rose-700">{error}</p>}
     </div>
   );
 };

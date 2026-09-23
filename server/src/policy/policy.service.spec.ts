@@ -43,6 +43,14 @@ describe('permission matrix conformance - system & organization roles', () => {
     });
   });
 
+  describe('Project Sponsor', () => {
+    it('may create a funding request but cannot approve or disburse it', () => {
+      expect(service.can('Project Sponsor', 'approvals', 'create')).toBe(true);
+      expect(service.can('Project Sponsor', 'approvals', 'approve')).toBe(false);
+      expect(service.can('Project Sponsor', 'approvals', 'disburse')).toBe(false);
+    });
+  });
+
   describe('other admin-tier roles (system family)', () => {
     it('Security Administrator is limited to users, audit logs and governance', () => {
       expect(service.can('Security Administrator', 'users', 'update')).toBe(true);

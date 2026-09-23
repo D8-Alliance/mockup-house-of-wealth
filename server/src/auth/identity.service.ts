@@ -131,8 +131,8 @@ export class IdentityService {
     const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8') || '{}') as { mock?: string; countryNode?: string; org?: string };
     const mockSub = header.mock ?? 'mock-user';
     return this.resolveDatabaseIdentity(`USR-${mockSub}`, {
-      email: 'mock@houseofwealth.local',
-      name: 'Mock API User',
+      email: 'admin.demo@wealthpooling.my',
+      name: 'Dr. Farid Hakim',
       countryNodeId: header.countryNode ?? process.env.DEFAULT_COUNTRY_NODE ?? 'CN-MYS',
       organisationId: header.org ?? process.env.DEFAULT_ORGANISATION ?? 'ORG-PUBLIC',
     });
@@ -171,7 +171,7 @@ export class IdentityService {
   }
 
   private requiresMfa(role: UserRole): boolean {
-    return PRIVILEGED_ROLES.has(role) || ['Country Admin', 'Organization Admin', 'Finance Officer', 'Compliance Officer', 'Auditor'].includes(role);
+    return PRIVILEGED_ROLES.has(role) || ['Country Admin', 'Organization Admin', 'Finance Officer', 'Compliance Officer', 'Auditor', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee'].includes(role);
   }
 
   private toPrismaRole(role: UserRole): PrismaUserRole {

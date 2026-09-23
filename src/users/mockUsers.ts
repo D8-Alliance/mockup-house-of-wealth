@@ -119,8 +119,8 @@ export const INITIAL_APP_USERS: AppUser[] = [
   },
   {
     userId: 'USR-MYS-P2-001',
-    fullName: 'Ahmed Al-Mansoor',
-    email: 'ahmed.almansoor@mycapital.my',
+    fullName: 'Ahmad bin Razak',
+    email: 'ahmad.admin@wealthpooling.my',
     phone: '+60 12 345 6789',
     department: 'Asset Tokenization & Treasury',
     jobTitle: 'Managing Director & Country Admin',

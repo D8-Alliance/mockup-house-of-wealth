@@ -13,7 +13,7 @@ export const AIDocumentAnalyzer: React.FC = () => {
       setResult({
         documentName: selectedDoc,
         confidence: { level: 'HIGH' as const, scorePercent: 95, disclaimer: 'OCR & text analysis results.' },
-        parties: ['FELDA Holdings Berhad (Sponsor)', 'House of Wealth MYS Node (Platform)'],
+        parties: ['FELDA Holdings Berhad (Sponsor)', 'Wealth Pooling MYS Node (Platform)'],
         importantDates: ['Effective Date: 2026-09-01', 'First Distribution Cutoff: 2026-12-31', 'Maturity Date: 2031-08-31'],
         extractedFigures: [
           'Target Capital: $8,000,000 USD',

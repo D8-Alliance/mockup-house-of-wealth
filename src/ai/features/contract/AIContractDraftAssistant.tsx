@@ -1,20 +1,32 @@
 import React, { useState } from 'react';
 import { AIService } from '../../services/AIService';
+import { ContractDraftParams } from '../../types/aiCoreTypes';
 import { AIConfidenceBadge } from '../../components/AIConfidenceBadge';
 import { FileText, Sparkles, Copy, Download, RefreshCw, Send, AlertTriangle } from 'lucide-react';
 
-export const AIContractDraftAssistant: React.FC<{ user: any }> = ({ user }) => {
-  const [contractType, setContractType] = useState('Mudarabah');
-  const [capital, setCapital] = useState(8000000);
-  const [sponsorName, setSponsorName] = useState('FELDA Holdings Berhad');
+interface AIContractDraftAssistantProps {
+  user: { id: string; role: string; organization?: string; countryCode?: string };
+  initialParams?: Partial<ContractDraftParams>;
+}
+
+export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> = ({ user, initialParams }) => {
+  const [contractType, setContractType] = useState(initialParams?.contractType || 'Mudarabah');
+  const [capital, setCapital] = useState(initialParams?.capital || 8000000);
+  const [sponsorName, setSponsorName] = useState(initialParams?.sponsorName || 'FELDA Holdings Berhad');
   const [loading, setLoading] = useState(false);
-  const [draftResult, setDraftResult] = useState<any>(null);
+  const [draftResult, setDraftResult] = useState<Awaited<ReturnType<typeof AIService.generateContractDraft>> | null>(null);
+  const [error, setError] = useState('');
 
   const handleGenerateDraft = async () => {
     setLoading(true);
-    const res = await AIService.generateContractDraft({ contractType, capital, sponsorName }, user);
-    setDraftResult(res);
-    setLoading(false);
+    setError('');
+    try {
+      setDraftResult(await AIService.generateContractDraft({ contractType, capital, sponsorName }, user));
+    } catch (draftError) {
+      setError(draftError instanceof Error ? draftError.message : 'Unable to generate the draft.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -79,6 +91,8 @@ export const AIContractDraftAssistant: React.FC<{ user: any }> = ({ user }) => {
           {loading ? 'Drafting Agreement...' : 'Generate Draft Term Sheet'}
         </button>
       </div>
+
+      {error && <p role="alert" className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">{error}</p>}
 
       {draftResult && (
         <div className="p-6 rounded-3xl bg-slate-900 text-white space-y-4 relative border border-slate-700 shadow-2xl">

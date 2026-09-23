@@ -1,4 +1,6 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -15,6 +17,95 @@ export class ProjectsController {
     return this.projectsService.list(user);
   }
 
+  @Get(':id/documents')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('marketplace', 'read')
+  listDocuments(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.listDocuments(id, user);
+  }
+
+  @Get(':id/team/candidates')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('marketplace', 'read')
+  listTeamCandidates(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.listTeamCandidates(id, user);
+  }
+
+  @Get(':id/team')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('marketplace', 'read')
+  listTeam(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.listTeam(id, user);
+  }
+
+  @Post(':id/team')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('assets', 'create')
+  addTeamMember(@Param('id') id: string, @Body() body: AddProjectTeamMemberDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.addTeamMember(id, body, user);
+  }
+
+  @Delete(':id/team/:memberId')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('assets', 'create')
+  removeTeamMember(@Param('id') id: string, @Param('memberId') memberId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.removeTeamMember(id, memberId, user);
+  }
+
+  @Get(':id/announcements')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager', 'Finance Officer', 'Compliance Officer', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office', 'Portfolio Manager')
+  listAnnouncements(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.listAnnouncements(id, user);
+  }
+
+  @Post(':id/announcements')
+  @Roles('Project Sponsor', 'Project Manager', 'Finance Officer', 'Compliance Officer', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee')
+  createAnnouncement(@Param('id') id: string, @Body() body: CreateProjectAnnouncementDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.createAnnouncement(id, body, user);
+  }
+
+  @Get(':id/promotions/packages')
+  @Roles('Project Sponsor')
+  listPromotionPackages() {
+    return this.projectsService.listPromotionPackages();
+  }
+
+  @Get(':id/promotions')
+  @Roles('Project Sponsor')
+  listPromotions(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.listPromotions(id, user);
+  }
+
+  @Post(':id/promotions')
+  @Roles('Project Sponsor')
+  createPromotion(@Param('id') id: string, @Body() body: CreateProjectPromotionDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.createPromotion(id, body, user);
+  }
+
+  @Post(':id/documents')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('assets', 'create')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 25 * 1024 * 1024 },
+    fileFilter: (_request, file, callback) => {
+      const extension = file.originalname.toLowerCase().split('.').pop();
+      callback(null, ['pdf', 'docx', 'xlsx', 'csv'].includes(extension || ''));
+    },
+  }))
+  uploadDocument(@Param('id') id: string, @UploadedFile() file: Express.Multer.File | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.uploadDocument(id, file, user);
+  }
+
+  @Get(':id/documents/:documentId/download')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('marketplace', 'read')
+  async downloadDocument(@Param('id') id: string, @Param('documentId') documentId: string, @CurrentUser() user: AuthenticatedUser, @Res() response: Response) {
+    const document = await this.projectsService.downloadDocument(id, documentId, user);
+    response.setHeader('Content-Type', document.mimeType);
+    response.setHeader('Content-Disposition', `attachment; filename="${document.fileName.replace(/"/g, '')}"`);
+    response.send(document.fileContent);
+  }
+
   @Get(':id')
   @RequirePermission('marketplace', 'read')
   get(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
@@ -22,7 +113,7 @@ export class ProjectsController {
   }
 
   @Post()
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Manager')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Manager', 'Project Sponsor')
   @RequirePermission('assets', 'create')
   create(@Body() body: CreateProjectDto, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.create(body, user);
@@ -41,4 +132,22 @@ export interface CreateProjectDto {
   fundingRequired: number;
   proposedShariahContract: string;
   projectSponsorId: string;
+  sponsorEntityType?: string;
+}
+
+export interface AddProjectTeamMemberDto {
+  userId: string;
+  projectRole: string;
+}
+
+export interface CreateProjectAnnouncementDto {
+  title: string;
+  body: string;
+  announcementType: 'Quarterly Update' | 'Financial Statement' | 'Milestone Notice' | 'Dividends Announcement' | 'Compliance Notice';
+}
+
+export interface CreateProjectPromotionDto {
+  packageId: string;
+  startDate: string;
+  paymentMethod: 'RM' | 'CREDITS';
 }

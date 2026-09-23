@@ -1,6 +1,6 @@
 import { mockAuthProvider } from './mockAuthProvider';
 import { oidcAuthProvider } from './oidcAuthProvider';
-import { AuthState, LoginCredentials, RegisterCredentials, AuthSession, AuthUser } from '../types/authTypes';
+import { AuthMode, AuthState, LoginCredentials, RegisterCredentials, AuthSession, AuthUser } from '../types/authTypes';
 import { UserRole } from '../../rbac/types';
 import { auditLogger } from '../../audit/auditLogger';
 
@@ -11,7 +11,7 @@ export interface IAuthProvider {
   register(credentials: RegisterCredentials): { success: boolean; error?: string; session?: AuthSession; user?: AuthUser };
   logout(): void;
   switchRole(targetRole: UserRole): boolean;
-  setMode(mode: 'DEMO' | 'PRODUCTION'): void;
+  setMode(mode: AuthMode): void;
   enterAsGuest(): void;
   initialize?(): Promise<void>;
 }
@@ -51,11 +51,11 @@ class AuthService {
     return this.provider.switchRole(targetRole);
   }
 
-  public setMode(mode: 'DEMO' | 'PRODUCTION'): void {
+  public setMode(mode: AuthMode): void {
     if (mode === 'PRODUCTION' && this.provider === mockAuthProvider) {
       this.provider.logout();
       this.provider = oidcAuthProvider;
-    } else if (mode === 'DEMO' && this.provider === oidcAuthProvider) {
+    } else if (mode !== 'PRODUCTION' && this.provider === oidcAuthProvider) {
       this.provider.logout();
       this.provider = mockAuthProvider;
     }

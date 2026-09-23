@@ -16,6 +16,39 @@ export type AIFeatureKey =
   | 'investor_discovery'
   | 'natural_language_assistant';
 
+export interface ContractAdvisorProject {
+  projectId: string;
+  title: string;
+  proposedShariahContract: string;
+  fundingTarget: number;
+  sector: string;
+  organisationId?: string;
+  countryNodeId?: string;
+  currency?: string;
+}
+
+export interface ContractAdvisorRecommendation {
+  primaryStructure: string;
+  secondaryStructure: string;
+  rationale: string;
+  keyConsiderations: string[];
+  disclaimer: string;
+}
+
+export interface ContractDraftParams {
+  contractType: string;
+  capital: number;
+  sponsorName: string;
+  sector?: string;
+  projectId?: string;
+}
+
+export interface ContractDraftRecommendation {
+  title: string;
+  watermark: string;
+  draftText: string;
+}
+
 export type AIFeatureStatus = 'ENABLED' | 'DISABLED' | 'UNDER_MAINTENANCE' | 'BETA';
 
 export type AIConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW';
@@ -53,6 +86,7 @@ export interface AIRequest {
 
 export interface AIResponse<T = any> {
   requestId: string;
+  runId?: string;
   status: AIResponseStatus;
   recommendation: T;
   confidence: AIConfidenceInfo;

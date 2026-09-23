@@ -60,7 +60,7 @@ export class MockAIProvider implements AIProvider {
           severity: 'LOW'
         }
       ],
-      dataSources: ['House of Wealth Internal Database', 'Shariah Governance Framework', 'Audit Trail'],
+      dataSources: ['Wealth Pooling Internal Database', 'Shariah Governance Framework', 'Audit Trail'],
       limitations: ['Mock AI simulation model without live external financial market feeds.'],
       requiresHumanReview: true,
       generatedAt: new Date().toISOString()

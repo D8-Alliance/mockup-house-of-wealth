@@ -51,6 +51,7 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
   const [transactions, setTransactions] = useState<CreditTransaction[]>(revenueService.getCreditTransactions(userId));
   const [reports, setReports] = useState<PremiumReportItem[]>(revenueService.getPremiumReports());
   const [billingRecords, setBillingRecords] = useState<BillingRecord[]>(revenueService.getBillingRecords(userId));
+  const [aiModuleDisabled, setAiModuleDisabled] = useState(false);
 
   // Determine initial tab based on user role (RBAC)
   const isSponsor = userRole === 'sponsor' || userRole === 'pdp';
@@ -74,6 +75,24 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
     });
     return unsub;
   }, [userId]);
+
+  useEffect(() => {
+    void apiClient.getFeatureModules()
+      .then(modules => setAiModuleDisabled(modules.some(module => module.moduleKey === 'AI_INTELLIGENCE' && module.mode === 'DISABLED')))
+      .catch(() => setAiModuleDisabled(false));
+  }, []);
+
+  if (aiModuleDisabled) {
+    return (
+      <div className="p-8 rounded-3xl bg-slate-900 text-white border border-amber-500/30 shadow-xl space-y-3">
+        <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">AI Membership Unavailable</span>
+        <h1 className="text-2xl font-black">AI plans and credits are temporarily hidden</h1>
+        <p className="text-sm text-slate-300 max-w-2xl">
+          AI Intelligence is not active while its provider integration is being completed. AI subscriptions, credit purchases, and AI allowances are unavailable until Platform Administration re-enables the module.
+        </p>
+      </div>
+    );
+  }
 
   const currentPlan = plans.find(p => p.id === membership.planId) || plans[0];
 
@@ -194,7 +213,7 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
           <div className="flex justify-between items-center">
             <div>
               <h3 className="font-black text-lg text-slate-900 dark:text-white">
-                HoW AI Credits Usage & Ledger
+                Wealth Pooling AI Credits Usage & Ledger
               </h3>
               <p className="text-xs text-slate-500">
                 Track token consumption across Shariah screening, AI deep scans, and report unlocks.

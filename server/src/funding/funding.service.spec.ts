@@ -117,3 +117,46 @@ describe('FundingService approval', () => {
     await expect(service.disburse('FRQ-1', actor('Super Admin'))).rejects.toBeInstanceOf(BadRequestException);
   });
 });
+
+describe('FundingService sponsor request access', () => {
+  const service = new FundingService(prismaMock as unknown as PrismaService, auditMock as unknown as AuditService, policy);
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('allows a Project Sponsor to create a request for their assigned project', async () => {
+    prismaMock.project.findUnique.mockResolvedValue({
+      projectId: 'PRJ-1',
+      projectSponsorId: 'USR-A',
+      organisationId: 'ORG-A',
+      countryNodeId: 'CN-MYS',
+      fundingRequired: { lte: () => false },
+    });
+    prismaMock.wealthPool.findFirst.mockResolvedValue({ poolId: 'POOL-1' });
+    prismaMock.fundingRequest.create.mockResolvedValue({
+      fundingRequestId: 'FRQ-NEW',
+      status: 'PENDING',
+      requestedAmount: '1000000',
+    });
+
+    await expect(service.request('PRJ-1', actor('Project Sponsor'))).resolves.toEqual({
+      requestId: 'FRQ-NEW',
+      status: 'PENDING',
+    });
+    expect(prismaMock.fundingRequest.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ requestedBy: 'USR-A', projectId: 'PRJ-1' }),
+    }));
+  });
+
+  it('rejects a Project Sponsor requesting funding for another sponsor project', async () => {
+    prismaMock.project.findUnique.mockResolvedValue({
+      projectId: 'PRJ-OTHER',
+      projectSponsorId: 'USR-B',
+      organisationId: 'ORG-A',
+      countryNodeId: 'CN-MYS',
+      fundingRequired: { lte: () => false },
+    });
+
+    await expect(service.request('PRJ-OTHER', actor('Project Sponsor'))).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prismaMock.fundingRequest.create).not.toHaveBeenCalled();
+  });
+});

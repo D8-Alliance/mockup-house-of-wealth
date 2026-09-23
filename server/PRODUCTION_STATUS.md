@@ -1,7 +1,7 @@
 # Production Readiness Status
 
 ## Overview
-The House of Wealth backend has been hardened with critical security fixes addressing tenant scope validation, dynamic JWT role extraction, and role assignment APIs. This document tracks the current state and remaining work.
+The Wealth Pooling backend has been hardened with critical security fixes addressing tenant scope validation, dynamic JWT role extraction, and role assignment APIs. This document tracks the current state and remaining work.
 
 ---
 

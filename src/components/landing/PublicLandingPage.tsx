@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { WealthPoolingLogo } from '../WealthPoolingLogo';
 import {
   Building2,
   Globe2,
@@ -102,16 +103,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 gap-4">
             <div className="flex items-center gap-3 cursor-pointer">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-extrabold text-base sm:text-lg tracking-tight">House of Wealth</span>
-                  <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">D-8</span>
-                </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">Islamic Circular Economy Platform</p>
-              </div>
+              <WealthPoolingLogo compact />
             </div>
 
             <div className="hidden lg:flex items-center gap-6 text-xs font-bold text-slate-600 dark:text-slate-300">
@@ -187,7 +179,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
               </h1>
 
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed">
-                House of Wealth connects institutional capital, asset owners, and sustainable projects
+                Wealth Pooling connects institutional capital, asset owners, and sustainable projects
                 across the <strong>{countries.length} member states</strong> of the D-8 Organization for
                 Economic Cooperation — powered by Shariah-compliant tokenization, smart contracts, and
                 transparent wealth pooling.
@@ -417,7 +409,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-emerald-500" />
-            <span className="font-bold text-white">House of Wealth</span>
+            <span className="font-bold text-white">Wealth Pooling</span>
             <span>· Islamic Circular Economy Platform</span>
           </div>
           <div className="flex items-center gap-4">

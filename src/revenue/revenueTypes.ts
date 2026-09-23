@@ -7,7 +7,7 @@ export type UserSegment =
   | 'Family Office'
   | 'Corporate Investor'
   | 'Institutional Investor'
-  | 'PDP / Project Sponsor'
+  | 'Delivery Partner / Project Sponsor'
   | 'Professional Service Provider'
   | 'Organisation'
   | 'Enterprise';

@@ -168,7 +168,7 @@ export const INITIAL_EXIT_REQUESTS: ExitRequest[] = [
     poolId: 'POOL-101',
     poolName: 'Malaysia SME Halal Export Supply Chain Pool',
     investorId: 'USR-8821',
-    investorName: 'Ahmed Al-Mansoor',
+    investorName: 'Ahmad bin Razak',
     tokenUnits: 50,
     requestedAmount: 25000,
     discountPercent: 1.5,

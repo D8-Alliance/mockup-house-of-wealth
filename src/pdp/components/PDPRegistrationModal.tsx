@@ -58,6 +58,8 @@ export const PDPRegistrationModal: React.FC<PDPRegistrationModalProps> = ({
   initialData
 }) => {
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<PDPApplication>>({
     countryCode: 'MYS',
     countryName: 'Malaysia',
@@ -116,11 +118,17 @@ export const PDPRegistrationModal: React.FC<PDPRegistrationModalProps> = ({
   if (!isOpen) return null;
 
   const handleSaveDraft = async () => {
+    setSaving(true);
+    setError(null);
     try {
       const saved = await apiClient.savePdpDraft(formData, formData.id);
       setFormData(saved);
-    } catch (error) {
-      console.error('PDP draft save failed', error);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Unable to save PDP draft.';
+      console.error('PDP draft save failed', caught);
+      setError(message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -138,13 +146,19 @@ export const PDPRegistrationModal: React.FC<PDPRegistrationModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
+    setError(null);
     try {
       const saved = await apiClient.savePdpDraft(formData, formData.id);
       const submitted = await apiClient.submitPdpApplication(saved.id);
       if (onSubmitted) onSubmitted(submitted);
       onClose();
-    } catch (error) {
-      console.error('PDP application submission failed', error);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Unable to submit PDP application.';
+      console.error('PDP application submission failed', caught);
+      setError(message);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -165,7 +179,7 @@ export const PDPRegistrationModal: React.FC<PDPRegistrationModalProps> = ({
                 <span className="text-xs text-slate-400 font-mono">D-8 Wealth Pooling Platform</span>
               </div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white mt-0.5">
-                Pool / Project Data Provider (PDP) Registration Wizard
+                 Pool / Project Delivery Partner (PDP) Registration Wizard
               </h3>
             </div>
           </div>
@@ -239,14 +253,20 @@ export const PDPRegistrationModal: React.FC<PDPRegistrationModalProps> = ({
 
           {/* Footer Controls */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-100 dark:border-slate-800 shrink-0">
+            {error && (
+              <p className="w-full text-xs font-semibold text-red-600 dark:text-red-400" role="alert">
+                {error}
+              </p>
+            )}
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={handleSaveDraft}
+                disabled={saving}
                 className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors w-full sm:w-auto"
               >
                 <Save className="w-3.5 h-3.5" />
-                <span>Save Draft</span>
+                <span>{saving ? 'Saving...' : 'Save Draft'}</span>
               </button>
             </div>
 
@@ -274,6 +294,7 @@ export const PDPRegistrationModal: React.FC<PDPRegistrationModalProps> = ({
               ) : (
                 <button
                   type="submit"
+                  disabled={saving}
                   className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer transition-all w-full sm:w-auto"
                 >
                   <CheckCircle2 className="w-4 h-4" />

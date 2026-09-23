@@ -1,14 +1,18 @@
-import { AuthUser, AuthSession, LoginCredentials, RegisterCredentials, AuthState } from '../types/authTypes';
+import { AuthMode, AuthUser, AuthSession, LoginCredentials, RegisterCredentials, AuthState } from '../types/authTypes';
 import { DEMO_PERSONAS } from './demoPersonas';
 import { mfaService } from './mfaService';
 import { auditLogger } from '../../audit/auditLogger';
 import { UserRole } from '../../rbac/types';
+import { SINGLE_ROLE_MODE } from '../../rbac/runtimeConfig';
 
 // The mock backend (AUTH_MODE=mock) reads identity claims from the first
 // segment of the bearer token, so a demo session must carry the persona it was
 // actually created for. Roles stay server-authoritative: the backend uses these
 // claims only to look the user up, then reads role assignments from the database.
 function mockSessionToken(user: AuthUser): string {
+  if (SINGLE_ROLE_MODE) {
+    return `${btoa(JSON.stringify({ mock: 'mock-user', countryNode: 'CN-MYS', org: 'ORG-PUBLIC' }))}.demo-token`;
+  }
   const claims = {
     mock: user.userId.replace(/^USR-/, ''),
     role: user.activeRole,
@@ -24,7 +28,7 @@ export class MockAuthProvider {
   // after the user completes the identity-gateway sign-in flow.
   private currentSession: AuthSession | null = null;
 
-  private mode: 'DEMO' | 'PRODUCTION' = 'DEMO';
+  private mode: AuthMode = 'DEMO';
 
   // Accounts created through the public Register flow (DEMO mode). Registered
   // users can subsequently sign in with the same email + the selected role.
@@ -48,7 +52,7 @@ export class MockAuthProvider {
     };
   }
 
-  public setMode(mode: 'DEMO' | 'PRODUCTION'): void {
+  public setMode(mode: AuthMode): void {
     this.mode = mode;
   }
 
@@ -117,7 +121,7 @@ export class MockAuthProvider {
     }
 
     // Check MFA
-    const requiresMfa = mfaService.requiresMfa(selectedRole, persona.mfaStatus);
+    const requiresMfa = this.mode === 'PRODUCTION' && mfaService.requiresMfa(selectedRole, persona.mfaStatus);
     if (requiresMfa) {
       const challenge = mfaService.createChallenge(persona.userId);
       return {
@@ -134,7 +138,7 @@ export class MockAuthProvider {
       sessionId: `SES-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
       user: sessionUser,
       token: mockSessionToken(sessionUser),
-      isDemoSession: this.mode === 'DEMO',
+        isDemoSession: this.mode !== 'PRODUCTION',
       mfaVerified: true,
       expiresAt: new Date(Date.now() + 86400000).toISOString()
     };

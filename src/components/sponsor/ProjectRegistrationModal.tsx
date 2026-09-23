@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { SponsorProject, SponsorOrgType } from './SponsorTypes';
+import { SPONSOR_ENTITY_TYPES, SponsorProject, SponsorOrgType } from './SponsorTypes';
 import { X, Upload, FileText, CheckCircle2, Shield } from 'lucide-react';
 
 interface ProjectRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmitProject: (newProject: SponsorProject) => void;
+  onSubmitProject: (newProject: SponsorProject, documents: { businessPlan?: File; financialProjection?: File }) => void | Promise<void>;
 }
 
 export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> = ({ isOpen, onClose, onSubmitProject }) => {
@@ -21,14 +21,18 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
   const [country, setCountry] = useState('Malaysia');
   const [description, setDescription] = useState('');
 
-  const [businessPlanFileName, setBusinessPlanFileName] = useState<string | null>(null);
-  const [financialFileName, setFinancialFileName] = useState<string | null>(null);
+  const [businessPlanFile, setBusinessPlanFile] = useState<File | null>(null);
+  const [financialProjectionFile, setFinancialProjectionFile] = useState<File | null>(null);
+  const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !description) return;
+    setSubmitError('');
+    setIsSubmitting(true);
 
     const newProject: SponsorProject = {
       id: `PRJ-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -51,8 +55,8 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
       ],
       disbursements: [],
       documents: [
-        { id: 'DOC-NEW-1', title: businessPlanFileName || 'Business_Plan_Proposal.pdf', category: 'Business Plan', fileSize: '4.8 MB', uploadDate: '2026-08-04', securityLevel: 'Confidential' },
-        { id: 'DOC-NEW-2', title: financialFileName || '5_Year_Financial_Model.xlsx', category: 'Financial Projection', fileSize: '2.3 MB', uploadDate: '2026-08-04', securityLevel: 'Confidential' }
+        { id: 'DOC-NEW-1', title: businessPlanFile?.name || 'Business_Plan_Proposal.pdf', category: 'Business Plan', fileSize: businessPlanFile ? `${(businessPlanFile.size / 1024 / 1024).toFixed(1)} MB` : 'Not uploaded', uploadDate: '2026-08-04', securityLevel: 'Confidential' },
+        { id: 'DOC-NEW-2', title: financialProjectionFile?.name || '5_Year_Financial_Model.xlsx', category: 'Financial Projection', fileSize: financialProjectionFile ? `${(financialProjectionFile.size / 1024 / 1024).toFixed(1)} MB` : 'Not uploaded', uploadDate: '2026-08-04', securityLevel: 'Confidential' }
       ],
       team: [
         { id: 'T-DIR', name: 'Project Lead', role: 'Sponsor Lead', qualification: 'MBA / PMP', avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80' }
@@ -60,8 +64,14 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
       comms: []
     };
 
-    onSubmitProject(newProject);
-    onClose();
+    try {
+      await onSubmitProject(newProject, { businessPlan: businessPlanFile || undefined, financialProjection: financialProjectionFile || undefined });
+      onClose();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Unable to save the project.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -112,15 +122,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
                 onChange={(e) => setOrgType(e.target.value as SponsorOrgType)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
               >
-                <option value="FELDA / Plantation & Agriculture">FELDA / Plantation & Agriculture</option>
-                <option value="FELCRA / Agro-Land Development">FELCRA / Agro-Land Development</option>
-                <option value="RISDA / Rubber & Rural Innovation">RISDA / Rubber & Rural Innovation</option>
-                <option value="MARA / Entrepreneur Development">MARA / Entrepreneur Development</option>
-                <option value="GLC / Sovereign-Backed Enterprise">GLC / Sovereign-Backed Enterprise</option>
-                <option value="Cooperative Society (Koperasi)">Cooperative Society (Koperasi)</option>
-                <option value="Property & Urban Developer">Property & Urban Developer</option>
-                <option value="High-Growth SME">High-Growth SME</option>
-                <option value="Impact NGO / Waqf Foundation">Impact NGO / Waqf Foundation</option>
+                {SPONSOR_ENTITY_TYPES.map((entityType) => <option key={entityType} value={entityType}>{entityType}</option>)}
               </select>
             </div>
           </div>
@@ -206,30 +208,25 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
               <FileText className="w-5 h-5 mx-auto text-amber-500 mb-1" />
               <span className="block font-semibold text-slate-700 dark:text-slate-300">Business Plan Document</span>
               <p className="text-[10px] text-slate-500 mb-2">PDF, DOCX up to 25MB</p>
-              <button
-                type="button"
-                onClick={() => setBusinessPlanFileName('FELDA_Expansion_BusinessPlan_2026.pdf')}
-                className="px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold rounded-lg text-[11px]"
-              >
-                {businessPlanFileName ? `Uploaded: ${businessPlanFileName}` : 'Simulate Upload'}
-              </button>
+              <label className="inline-block px-3 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold rounded-lg text-[11px] cursor-pointer">
+                {businessPlanFile ? `Selected: ${businessPlanFile.name}` : 'Choose File'}
+                <input type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={(event) => setBusinessPlanFile(event.target.files?.[0] || null)} />
+              </label>
             </div>
 
             <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-3 text-center bg-slate-50/50 dark:bg-slate-800/50">
               <Upload className="w-5 h-5 mx-auto text-indigo-500 mb-1" />
               <span className="block font-semibold text-slate-700 dark:text-slate-300">Financial Projection (5Y)</span>
               <p className="text-[10px] text-slate-500 mb-2">XLSX, CSV up to 25MB</p>
-              <button
-                type="button"
-                onClick={() => setFinancialFileName('Financial_Model_5Yr_IRR.xlsx')}
-                className="px-3 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-semibold rounded-lg text-[11px]"
-              >
-                {financialFileName ? `Uploaded: ${financialFileName}` : 'Simulate Upload'}
-              </button>
+              <label className="inline-block px-3 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 font-semibold rounded-lg text-[11px] cursor-pointer">
+                {financialProjectionFile ? `Selected: ${financialProjectionFile.name}` : 'Choose File'}
+                <input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={(event) => setFinancialProjectionFile(event.target.files?.[0] || null)} />
+              </label>
             </div>
           </div>
 
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
+            {submitError && <p className="mr-auto self-center text-xs font-semibold text-rose-600">{submitError}</p>}
             <button
               type="button"
               onClick={onClose}
@@ -239,9 +236,10 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-gradient-to-r from-amber-500 to-emerald-600 hover:from-amber-600 hover:to-emerald-700 text-white font-semibold rounded-xl flex items-center gap-1.5 shadow-md"
+              disabled={isSubmitting}
+              className="px-5 py-2 bg-gradient-to-r from-amber-500 to-emerald-600 hover:from-amber-600 hover:to-emerald-700 text-white font-semibold rounded-xl flex items-center gap-1.5 shadow-md disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <CheckCircle2 className="w-4 h-4" /> Save as Draft
+              <CheckCircle2 className="w-4 h-4" /> {isSubmitting ? 'Saving...' : 'Save as Draft'}
             </button>
           </div>
         </form>

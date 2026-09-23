@@ -101,6 +101,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
             assets={assets}
             lang={lang}
             onOpenAssetRegister={onOpenAssetRegister}
+            onOpenContractWizard={onOpenContractWizard}
           />
         </RoleGuard>
       )}

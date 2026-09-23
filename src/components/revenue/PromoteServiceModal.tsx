@@ -49,7 +49,7 @@ export const PromoteServiceModal: React.FC<PromoteServiceModalProps> = ({ onClos
               Promote Your Professional Practice (30 Days)
             </h3>
             <p className="text-xs text-slate-500">
-              Feature your firm on the House of Wealth ecosystem directory for RM 199 / month.
+              Feature your firm on the Wealth Pooling ecosystem directory for RM 199 / month.
             </p>
           </div>
           <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">

@@ -134,7 +134,7 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
           <div className="flex justify-between items-center text-xs">
             <span className="text-slate-300 font-bold flex items-center gap-1.5">
               <Zap className="w-4 h-4 text-amber-400" />
-              HoW AI Utility Credits
+              Wealth Pooling AI Utility Credits
             </span>
             <span className="font-mono font-black text-white">
               {creditBalance.availableCredits} / {creditBalance.totalCredits}

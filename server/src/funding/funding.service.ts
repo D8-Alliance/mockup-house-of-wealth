@@ -17,6 +17,7 @@ export class FundingService {
     const project = await this.prisma.project.findUnique({ where: { projectId } });
     if (!project) throw new NotFoundException('Project not found');
     assertTenantScope(user, project, 'Project');
+    this.assertProjectSponsorScope(user, project.projectSponsorId);
     if (project.fundingRequired.lte(0)) {
       throw new BadRequestException('Project is fully funded');
     }
@@ -119,9 +120,16 @@ export class FundingService {
     const project = await this.prisma.project.findUnique({ where: { projectId } });
     if (!project) throw new NotFoundException('Project not found');
     assertTenantScope(user, project, 'Project');
+    this.assertProjectSponsorScope(user, project.projectSponsorId);
     return this.prisma.fundingRequest.findMany({
       where: { projectId },
       orderBy: { requestedAt: 'desc' },
     });
+  }
+
+  private assertProjectSponsorScope(user: AuthenticatedUser, projectSponsorId: string) {
+    if (user.role === 'Project Sponsor' && projectSponsorId !== user.userId) {
+      throw new ForbiddenException('Project is not assigned to this sponsor');
+    }
   }
 }

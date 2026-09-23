@@ -1,13 +1,45 @@
-import { AIRequest, AIResponse } from '../types/aiCoreTypes';
+import { AIRequest, AIResponse, ContractAdvisorProject, ContractAdvisorRecommendation, ContractDraftParams, ContractDraftRecommendation } from '../types/aiCoreTypes';
 import { aiOrchestrator } from './AIOrchestrator';
+import { apiClient, BackendAiRun } from '../../services/apiClient';
+
+function mapBackendAiResponse<T>(run: BackendAiRun): AIResponse<T> | null {
+  const output = run.output;
+  if (!output?.recommendation || !output.confidence || !output.reasoningSummary) return null;
+  return {
+    requestId: run.requestId,
+    runId: run.id,
+    status: 'SUCCESS',
+    recommendation: output.recommendation as T,
+    confidence: output.confidence,
+    reasoningSummary: output.reasoningSummary,
+    riskFlags: output.riskFlags || [],
+    dataSources: output.dataSources || [],
+    limitations: output.limitations || [],
+    requiresHumanReview: output.requiresHumanReview ?? true,
+    generatedAt: run.createdAt,
+  };
+}
 
 export class AIService {
-  public static async analyzeContract(project: any, user: any): Promise<AIResponse> {
+  public static async analyzeContract(project: ContractAdvisorProject, user: {
+    id: string;
+    role: string;
+    organization?: string;
+    countryCode?: string;
+  }): Promise<AIResponse<ContractAdvisorRecommendation>> {
+    const backendRun = await apiClient.analyzeContractAdvisor({
+      projectId: project.projectId,
+      proposedShariahContract: project.proposedShariahContract,
+      context: project.title,
+    });
+    const backendResponse = mapBackendAiResponse<ContractAdvisorRecommendation>(backendRun);
+    if (backendResponse) return backendResponse;
+
     const req: AIRequest = {
       requestId: `AI-REQ-${Date.now()}`,
       userId: user.id,
-      organisationId: user.organization || 'ORG-MYS',
-      countryNodeId: user.countryCode || 'CN-MYS',
+      organisationId: project.organisationId || user.organization || 'ORG-MYS',
+      countryNodeId: project.countryNodeId || user.countryCode || 'CN-MYS',
       role: user.role,
       module: 'contract_advisor',
       action: 'RECOMMEND_CONTRACT',
@@ -15,7 +47,7 @@ export class AIService {
       timestamp: new Date().toISOString()
     };
 
-    return aiOrchestrator.executeAIRequest(req, (base) => ({
+    return aiOrchestrator.executeAIRequest<ContractAdvisorRecommendation>(req, (base) => ({
       ...base,
       recommendation: {
         primaryStructure: 'Musharakah (Joint Venture Capital)',
@@ -42,7 +74,16 @@ export class AIService {
     }));
   }
 
-  public static async generateContractDraft(params: any, user: any): Promise<AIResponse> {
+  public static async generateContractDraft(params: ContractDraftParams, user: {
+    id: string;
+    role: string;
+    organization?: string;
+    countryCode?: string;
+  }): Promise<AIResponse<ContractDraftRecommendation>> {
+    const backendRun = await apiClient.generateContractDraft(params);
+    const backendResponse = mapBackendAiResponse<ContractDraftRecommendation>(backendRun);
+    if (backendResponse) return backendResponse;
+
     const req: AIRequest = {
       requestId: `AI-REQ-${Date.now()}`,
       userId: user.id,
@@ -55,7 +96,7 @@ export class AIService {
       timestamp: new Date().toISOString()
     };
 
-    return aiOrchestrator.executeAIRequest(req, (base) => ({
+    return aiOrchestrator.executeAIRequest<ContractDraftRecommendation>(req, (base) => ({
       ...base,
       recommendation: {
         title: `DRAFT SHARIAH AGREEMENT (${params.contractType || 'MUDARABAH'})`,
@@ -73,6 +114,14 @@ RECITALS & SHARIAH TERMS:
 6. Governing Law & Shariah Oversight: D-8 Shariah Advisory Council & Local Courts.`
       }
     }));
+  }
+
+  public static async analyzeShariah(input: { proposedContract: string; terms: string; projectId: string }) {
+    const run = await apiClient.analyzeShariah(input);
+    if (run.status !== 'COMPLETED' || run.provider === 'sandbox' || !run.output) {
+      throw new Error('A completed production AI analysis is required before human review.');
+    }
+    return run;
   }
 
   public static async matchInvestmentPools(investorProfile: any, pools: any[], user: any): Promise<AIResponse> {

@@ -29,7 +29,8 @@ import {
   Megaphone,
   Newspaper,
   MapPin,
-  Users
+  Users,
+  Power
 } from 'lucide-react';
 import { AdminModuleSection } from '../types';
 import { AdminGovernanceDashboards } from './admin/AdminGovernanceDashboards';
@@ -47,6 +48,7 @@ import { PDPCountryConfigAdminPanel } from '../pdp/components/PDPCountryConfigAd
 import { AdminShariahContentManager } from './info/AdminShariahContentManager';
 import { AdminPageContentManager } from './info/AdminPageContentManager';
 import { useRBAC } from '../rbac/RBACContext';
+import { FeatureModuleControlPanel } from './admin/FeatureModuleControlPanel';
 
 export const AdminCenterView: React.FC = () => {
   const { currentRole } = useRBAC();
@@ -93,7 +95,8 @@ export const AdminCenterView: React.FC = () => {
         { id: 'sys_roles', label: 'Role Management', icon: <UserCheck className="w-4 h-4" /> },
         { id: 'sys_permissions', label: 'Permission Matrix', icon: <KeyRound className="w-4 h-4" /> },
         { id: 'sys_workflow', label: 'Workflow Engine', icon: <GitPullRequest className="w-4 h-4" /> },
-        { id: 'sys_approvalmatrix', label: 'Approval Matrix', icon: <CheckSquare className="w-4 h-4" /> }
+        { id: 'sys_approvalmatrix', label: 'Approval Matrix', icon: <CheckSquare className="w-4 h-4" /> },
+        { id: 'sys_modules', label: 'Module Availability', icon: <Power className="w-4 h-4" /> }
       ]
     },
     {
@@ -172,6 +175,13 @@ export const AdminCenterView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
+            <button
+              onClick={() => setActiveSection('sys_modules')}
+              className="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-2 border border-white/20 cursor-pointer transition-all"
+            >
+              <Power className="w-4 h-4" />
+              <span>Module Controls</span>
+            </button>
             <button 
               onClick={() => setActiveSection('sys_reports')}
               className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 shadow cursor-pointer transition-all"
@@ -237,6 +247,8 @@ export const AdminCenterView: React.FC = () => {
 
           {activeSection === 'shariah_governance' && <AdminShariahContentManager />}
 
+          {activeSection === 'sys_modules' && <FeatureModuleControlPanel />}
+
           {['content_about', 'content_members', 'content_news', 'content_contact'].includes(activeSection) && (
             <AdminPageContentManager />
           )}
@@ -256,7 +268,7 @@ export const AdminCenterView: React.FC = () => {
             />
           )}
 
-          {activeSection !== 'scoped_dashboard' && activeSection !== 'pdp_applications' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && (
+          {activeSection !== 'scoped_dashboard' && activeSection !== 'pdp_applications' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'sys_modules' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && (
             <AdminFinanceTemplates section={activeSection as any} />
           )}
         </div>

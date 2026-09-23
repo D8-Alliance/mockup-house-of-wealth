@@ -74,7 +74,7 @@ export const SYSTEM_ROLES: Record<string, RoleDefinition> = {
     demoUser: {
       name: 'Faisal Al-Otaibi',
       email: 'faisal.sysadmin@how.d8.org',
-      organization: 'House of Wealth DevOps Core',
+      organization: 'Wealth Pooling DevOps Core',
       avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=200&q=80'
     }
   },

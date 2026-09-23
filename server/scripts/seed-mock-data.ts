@@ -149,10 +149,10 @@ async function seed(): Promise<void> {
     // Role resolution stays fully DB-authoritative regardless.
     await tx.organisation.upsert({
       where: { id: 'ORG-PUBLIC' },
-      update: { name: 'House of Wealth Public (Mock)', countryNodeId: 'CN-MYS', status: 'ACTIVE' },
+      update: { name: 'Wealth Pooling Public (Mock)', countryNodeId: 'CN-MYS', status: 'ACTIVE' },
       create: {
         id: 'ORG-PUBLIC',
-        name: 'House of Wealth Public (Mock)',
+        name: 'Wealth Pooling Public (Mock)',
         countryNodeId: 'CN-MYS',
         status: 'ACTIVE',
       },
@@ -162,16 +162,16 @@ async function seed(): Promise<void> {
       update: {
         idpProvider: 'mock',
         idpSubjectId: 'USR-mock-user',
-        email: 'mock@houseofwealth.local',
-        name: 'Mock Super Admin',
+        email: 'admin.demo@wealthpooling.my',
+        name: 'Dr. Farid Hakim',
         isActive: true,
       },
       create: {
         id: 'USR-mock-user',
         idpProvider: 'mock',
         idpSubjectId: 'USR-mock-user',
-        email: 'mock@houseofwealth.local',
-        name: 'Mock Super Admin',
+        email: 'admin.demo@wealthpooling.my',
+        name: 'Dr. Farid Hakim',
         isActive: true,
       },
     });
@@ -196,6 +196,16 @@ async function seed(): Promise<void> {
     });
 
     for (const user of INITIAL_APP_USERS) {
+      const emailOwner = await tx.user.findUnique({
+        where: { email: user.email },
+        select: { id: true }
+      });
+      if (emailOwner && emailOwner.id !== user.userId) {
+        await tx.user.update({
+          where: { id: emailOwner.id },
+          data: { email: `${emailOwner.id}.seed-conflict@invalid` }
+        });
+      }
       await tx.user.upsert({
         where: { id: user.userId },
         update: {

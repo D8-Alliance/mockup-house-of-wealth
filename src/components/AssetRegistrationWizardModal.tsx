@@ -28,19 +28,73 @@ export const AssetRegistrationWizardModal: React.FC<AssetRegistrationWizardModal
   const [location, setLocation] = useState('');
   const [estimatedValue, setEstimatedValue] = useState('');
   const [description, setDescription] = useState('');
-  const [fileUploaded, setFileUploaded] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
 
-  const handleRegister = () => {
-    if (!assetName || !estimatedValue) {
-      alert("Please provide asset name and estimated market value.");
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    const invalidFile = files.find(file => (
+      !['application/pdf', 'image/png', 'image/jpeg', 'image/svg+xml'].includes(file.type) ||
+      file.size > 10 * 1024 * 1024
+    ));
+
+    if (invalidFile) {
+      setUploadedFiles([]);
+      setImagePreviewUrl('');
+      setImagePreviewUrls([]);
+      setFileError(`${invalidFile.name} must be a PDF, PNG, JPG, or SVG file no larger than 10MB.`);
+      event.target.value = '';
       return;
     }
 
+    setUploadedFiles(files);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    const imageDataUrls = await Promise.all(imageFiles.map(file => new Promise<string>(resolve => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onerror = () => resolve('');
+      reader.readAsDataURL(file);
+    })));
+    const validImageDataUrls = imageDataUrls.filter(Boolean);
+    setImagePreviewUrls(validImageDataUrls);
+    setImagePreviewUrl(validImageDataUrls[0] || '');
+    setFileError('');
+  };
+
+  const handleRegister = () => {
+    const normalizedName = assetName.trim();
     const valNum = Number(estimatedValue);
+
+    if (!normalizedName && !estimatedValue) {
+      setFormError('Please provide asset name and estimated market value.');
+      setStep(2);
+      return;
+    }
+
+    if (!normalizedName) {
+      setFormError('Please provide an asset name.');
+      setStep(2);
+      return;
+    }
+
+    if (!estimatedValue || !Number.isFinite(valNum) || valNum <= 0) {
+      setFormError('Please provide a valid estimated market value greater than zero.');
+      setStep(2);
+      return;
+    }
+
+    if (uploadedFiles.length === 0) {
+      setFileError('Upload at least one ownership deed or property photo before completing registration.');
+      setStep(3);
+      return;
+    }
 
     const created: AssetItem = {
       id: `AST-${Math.floor(1000 + Math.random() * 9000)}`,
-      name: assetName,
+      name: normalizedName,
       type: assetType,
       location: location || 'Kuala Lumpur, Malaysia',
       value: valNum,
@@ -50,10 +104,11 @@ export const AssetRegistrationWizardModal: React.FC<AssetRegistrationWizardModal
       shariahStatus: 'Pending Review',
       collateralPercent: 80,
       liquidityPercent: 60,
-      imageUrl: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=600&q=80',
+       imageUrl: imagePreviewUrl || 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=600&q=80',
+       imageUrls: imagePreviewUrls.length > 0 ? imagePreviewUrls : undefined,
       description: description || 'Registered Shariah-compliant asset pending final valuation audit.',
-      owner: 'Ahmed Al-Mansoor',
-      custodian: 'House of Wealth Vault'
+      owner: 'Ahmad bin Razak',
+      custodian: 'Wealth Pooling Vault'
     };
 
     onAddAsset(created);
@@ -122,7 +177,7 @@ export const AssetRegistrationWizardModal: React.FC<AssetRegistrationWizardModal
               <input 
                 type="text"
                 value={assetName}
-                onChange={e => setAssetName(e.target.value)}
+                onChange={e => { setAssetName(e.target.value); setFormError(''); }}
                 placeholder="e.g. Kuala Lumpur Commercial Unit #12"
                 className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
               />
@@ -149,12 +204,16 @@ export const AssetRegistrationWizardModal: React.FC<AssetRegistrationWizardModal
                 <input 
                   type="number"
                   value={estimatedValue}
-                  onChange={e => setEstimatedValue(e.target.value)}
+                  onChange={e => { setEstimatedValue(e.target.value); setFormError(''); }}
                   placeholder="e.g. 250000"
                   className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
                 />
               </div>
             </div>
+
+            {formError && (
+              <p role="alert" className="text-xs font-semibold text-rose-600 dark:text-rose-400">{formError}</p>
+            )}
 
             <div>
               <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
@@ -176,27 +235,56 @@ export const AssetRegistrationWizardModal: React.FC<AssetRegistrationWizardModal
           <div className="space-y-4 animate-fade-in">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">Upload Ownership Deed & Photos</h3>
 
-            <div 
-              onClick={() => setFileUploaded(true)}
+            <label
+              htmlFor="asset-registration-files"
               className={`h-36 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer transition-all ${
-                fileUploaded 
+                uploadedFiles.length > 0
                   ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
                   : 'border-slate-300 dark:border-slate-700 hover:border-emerald-500 text-slate-400'
               }`}
             >
-              {fileUploaded ? (
+              <input
+                id="asset-registration-files"
+                type="file"
+                multiple
+                accept=".pdf,.png,.jpg,.jpeg,.svg,application/pdf,image/png,image/jpeg,image/svg+xml"
+                onChange={handleFileChange}
+                className="sr-only"
+              />
+              {uploadedFiles.length > 0 ? (
                 <div className="flex flex-col items-center gap-1">
-                  <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                  <span className="font-bold text-xs">Ownership_Deed_Title_2026.pdf (2.4 MB Uploaded)</span>
+                  {imagePreviewUrl ? (
+                    <img
+                      src={imagePreviewUrl}
+                      alt="Selected asset preview"
+                      className="h-16 w-24 rounded-lg object-cover border border-emerald-500/40"
+                    />
+                  ) : (
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                  )}
+                  <span className="font-bold text-xs text-center px-4">
+                    {uploadedFiles.length} file{uploadedFiles.length === 1 ? '' : 's'} selected
+                  </span>
+                  <span className="text-[10px] opacity-70 text-center px-4">
+                    {uploadedFiles.map(file => file.name).join(', ')}
+                  </span>
                 </div>
               ) : (
                 <div className="flex flex-col items-center gap-1">
                   <UploadCloud className="w-8 h-8" />
-                  <span className="text-xs font-semibold">Click to upload title deed or property audit docs</span>
-                  <span className="text-[10px] opacity-70">PDF, PNG, SVG up to 10MB</span>
+                  <span className="text-xs font-semibold">Click to upload title deed or property photos</span>
+                  <span className="text-[10px] opacity-70">PDF, PNG, JPG, SVG up to 10MB each</span>
                 </div>
               )}
-            </div>
+            </label>
+
+            {fileError && (
+              <p role="alert" className="text-xs font-semibold text-rose-600 dark:text-rose-400">{fileError}</p>
+            )}
+
+            <p className="text-[10px] text-slate-400 dark:text-slate-500">
+              Files are selected for this MVP registration only. Permanent document storage and review upload are not connected yet.
+            </p>
 
             <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-2.5 text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
               <ShieldCheck className="w-5 h-5 shrink-0" />

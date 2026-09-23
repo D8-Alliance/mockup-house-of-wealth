@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { Building2, ChevronDown, Globe2, Mail, User as UserIcon, Lock, ShieldCheck, ArrowRight } from 'lucide-react';
 import { UserRole } from '../../rbac/types';
+import { AuthMode } from '../types/authTypes';
 import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
 import { INITIAL_COUNTRY_NODES } from '../../countryNodes/mockCountryNodes';
 import { authService } from '../../auth/services/authService';
 import { RegisterCredentials } from '../../auth/types/authTypes';
 
 interface RegisterFormProps {
-  authMode?: 'DEMO' | 'PRODUCTION';
+  authMode?: AuthMode;
   loading: boolean;
   setLoading: (loading: boolean) => void;
   onError: (error: string) => void;
