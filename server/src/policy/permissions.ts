@@ -178,12 +178,14 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
     marketplace: ['read'],
     pooling: ['read'],
     approvals: ['create'],
+    governance: ['create', 'read'],
     profile: ['read', 'update'],
   },
   'Project Manager': {
     dashboard: ['read'],
     assets: ['create', 'read', 'update'],
     pooling: ['read'],
+    governance: ['create', 'read'],
     profile: ['read', 'update'],
   },
   'Asset Owner': {
@@ -243,16 +245,19 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
     profile: ['read', 'update'],
   },
   'Shariah Advisor': {
+    marketplace: ['read'],
     governance: ['create', 'read', 'update', 'approve', 'audit'],
     contracts: ['read', 'audit'],
     profile: ['read', 'update'],
   },
   'Shariah Reviewer': {
+    marketplace: ['read'],
     governance: ['create', 'read', 'update', 'approve', 'audit'],
     contracts: ['read', 'audit'],
     profile: ['read', 'update'],
   },
   'Shariah Committee': {
+    marketplace: ['read'],
     governance: ['create', 'read', 'update', 'approve'],
     contracts: ['read'],
     profile: ['read', 'update'],

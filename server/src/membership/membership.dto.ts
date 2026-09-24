@@ -1,4 +1,4 @@
-import { IsIn, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 
 export class UpgradeMembershipDto {
   @IsString()
@@ -6,6 +6,23 @@ export class UpgradeMembershipDto {
 
   @IsIn(['monthly', 'annual'])
   billingInterval!: 'monthly' | 'annual';
+
+  @IsString()
+  paymentMethod!: string;
+}
+
+export class ConsumeCreditsDto {
+  @IsString()
+  operationKey!: string;
+
+  @IsOptional()
+  @IsString()
+  targetEntity?: string;
+}
+
+export class TopUpCreditsDto {
+  @IsString()
+  packageId!: string;
 
   @IsString()
   paymentMethod!: string;

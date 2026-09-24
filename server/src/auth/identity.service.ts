@@ -80,7 +80,7 @@ export class IdentityService {
     return identity;
   }
 
-  private async resolveDatabaseIdentity(subject: string, claims: Omit<AuthenticatedUser, 'userId' | 'idpSubjectId' | 'assignedRoles' | 'role'>): Promise<AuthenticatedUser> {
+  private async resolveDatabaseIdentity(subject: string, claims: Omit<AuthenticatedUser, 'userId' | 'idpSubjectId' | 'assignedRoles' | 'role'>, preferredRole?: UserRole): Promise<AuthenticatedUser> {
     const user = await this.prisma.user.findFirst({
       where: {
         OR: [
@@ -110,12 +110,13 @@ export class IdentityService {
       throw new UnauthorizedException('User has no active role in this organisation and country');
     }
 
+    const activeRole = preferredRole && assignedRoles.includes(preferredRole) ? preferredRole : assignedRoles[0];
     return {
       userId: user.id,
       idpSubjectId: user.idpSubjectId,
       email: user.email,
       name: user.name,
-      role: assignedRoles[0],
+      role: activeRole,
       countryNodeId: claims.countryNodeId,
       organisationId: claims.organisationId,
       assignedRoles,
@@ -128,14 +129,14 @@ export class IdentityService {
 
   private async verifyMockToken(token: string): Promise<AuthenticatedUser> {
     const headerB64 = token.split('.')[0] ?? '';
-    const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8') || '{}') as { mock?: string; countryNode?: string; org?: string };
+    const header = JSON.parse(Buffer.from(headerB64, 'base64url').toString('utf8') || '{}') as { mock?: string; role?: UserRole; countryNode?: string; org?: string };
     const mockSub = header.mock ?? 'mock-user';
     return this.resolveDatabaseIdentity(`USR-${mockSub}`, {
       email: 'admin.demo@wealthpooling.my',
       name: 'Dr. Farid Hakim',
       countryNodeId: header.countryNode ?? process.env.DEFAULT_COUNTRY_NODE ?? 'CN-MYS',
       organisationId: header.org ?? process.env.DEFAULT_ORGANISATION ?? 'ORG-PUBLIC',
-    });
+    }, header.role);
   }
 
   public async revokeToken(token: string): Promise<void> {

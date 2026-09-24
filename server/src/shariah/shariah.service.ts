@@ -26,6 +26,18 @@ export class ShariahService {
     });
   }
 
+  async notifications(user: AuthenticatedUser) {
+    return this.prisma.notification.findMany({
+      where: { recipientUserId: user.userId, organisationId: user.organisationId, countryNodeId: user.countryNodeId },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+  }
+
+  async centralMalaysia(user: AuthenticatedUser) {
+    return this.prisma.shariahReview.findMany({ where: { countryNodeId: 'CN-MYS' }, include: { decisions: { orderBy: { createdAt: 'desc' } }, project: { include: { countryNode: { select: { currency: true } }, projectSponsor: { select: { name: true } }, milestones: { orderBy: { createdAt: 'asc' } }, documents: { select: { id: true, projectId: true, fileName: true, mimeType: true, fileSize: true, extractionStatus: true, extractionError: true, extractedText: true, uploadedBy: true, createdAt: true, updatedAt: true }, orderBy: { createdAt: 'desc' } } } } }, orderBy: { createdAt: 'desc' }, take: 100 });
+  }
+
   async get(id: string, user: AuthenticatedUser) {
     const review = await this.prisma.shariahReview.findUnique({
       where: { id },
@@ -48,16 +60,26 @@ export class ShariahService {
       throw new ForbiddenException('Project is outside the requested tenant scope');
     }
 
+    const activeReview = await this.prisma.shariahReview.findFirst({
+      where: { projectId: input.projectId, status: { in: ['PROPOSED', 'UNDER_REVIEW', 'CHANGES_REQUESTED'] } },
+    });
+    if (activeReview) throw new BadRequestException(`Project already has an active Shariah submission (${activeReview.id})`);
+    const parentReview = input.parentReviewId ? await this.prisma.shariahReview.findUnique({ where: { id: input.parentReviewId }, select: { revision: true } }) : null;
+
     const review = await this.prisma.shariahReview.create({
       data: {
         projectId: input.projectId,
         organisationId: input.organisationId,
         countryNodeId: input.countryNodeId,
         proposedContract: input.proposedContract,
+        aiResult: input.draftText ? { draftText: input.draftText, source: 'AI_CONTRACT_DRAFT_ASSISTANT' } : undefined,
         createdBy: user.userId,
+        revision: parentReview ? parentReview.revision + 1 : 1,
+        parentReviewId: input.parentReviewId,
       },
       include: { decisions: true },
     });
+    await this.notifyReviewers(review, 'New Shariah review required', `Project ${project.projectName} was submitted for ${review.proposedContract} review.`);
     await this.audit.recordActor(user, {
       action: 'shariah.review.create',
       resourceType: 'ShariahReview',
@@ -74,7 +96,7 @@ export class ShariahService {
     if (review.status !== 'PROPOSED') {
       throw new BadRequestException(`A Shariah review in state "${review.status}" cannot receive another decision`);
     }
-    if ((input.decision === 'MODIFIED' || input.decision === 'OVERRIDDEN') && !input.justification?.trim()) {
+    if ((input.decision === 'MODIFIED' || input.decision === 'OVERRIDDEN' || input.decision === 'REJECTED' || input.decision === 'REQUEST_CHANGES') && !input.justification?.trim()) {
       throw new BadRequestException('A justification is required when modifying or overriding an AI recommendation');
     }
 
@@ -88,7 +110,7 @@ export class ShariahService {
           actorRole: user.role,
         },
       });
-      const status = input.decision === 'ACCEPTED' ? 'APPROVED' : input.decision;
+      const status = input.decision === 'ACCEPTED' ? 'APPROVED' : input.decision === 'REQUEST_CHANGES' ? 'CHANGES_REQUESTED' : input.decision;
       const changed = await tx.shariahReview.update({
         where: { id },
         data: { status, reviewedBy: user.userId, reviewedAt: new Date() },
@@ -96,6 +118,7 @@ export class ShariahService {
       });
       return { review: changed, decision };
     });
+    await this.notifyUser(review.createdBy, review.organisationId, review.countryNodeId, 'Shariah review decision', `Review ${id} is now ${updated.review.status}. ${input.justification || ''}`);
 
     await this.audit.recordActor(user, {
       action: `shariah.review.${input.decision.toLowerCase()}`,
@@ -106,5 +129,31 @@ export class ShariahService {
       metadata: { decisionId: updated.decision.id, justification: updated.decision.justification },
     });
     return updated.review;
+  }
+
+  async revert(id: string, user: AuthenticatedUser) {
+    const review = await this.get(id, user);
+    if (review.createdBy !== user.userId) throw new ForbiddenException('Only the submission owner can revert this review');
+    if (!['PROPOSED', 'CHANGES_REQUESTED'].includes(review.status)) throw new BadRequestException('Only pending reviews can be reverted');
+    const updated = await this.prisma.shariahReview.update({ where: { id }, data: { status: 'REVERTED' } });
+    await this.audit.recordActor(user, { action: 'shariah.review.revert', resourceType: 'ShariahReview', resourceId: id, organisationId: review.organisationId, countryNodeId: review.countryNodeId });
+    return updated;
+  }
+
+  async resubmit(id: string, input: CreateShariahReviewDto, user: AuthenticatedUser) {
+    const previous = await this.get(id, user);
+    if (previous.createdBy !== user.userId) throw new ForbiddenException('Only the submission owner can resubmit this review');
+    if (previous.status !== 'CHANGES_REQUESTED') throw new BadRequestException('Only reviews with requested changes can be resubmitted');
+    await this.prisma.shariahReview.update({ where: { id }, data: { status: 'REVERTED' } });
+    return this.create({ ...input, projectId: previous.projectId, organisationId: previous.organisationId, countryNodeId: previous.countryNodeId, parentReviewId: id }, user);
+  }
+
+  private async notifyReviewers(review: { organisationId: string; countryNodeId: string; id: string }, title: string, message: string) {
+    const recipients = await this.prisma.userRoleAssignment.findMany({ where: { organisationId: review.organisationId, countryNodeId: review.countryNodeId, isActive: true, role: { in: ['Shariah_Advisor', 'Shariah_Reviewer', 'Shariah_Committee'] } }, select: { userId: true } });
+    await this.prisma.notification.createMany({ data: [...new Set(recipients.map((item) => item.userId))].map((userId) => ({ recipientUserId: userId, organisationId: review.organisationId, countryNodeId: review.countryNodeId, type: 'SHARIAH_REVIEW', title, message, resourceType: 'ShariahReview', resourceId: review.id })) });
+  }
+
+  private async notifyUser(userId: string, organisationId: string, countryNodeId: string, title: string, message: string) {
+    await this.prisma.notification.create({ data: { recipientUserId: userId, organisationId, countryNodeId, type: 'SHARIAH_REVIEW', title, message, resourceType: 'ShariahReview' } });
   }
 }

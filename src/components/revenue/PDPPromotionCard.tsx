@@ -7,6 +7,7 @@ import {
   MousePointerClick, 
   Users, 
   ShieldAlert
+  ,Receipt, RefreshCw
 } from 'lucide-react';
 import { marketplaceMonetisationService } from '../../revenue/marketplaceMonetisationService';
 import { PROMOTION_DISCLAIMER_TEXT } from '../../revenue/marketplaceMonetisationConfig';
@@ -33,6 +34,7 @@ export const PDPPromotionCard: React.FC<PDPPromotionCardProps> = ({
   const [pdpDetails, setPdpDetails] = useState(
     marketplaceMonetisationService.getPDPPromotionDetails(projectId, projectTitle, orgName)
   );
+  const [paymentHistory, setPaymentHistory] = useState<Awaited<ReturnType<typeof apiClient.getProjectPromotions>>>([]);
 
   const refreshPromotionDetails = async () => {
     const session = authService.getAuthState().session;
@@ -40,6 +42,7 @@ export const PDPPromotionCard: React.FC<PDPPromotionCardProps> = ({
 
     try {
       const campaigns = await apiClient.getProjectPromotions(projectId);
+      setPaymentHistory(campaigns);
       const campaign = campaigns.find((item) => item.status === 'ACTIVE' || item.status === 'PENDING_PAYMENT');
       if (!campaign) {
         setPdpDetails({ hasPromotion: false, promotionStatus: 'Organic (Free Listing)', badgeType: null, packageName: 'Free Project Listing', startDate: '-', endDate: 'Continuous', views: 0, clicks: 0, leads: 0, promotionCost: 0, currency: 'MYR', campaignId: null, ctr: 0, conversionRate: 0 });
@@ -68,6 +71,8 @@ export const PDPPromotionCard: React.FC<PDPPromotionCardProps> = ({
     void refreshPromotionDetails();
     if (onRefresh) onRefresh();
   };
+
+  const confirmPayment = async (campaignId: string) => { await apiClient.confirmProjectPromotionPayment(projectId, campaignId); await refreshPromotionDetails(); if (onRefresh) onRefresh(); };
 
   const getBadgeStyle = () => {
     if (pdpDetails.badgeType === 'Featured') {
@@ -150,6 +155,21 @@ export const PDPPromotionCard: React.FC<PDPPromotionCardProps> = ({
           <span className="text-[10px] text-slate-400 block mt-0.5">{pdpDetails.currency}</span>
         </div>
       </div>
+
+      {paymentHistory.length > 0 && (
+        <div className="border-t border-slate-100 dark:border-slate-800 pt-4 space-y-2">
+          <div className="flex items-center gap-2 font-black text-sm text-slate-900 dark:text-white"><Receipt className="w-4 h-4 text-amber-500" /> Payment & Receipt History</div>
+          {paymentHistory.map((campaign) => (
+            <div key={campaign.id} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div><div className="font-bold text-slate-900 dark:text-white">{campaign.packageName}</div><div className="text-[10px] text-slate-500">MYR {Number(campaign.priceMYR).toLocaleString()} • {campaign.payment?.method || campaign.paymentMethod} • {campaign.payment?.status || campaign.paymentStatus}</div></div>
+              <div className="flex gap-2">
+                {campaign.payment?.status === 'PENDING' && <button onClick={() => void confirmPayment(campaign.id)} className="px-3 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-[10px] flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Confirm Payment</button>}
+                {campaign.payment?.status === 'PAID' && <button onClick={() => void apiClient.downloadPromotionReceipt(projectId, campaign.id)} className="px-3 py-2 rounded-xl bg-slate-900 text-white font-bold text-[10px] flex items-center gap-1"><Receipt className="w-3 h-3" /> Download Receipt</button>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Date & Performance Metrics Shelf */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs pt-1">

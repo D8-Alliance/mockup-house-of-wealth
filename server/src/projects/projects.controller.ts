@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
@@ -11,28 +11,113 @@ export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Get()
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor')
+  @Roles(
+    'Super Admin',
+    'Country Admin',
+    'Organization Admin',
+    'Project Sponsor',
+    'Retail Investor',
+    'HNWI Investor',
+    'Institutional Investor',
+    'Corporate Investor',
+    'Family Office',
+    'Shariah Advisor',
+    'Shariah Reviewer',
+    'Shariah Committee',
+  )
   @RequirePermission('marketplace', 'read')
   list(@CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.list(user);
   }
 
-  @Get(':id/documents')
+  @Get(':id/lifecycle')
+  @RequirePermission('marketplace', 'read')
+  lifecycle(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.lifecycle(id, user);
+  }
+
+  @Post(':id/status')
   @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('assets', 'update')
+  updateStatus(@Param('id') id: string, @Body() body: UpdateProjectStatusDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.updateStatus(id, body, user);
+  }
+
+  @Post(':id/milestones')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('assets', 'update')
+  createMilestone(@Param('id') id: string, @Body() body: CreateProjectMilestoneDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.createMilestone(id, body, user);
+  }
+
+  @Patch(':id/milestones/:milestoneId')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('assets', 'update')
+  updateMilestone(@Param('id') id: string, @Param('milestoneId') milestoneId: string, @Body() body: UpdateProjectMilestoneDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.updateMilestone(id, milestoneId, body, user);
+  }
+
+  @Get(':id/documents')
+  @Roles(
+    'Super Admin',
+    'Country Admin',
+    'Organization Admin',
+    'Project Sponsor',
+    'Project Manager',
+    'Retail Investor',
+    'HNWI Investor',
+    'Institutional Investor',
+    'Corporate Investor',
+    'Family Office',
+    'Portfolio Manager',
+    'Shariah Advisor',
+    'Shariah Reviewer',
+    'Shariah Committee',
+  )
   @RequirePermission('marketplace', 'read')
   listDocuments(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.listDocuments(id, user);
   }
 
   @Get(':id/team/candidates')
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @Roles(
+    'Super Admin',
+    'Country Admin',
+    'Organization Admin',
+    'Project Sponsor',
+    'Project Manager',
+    'Retail Investor',
+    'HNWI Investor',
+    'Institutional Investor',
+    'Corporate Investor',
+    'Family Office',
+    'Portfolio Manager',
+    'Shariah Advisor',
+    'Shariah Reviewer',
+    'Shariah Committee',
+  )
   @RequirePermission('marketplace', 'read')
   listTeamCandidates(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.listTeamCandidates(id, user);
   }
 
   @Get(':id/team')
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @Roles(
+    'Super Admin',
+    'Country Admin',
+    'Organization Admin',
+    'Project Sponsor',
+    'Project Manager',
+    'Retail Investor',
+    'HNWI Investor',
+    'Institutional Investor',
+    'Corporate Investor',
+    'Family Office',
+    'Portfolio Manager',
+    'Shariah Advisor',
+    'Shariah Reviewer',
+    'Shariah Committee',
+  )
   @RequirePermission('marketplace', 'read')
   listTeam(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.listTeam(id, user);
@@ -82,6 +167,21 @@ export class ProjectsController {
     return this.projectsService.createPromotion(id, body, user);
   }
 
+  @Post(':id/promotions/:campaignId/payment/confirm')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor')
+  confirmPromotionPayment(@Param('id') id: string, @Param('campaignId') campaignId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.confirmPromotionPayment(id, campaignId, user);
+  }
+
+  @Get(':id/promotions/:campaignId/receipt')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor')
+  async promotionReceipt(@Param('id') id: string, @Param('campaignId') campaignId: string, @CurrentUser() user: AuthenticatedUser, @Res() response: Response) {
+    const receipt = await this.projectsService.getPromotionReceipt(id, campaignId, user);
+    response.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    response.setHeader('Content-Disposition', `attachment; filename="${receipt.receiptNumber}.txt"`);
+    response.send(receipt.content);
+  }
+
   @Post(':id/documents')
   @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
   @RequirePermission('assets', 'create')
@@ -97,7 +197,22 @@ export class ProjectsController {
   }
 
   @Get(':id/documents/:documentId/download')
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @Roles(
+    'Super Admin',
+    'Country Admin',
+    'Organization Admin',
+    'Project Sponsor',
+    'Project Manager',
+    'Retail Investor',
+    'HNWI Investor',
+    'Institutional Investor',
+    'Corporate Investor',
+    'Family Office',
+    'Portfolio Manager',
+    'Shariah Advisor',
+    'Shariah Reviewer',
+    'Shariah Committee',
+  )
   @RequirePermission('marketplace', 'read')
   async downloadDocument(@Param('id') id: string, @Param('documentId') documentId: string, @CurrentUser() user: AuthenticatedUser, @Res() response: Response) {
     const document = await this.projectsService.downloadDocument(id, documentId, user);
@@ -134,6 +249,10 @@ export interface CreateProjectDto {
   projectSponsorId: string;
   sponsorEntityType?: string;
 }
+
+export interface UpdateProjectStatusDto { status: string; note?: string; }
+export interface CreateProjectMilestoneDto { title: string; targetDate?: string; completionPct?: number; disbursementAmount?: number; status?: string; }
+export interface UpdateProjectMilestoneDto { completionPct?: number; status?: string; shariahSignoff?: boolean; auditorSignoff?: boolean; }
 
 export interface AddProjectTeamMemberDto {
   userId: string;

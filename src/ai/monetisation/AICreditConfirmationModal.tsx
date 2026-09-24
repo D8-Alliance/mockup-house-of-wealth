@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { AIOperationKey, AIOperationConfig } from './aiMonetisationTypes';
 import { aiMonetisationService } from './aiMonetisationService';
+import { apiClient, BackendCreditSummary } from '../../services/apiClient';
 import { 
   AI_INFORMATIONAL_DISCLAIMER, 
   AI_NON_ADVICE_DISCLAIMER 
@@ -40,25 +41,16 @@ export const AICreditConfirmationModal: React.FC<AICreditConfirmationModalProps>
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [creditBreakdown, setCreditBreakdown] = useState<BackendCreditSummary | null>(null);
 
   const op: AIOperationConfig = aiMonetisationService.getOperationConfig(operationKey);
-  const balanceCheck = aiMonetisationService.canExecuteOperation(userId, operationKey);
-  const creditBreakdown = aiMonetisationService.getCreditBalanceBreakdown(userId);
+  const balanceCheck = { remaining: creditBreakdown?.remainingCredits ?? 0, allowed: (creditBreakdown?.remainingCredits ?? 0) >= op.creditCost, shortfall: Math.max(0, op.creditCost - (creditBreakdown?.remainingCredits ?? 0)) };
 
-  const handleExecute = () => {
+  React.useEffect(() => { apiClient.getMembershipCreditSummary().then(setCreditBreakdown).catch(() => undefined); }, []);
+
+  const handleExecute = async () => {
     setIsProcessing(true);
-    setTimeout(() => {
-      const res = aiMonetisationService.consumeCreditsForOperation(userId, operationKey, {
-        targetEntity
-      });
-      setIsProcessing(false);
-      if (res.success) {
-        setIsSuccess(true);
-        setTimeout(() => {
-          onConfirm();
-        }, 600);
-      }
-    }, 700);
+    try { await apiClient.consumeMembershipCredits(operationKey, targetEntity); setIsSuccess(true); setTimeout(onConfirm, 600); } finally { setIsProcessing(false); }
   };
 
   const projectedBalance = balanceCheck.remaining - op.creditCost;

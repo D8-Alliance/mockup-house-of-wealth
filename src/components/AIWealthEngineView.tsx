@@ -7,6 +7,7 @@ import {
   PieChart, 
   ShieldAlert, 
   FileText,
+  FileSignature,
   Scale,
   Settings,
   Zap,
@@ -21,6 +22,7 @@ import {
 
 import { AIContractAdvisor } from '../ai/features/contract/AIContractAdvisor';
 import { AIContractDraftAssistant } from '../ai/features/contract/AIContractDraftAssistant';
+import { IslamicAgreementWizard } from '../ai/features/contract/IslamicAgreementWizard';
 import { AIContractGapAnalysis } from '../ai/features/contract/AIContractGapAnalysis';
 import { AIShariahAssistant } from '../ai/features/shariah/AIShariahAssistant';
 import { AIInvestmentAdvisor } from '../ai/features/investment/AIInvestmentAdvisor';
@@ -39,6 +41,7 @@ import { UpgradePromptBanner } from './revenue/UpgradePromptBanner';
 import { AIUsageDashboard } from '../ai/monetisation/AIUsageDashboard';
 import { AdminAIAnalyticsPanel } from '../ai/monetisation/AdminAIAnalyticsPanel';
 import { AIRagKnowledgeBase } from '../ai/components/AIRagKnowledgeBase';
+import { ShariahReviewInbox } from '../ai/components/ShariahReviewInbox';
 import { BuyAICreditsModal } from '../ai/monetisation/BuyAICreditsModal';
 import { aiMonetisationService } from '../ai/monetisation/aiMonetisationService';
 import { apiClient } from '../services/apiClient';
@@ -48,6 +51,8 @@ type AIEngineTab =
   | 'ai-credits'
   | 'project-analyzer'
   | 'contract-advisor'
+  | 'agreement-generation'
+  | 'shariah-board'
   | 'shariah-assistant'
   | 'investment-matcher'
   | 'portfolio-analysis'
@@ -91,6 +96,12 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
   }, []);
 
   const isSuperAdmin = activeUser.role === 'Super Admin' || activeUser.role === 'AI Administrator';
+  const canViewAiAdministration = ['Super Admin', 'AI Administrator', 'AI Model Reviewer'].includes(activeUser.role);
+  const canViewShariahBoard = ['Super Admin', 'Country Admin', 'Organization Admin', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee'].includes(activeUser.role);
+
+  useEffect(() => {
+    if (!canViewAiAdministration && (activeTab === 'governance-admin' || activeTab === 'admin-ai-analytics')) setActiveTab('overview');
+  }, [activeTab, canViewAiAdministration]);
 
   if (aiModuleDisabled) {
     return (
@@ -113,15 +124,19 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
     { id: 'ai-credits', label: 'AI Credits & Usage', icon: <Coins className="w-4 h-4 text-amber-500" />, badge: `${creditBalance.remainingCredits} Cr` },
     { id: 'project-analyzer', label: 'Project Feasibility', icon: <FileText className="w-4 h-4" /> },
     { id: 'contract-advisor', label: 'Contract Structuring & Draft', icon: <Scale className="w-4 h-4" /> },
+    { id: 'agreement-generation', label: 'Agreement Generation', icon: <FileSignature className="w-4 h-4" />, badge: 'DOCX/PDF' },
     { id: 'shariah-assistant', label: 'Shariah Governance Audit', icon: <ShieldCheck className="w-4 h-4" /> },
+    ...(canViewShariahBoard ? [{ id: 'shariah-board' as AIEngineTab, label: 'Shariah Board Reviews', icon: <ShieldCheck className="w-4 h-4 text-purple-500" /> }] : []),
     { id: 'investment-matcher', label: 'Pool Matcher & Discovery', icon: <Sparkles className="w-4 h-4" /> },
     { id: 'portfolio-analysis', label: 'Portfolio Health', icon: <PieChart className="w-4 h-4" /> },
     { id: 'due-diligence', label: 'Due Diligence & AML', icon: <ShieldAlert className="w-4 h-4" /> },
     { id: 'risk-analyzer', label: 'Risk & Early Warning', icon: <Zap className="w-4 h-4" /> },
     { id: 'scenarios', label: 'Stress Scenarios', icon: <Layers className="w-4 h-4" /> },
     { id: 'pool-optimizer', label: 'Pool Sizing Optimizer', icon: <PieChart className="w-4 h-4" /> },
-    { id: 'governance-admin', label: 'AI Governance Admin', icon: <Settings className="w-4 h-4" /> },
-    { id: 'admin-ai-analytics', label: 'Admin AI Analytics', icon: <BarChart3 className="w-4 h-4 text-purple-400" />, badge: 'Admin' },
+     ...(canViewAiAdministration ? [
+       { id: 'governance-admin' as AIEngineTab, label: 'AI Governance Admin', icon: <Settings className="w-4 h-4" /> },
+       { id: 'admin-ai-analytics' as AIEngineTab, label: 'Admin AI Analytics', icon: <BarChart3 className="w-4 h-4 text-purple-400" />, badge: 'Admin' },
+     ] : []),
     { id: 'rag-knowledge-base', label: 'AI Knowledge Base', icon: <FileText className="w-4 h-4 text-purple-400" />, badge: 'RAG' }
   ];
 
@@ -288,7 +303,9 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
             <AIContractGapAnalysis user={activeUser} />
           </div>
         )}
+        {activeTab === 'agreement-generation' && <IslamicAgreementWizard />}
         {activeTab === 'shariah-assistant' && <AIShariahAssistant user={activeUser} />}
+        {activeTab === 'shariah-board' && canViewShariahBoard && <ShariahReviewInbox role={activeUser.role} />}
         {activeTab === 'investment-matcher' && (
           <div className="space-y-6">
             <AIInvestmentAdvisor user={activeUser} />
@@ -310,9 +327,9 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
         )}
         {activeTab === 'scenarios' && <AIFinancialScenarioEngine />}
         {activeTab === 'pool-optimizer' && <AIPoolOptimizer />}
-        {activeTab === 'governance-admin' && <AIGovernanceAdminPanel />}
-        {activeTab === 'admin-ai-analytics' && <AdminAIAnalyticsPanel />}
-        {activeTab === 'rag-knowledge-base' && <AIRagKnowledgeBase />}
+        {activeTab === 'governance-admin' && canViewAiAdministration && <AIGovernanceAdminPanel />}
+        {activeTab === 'admin-ai-analytics' && canViewAiAdministration && <AdminAIAnalyticsPanel />}
+        {activeTab === 'rag-knowledge-base' && <AIRagKnowledgeBase userRole={activeUser.role} />}
       </div>
 
       {/* Top Up Modal */}

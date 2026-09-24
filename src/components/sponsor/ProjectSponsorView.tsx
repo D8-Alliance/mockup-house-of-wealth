@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SponsorProject, WorkflowStage, SponsorOrgType } from './SponsorTypes';
+import { SponsorProject, WorkflowStage, SponsorOrgType, ProjectMilestone } from './SponsorTypes';
 import { SponsorKPICards } from './SponsorKPICards';
 import { ProjectRegistrationModal } from './ProjectRegistrationModal';
 import { ProjectDetailView } from './ProjectDetailView';
@@ -19,8 +19,19 @@ import { PDPPoolCreationModal } from '../../pdp/components/PDPPoolCreationModal'
 import { PDPApplicationDetailModal } from '../../pdp/components/PDPApplicationDetailModal';
 import { apiClient } from '../../services/apiClient';
 import { authService } from '../../auth/services/authService';
+import { ProjectProgressVisual } from '../projects/ProjectProgressVisual';
 
 const PROJECT_CATEGORIES: SponsorProject['category'][] = ['Green Energy & Solar', 'Agro-Industrial', 'SME Export', 'Commercial Real Estate', 'Social Waqf Housing'];
+
+const defaultProjectMilestones = (projectId: string, funding: number, workflowStage: WorkflowStage): ProjectMilestone[] => {
+  const stages: { title: string; status: ProjectMilestone['status']; completionPct: number }[] = [
+    { title: 'Project information and sponsor evidence', status: workflowStage === 'Draft' ? 'In Progress' : 'Completed', completionPct: workflowStage === 'Draft' ? 50 : 100 },
+    { title: 'Shariah term sheet review', status: workflowStage === 'Shariah Review' ? 'Pending Verification' : workflowStage === 'Draft' ? 'Upcoming' : 'Completed', completionPct: workflowStage === 'Shariah Review' ? 50 : workflowStage === 'Draft' ? 0 : 100 },
+    { title: 'Due diligence and risk clearance', status: workflowStage === 'Approved' ? 'In Progress' : 'Upcoming', completionPct: workflowStage === 'Approved' ? 25 : 0 },
+    { title: 'Funding, execution and completion', status: 'Upcoming', completionPct: 0 },
+  ];
+  return stages.map((stage, index) => ({ id: `${projectId}-M${index + 1}`, title: stage.title, targetDate: new Date(Date.now() + (index + 1) * 30 * 86400000).toISOString().slice(0, 10), completionPct: stage.completionPct, disbursementAmount: index === 0 ? 0 : funding / 3, status: stage.status, shariahSignoff: stage.completionPct === 100, auditorSignoff: stage.completionPct === 100 }));
+};
 
 const mapProjectCategory = (sector: string, projectName: string): SponsorProject['category'] => {
   if (PROJECT_CATEGORIES.includes(sector as SponsorProject['category'])) return sector as SponsorProject['category'];
@@ -77,7 +88,7 @@ export const ProjectSponsorView: React.FC = () => {
     };
   }, [sponsorOrgId, userId]);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'subscription' | 'my-projects' | 'campaigns' | 'pdp-dossier' | 'reports' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'subscription' | 'my-projects' | 'history' | 'campaigns' | 'pdp-dossier' | 'reports' | 'settings'>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterOrgType, setFilterOrgType] = useState<string>('ALL');
 
@@ -100,7 +111,7 @@ export const ProjectSponsorView: React.FC = () => {
           country: item.countryNodeId,
           workflowStage: item.status === 'DUE_DILIGENCE' ? 'Shariah Review' : item.status === 'APPROVED' ? 'Approved' : 'Draft',
           healthScore: 0,
-          milestones: [],
+           milestones: item.milestones?.map((milestone) => ({ id: milestone.id, title: milestone.title, targetDate: milestone.targetDate || '', completionPct: milestone.completionPct, disbursementAmount: Number(milestone.disbursementAmount), status: milestone.status === 'COMPLETED' ? 'Completed' : milestone.status === 'IN_PROGRESS' ? 'In Progress' : milestone.status === 'PENDING_VERIFICATION' ? 'Pending Verification' : 'Upcoming', shariahSignoff: milestone.shariahSignoff, auditorSignoff: milestone.auditorSignoff })) || defaultProjectMilestones(item.projectId, Number(item.fundingRequired), item.status === 'DUE_DILIGENCE' ? 'Shariah Review' : item.status === 'APPROVED' ? 'Approved' : 'Draft'),
           disbursements: [],
           documents: [],
           team: [],
@@ -272,6 +283,7 @@ export const ProjectSponsorView: React.FC = () => {
         {[
           { id: 'dashboard', label: 'Sponsor Dashboard', icon: <Building2 className="w-4 h-4" /> },
           { id: 'my-projects', label: `My Projects (${projects.length})`, icon: <Layers className="w-4 h-4" /> },
+          { id: 'history', label: 'Past Project History', icon: <Clock className="w-4 h-4" /> },
           { id: 'pdp-dossier', label: 'PDP KYB Profile & UBOs', icon: <ShieldCheck className="w-4 h-4" /> },
           { id: 'campaigns', label: 'Funding Campaigns', icon: <DollarSign className="w-4 h-4" /> },
           { id: 'reports', label: 'Reports & Audit Trail', icon: <PieChart className="w-4 h-4" /> },
@@ -380,7 +392,23 @@ export const ProjectSponsorView: React.FC = () => {
       )}
 
       {/* Content Area */}
-      {activeTab === 'dashboard' || activeTab === 'my-projects' ? (
+      {activeTab === 'history' ? (
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+            <span className="text-[10px] font-black uppercase tracking-wider text-purple-600">Project History</span>
+            <h2 className="mt-1 text-lg font-black text-slate-900 dark:text-white">Past and current project lifecycle</h2>
+            <p className="mt-1 text-xs text-slate-500">A consolidated record of project status, funding structure and execution progress for this sponsor tenant.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {filteredProjects.map((project) => <div key={project.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-start justify-between gap-3"><div><p className="font-black text-slate-900 dark:text-white">{project.title}</p><p className="mt-1 font-mono text-[10px] text-slate-400">{project.id}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">{project.workflowStage}</span></div>
+              <p className="mt-3 text-xs text-slate-500">{project.shariahContract} · Target MYR {project.targetFunding.toLocaleString()} · {project.country}</p>
+              <div className="mt-3"><ProjectProgressVisual stage={project.workflowStage} compact /></div>
+              <button onClick={() => setSelectedProject(project)} className="mt-3 text-xs font-black text-purple-600 underline">View project record →</button>
+            </div>)}
+          </div>
+        </div>
+      ) : activeTab === 'dashboard' || activeTab === 'my-projects' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
           {filteredProjects.map((p) => {
             const raisedPct = Math.min(100, Math.round((p.raisedFunding / p.targetFunding) * 100));
@@ -424,6 +452,8 @@ export const ProjectSponsorView: React.FC = () => {
                   </div>
                 </div>
 
+                <ProjectProgressVisual stage={p.workflowStage} compact />
+
                 <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
                   <div className="flex items-center gap-2 text-slate-500">
                     <span className="font-semibold text-emerald-600 dark:text-emerald-400">{p.shariahContract}</span>
@@ -433,11 +463,12 @@ export const ProjectSponsorView: React.FC = () => {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setProjectToPromote(p)}
-                      className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold rounded-xl flex items-center gap-1 transition-colors cursor-pointer text-[11px]"
-                      title="Promote or feature this campaign in the Global D-8 Marketplace"
+                      disabled={!['Approved', 'Funding Open', 'Pooling', 'Funded'].includes(p.workflowStage)}
+                      className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold rounded-xl flex items-center gap-1 transition-colors cursor-pointer text-[11px] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      title={['Approved', 'Funding Open', 'Pooling', 'Funded'].includes(p.workflowStage) ? 'Promote or feature this campaign in the Global D-8 Marketplace' : 'Promotion unlocks after project approval'}
                     >
                       <Megaphone className="w-3.5 h-3.5" />
-                      <span>Promote</span>
+                      <span>{['Approved', 'Funding Open', 'Pooling', 'Funded'].includes(p.workflowStage) ? 'Promote' : 'Locked'}</span>
                     </button>
 
                     <button

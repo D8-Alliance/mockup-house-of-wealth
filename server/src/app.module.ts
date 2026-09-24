@@ -19,6 +19,7 @@ import { ContractsModule } from './contracts/contracts.module';
 import { ShariahModule } from './shariah/shariah.module';
 import { FeatureModuleModule } from './modules/feature-module.module';
 import { AiModule } from './ai/ai.module';
+import { ContractIntelligenceModule } from './contract-intelligence/contract-intelligence.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { AiModule } from './ai/ai.module';
     ShariahModule,
     FeatureModuleModule,
     AiModule,
+    ContractIntelligenceModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: OidcGuard },

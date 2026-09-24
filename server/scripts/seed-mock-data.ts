@@ -1,4 +1,5 @@
 import { Prisma, PrismaClient, UserRole } from '@prisma/client';
+import { createHash, randomUUID } from 'node:crypto';
 import { INITIAL_AUDIT_EVENTS } from '../../src/audit/mockAuditEvents';
 import { INITIAL_COUNTRY_NODES } from '../../src/countryNodes/mockCountryNodes';
 import { INITIAL_ORGANISATIONS } from '../../src/organisations/mockOrganisations';
@@ -17,6 +18,90 @@ type UserSeed = (typeof INITIAL_APP_USERS)[number];
 type ProjectSeed = (typeof INITIAL_PROJECTS)[number];
 type PoolSeed = (typeof INITIAL_WEALTH_POOLS)[number];
 type FundingSeed = (typeof INITIAL_FUNDING_REQUESTS)[number];
+
+const DEMO_PROJECT = {
+  projectId: 'PROJ-DEMO-MYS-AGRI-001',
+  projectCode: 'DEMO-MYS-AGRI-2026',
+  projectName: 'DEMO | Selangor Precision Agri-Tech & Grain Storage',
+  description: 'Synthetic production-like project for end-to-end testing. This is a simulation only and is not a real investment opportunity.',
+  organisationId: 'ORG-MYS-P2-CAP',
+  countryNodeId: 'CN-MYS',
+  sector: 'Agro-Industrial',
+  totalProjectCost: 32000000,
+  sponsorContribution: 7000000,
+  fundingRequired: 25000000,
+  proposedShariahContract: 'Musharakah',
+  status: 'POOLING',
+  projectSponsorId: 'USR-MYS-P2-001',
+  createdAt: '2026-06-10T08:00:00Z',
+  updatedAt: '2026-09-23T08:00:00Z',
+};
+
+const DEMO_DOCUMENTS = [
+  {
+    id: 'DEMO-DOC-001',
+    fileName: 'DEMO-01-Project-Information-Memorandum.pdf',
+    evidenceType: 'project_information',
+    title: 'DEMO Project Information Memorandum',
+    content: 'DEMO / SIMULATION ONLY. Not a real investment opportunity. Selangor Precision Agri-Tech & Grain Storage is a synthetic MYR 32 million grain handling, cold storage and precision farming project. The proposed funding requirement is MYR 25 million and sponsor contribution is MYR 7 million. All names, figures, registrations, contracts and financial information in this document are fabricated for software testing.',
+  },
+  {
+    id: 'DEMO-DOC-002',
+    fileName: 'DEMO-02-Corporate-Profile-and-UBO.pdf',
+    evidenceType: 'corporate_kyb',
+    title: 'DEMO Corporate Profile, Directors and UBO Declaration',
+    content: 'DEMO / SIMULATION ONLY. Synthetic corporate profile for testing. The fictional sponsor is Selangor Precision Agri Storage Sdn. Bhd. Fictional directors, beneficial owners, registration numbers and identity references are placeholders and have no legal effect. KYB status is DEMO_VERIFIED only within the application fixture and has not been checked against any registry.',
+  },
+  {
+    id: 'DEMO-DOC-003',
+    fileName: 'DEMO-03-Land-and-Asset-Schedule.pdf',
+    evidenceType: 'asset_backing',
+    title: 'DEMO Land, Machinery and Asset Schedule',
+    content: 'DEMO / SIMULATION ONLY. Synthetic asset schedule covering a fictional 18-acre industrial site, grain silos, dryers, cold rooms and handling machinery. The stated asset values are illustrative only. No title, valuation, charge search or ownership claim in this document is genuine or enforceable.',
+  },
+  {
+    id: 'DEMO-DOC-004',
+    fileName: 'DEMO-04-Feasibility-and-Market-Study.pdf',
+    evidenceType: 'feasibility',
+    title: 'DEMO Feasibility and Market Study',
+    content: 'DEMO / SIMULATION ONLY. Synthetic market study for testing. Assumed customers, storage utilisation, commodity throughput, pricing, logistics costs and offtake assumptions are illustrative. No customer, supplier, offtake agreement or market statistic has been independently verified.',
+  },
+  {
+    id: 'DEMO-DOC-005',
+    fileName: 'DEMO-05-Five-Year-Financial-Model.pdf',
+    evidenceType: 'financial_model',
+    title: 'DEMO Five-Year Financial Model',
+    content: 'DEMO / SIMULATION ONLY. Synthetic financial model. Illustrative revenue is MYR 14.2 million in Year 1 increasing to MYR 28.6 million in Year 5. Illustrative EBITDA margin ranges from 24% to 31%. These figures are assumptions for testing and are not forecasts, audited results or investment advice.',
+  },
+  {
+    id: 'DEMO-DOC-006',
+    fileName: 'DEMO-06-Cashflow-and-Sources-of-Funds.pdf',
+    evidenceType: 'cashflow',
+    title: 'DEMO Cashflow Forecast and Sources of Funds',
+    content: 'DEMO / SIMULATION ONLY. Synthetic cashflow evidence. Construction drawdown is assumed across 18 months. The fictional sponsor contribution is MYR 7 million and requested project funding is MYR 25 million. Bank statements, source-of-funds evidence and independent confirmations do not exist for this simulation.',
+  },
+  {
+    id: 'DEMO-DOC-007',
+    fileName: 'DEMO-07-Shariah-Structuring-Memorandum.pdf',
+    evidenceType: 'shariah_memo',
+    title: 'DEMO Shariah Structuring Memorandum',
+    content: 'DEMO / SIMULATION ONLY. Synthetic preliminary memorandum. Musharakah is used as the proposed structure for testing because capital participation, ownership, profit allocation and loss allocation can be modelled. This is not a fatwa, Shariah approval or legal opinion.',
+  },
+  {
+    id: 'DEMO-DOC-008',
+    fileName: 'DEMO-08-Risk-and-Due-Diligence-Register.pdf',
+    evidenceType: 'due_diligence',
+    title: 'DEMO Risk Register and Due Diligence Report',
+    content: 'DEMO / SIMULATION ONLY. Synthetic risk register. Key risks include construction delay, commodity price volatility, utilisation shortfall, weather exposure, counterparty default and regulatory approval. All checks are marked DEMO_VERIFIED for testing only and require real-world replacement before any decision.',
+  },
+  {
+    id: 'DEMO-DOC-009',
+    fileName: 'DEMO-09-Permits-and-Approvals-Matrix.pdf',
+    evidenceType: 'permits',
+    title: 'DEMO Permits, Approvals and Compliance Matrix',
+    content: 'DEMO / SIMULATION ONLY. Synthetic permits matrix covering planning, environmental, fire safety, food handling and occupational safety approvals. No authority has issued or verified these documents. Statuses are placeholders for workflow testing.',
+  },
+] as const;
 
 const roleAliases: Record<string, UserRole> = {
   'Audit Officer': UserRole.Auditor,
@@ -195,40 +280,41 @@ async function seed(): Promise<void> {
       },
     });
 
+    // Free all legacy email values first. This avoids collisions when an old
+    // local fixture assigned an email to a different user id.
     for (const user of INITIAL_APP_USERS) {
-      const emailOwner = await tx.user.findUnique({
-        where: { email: user.email },
-        select: { id: true }
-      });
-      if (emailOwner && emailOwner.id !== user.userId) {
-        await tx.user.update({
-          where: { id: emailOwner.id },
-          data: { email: `${emailOwner.id}.seed-conflict@invalid` }
+      const existingUser = await tx.user.findUnique({ where: { id: user.userId }, select: { id: true, email: true } });
+      if (existingUser && existingUser.email !== user.email) {
+        await tx.user.update({ where: { id: user.userId }, data: { email: `${user.userId}.${randomUUID()}@invalid` } });
+      }
+      const emailOwner = await tx.user.findUnique({ where: { email: user.email }, select: { id: true } });
+      if (emailOwner) {
+        await tx.user.updateMany({ where: { email: user.email }, data: { email: `${emailOwner.id}.${randomUUID()}@invalid` } });
+      }
+    }
+
+    for (const user of INITIAL_APP_USERS) {
+      const existingUser = await tx.user.findUnique({ where: { id: user.userId }, select: { id: true } });
+      const userData = {
+        idpProvider: 'mock',
+        idpSubjectId: user.userId,
+        email: user.email,
+        name: user.fullName,
+        isActive: user.status === 'ACTIVE',
+        profile: user as unknown as Prisma.InputJsonValue,
+        updatedAt: date(user.updatedAt),
+      };
+      if (existingUser) {
+        // Keep the seed deterministic when reconciling legacy local users.
+        if (await tx.user.findUnique({ where: { email: user.email }, select: { id: true } })) {
+          await tx.user.updateMany({ where: { email: user.email }, data: { email: `${user.userId}.${randomUUID()}@invalid` } });
+        }
+        await tx.user.update({ where: { id: user.userId }, data: userData });
+      } else {
+        await tx.user.create({
+          data: { ...userData, id: user.userId, createdAt: date(user.createdAt) },
         });
       }
-      await tx.user.upsert({
-        where: { id: user.userId },
-        update: {
-          idpProvider: 'mock',
-          idpSubjectId: user.userId,
-          email: user.email,
-          name: user.fullName,
-          isActive: user.status === 'ACTIVE',
-          profile: user as unknown as Prisma.InputJsonValue,
-          updatedAt: date(user.updatedAt)
-        },
-        create: {
-          id: user.userId,
-          idpProvider: 'mock',
-          idpSubjectId: user.userId,
-          email: user.email,
-          name: user.fullName,
-          isActive: user.status === 'ACTIVE',
-          profile: user as unknown as Prisma.InputJsonValue,
-          createdAt: date(user.createdAt),
-          updatedAt: date(user.updatedAt)
-        }
-      });
     }
 
     const fallbackAssigner = INITIAL_APP_USERS[0]?.userId;
@@ -289,19 +375,21 @@ async function seed(): Promise<void> {
         continue;
       }
 
-      await tx.user.upsert({
-        where: { id: persona.userId },
-        // Personas that double as INITIAL_APP_USERS keep their seeded profile.
-        update: { isActive: persona.status === 'ACTIVE' },
-        create: {
-          id: persona.userId,
-          idpProvider: 'mock',
-          idpSubjectId: persona.userId,
-          email: persona.email,
-          name: persona.name,
-          isActive: persona.status === 'ACTIVE'
-        }
-      });
+      const personaUser = await tx.user.findFirst({ where: { OR: [{ id: persona.userId }, { email: persona.email }, { idpSubjectId: persona.userId }] }, select: { id: true } });
+      if (personaUser) {
+        await tx.user.update({ where: { id: personaUser.id }, data: { isActive: persona.status === 'ACTIVE' } });
+      } else {
+        await tx.user.create({
+          data: {
+            id: persona.userId,
+            idpProvider: 'mock',
+            idpSubjectId: persona.userId,
+            email: persona.email,
+            name: persona.name,
+            isActive: persona.status === 'ACTIVE'
+          }
+        });
+      }
 
       // The API resolves the effective role as the earliest active assignment,
       // so stagger assignedAt to make the persona's activeRole win that sort.
@@ -377,6 +465,80 @@ async function seed(): Promise<void> {
           createdAt: date(project.createdAt),
           updatedAt: date(project.updatedAt)
         }
+      });
+    }
+
+    // Remove the superseded incomplete mock project so the complete demo fixture
+    // is the only Selangor precision-agri project presented for testing.
+    await tx.project.deleteMany({ where: { projectId: 'PROJ-MYS-P2-004' } });
+
+    await tx.project.upsert({
+      where: { projectId: DEMO_PROJECT.projectId },
+      update: DEMO_PROJECT,
+      create: DEMO_PROJECT,
+    });
+
+    for (const demoDocument of DEMO_DOCUMENTS) {
+      const contentBuffer = Buffer.from(demoDocument.content, 'utf8');
+      await tx.projectDocument.upsert({
+        where: { id: demoDocument.id },
+        update: {
+          projectId: DEMO_PROJECT.projectId,
+          organisationId: DEMO_PROJECT.organisationId,
+          countryNodeId: DEMO_PROJECT.countryNodeId,
+          uploadedBy: DEMO_PROJECT.projectSponsorId,
+          fileName: demoDocument.fileName,
+          mimeType: 'application/pdf',
+          fileSize: contentBuffer.byteLength,
+          fileContent: contentBuffer,
+          extractedText: demoDocument.content,
+          extractionStatus: 'EXTRACTED',
+          extractionError: null,
+        },
+        create: {
+          id: demoDocument.id,
+          projectId: DEMO_PROJECT.projectId,
+          organisationId: DEMO_PROJECT.organisationId,
+          countryNodeId: DEMO_PROJECT.countryNodeId,
+          uploadedBy: DEMO_PROJECT.projectSponsorId,
+          fileName: demoDocument.fileName,
+          mimeType: 'application/pdf',
+          fileSize: contentBuffer.byteLength,
+          fileContent: contentBuffer,
+          extractedText: demoDocument.content,
+          extractionStatus: 'EXTRACTED',
+        },
+      });
+
+      const contentHash = createHash('sha256').update(demoDocument.content).digest('hex');
+      const chunks = [{ chunkIndex: 0, content: demoDocument.content }];
+      await tx.ragDocument.upsert({
+        where: { id: `RAG-${demoDocument.id}` },
+        update: {
+          projectId: DEMO_PROJECT.projectId,
+          organisationId: DEMO_PROJECT.organisationId,
+          countryNodeId: DEMO_PROJECT.countryNodeId,
+          uploadedBy: DEMO_PROJECT.projectSponsorId,
+          title: demoDocument.title,
+          sourceType: 'DEMO_PROJECT_EVIDENCE',
+          contentHash,
+          status: 'ACTIVE',
+          metadata: { evidenceType: demoDocument.evidenceType, verificationStatus: 'DEMO_VERIFIED', simulationOnly: true },
+          chunks: { deleteMany: {}, create: chunks },
+        },
+        create: {
+          id: `RAG-${demoDocument.id}`,
+          projectId: DEMO_PROJECT.projectId,
+          organisationId: DEMO_PROJECT.organisationId,
+          countryNodeId: DEMO_PROJECT.countryNodeId,
+          uploadedBy: DEMO_PROJECT.projectSponsorId,
+          title: demoDocument.title,
+          sourceType: 'DEMO_PROJECT_EVIDENCE',
+          contentHash,
+          status: 'ACTIVE',
+          metadata: { evidenceType: demoDocument.evidenceType, verificationStatus: 'DEMO_VERIFIED', simulationOnly: true },
+          chunks: { create: chunks },
+        },
       });
     }
 
@@ -479,7 +641,7 @@ async function seed(): Promise<void> {
   console.log(`Imported ${INITIAL_COUNTRY_NODES.length} country nodes.`);
   console.log(`Imported ${INITIAL_ORGANISATIONS.length} declared organisations plus referenced placeholders.`);
   console.log(`Imported ${INITIAL_APP_USERS.length} users and ${roleAssignmentCount} role assignments.`);
-  console.log(`Imported ${INITIAL_PROJECTS.length} projects, ${INITIAL_WEALTH_POOLS.length} pools, ${INITIAL_FUNDING_REQUESTS.length} funding requests, and ${auditEventCount} new audit events.`);
+  console.log(`Imported ${INITIAL_PROJECTS.length + 1} projects (${DEMO_DOCUMENTS.length} synthetic demo documents), ${INITIAL_WEALTH_POOLS.length} pools, ${INITIAL_FUNDING_REQUESTS.length} funding requests, and ${auditEventCount} new audit events.`);
 }
 
 seed()

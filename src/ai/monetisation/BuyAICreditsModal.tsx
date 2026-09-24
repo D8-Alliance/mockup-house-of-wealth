@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { AICreditTopUpPackage } from './aiMonetisationTypes';
 import { aiMonetisationService } from './aiMonetisationService';
+import { apiClient } from '../../services/apiClient';
 
 interface BuyAICreditsModalProps {
   userId?: string;
@@ -33,25 +34,21 @@ export const BuyAICreditsModal: React.FC<BuyAICreditsModalProps> = ({
   const selectedPkg = packages.find(p => p.id === selectedPkgId) || packages[0];
   const totalCredits = selectedPkg.credits + selectedPkg.bonusCredits;
 
-  const handlePurchase = () => {
+  const handlePurchase = async () => {
     setIsProcessing(true);
-    setTimeout(() => {
+    try {
       const methodLabel = paymentMethod === 'CARD' 
         ? 'Visa ending in 4242 (Simulated)' 
         : paymentMethod === 'FPX' 
         ? 'Maybank2u FPX Online Banking' 
         : 'USDT (TRC-20 Escrow)';
         
-      const res = aiMonetisationService.buyAdditionalCredits(userId, selectedPkg.id, methodLabel);
+      await apiClient.topUpMembershipCredits(selectedPkg.id, methodLabel);
+      setIsDone(true);
+      setTimeout(() => { if (onSuccess) onSuccess(); onClose(); }, 1200);
+    } catch {
       setIsProcessing(false);
-      if (res) {
-        setIsDone(true);
-        setTimeout(() => {
-          if (onSuccess) onSuccess();
-          onClose();
-        }, 1200);
-      }
-    }, 800);
+    }
   };
 
   return (

@@ -16,11 +16,21 @@ export class CreateShariahReviewDto {
   @IsString()
   @MaxLength(64)
   proposedContract!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50000)
+  draftText?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  parentReviewId?: string;
 }
 
 export class CreateShariahDecisionDto {
-  @IsIn(['ACCEPTED', 'MODIFIED', 'OVERRIDDEN', 'REJECTED'])
-  decision!: 'ACCEPTED' | 'MODIFIED' | 'OVERRIDDEN' | 'REJECTED';
+  @IsIn(['ACCEPTED', 'MODIFIED', 'OVERRIDDEN', 'REJECTED', 'REQUEST_CHANGES'])
+  decision!: 'ACCEPTED' | 'MODIFIED' | 'OVERRIDDEN' | 'REJECTED' | 'REQUEST_CHANGES';
 
   @IsOptional()
   @IsString()

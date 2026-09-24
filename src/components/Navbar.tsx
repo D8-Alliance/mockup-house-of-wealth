@@ -25,7 +25,8 @@ import {
   Sparkles,
   Shield,
   Briefcase,
-  CreditCard
+  CreditCard,
+  Receipt
 } from 'lucide-react';
 import { NavTab, LanguageCode, UserProfile } from '../types';
 import { LANGUAGES, TRANSLATIONS } from '../data/translations';
@@ -82,6 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'documents', label: t.documents || 'Documents', icon: <FolderKanban className="w-4 h-4" /> },
     { id: 'ledger', label: t.ledger || 'Audit Trail', icon: <FileCheck className="w-4 h-4" /> },
     { id: 'membership', label: 'Membership & Pricing', icon: <CreditCard className="w-4 h-4 text-emerald-500" /> },
+    { id: 'billing-transactions', label: 'Billing & Transactions', icon: <Receipt className="w-4 h-4 text-blue-500" /> },
     { id: 'profile', label: t.profile || 'Profile', icon: <User className="w-4 h-4" /> }
   ];
 

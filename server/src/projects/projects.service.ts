@@ -1,9 +1,10 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PolicyService } from '../policy/policy.service';
-import { AddProjectTeamMemberDto, CreateProjectAnnouncementDto, CreateProjectPromotionDto, CreateProjectDto } from './projects.controller';
+import { AddProjectTeamMemberDto, CreateProjectAnnouncementDto, CreateProjectPromotionDto, CreateProjectDto, CreateProjectMilestoneDto, UpdateProjectMilestoneDto, UpdateProjectStatusDto } from './projects.controller';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { BadRequestException } from '@nestjs/common';
 import pdfParse from 'pdf-parse';
@@ -34,12 +35,57 @@ export class ProjectsService {
       throw new ForbiddenException(this.policy.evaluate(user.role, 'marketplace', 'read').reason);
     }
 
-    return this.prisma.project.findMany({
+    const projects = await this.prisma.project.findMany({
       where,
       orderBy: { createdAt: 'desc' },
       take: 100,
-      include: { countryNode: { select: { currency: true } } },
+      include: {
+        countryNode: { select: { currency: true } },
+        projectSponsor: { select: { name: true } },
+      },
     });
+    return Promise.all(projects.map((project) => this.ensureMilestones(project)));
+  }
+
+  async lifecycle(projectId: string, user: AuthenticatedUser) {
+    const project = await this.get(projectId, user);
+    const milestones = await this.ensureMilestones(project);
+    const events = await this.prisma.projectLifecycleEvent.findMany({ where: { projectId: project.projectId }, orderBy: { createdAt: 'asc' } });
+    return { project, milestones, events };
+  }
+
+  async updateStatus(projectId: string, dto: UpdateProjectStatusDto, user: AuthenticatedUser) {
+    const project = await this.get(projectId, user);
+    const allowed = ['DRAFT', 'DUE_DILIGENCE', 'APPROVED', 'FUNDING_OPEN', 'POOLING', 'FUNDED', 'EXECUTION', 'PROFIT_DISTRIBUTION', 'COMPLETED', 'REJECTED'];
+    if (!allowed.includes(dto.status)) throw new BadRequestException('Unsupported project lifecycle status.');
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.project.update({ where: { projectId }, data: { status: dto.status, lifecycleVersion: { increment: 1 } } });
+      await tx.projectLifecycleEvent.create({ data: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, fromStatus: project.status, toStatus: dto.status, note: dto.note, actorId: user.userId } });
+      return result;
+    });
+    await this.audit.recordActor(user, { action: 'project.lifecycle.status_change', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { fromStatus: project.status, toStatus: dto.status, note: dto.note } });
+    return updated;
+  }
+
+  async createMilestone(projectId: string, dto: CreateProjectMilestoneDto, user: AuthenticatedUser) {
+    const project = await this.get(projectId, user);
+    if (!dto.title?.trim()) throw new BadRequestException('Milestone title is required.');
+    return this.prisma.projectMilestone.create({ data: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, title: dto.title.trim(), targetDate: dto.targetDate ? new Date(dto.targetDate) : null, completionPct: Math.max(0, Math.min(100, dto.completionPct ?? 0)), disbursementAmount: dto.disbursementAmount ?? 0, status: dto.status || 'UPCOMING' } });
+  }
+
+  async updateMilestone(projectId: string, milestoneId: string, dto: UpdateProjectMilestoneDto, user: AuthenticatedUser) {
+    const project = await this.get(projectId, user);
+    const milestone = await this.prisma.projectMilestone.findFirst({ where: { id: milestoneId, projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId } });
+    if (!milestone) throw new NotFoundException('Project milestone not found');
+    return this.prisma.projectMilestone.update({ where: { id: milestoneId }, data: { completionPct: dto.completionPct === undefined ? undefined : Math.max(0, Math.min(100, dto.completionPct)), status: dto.status, shariahSignoff: dto.shariahSignoff, auditorSignoff: dto.auditorSignoff } });
+  }
+
+  private async ensureMilestones(project: { projectId: string; organisationId: string; countryNodeId: string; fundingRequired: Prisma.Decimal; status: string }) {
+    const existing = await this.prisma.projectMilestone.findMany({ where: { projectId: project.projectId }, orderBy: { createdAt: 'asc' } });
+    if (existing.length) return { ...project, milestones: existing };
+    const titles = ['Project information and sponsor evidence', 'Shariah term sheet review', 'Due diligence and risk clearance', 'Funding, execution and completion'];
+    await this.prisma.projectMilestone.createMany({ data: titles.map((title, index) => ({ projectId: project.projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, title, completionPct: index === 0 && project.status !== 'DRAFT' ? 100 : 0, status: index === 0 && project.status !== 'DRAFT' ? 'COMPLETED' : 'UPCOMING', disbursementAmount: index === 0 ? 0 : Number(project.fundingRequired) / 3 })) });
+    return { ...project, milestones: await this.prisma.projectMilestone.findMany({ where: { projectId: project.projectId }, orderBy: { createdAt: 'asc' } }) };
   }
 
   async get(id: string, user: AuthenticatedUser) {
@@ -266,11 +312,37 @@ export class ProjectsService {
 
   async listPromotions(projectId: string, user: AuthenticatedUser) {
     const project = await this.get(projectId, user);
-    return this.prisma.projectPromotionCampaign.findMany({ where: { projectId: project.projectId }, orderBy: { createdAt: 'desc' } });
+    return this.prisma.projectPromotionCampaign.findMany({ where: { projectId: project.projectId }, include: { payment: true }, orderBy: { createdAt: 'desc' } });
+  }
+
+  async confirmPromotionPayment(projectId: string, campaignId: string, user: AuthenticatedUser) {
+    const project = await this.get(projectId, user);
+    const campaign = await this.prisma.projectPromotionCampaign.findFirst({ where: { id: campaignId, projectId: project.projectId }, include: { payment: true } });
+    if (!campaign?.payment) throw new NotFoundException('Promotion payment not found');
+    if (campaign.payment.userId !== user.userId) throw new ForbiddenException('Promotion payment is not owned by this user');
+    if (campaign.payment.status === 'PAID') return campaign;
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.promotionPayment.update({ where: { id: campaign.payment!.id }, data: { status: 'PAID', providerRef: `SIM-${Date.now()}` } });
+      return tx.projectPromotionCampaign.update({ where: { id: campaign.id }, data: { status: 'ACTIVE', paymentStatus: 'PAID' }, include: { payment: true } });
+    });
+    await this.audit.recordActor(user, { action: 'project.promotion.payment_confirmed', resourceType: 'ProjectPromotionCampaign', resourceId: campaign.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { paymentId: campaign.payment.id } });
+    return updated;
+  }
+
+  async getPromotionReceipt(projectId: string, campaignId: string, user: AuthenticatedUser) {
+    const project = await this.get(projectId, user);
+    const campaign = await this.prisma.projectPromotionCampaign.findFirst({ where: { id: campaignId, projectId: project.projectId }, include: { payment: true } });
+    if (!campaign?.payment || campaign.payment.userId !== user.userId) throw new NotFoundException('Promotion receipt not found');
+    if (campaign.payment.status !== 'PAID') throw new BadRequestException('Receipt is available after payment confirmation.');
+    const receiptNumber = `HOW-PROMO-${campaign.payment.id.slice(-10).toUpperCase()}`;
+    return { receiptNumber, content: ['WEALTH POOLING PROMOTION RECEIPT', `Receipt: ${receiptNumber}`, `Project: ${project.projectName}`, `Campaign: ${campaign.packageName}`, `Amount: MYR ${campaign.payment.amountMYR.toString()}`, `Payment method: ${campaign.payment.method}`, `Payment status: ${campaign.payment.status}`, `Provider reference: ${campaign.payment.providerRef || 'N/A'}`, `Paid at: ${campaign.payment.updatedAt.toISOString()}`, '', 'This receipt confirms payment for promotional placement. It is not an investment recommendation.'].join('\n') };
   }
 
   async createPromotion(projectId: string, dto: CreateProjectPromotionDto, user: AuthenticatedUser) {
     const project = await this.get(projectId, user);
+    if (!['APPROVED', 'FUNDING_OPEN', 'POOLING', 'FUNDED'].includes(project.status)) {
+      throw new BadRequestException('Project promotion is available only after Shariah, compliance and risk approval.');
+    }
     const promotionPackage = PROJECT_PROMOTION_PACKAGES.find((item) => item.id === dto.packageId);
     if (!promotionPackage) throw new BadRequestException('Promotion package is not available.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dto.startDate)) throw new BadRequestException('Start date must use YYYY-MM-DD format.');
@@ -289,6 +361,7 @@ export class ProjectsService {
           throw new BadRequestException('Insufficient Wealth Pooling Credits for this promotion.');
         }
         await tx.membershipSubscription.update({ where: { userId: user.userId }, data: { aiCreditsRemaining: { decrement: promotionPackage.creditsCost } } });
+        await tx.aiCreditTransaction.create({ data: { userId: user.userId, subscriptionId: subscription.id, type: 'CONSUMPTION', operationKey: 'PROJECT_PROMOTION', targetEntity: project.projectId, credits: -promotionPackage.creditsCost, balanceBefore: subscription.aiCreditsRemaining, balanceAfter: subscription.aiCreditsRemaining - promotionPackage.creditsCost } });
       } else if (dto.paymentMethod === 'RM' && promotionPackage.priceMYR > 0) {
         paymentStatus = 'PENDING';
         campaignStatus = 'PENDING_PAYMENT';

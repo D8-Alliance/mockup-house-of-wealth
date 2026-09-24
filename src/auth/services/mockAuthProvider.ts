@@ -303,6 +303,9 @@ export class MockAuthProvider {
 
     const oldRole = this.currentSession.user.activeRole;
     this.currentSession.user.activeRole = targetRole;
+    const tokenHeader = this.currentSession.token.split('.')[0] || '';
+    const tokenClaims = JSON.parse(atob(tokenHeader)) as Record<string, unknown>;
+    this.currentSession.token = `${btoa(JSON.stringify({ ...tokenClaims, role: targetRole }))}.demo-token`;
 
     auditLogger.logEvent({
       userId: this.currentSession.user.userId,

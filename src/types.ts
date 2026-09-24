@@ -16,7 +16,8 @@ export type NavTab =
   | 'documents'
   | 'ledger'
   | 'profile'
-  | 'membership';
+  | 'membership'
+  | 'billing-transactions';
 
 export interface UserProfile {
   id: string;

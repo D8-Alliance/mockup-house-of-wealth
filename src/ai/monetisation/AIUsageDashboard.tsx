@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { AIOperationKey, AIOperationConfig, AICreditBalanceBreakdown, AIUsageLogEntry } from './aiMonetisationTypes';
 import { aiMonetisationService } from './aiMonetisationService';
+import { apiClient, BackendCreditSummary, BackendCreditTransaction } from '../../services/apiClient';
 import { AICreditConfirmationModal } from './AICreditConfirmationModal';
 import { BuyAICreditsModal } from './BuyAICreditsModal';
 import { 
@@ -36,26 +37,21 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
   userId = 'USR-8821',
   onNavigateToMembership
 }) => {
-  const [balance, setBalance] = useState<AICreditBalanceBreakdown>(
-    aiMonetisationService.getCreditBalanceBreakdown(userId)
-  );
-  const [history, setHistory] = useState<AIUsageLogEntry[]>(
-    aiMonetisationService.getUsageHistory(userId)
-  );
+  const [balance, setBalance] = useState<AICreditBalanceBreakdown>({ userId, remainingCredits: 0, usedThisMonth: 0, monthlyAllowance: 0, additionalCredits: 0, totalPoolCredits: 0, resetDate: '', userTier: 'FREE' });
+  const [history, setHistory] = useState<AIUsageLogEntry[]>([]);
   const [operations] = useState<AIOperationConfig[]>(aiMonetisationService.getAIOperations());
   const [activeTestOp, setActiveTestOp] = useState<AIOperationKey | null>(null);
   const [showTopUpModal, setShowTopUpModal] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<string>('ALL');
   const [lastExecutedMessage, setLastExecutedMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const update = () => {
-      setBalance(aiMonetisationService.getCreditBalanceBreakdown(userId));
-      setHistory(aiMonetisationService.getUsageHistory(userId));
-    };
-    const unsubscribe = aiMonetisationService.subscribe(update);
-    return () => unsubscribe();
-  }, [userId]);
+  const refresh = async () => {
+    const [summary, transactions] = await Promise.all([apiClient.getMembershipCreditSummary(), apiClient.getMembershipCreditUsage()]);
+    setBalance(summary as BackendCreditSummary);
+    setHistory(transactions.filter((item) => item.type === 'CONSUMPTION').map((item: BackendCreditTransaction) => { const operation = aiMonetisationService.getOperationConfig((item.operationKey || 'SIMPLE_QUERY') as AIOperationKey); return { id: item.id, userId, userName: 'Authenticated User', userTier: summary.userTier, operationKey: (item.operationKey || 'SIMPLE_QUERY') as AIOperationKey, operationName: operation.name, category: operation.category, targetEntity: item.targetEntity || undefined, creditCost: Math.abs(item.credits), timestamp: item.createdAt, status: 'SUCCESS', balanceBefore: item.balanceBefore, balanceAfter: item.balanceAfter, tokensConsumedEstimate: Math.abs(item.credits) * 480 }; }));
+  };
+
+  useEffect(() => { refresh().catch(() => undefined); }, [userId]);
 
   const usedPercent = Math.min(100, Math.round((balance.usedThisMonth / (balance.monthlyAllowance || 1)) * 100));
 
@@ -68,6 +64,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
     if (activeTestOp) {
       const opConfig = aiMonetisationService.getOperationConfig(activeTestOp);
       setLastExecutedMessage(`Successfully executed "${opConfig.name}" (-${opConfig.creditCost} credits deducted).`);
+      refresh().catch(() => undefined);
       setTimeout(() => setLastExecutedMessage(null), 5000);
     }
     setActiveTestOp(null);

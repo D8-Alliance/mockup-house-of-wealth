@@ -70,7 +70,8 @@ export const AIShariahAssistant: React.FC<ShariahAssistantProps> = ({ user }) =>
   const output = run?.output;
   const recommendation = output?.recommendation || {};
   const reasoning = output?.reasoningSummary || { positiveFactors: [], concerns: [] };
-  const canReview = Boolean(run && run.status === 'COMPLETED' && run.provider !== 'sandbox' && output);
+  const canReviewRole = ['Super Admin', 'AI Administrator', 'AI Model Reviewer', 'Shariah Reviewer', 'Shariah Committee', 'Compliance Officer', 'Risk Officer'].includes(user.role);
+  const canReview = canReviewRole && Boolean(run && run.status === 'COMPLETED' && run.provider !== 'sandbox' && output);
 
   return (
     <div className="space-y-6 text-xs animate-fadeIn">

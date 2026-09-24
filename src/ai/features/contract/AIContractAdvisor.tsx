@@ -19,6 +19,7 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
   const [selectedProjectId, setSelectedProjectId] = useState(projectOverride?.projectId || '');
   const [analysis, setAnalysis] = useState<Awaited<ReturnType<typeof AIService.analyzeContract>> | null>(null);
   const [error, setError] = useState('');
+  const canReview = ['Super Admin', 'AI Administrator', 'AI Model Reviewer', 'Shariah Reviewer', 'Shariah Committee', 'Compliance Officer', 'Risk Officer'].includes(user.role);
 
   useEffect(() => {
     if (projectOverride) {
@@ -127,20 +128,21 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
             disclaimer={analysis.recommendation.disclaimer}
           />
 
-          <AIApprovalPanel roleName={user.role} />
-
-           <AIReviewPanel
-             aiRequestId={analysis.requestId}
-             userId={user.id}
-             roleName={user.role}
-             onDecisionSubmitted={async (decision, note) => {
-               if (!analysis.runId) throw new Error('AI run identifier is missing.');
-               await apiClient.reviewAiDecision(analysis.runId, {
-                 decision,
-                 justification: note || 'Human review decision recorded.',
-               });
-             }}
-           />
+           {canReview && <>
+             <AIApprovalPanel roleName={user.role} />
+             <AIReviewPanel
+               aiRequestId={analysis.requestId}
+               userId={user.id}
+               roleName={user.role}
+               onDecisionSubmitted={async (decision, note) => {
+                 if (!analysis.runId) throw new Error('AI run identifier is missing.');
+                 await apiClient.reviewAiDecision(analysis.runId, {
+                   decision,
+                   justification: note || 'Human review decision recorded.',
+                 });
+               }}
+             />
+           </>}
 
           <AISourcePanel sources={analysis.dataSources} />
         </div>

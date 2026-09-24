@@ -26,23 +26,11 @@ export class ContractAdvisorDto {
 export class ContractDraftDto {
   @IsString()
   @MinLength(1)
-  contractType!: string;
-
-  @IsNumber()
-  @Min(0)
-  capital!: number;
-
-  @IsString()
-  @MinLength(1)
-  sponsorName!: string;
+  projectId!: string;
 
   @IsOptional()
-  @IsString()
-  sector?: string;
-
-  @IsOptional()
-  @IsString()
-  projectId?: string;
+  @IsIn(['Ijarah', 'Musharakah', 'Mudarabah', 'Wakalah', 'Sukuk'])
+  contractType?: string;
 }
 
 export class ShariahAnalyzeDto {
@@ -72,6 +60,12 @@ export class DueDiligenceDto {
   content?: string;
 }
 
+export class ProjectDueDiligenceDto {
+  @IsString()
+  @MinLength(1)
+  projectId!: string;
+}
+
 export class AiDecisionDto {
   @IsIn(['ACCEPTED', 'MODIFIED', 'OVERRIDDEN', 'REJECTED'])
   decision!: 'ACCEPTED' | 'MODIFIED' | 'OVERRIDDEN' | 'REJECTED';
@@ -82,9 +76,10 @@ export class AiDecisionDto {
 }
 
 export class RagDocumentDto {
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  projectId!: string;
+  projectId?: string;
 
   @IsString()
   @MinLength(1)
@@ -94,15 +89,22 @@ export class RagDocumentDto {
   @MinLength(1)
   sourceType!: string;
 
+  @IsOptional() @IsString() documentCategory?: string;
+  @IsOptional() @IsString() contractType?: string;
+  @IsOptional() @IsString() authority?: string;
+  @IsOptional() @IsString() jurisdiction?: string;
+  @IsOptional() @IsString() industry?: string;
+  @IsOptional() @IsIn(['DRAFT', 'REVIEWED', 'APPROVED']) approvalStatus?: 'DRAFT' | 'REVIEWED' | 'APPROVED';
+
   @IsString()
   @MinLength(1)
   content!: string;
 }
 
 export class RagSearchDto {
+  @IsOptional()
   @IsString()
-  @MinLength(1)
-  projectId!: string;
+  projectId?: string;
 
   @IsString()
   @MinLength(1)
@@ -117,4 +119,22 @@ export class RagSearchDto {
   @IsInt()
   @Min(1)
   limit?: number;
+
+  @IsOptional() @IsString() documentCategory?: string;
+  @IsOptional() @IsString() contractType?: string;
+  @IsOptional() @IsString() authority?: string;
+  @IsOptional() @IsString() jurisdiction?: string;
+  @IsOptional() @IsString() industry?: string;
+  @IsOptional() @IsIn(['DRAFT', 'REVIEWED', 'APPROVED']) approvalStatus?: 'DRAFT' | 'REVIEWED' | 'APPROVED';
+}
+
+export class ContractRetrievalDto {
+  @IsString() @MinLength(1) contractType!: string;
+  @IsOptional() @IsString() industry?: string;
+  @IsOptional() @IsString() jurisdiction?: string;
+  @IsOptional() @IsString() purpose?: string;
+}
+
+export class ShariahValidationDto extends ContractRetrievalDto {
+  @IsOptional() context?: Record<string, unknown>;
 }

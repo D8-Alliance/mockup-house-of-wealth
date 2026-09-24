@@ -128,7 +128,7 @@ export const INITIAL_APP_USERS: AppUser[] = [
     countryNodeId: 'CN-MYS',
     status: 'ACTIVE',
     primaryRole: 'Country Admin',
-    assignedRoles: ['Country Admin', 'Institutional Investor'],
+    assignedRoles: ['Country Admin', 'Project Sponsor', 'Institutional Investor', 'Shariah Reviewer'],
     mfaEnabled: true,
     mfaStatus: 'Enforced',
     kycLevel: 'Level 3',
@@ -510,7 +510,7 @@ export const INITIAL_APP_USERS: AppUser[] = [
   {
     userId: 'USR-TUR-002',
     fullName: 'Zeynep Karaca',
-    email: 'zeynep.karaca@istanbultech.tr',
+    email: 'zeynep.karaca.demo@istanbultech.tr',
     phone: '+90 532 456 8890',
     department: 'Treasury & Regional Governance',
     jobTitle: 'Regional Director & Country Admin',

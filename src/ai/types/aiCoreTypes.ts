@@ -36,11 +36,13 @@ export interface ContractAdvisorRecommendation {
 }
 
 export interface ContractDraftParams {
-  contractType: string;
-  capital: number;
-  sponsorName: string;
+  projectId: string;
+  contractType?: string;
+  templateKey?: 'ijarah' | 'musharakah' | 'mudarabah' | 'wakalah' | 'sukuk';
+  capital?: number;
+  sponsorName?: string;
   sector?: string;
-  projectId?: string;
+  currency?: string;
 }
 
 export interface ContractDraftRecommendation {

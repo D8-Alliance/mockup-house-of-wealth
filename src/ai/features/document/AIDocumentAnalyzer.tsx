@@ -1,33 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AIConfidenceBadge } from '../../components/AIConfidenceBadge';
 import { FileText, Sparkles, Calendar, Users, DollarSign, AlertTriangle } from 'lucide-react';
+import { apiClient, BackendDocumentAnalysis, BackendProject, BackendProjectDocument } from '../../../services/apiClient';
 
 export const AIDocumentAnalyzer: React.FC = () => {
-  const [selectedDoc, setSelectedDoc] = useState('Business_Plan_FELDA_Expansion_v3.pdf');
+  const [projects, setProjects] = useState<BackendProject[]>([]);
+  const [projectId, setProjectId] = useState('');
+  const [documents, setDocuments] = useState<BackendProjectDocument[]>([]);
+  const [selectedDoc, setSelectedDoc] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<BackendDocumentAnalysis | null>(null);
+  const [error, setError] = useState('');
 
-  const handleAnalyzeDoc = () => {
-    setAnalyzing(true);
-    setTimeout(() => {
-      setResult({
-        documentName: selectedDoc,
-        confidence: { level: 'HIGH' as const, scorePercent: 95, disclaimer: 'OCR & text analysis results.' },
-        parties: ['FELDA Holdings Berhad (Sponsor)', 'Wealth Pooling MYS Node (Platform)'],
-        importantDates: ['Effective Date: 2026-09-01', 'First Distribution Cutoff: 2026-12-31', 'Maturity Date: 2031-08-31'],
-        extractedFigures: [
-          'Target Capital: $8,000,000 USD',
-          'Sponsor Equity Contribution: $2,000,000 USD',
-          'Projected Annual Operating Yield: $2,100,000 USD'
-        ],
-        keyTerms: [
-          'Mudarabah Profit Split: 80% Investors / 20% Mudarib',
-          '1.5% Annual Mudarib Management Fee',
-          'Quarterly Distribution Cycle'
-        ]
-      });
-      setAnalyzing(false);
-    }, 500);
+  useEffect(() => { apiClient.getProjects().then((items) => { setProjects(items); if (items[0]) setProjectId(items[0].projectId); }).catch((err) => setError(err instanceof Error ? err.message : 'Unable to load projects.')); }, []);
+  useEffect(() => { if (!projectId) return; apiClient.getProjectDocuments(projectId).then((items) => { setDocuments(items); setSelectedDoc(items[0]?.id || ''); setResult(null); }).catch((err) => setError(err instanceof Error ? err.message : 'Unable to load documents.')); }, [projectId]);
+  const handleAnalyzeDoc = async () => {
+    if (!projectId || !selectedDoc) return;
+    setAnalyzing(true); setError('');
+    try { setResult(await apiClient.analyzeProjectDocument(projectId, selectedDoc)); } catch (err) { setError(err instanceof Error ? err.message : 'Unable to analyze document.'); } finally { setAnalyzing(false); }
   };
 
   return (
@@ -44,14 +34,17 @@ export const AIDocumentAnalyzer: React.FC = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
+          <select value={projectId} onChange={e => setProjectId(e.target.value)} className="flex-grow p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-semibold">
+            <option value="">Select project</option>
+            {projects.map((project) => <option key={project.projectId} value={project.projectId}>{project.projectName}</option>)}
+          </select>
           <select
             value={selectedDoc}
             onChange={e => setSelectedDoc(e.target.value)}
             className="flex-grow p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-semibold"
           >
-            <option value="Business_Plan_FELDA_Expansion_v3.pdf">Business_Plan_FELDA_Expansion_v3.pdf</option>
-            <option value="Audited_Financial_Statements_2025.pdf">Audited_Financial_Statements_2025.pdf</option>
-            <option value="Shariah_Fatwa_Approval_Certificate.pdf">Shariah_Fatwa_Approval_Certificate.pdf</option>
+            <option value="">Select document</option>
+            {documents.map((document) => <option key={document.id} value={document.id}>{document.fileName}</option>)}
           </select>
 
           <button
@@ -63,6 +56,7 @@ export const AIDocumentAnalyzer: React.FC = () => {
             {analyzing ? 'Extracting Text...' : 'Analyze Document'}
           </button>
         </div>
+        {error && <p className="text-rose-600 font-semibold">{error}</p>}
       </div>
 
       {result && (
@@ -78,7 +72,7 @@ export const AIDocumentAnalyzer: React.FC = () => {
                 <Users className="w-4 h-4 text-emerald-600" /> Identified Parties
               </span>
               <ul className="space-y-1 list-disc list-inside text-slate-600 dark:text-slate-300">
-                {result.parties.map((p: string, idx: number) => <li key={idx}>{p}</li>)}
+                 {result.parties.length ? result.parties.map((p, idx) => <li key={idx}>{p}</li>) : <li>No parties detected in extracted text.</li>}
               </ul>
             </div>
 
@@ -87,8 +81,18 @@ export const AIDocumentAnalyzer: React.FC = () => {
                 <Calendar className="w-4 h-4 text-blue-600" /> Key Dates
               </span>
               <ul className="space-y-1 list-disc list-inside text-slate-600 dark:text-slate-300">
-                {result.importantDates.map((d: string, idx: number) => <li key={idx}>{d}</li>)}
+                 {result.importantDates.length ? result.importantDates.map((d, idx) => <li key={idx}>{d}</li>) : <li>No dates detected in extracted text.</li>}
               </ul>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+              <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 text-[11px]"><DollarSign className="w-4 h-4 text-emerald-600" /> Extracted Figures</span>
+              <ul className="space-y-1 list-disc list-inside text-slate-600 dark:text-slate-300">{result.extractedFigures.length ? result.extractedFigures.map((figure, idx) => <li key={idx}>{figure}</li>) : <li>No figures detected in extracted text.</li>}</ul>
+            </div>
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+              <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 text-[11px]"><AlertTriangle className="w-4 h-4 text-amber-600" /> Key Terms</span>
+              <ul className="space-y-1 list-disc list-inside text-slate-600 dark:text-slate-300">{result.keyTerms.length ? result.keyTerms.map((term, idx) => <li key={idx}>{term}</li>) : <li>No recognised terms detected.</li>}</ul>
             </div>
           </div>
         </div>

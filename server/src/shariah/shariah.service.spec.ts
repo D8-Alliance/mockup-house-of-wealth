@@ -23,8 +23,10 @@ const reviewer: AuthenticatedUser = {
 const prisma = {
   project: { findUnique: jest.fn() },
   organisation: { findFirst: jest.fn() },
-  shariahReview: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+  shariahReview: { create: jest.fn(), findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
   shariahDecision: { create: jest.fn() },
+  userRoleAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+  notification: { create: jest.fn(), createMany: jest.fn() },
   $transaction: jest.fn(),
 };
 const audit = { recordActor: jest.fn().mockResolvedValue(undefined) };
@@ -41,6 +43,7 @@ describe('ShariahService tenant and human decision controls', () => {
   it('creates a tenant-scoped proposed review and records an audit event', async () => {
     prisma.project.findUnique.mockResolvedValue({ projectId: 'PROJ-A', organisationId: 'ORG-A', countryNodeId: 'CN-MYS' });
     prisma.organisation.findFirst.mockResolvedValue({ id: 'ORG-A' });
+    prisma.shariahReview.findFirst.mockResolvedValue(null);
     prisma.shariahReview.create.mockResolvedValue({ id: 'REV-A', status: 'PROPOSED', decisions: [] });
 
     const result = await service.create({

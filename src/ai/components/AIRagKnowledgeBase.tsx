@@ -2,9 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { BookOpen, Search, Upload } from 'lucide-react';
 import { apiClient, BackendProject, BackendRagSearchResult } from '../../services/apiClient';
 
-export const AIRagKnowledgeBase: React.FC = () => {
+export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole }) => {
+  const canManageCorpus = userRole === 'Super Admin' || userRole === 'AI Administrator';
   const [title, setTitle] = useState('');
   const [sourceType, setSourceType] = useState('INTERNAL_SHARIAH_POLICY');
+  const [documentCategory, setDocumentCategory] = useState('Internal Policy');
+  const [contractType, setContractType] = useState('');
+  const [authority, setAuthority] = useState('');
+  const [jurisdiction, setJurisdiction] = useState('International');
+  const [industry, setIndustry] = useState('');
   const [content, setContent] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [query, setQuery] = useState('');
@@ -18,20 +24,20 @@ export const AIRagKnowledgeBase: React.FC = () => {
     apiClient.getProjects()
       .then((items) => {
         setProjects(items);
-        setProjectId(items[0]?.projectId || '');
+        setProjectId('');
       })
       .catch((error) => setMessage(error instanceof Error ? error.message : 'Unable to load projects.'));
   }, []);
 
   const upload = async () => {
-    if (!projectId || !title.trim() || !content.trim()) {
-      setMessage('Project, title and document content are required.');
+    if (!title.trim() || !content.trim()) {
+      setMessage('Title and document content are required.');
       return;
     }
     setBusy(true);
     setMessage('');
     try {
-      await apiClient.createRagDocument({ projectId, title: title.trim(), sourceType, content });
+      await apiClient.createRagDocument({ projectId, title: title.trim(), sourceType, content, documentCategory, contractType: contractType || undefined, authority: authority || undefined, jurisdiction, industry: industry || undefined, approvalStatus: 'APPROVED' });
       setTitle('');
       setContent('');
       setMessage('Document uploaded and chunked into the tenant knowledge base.');
@@ -56,14 +62,14 @@ export const AIRagKnowledgeBase: React.FC = () => {
   };
 
   const uploadPdf = async () => {
-    if (!projectId || !file) {
-      setMessage('Select a project and choose a PDF file first.');
+    if (!file) {
+      setMessage('Choose a PDF file first.');
       return;
     }
     setBusy(true);
     setMessage('Extracting PDF text and creating RAG chunks...');
     try {
-      await apiClient.uploadRagPdf(projectId, file);
+      await apiClient.uploadRagPdf(projectId, file, { documentCategory, contractType: contractType || undefined, authority: authority || undefined, jurisdiction, industry: industry || undefined, approvalStatus: 'APPROVED' });
       setFile(null);
       setMessage('PDF uploaded and indexed in the tenant knowledge base.');
     } catch (error) {
@@ -83,23 +89,29 @@ export const AIRagKnowledgeBase: React.FC = () => {
             <p className="text-xs text-slate-500">Upload approved Shariah policies, standards, fatwa, and contract clauses.</p>
           </div>
         </div>
-        <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Documents are stored in the current tenant scope. Upload only approved and licensed material.</p>
+        <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Global Shariah corpus is tenant-scoped and reusable across projects. Only AI administrators can upload or update approved material.</p>
         <div className="mt-4 grid gap-3">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Project
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Search scope
             <select value={projectId} onChange={(event) => { setProjectId(event.target.value); setResults([]); }} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
               {projects.length === 0 && <option value="">Loading projects...</option>}
+              <option value="">Global tenant corpus</option>
               {projects.map((project) => <option key={project.projectId} value={project.projectId}>{project.projectName}</option>)}
             </select>
           </label>
           <div className="rounded-xl border border-dashed border-purple-300 bg-purple-50 p-4">
             <label className="text-xs font-bold text-purple-900">Upload PDF document</label>
             <input type="file" accept="application/pdf,.pdf" onChange={(event) => setFile(event.target.files?.[0] || null)} className="mt-2 block w-full text-sm" />
-            <button onClick={() => void uploadPdf()} disabled={busy || !file} className="mt-3 flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><Upload className="h-4 w-4" /> Upload PDF</button>
+             {canManageCorpus && <button onClick={() => void uploadPdf()} disabled={busy || !file} className="mt-3 flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><Upload className="h-4 w-4" /> Upload PDF</button>}
             <p className="mt-2 text-[11px] text-purple-800">Maximum 10 MB. Text-based PDFs are supported; scanned PDFs require OCR.</p>
           </div>
           <div className="border-t border-slate-200 pt-4 text-xs font-bold text-slate-500">Or paste approved text</div>
-          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Document title" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-          <select value={sourceType} onChange={(event) => setSourceType(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm">
+           {canManageCorpus && <><input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Document title" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+           <select value={documentCategory} onChange={(event) => setDocumentCategory(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm"><option>AAOIFI Standard</option><option>BNM Shariah Resolution</option><option>Fatwa</option><option>Contract Template</option><option>Legal Clause</option><option>Internal Policy</option><option>Regulatory Guidance</option></select>
+           <select value={contractType} onChange={(event) => setContractType(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm"><option value="">All contract types</option><option>Ijarah</option><option>Musharakah</option><option>Mudarabah</option><option>Wakalah</option><option>Sukuk</option></select>
+           <input value={authority} onChange={(event) => setAuthority(event.target.value)} placeholder="Authority (e.g. AAOIFI, BNM SAC)" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+           <select value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm"><option>International</option><option>Malaysia</option><option>UAE</option><option>Saudi Arabia</option></select>
+           <input value={industry} onChange={(event) => setIndustry(event.target.value)} placeholder="Industry (e.g. Real Estate)" className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+           <select value={sourceType} onChange={(event) => setSourceType(event.target.value)} className="rounded-xl border border-slate-300 px-3 py-2 text-sm">
             <option value="AAOIFI_STANDARD">AAOIFI Standard</option>
             <option value="FATWA">Fatwa</option>
             <option value="INTERNAL_SHARIAH_POLICY">Internal Shariah Policy</option>
@@ -107,13 +119,13 @@ export const AIRagKnowledgeBase: React.FC = () => {
             <option value="REGULATORY_GUIDANCE">Regulatory Guidance</option>
           </select>
           <textarea value={content} onChange={(event) => setContent(event.target.value)} placeholder="Paste the approved document text here..." rows={8} className="rounded-xl border border-slate-300 px-3 py-2 text-sm" />
-          <button onClick={() => void upload()} disabled={busy} className="flex w-fit items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><Upload className="h-4 w-4" /> Upload to RAG</button>
+           <button onClick={() => void upload()} disabled={busy} className="flex w-fit items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><Upload className="h-4 w-4" /> Upload Global Standard</button></>}
         </div>
       </div>
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
         <h3 className="font-black text-slate-900 dark:text-white">Search Knowledge Base</h3>
         <div className="mt-3 flex gap-2">
-          <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void search(); }} placeholder="Search Mudarabah profit and loss rules..." className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" />
+           <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void search(); }} placeholder="Search Mudarabah profit and loss rules..." className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm" />
           <button onClick={() => void search()} disabled={busy} className="rounded-xl bg-slate-900 px-4 py-2 text-white disabled:opacity-50"><Search className="h-4 w-4" /></button>
         </div>
         <div className="mt-4 space-y-3">

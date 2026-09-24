@@ -1,5 +1,6 @@
 import { authService } from '../auth/services/authService';
 import { PDPApplication } from '../pdp/pdpTypes';
+import { AdminAIAnalyticsSummary } from '../ai/monetisation/aiMonetisationTypes';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3001`;
 
@@ -43,7 +44,23 @@ export interface ZakatCalculation {
 
 export const apiClient = {
   getDashboardSummary: () => request<DashboardSummary>('/dashboard/summary'),
+  getMembershipCreditSummary: () => request<BackendCreditSummary>('/membership/me/credits'),
+  getMembershipCreditUsage: () => request<BackendCreditTransaction[]>('/membership/me/credits/usage'),
+  getMembershipTransactions: () => request<BackendTransaction[]>('/membership/me/transactions'),
+  downloadTransactionReceipt: async (transactionId: string) => {
+    const token = authService.getAuthState().session?.token; const response = await fetch(`${API_BASE_URL}/membership/me/transactions/${encodeURIComponent(transactionId)}/receipt`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!response.ok) throw new Error(await response.text() || 'Receipt is unavailable.'); const blobUrl = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = blobUrl; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || 'receipt.txt'; link.click(); URL.revokeObjectURL(blobUrl);
+  },
+  consumeMembershipCredits: (operationKey: string, targetEntity?: string) => request<BackendCreditTransaction>('/membership/me/credits/consume', { method: 'POST', body: JSON.stringify({ operationKey, targetEntity }) }),
+  topUpMembershipCredits: (packageId: string, paymentMethod: string) => request<{ transaction: BackendCreditTransaction; balance: BackendCreditSummary }>('/membership/me/credits/top-up', { method: 'POST', body: JSON.stringify({ packageId, paymentMethod }) }),
+  getAdminCreditAnalytics: () => request<{ summary: AdminAIAnalyticsSummary; transactions: BackendCreditTransaction[] }>('/membership/admin/credits/analytics'),
   getProjects: () => request<BackendProject[]>('/projects'),
+  runProjectDueDiligence: (projectId: string) => request<BackendDueDiligenceScan>('/ai/projects/due-diligence/scan', { method: 'POST', body: JSON.stringify({ projectId }) }),
+  getLatestProjectDueDiligence: (projectId: string) => request<BackendDueDiligenceScan | null>(`/ai/projects/${encodeURIComponent(projectId)}/due-diligence/latest`),
+  analyzeProjectDocument: (projectId: string, documentId: string) => request<BackendDocumentAnalysis>(`/ai/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/analyze`, { method: 'POST' }),
+  getProjectLifecycle: (projectId: string) => request<BackendProjectLifecycle>(`/projects/${encodeURIComponent(projectId)}/lifecycle`),
+  updateProjectStatus: (projectId: string, input: { status: string; note?: string }) => request<BackendProject>(`/projects/${encodeURIComponent(projectId)}/status`, { method: 'POST', body: JSON.stringify(input) }),
+  updateProjectMilestone: (projectId: string, milestoneId: string, input: { completionPct?: number; status?: string; shariahSignoff?: boolean; auditorSignoff?: boolean }) => request(`/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(milestoneId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
   createProject: (input: CreateProjectInput) => request<BackendProject>('/projects', {
     method: 'POST',
     body: JSON.stringify(input),
@@ -67,6 +84,13 @@ export const apiClient = {
     method: 'POST',
     body: JSON.stringify(input),
   }),
+  confirmProjectPromotionPayment: (projectId: string, campaignId: string) => request<BackendProjectPromotion>(`/projects/${encodeURIComponent(projectId)}/promotions/${encodeURIComponent(campaignId)}/payment/confirm`, { method: 'POST' }),
+  downloadPromotionReceipt: async (projectId: string, campaignId: string) => {
+    const token = authService.getAuthState().session?.token;
+    const response = await fetch(`${API_BASE_URL}/projects/${encodeURIComponent(projectId)}/promotions/${encodeURIComponent(campaignId)}/receipt`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!response.ok) throw new Error(await response.text() || 'Promotion receipt is unavailable.');
+    const blobUrl = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = blobUrl; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || 'promotion-receipt.txt'; link.click(); URL.revokeObjectURL(blobUrl);
+  },
   uploadProjectDocument: (projectId: string, file: File) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -134,6 +158,11 @@ export const apiClient = {
     method: 'POST',
     body: JSON.stringify(input),
   }),
+  getShariahReviews: () => request<ShariahReview[]>('/shariah/reviews'),
+  getCentralMalaysiaShariahReviews: () => request<ShariahReview[]>('/shariah/reviews/central/malaysia'),
+  getShariahNotifications: () => request<ShariahNotification[]>('/shariah/reviews/notifications'),
+  revertShariahReview: (id: string) => request<ShariahReview>(`/shariah/reviews/${id}/revert`, { method: 'POST' }),
+  resubmitShariahReview: (id: string, input: CreateShariahReviewInput) => request<ShariahReview>(`/shariah/reviews/${id}/resubmit`, { method: 'POST', body: JSON.stringify(input) }),
   getShariahReview: (id: string) => request<ShariahReview>(`/shariah/reviews/${id}`),
   submitShariahDecision: (id: string, input: ShariahDecisionInput) => request<ShariahReview>(`/shariah/reviews/${id}/decisions`, {
     method: 'POST',
@@ -148,17 +177,18 @@ export const apiClient = {
     method: 'POST',
     body: JSON.stringify(input),
   }),
-  createRagDocument: (input: { projectId: string; title: string; sourceType: string; content: string }) => request<BackendRagDocument>('/ai/rag/documents', {
+  createRagDocument: (input: { projectId?: string; title: string; sourceType: string; content: string; documentCategory?: string; contractType?: string; authority?: string; jurisdiction?: string; industry?: string; approvalStatus?: string }) => request<BackendRagDocument>('/ai/rag/documents', {
     method: 'POST',
     body: JSON.stringify(input),
   }),
-  uploadRagPdf: (projectId: string, file: File) => {
+  uploadRagPdf: (projectId: string | undefined, file: File, metadata: { documentCategory?: string; contractType?: string; authority?: string; jurisdiction?: string; industry?: string; approvalStatus?: string } = {}) => {
     const formData = new FormData();
-    formData.append('projectId', projectId);
+    if (projectId) formData.append('projectId', projectId);
+    Object.entries(metadata).forEach(([key, value]) => { if (value) formData.append(key, value); });
     formData.append('file', file);
     return request<BackendRagDocument>('/ai/rag/documents/upload', { method: 'POST', body: formData });
   },
-  searchRagDocuments: (input: { projectId: string; query: string; limit?: number }) => request<BackendRagSearchResult[]>('/ai/rag/documents/search', {
+  searchRagDocuments: (input: { projectId?: string; query: string; limit?: number; documentCategory?: string; contractType?: string; authority?: string; jurisdiction?: string; industry?: string; approvalStatus?: string }) => request<BackendRagSearchResult[]>('/ai/rag/documents/search', {
     method: 'POST',
     body: JSON.stringify(input),
   }),
@@ -166,10 +196,13 @@ export const apiClient = {
     method: 'POST',
     body: JSON.stringify(input),
   }),
-  generateContractDraft: (input: { contractType: string; capital: number; sponsorName: string; sector?: string; projectId?: string }) => request<BackendAiRun>('/ai/contract-drafts/generate', {
+  generateContractDraft: (input: { projectId: string; contractType?: string }) => request<BackendAiRun>('/ai/contract-drafts/generate', {
     method: 'POST',
     body: JSON.stringify(input),
   }),
+  createAgreementDraft: (input: { contractType: string; projectName: string; jurisdiction: string; projectId?: string; wizardData: Record<string, unknown> }) => request<BackendAgreementDraft>('/contract-intelligence/agreements/drafts', { method: 'POST', body: JSON.stringify(input) }),
+  reviewAgreement: (id: string, input: { reviewStatus: string; note?: string }) => request(`/contract-intelligence/agreements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  downloadAgreement: async (id: string, format: 'docx' | 'pdf') => { const token = authService.getAuthState().session?.token; const response = await fetch(`${API_BASE_URL}/contract-intelligence/agreements/${encodeURIComponent(id)}/download/${format}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); if (!response.ok) throw new Error(await response.text() || 'Agreement download failed.'); const url = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = url; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || `agreement.${format}`; link.click(); URL.revokeObjectURL(url); },
   analyzeShariah: (input: { proposedContract: string; terms: string; projectId: string }) => request<BackendAiRun>('/ai/shariah/analyze', {
     method: 'POST',
     body: JSON.stringify(input),
@@ -195,15 +228,23 @@ export interface DashboardSummary {
   fundingRequested: number;
 }
 
+export interface BackendAgreementDraft {
+  contract: { id: string; contractNumber: string; contractType: string; status: string; title?: string };
+  compliance: { status: string; checks: Array<{ label: string; pass: boolean; severity: string }> };
+  sections: Array<{ number: string; title: string; paragraphs: string[] }>;
+  variables: Record<string, string>;
+}
+
 export interface CreateShariahReviewInput {
   projectId: string;
   organisationId: string;
   countryNodeId: string;
   proposedContract: string;
+  draftText?: string;
 }
 
 export interface ShariahDecisionInput {
-  decision: 'ACCEPTED' | 'MODIFIED' | 'OVERRIDDEN' | 'REJECTED';
+  decision: 'ACCEPTED' | 'MODIFIED' | 'OVERRIDDEN' | 'REJECTED' | 'REQUEST_CHANGES';
   justification?: string;
 }
 
@@ -213,7 +254,9 @@ export interface ShariahReview {
   organisationId: string;
   countryNodeId: string;
   proposedContract: string;
-  status: 'PROPOSED' | 'APPROVED' | 'MODIFIED' | 'OVERRIDDEN' | 'REJECTED';
+  status: 'PROPOSED' | 'UNDER_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED' | 'MODIFIED' | 'OVERRIDDEN' | 'REJECTED' | 'REVERTED';
+  revision?: number;
+  requestedChanges?: string | null;
   reviewedBy?: string;
   reviewedAt?: string;
   decisions: {
@@ -224,6 +267,19 @@ export interface ShariahReview {
     actorRole: string;
     createdAt: string;
   }[];
+  aiResult?: { draftText?: string; source?: string } | null;
+  project?: BackendProject;
+}
+
+export interface ShariahNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  resourceType?: string | null;
+  resourceId?: string | null;
+  readAt?: string | null;
+  createdAt: string;
 }
 
 export interface FeatureModule {
@@ -276,7 +332,7 @@ export interface BackendUser {
 
 export interface BackendRagDocument {
   id: string;
-  projectId: string;
+  projectId?: string | null;
   title: string;
   sourceType: string;
   status: string;
@@ -306,6 +362,73 @@ export interface BackendProject {
   status: string;
   sponsorEntityType?: string | null;
   countryNode?: { currency: string };
+  projectSponsor?: { name: string };
+  milestones?: BackendProjectMilestone[];
+  documents?: BackendProjectDocument[];
+}
+
+export interface BackendProjectMilestone {
+  id: string;
+  title: string;
+  targetDate?: string | null;
+  completionPct: number;
+  disbursementAmount: number | string;
+  status: string;
+  shariahSignoff: boolean;
+  auditorSignoff: boolean;
+}
+
+export interface BackendProjectLifecycle {
+  project: BackendProject;
+  milestones: BackendProjectMilestone[];
+  events: { id: string; fromStatus?: string | null; toStatus: string; note?: string | null; actorId: string; createdAt: string }[];
+}
+
+export interface BackendDueDiligenceScan {
+  id: string;
+  projectId: string;
+  confidenceScore: number;
+  missingDocuments: { title: string; status: string }[];
+  findings: { title: string; description: string; severity: 'LOW' | 'MEDIUM' | 'HIGH'; mitigation: string }[];
+  createdAt: string;
+}
+
+export interface BackendCreditSummary {
+  userId: string;
+  remainingCredits: number;
+  usedThisMonth: number;
+  monthlyAllowance: number;
+  additionalCredits: number;
+  totalPoolCredits: number;
+  resetDate: string;
+  userTier: string;
+}
+
+export interface BackendCreditTransaction {
+  id: string;
+  userId?: string;
+  type: string;
+  operationKey?: string | null;
+  targetEntity?: string | null;
+  credits: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  amountMYR?: number | string | null;
+  paymentMethod?: string | null;
+  createdAt: string;
+}
+
+export interface BackendTransaction { id: string; type: string; description: string; status: string; amountMYR: number; amountUSD: number; credits: number; method: string; invoiceNumber?: string | null; createdAt: string; receiptAvailable: boolean; }
+
+export interface BackendDocumentAnalysis {
+  id: string;
+  documentName: string;
+  parties: string[];
+  importantDates: string[];
+  extractedFigures: string[];
+  keyTerms: string[];
+  confidence: { level: 'LOW' | 'MEDIUM' | 'HIGH'; scorePercent: number; disclaimer: string };
+  requiresHumanReview: boolean;
 }
 
 export interface CreateProjectInput {
@@ -395,6 +518,7 @@ export interface BackendProjectPromotion {
   views: number;
   clicks: number;
   investorLeads: number;
+  payment?: { id: string; amountMYR: number | string; method: string; status: string; providerRef?: string | null; createdAt: string; updatedAt: string } | null;
 }
 
 export interface CreateProjectPromotionInput {

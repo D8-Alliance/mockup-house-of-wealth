@@ -19,6 +19,19 @@ export class ShariahController {
     return this.shariah.list(user);
   }
 
+  @Get('notifications')
+  @RequirePermission('governance', 'read')
+  notifications(@CurrentUser() user: AuthenticatedUser) {
+    return this.shariah.notifications(user);
+  }
+
+  @Get('central/malaysia')
+  @Roles('Super Admin', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee')
+  @RequirePermission('governance', 'read')
+  centralMalaysia(@CurrentUser() user: AuthenticatedUser) {
+    return this.shariah.centralMalaysia(user);
+  }
+
   @Get(':id')
   @RequirePermission('governance', 'read')
   get(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
@@ -26,7 +39,7 @@ export class ShariahController {
   }
 
   @Post()
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee')
   @RequirePermission('governance', 'create')
   create(@Body() input: CreateShariahReviewDto, @CurrentUser() user: AuthenticatedUser) {
     return this.shariah.create(input, user);
@@ -37,5 +50,19 @@ export class ShariahController {
   @RequirePermission('governance', 'approve')
   decide(@Param('id') id: string, @Body() input: CreateShariahDecisionDto, @CurrentUser() user: AuthenticatedUser) {
     return this.shariah.decide(id, input, user);
+  }
+
+  @Post(':id/revert')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('governance', 'create')
+  revert(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.shariah.revert(id, user);
+  }
+
+  @Post(':id/resubmit')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('governance', 'create')
+  resubmit(@Param('id') id: string, @Body() input: CreateShariahReviewDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.shariah.resubmit(id, input, user);
   }
 }
