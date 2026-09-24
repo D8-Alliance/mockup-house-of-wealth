@@ -16,7 +16,8 @@ export type NavTab =
   | 'documents'
   | 'ledger'
   | 'profile'
-  | 'membership';
+  | 'membership'
+  | 'billing-transactions';
 
 export interface UserProfile {
   id: string;
@@ -86,6 +87,7 @@ export interface AssetItem {
   collateralPercent: number;
   liquidityPercent: number;
   imageUrl: string;
+  imageUrls?: string[];
   description?: string;
   owner?: string;
   custodian?: string;

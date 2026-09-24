@@ -74,7 +74,7 @@ export const RevenueDashboardFilters: React.FC<RevenueDashboardFiltersProps> = (
     'Retail Investor',
     'HNWI Investor',
     'Institutional Investor',
-    'PDP / Project Sponsor',
+    'Delivery Partner / Project Sponsor',
     'Enterprise Member',
     'Shariah Scholar / Firm'
   ];

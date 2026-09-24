@@ -82,7 +82,7 @@ export const PDPApplicationsAdminPanel: React.FC = () => {
             <span className="text-xs text-slate-400 font-mono">D-8 Sovereignty & KYB Protocol</span>
           </div>
           <h2 className="text-xl font-black text-slate-900 dark:text-white">
-            Pool & Project Data Provider (PDP) Applications Queue
+             Pool & Project Delivery Partner (PDP) Applications Queue
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Audit, verify legal entity credentials, beneficial ownership (UBOs), bank settlement coordinates, and approve PDP issuers.

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { WealthPoolingLogo } from './WealthPoolingLogo';
 import { 
   Building2, 
   LayoutDashboard, 
@@ -24,7 +25,8 @@ import {
   Sparkles,
   Shield,
   Briefcase,
-  CreditCard
+  CreditCard,
+  Receipt
 } from 'lucide-react';
 import { NavTab, LanguageCode, UserProfile } from '../types';
 import { LANGUAGES, TRANSLATIONS } from '../data/translations';
@@ -81,6 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'documents', label: t.documents || 'Documents', icon: <FolderKanban className="w-4 h-4" /> },
     { id: 'ledger', label: t.ledger || 'Audit Trail', icon: <FileCheck className="w-4 h-4" /> },
     { id: 'membership', label: 'Membership & Pricing', icon: <CreditCard className="w-4 h-4 text-emerald-500" /> },
+    { id: 'billing-transactions', label: 'Billing & Transactions', icon: <Receipt className="w-4 h-4 text-blue-500" /> },
     { id: 'profile', label: t.profile || 'Profile', icon: <User className="w-4 h-4" /> }
   ];
 
@@ -93,22 +96,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           
           {/* Brand Logo */}
           <div className="flex items-center gap-3 cursor-pointer shrink-0" onClick={() => setTab('dashboard')}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
-              <Building2 className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 dark:text-white">
-                  {t.brand}
-                </span>
-                <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  D-8
-                </span>
-              </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                {t.tagline}
-              </p>
-            </div>
+            <WealthPoolingLogo compact />
           </div>
 
           {/* Desktop Navigation Links */}
@@ -121,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onOpenPdpRegister}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-500 text-white shadow-sm shadow-purple-500/20 transition-all cursor-pointer shrink-0"
-              title="Register as a Pool / Product / Project Data Provider (PDP)"
+              title="Register as a Pool / Product / Project Delivery Partner (PDP)"
             >
               <Building2 className="w-3.5 h-3.5" />
               <span className="hidden md:inline">PDP Onboarding</span>

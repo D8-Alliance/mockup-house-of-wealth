@@ -2,7 +2,7 @@ export type OrganisationType =
   | 'Government'
   | 'Government-Linked Company'
   | 'Corporation'
-  | 'Project Sponsor / PDP'
+  | 'Project Sponsor / Delivery Partner'
   | 'Financial Institution'
   | 'Investment Fund'
   | 'Family Office'

@@ -21,6 +21,8 @@ View your app in AI Studio: https://ai.studio/apps/7d4d8c4d-8656-4928-8bf1-10be1
 
 ## Local PostgreSQL
 
+For the complete VPS, development, and UAT procedure, see [`PANDUAN_LENGKAP_VPS.md`](./PANDUAN_LENGKAP_VPS.md).
+
 The backend uses the existing PostgreSQL database `house_of_wealth`. Ensure the PostgreSQL service is running, then run this from the project root:
 
 ```powershell

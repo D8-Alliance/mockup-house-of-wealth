@@ -15,11 +15,11 @@ export const INITIAL_PAGE_CONTENT: Record<string, PageContent> = {
   about: {
     pageId: 'about',
     meta: {
-      title: 'About D-8 & House of Wealth',
+      title: 'About D-8 & Wealth Pooling',
       subtitle:
-        'House of Wealth is the flagship digital marketplace of the D-8 Organization for Economic Cooperation — connecting institutional capital and sustainable real-economy projects across nine Muslim-majority developing nations through Shariah-compliant tokenization.',
+        'Wealth Pooling is the flagship digital marketplace of the D-8 Organization for Economic Cooperation — connecting institutional capital and sustainable real-economy projects across nine Muslim-majority developing nations through Shariah-compliant tokenization.',
       intro:
-        'House of Wealth is the flagship digital marketplace of the D-8 Organization for Economic Cooperation. It unites institutional capital, asset owners, and sustainable projects across the nine member states through Shariah-compliant tokenization, smart contracts, and transparent wealth pooling.'
+        'Wealth Pooling is the flagship digital marketplace of the D-8 Organization for Economic Cooperation. It unites institutional capital, asset owners, and sustainable projects across the nine member states through Shariah-compliant tokenization, smart contracts, and transparent wealth pooling.'
     },
     sections: {
       pillars: [
@@ -53,7 +53,7 @@ export const INITIAL_PAGE_CONTENT: Record<string, PageContent> = {
         }),
         item('m2', {
           year: '2023',
-          title: 'House of Wealth Concept',
+          title: 'Wealth Pooling Concept',
           detail:
             'Member states endorse a shared digital infrastructure for cross-border Islamic finance, tokenized assets, and transparent wealth pooling.'
         }),
@@ -157,7 +157,7 @@ export const INITIAL_PAGE_CONTENT: Record<string, PageContent> = {
     meta: {
       title: 'News & Updates',
       subtitle:
-        'The latest developments across the House of Wealth network — platform releases, governance milestones, regulatory alignment, and cross-border market expansion.'
+        'The latest developments across the Wealth Pooling network — platform releases, governance milestones, regulatory alignment, and cross-border market expansion.'
     },
     sections: {
       featured: [
@@ -216,14 +216,14 @@ export const INITIAL_PAGE_CONTENT: Record<string, PageContent> = {
     meta: {
       title: 'Contact Us',
       subtitle:
-        'Get in touch with the House of Wealth coordination team — whether you are an institution seeking to list an offering, an investor exploring opportunities, or a member state representative.'
+        'Get in touch with the Wealth Pooling coordination team — whether you are an institution seeking to list an offering, an investor exploring opportunities, or a member state representative.'
     },
     sections: {
       offices: [
         item('o1', {
           region: 'Central Coordination',
           city: 'Kuala Lumpur, Malaysia',
-          detail: 'D-8 House of Wealth Secretariat, Menara FELDA, Platinum Park'
+          detail: 'D-8 Wealth Pooling Secretariat, Menara FELDA, Platinum Park'
         }),
         item('o2', {
           region: 'Eurasia Hub',

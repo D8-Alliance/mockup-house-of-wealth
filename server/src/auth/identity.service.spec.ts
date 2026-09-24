@@ -26,8 +26,8 @@ describe('IdentityService role extraction', () => {
     prismaMock.user.findFirst.mockResolvedValue({
       id: 'USR-MYS-P2-001',
       idpSubjectId: 'USR-MYS-P2-001',
-      email: 'ahmed.almansoor@mycapital.my',
-      name: 'Ahmed Al-Mansoor',
+       email: 'ahmad.admin@wealthpooling.my',
+       name: 'Ahmad bin Razak',
       isActive: true,
       roleAssignments: [
         { role: 'Country_Admin', assignedAt: new Date() },
@@ -40,7 +40,7 @@ describe('IdentityService role extraction', () => {
 
     expect(user.role).toBe('Country Admin');
     expect(user.assignedRoles).toEqual(['Country Admin', 'Institutional Investor']);
-    expect(user.email).toBe('ahmed.almansoor@mycapital.my');
+    expect(user.email).toBe('ahmad.admin@wealthpooling.my');
   });
 
   it('rejects a user with no active role assignments instead of defaulting to a role', async () => {

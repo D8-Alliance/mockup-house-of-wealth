@@ -1,10 +1,14 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PoolsService } from './pools.service';
+import { FeatureModuleGuard } from '../modules/feature-module.guard';
+import { RequireFeatureModule } from '../modules/feature-module.decorator';
 
 @Controller('pools')
+@UseGuards(FeatureModuleGuard)
+@RequireFeatureModule('WEALTH_POOLING')
 export class PoolsController {
   constructor(private readonly poolsService: PoolsService) {}
 

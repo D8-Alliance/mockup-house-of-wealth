@@ -15,7 +15,7 @@ export const AIAssistantReportsModule: React.FC = () => {
   const [inputMsg, setInputMsg] = useState('');
 
   const [report, setReport] = useState<AIExecutiveSummaryReport>({
-    title: 'House of Wealth Portfolio & Shariah Executive Summary',
+    title: 'Wealth Pooling Portfolio & Shariah Executive Summary',
     generatedDate: '2026-08-05',
     keyInsights: [
       'Portfolio yields 9.4% net annualized return across 5 D-8 regional pools.',
@@ -38,7 +38,7 @@ export const AIAssistantReportsModule: React.FC = () => {
     setInputMsg('');
 
     setTimeout(() => {
-      let aiResponse = "I have analyzed your query across the D-8 House of Wealth database. All transactions adhere strictly to AAOIFI Shariah Governance Standard No. 7. How else may I assist your portfolio strategy?";
+      let aiResponse = "I have analyzed your query across the D-8 Wealth Pooling database. All transactions adhere strictly to AAOIFI Shariah Governance Standard No. 7. How else may I assist your portfolio strategy?";
       if (userMsg.toLowerCase().includes('mudarabah') || userMsg.toLowerCase().includes('musharakah')) {
         aiResponse = "In Mudarabah, capital is provided entirely by the investor (Rabb-ul-Mal) while management is provided by the Mudarib. In Musharakah, both parties contribute capital and share profits and losses proportionally.";
       } else if (userMsg.toLowerCase().includes('zakat')) {

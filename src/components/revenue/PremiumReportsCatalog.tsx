@@ -48,7 +48,7 @@ export const PremiumReportsCatalog: React.FC<PremiumReportsCatalogProps> = ({
         </div>
 
         <div className="text-xs text-slate-500 font-medium">
-          Available HoW Credits: <strong className="text-amber-500 font-mono">{availableCredits}</strong>
+          Available Wealth Pooling Credits: <strong className="text-amber-500 font-mono">{availableCredits}</strong>
         </div>
       </div>
 

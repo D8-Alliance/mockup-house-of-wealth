@@ -62,7 +62,7 @@ export const CreditBalanceModal: React.FC<CreditBalanceModalProps> = ({
           </div>
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-              HoW AI Utility Credits
+              Wealth Pooling AI Utility Credits
             </h2>
             <p className="text-xs text-slate-500">
               Platform computational utility units for AI advisory, due diligence & report unlocking.
@@ -93,7 +93,7 @@ export const CreditBalanceModal: React.FC<CreditBalanceModalProps> = ({
             <span>Platform Utility Credit Disclaimer</span>
           </div>
           <p className="leading-relaxed">
-            HoW Credits are platform utility/usage credits only. They are <strong>NOT</strong> cryptocurrency, securities, investment products, shares, guaranteed returns, or tradable investment assets. They expire or refresh per your monthly plan rules.
+              Wealth Pooling Credits are platform utility/usage credits only. They are <strong>NOT</strong> cryptocurrency, securities, investment products, shares, guaranteed returns, or tradable investment assets. They expire or refresh per your monthly plan rules.
           </p>
         </div>
 

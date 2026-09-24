@@ -5,7 +5,7 @@ class NotificationService {
     {
       id: 'NOTIF-001',
       timestamp: '2026-08-11T10:30:00Z',
-      recipientRole: 'Project Sponsor / PDP',
+      recipientRole: 'Project Sponsor / Delivery Partner',
       title: 'Project Submission Acknowledged',
       message: 'FELDA Agri-Smart Plantation Expansion has been submitted and is under review.',
       type: 'info',

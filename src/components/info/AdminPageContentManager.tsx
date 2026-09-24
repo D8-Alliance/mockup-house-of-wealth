@@ -64,11 +64,11 @@ export const AdminPageContentManager: React.FC = () => {
             </div>
           </div>
           <span className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider border ${
-            authMode === 'PRODUCTION'
+             authMode !== 'DEMO'
               ? 'bg-purple-500/15 text-purple-500 border-purple-500/30'
               : 'bg-slate-500/15 text-slate-500 border-slate-500/30'
           }`}>
-            {authMode === 'PRODUCTION' ? 'Production Mode' : 'Demo Mode'}
+             {authMode === 'PRE_PRODUCTION' ? 'Pre-Production Mode' : authMode === 'PRODUCTION' ? 'Production Mode' : 'Demo Mode'}
           </span>
         </div>
       </div>

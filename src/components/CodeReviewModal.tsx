@@ -35,7 +35,7 @@ export const CodeReviewModal: React.FC<CodeReviewModalProps> = ({ onClose }) => 
                 Full Technical Audit
               </span>
               <h2 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                House of Wealth Codebase & Architecture Review
+                Wealth Pooling Codebase & Architecture Review
               </h2>
             </div>
           </div>
@@ -55,7 +55,7 @@ export const CodeReviewModal: React.FC<CodeReviewModalProps> = ({ onClose }) => 
             <h3 className="font-extrabold text-slate-900 dark:text-white text-base">Executive Code Review Summary</h3>
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-            The provided <strong>House of Wealth</strong> monorepo codebase displays high architectural maturity. It successfully combines a modern Next.js 16 SSR/App Router frontend, a NestJS micro-module API backend, Turborepo package orchestration, and AAOIFI-compliant Shariah smart contract governance with 100% RTL and multi-language support across all 9 D-8 nations.
+             The provided <strong>Wealth Pooling</strong> monorepo codebase displays high architectural maturity. It successfully combines a modern Next.js 16 SSR/App Router frontend, a NestJS micro-module API backend, Turborepo package orchestration, and AAOIFI-compliant Shariah smart contract governance with 100% RTL and multi-language support across all 9 D-8 nations.
           </p>
         </div>
 

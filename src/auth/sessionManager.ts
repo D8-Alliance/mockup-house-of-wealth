@@ -9,8 +9,8 @@ class SessionManagerStore {
     session: {
       sessionId: 'SES-DEMO-99201',
       userId: 'USR-MYS-P2-001',
-      userName: 'Ahmed Al-Mansoor',
-      userEmail: 'ahmed.almansoor@how.org',
+       userName: 'Ahmad bin Razak',
+       userEmail: 'ahmad.razak@felda.gov.my',
       organisationId: 'ORG-MYS-P2-CAP',
       countryNodeId: 'CN-MYS',
       activeRole: 'Country Admin',
@@ -27,11 +27,11 @@ class SessionManagerStore {
     return { ...this.state };
   }
 
-  public getMode(): 'DEMO' | 'PRODUCTION' {
+  public getMode(): 'DEMO' | 'PRE_PRODUCTION' | 'PRODUCTION' {
     return this.state.mode;
   }
 
-  public setMode(mode: 'DEMO' | 'PRODUCTION'): void {
+  public setMode(mode: 'DEMO' | 'PRE_PRODUCTION' | 'PRODUCTION'): void {
     this.state.mode = mode;
   }
 

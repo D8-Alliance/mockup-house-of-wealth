@@ -6,7 +6,7 @@ export {
 } from './marketplaceMockData';
 
 export const PROMOTION_DISCLAIMER_TEXT = 
-  "Commercial Placement Notice: 'Featured', 'Sponsored', and 'Promoted' designations indicate paid promotional placement. House of Wealth does not endorse, guarantee returns, or designate any project as recommended, safest, or highest-return. All investments carry risk and require independent due diligence.";
+  "Commercial Placement Notice: 'Featured', 'Sponsored', and 'Promoted' designations indicate paid promotional placement. Wealth Pooling does not endorse, guarantee returns, or designate any project as recommended, safest, or highest-return. All investments carry risk and require independent due diligence.";
 
 export const INITIAL_PROMOTION_PACKAGES: PromotionPackage[] = [
   {
@@ -114,7 +114,7 @@ export const INITIAL_PROMOTION_PACKAGES: PromotionPackage[] = [
     priceUSD: 240,
     creditsCost: 500,
     placement: 'Global Marketplace Master Header & D-8 Hub Hero Banner',
-    description: 'Sovereign apex or GLC branded header on the House of Wealth Marketplace homepage connecting institutional capital.',
+    description: 'Sovereign apex or GLC branded header on the Wealth Pooling Marketplace homepage connecting institutional capital.',
     features: [
       'Marketplace top header banner takeover',
       'Custom sponsor branding & landing page link',

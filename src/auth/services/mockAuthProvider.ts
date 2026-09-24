@@ -1,15 +1,34 @@
-import { AuthUser, AuthSession, LoginCredentials, RegisterCredentials, AuthState } from '../types/authTypes';
+import { AuthMode, AuthUser, AuthSession, LoginCredentials, RegisterCredentials, AuthState } from '../types/authTypes';
 import { DEMO_PERSONAS } from './demoPersonas';
 import { mfaService } from './mfaService';
 import { auditLogger } from '../../audit/auditLogger';
 import { UserRole } from '../../rbac/types';
+import { SINGLE_ROLE_MODE } from '../../rbac/runtimeConfig';
+
+// The mock backend (AUTH_MODE=mock) reads identity claims from the first
+// segment of the bearer token, so a demo session must carry the persona it was
+// actually created for. Roles stay server-authoritative: the backend uses these
+// claims only to look the user up, then reads role assignments from the database.
+function mockSessionToken(user: AuthUser): string {
+  if (SINGLE_ROLE_MODE) {
+    return `${btoa(JSON.stringify({ mock: 'mock-user', countryNode: 'CN-MYS', org: 'ORG-PUBLIC' }))}.demo-token`;
+  }
+  const claims = {
+    mock: user.userId.replace(/^USR-/, ''),
+    role: user.activeRole,
+    countryNode: user.countryNodeId,
+    org: user.organisationId
+  };
+  const base64 = btoa(JSON.stringify(claims));
+  return `${base64.split('+').join('-').split('/').join('_').split('=').join('')}.demo-token`;
+}
 
 export class MockAuthProvider {
   // App opens as a public Guest on the landing page. A session is only created
   // after the user completes the identity-gateway sign-in flow.
   private currentSession: AuthSession | null = null;
 
-  private mode: 'DEMO' | 'PRODUCTION' = 'DEMO';
+  private mode: AuthMode = 'DEMO';
 
   // Accounts created through the public Register flow (DEMO mode). Registered
   // users can subsequently sign in with the same email + the selected role.
@@ -33,7 +52,7 @@ export class MockAuthProvider {
     };
   }
 
-  public setMode(mode: 'DEMO' | 'PRODUCTION'): void {
+  public setMode(mode: AuthMode): void {
     this.mode = mode;
   }
 
@@ -45,10 +64,11 @@ export class MockAuthProvider {
    */
   public enterAsGuest(): void {
     const persona = DEMO_PERSONAS['Guest'] || DEMO_PERSONAS['Country Admin'];
+    const sessionUser: AuthUser = { ...persona, activeRole: 'Guest' };
     this.currentSession = {
       sessionId: 'SES-GUEST-PUBLIC',
-      user: { ...persona, activeRole: 'Guest' },
-      token: 'mock-jwt-guest-session',
+      user: sessionUser,
+      token: mockSessionToken(sessionUser),
       isDemoSession: true,
       mfaVerified: true,
       expiresAt: new Date(Date.now() + 86400000).toISOString()
@@ -101,7 +121,7 @@ export class MockAuthProvider {
     }
 
     // Check MFA
-    const requiresMfa = mfaService.requiresMfa(selectedRole, persona.mfaStatus);
+    const requiresMfa = this.mode === 'PRODUCTION' && mfaService.requiresMfa(selectedRole, persona.mfaStatus);
     if (requiresMfa) {
       const challenge = mfaService.createChallenge(persona.userId);
       return {
@@ -113,11 +133,12 @@ export class MockAuthProvider {
     }
 
     // Direct Login Success
+    const sessionUser: AuthUser = { ...persona, activeRole: selectedRole };
     const newSession: AuthSession = {
       sessionId: `SES-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
-      user: { ...persona, activeRole: selectedRole },
-      token: `mock-jwt-token-${Math.random().toString(36).substring(2)}`,
-      isDemoSession: this.mode === 'DEMO',
+      user: sessionUser,
+      token: mockSessionToken(sessionUser),
+        isDemoSession: this.mode !== 'PRODUCTION',
       mfaVerified: true,
       expiresAt: new Date(Date.now() + 86400000).toISOString()
     };
@@ -193,7 +214,7 @@ export class MockAuthProvider {
     const newSession: AuthSession = {
       sessionId: `SES-REG-${Date.now()}`,
       user: { ...user, activeRole: user.activeRole },
-      token: `mock-jwt-reg-${Math.random().toString(36).substring(2)}`,
+      token: mockSessionToken(user),
       isDemoSession: true,
       mfaVerified: true,
       expiresAt: new Date(Date.now() + 86400000).toISOString()
@@ -215,10 +236,11 @@ export class MockAuthProvider {
       return { success: false, error: mfaRes.error || 'MFA Verification failed.' };
     }
 
+    const sessionUser: AuthUser = { ...persona, activeRole: selectedRole };
     const newSession: AuthSession = {
       sessionId: `SES-MFA-${Date.now()}`,
-      user: { ...persona, activeRole: selectedRole },
-      token: `mock-jwt-mfa-token-${Math.random().toString(36).substring(2)}`,
+      user: sessionUser,
+      token: mockSessionToken(sessionUser),
       isDemoSession: this.mode === 'DEMO',
       mfaVerified: true,
       expiresAt: new Date(Date.now() + 86400000).toISOString()
@@ -281,6 +303,9 @@ export class MockAuthProvider {
 
     const oldRole = this.currentSession.user.activeRole;
     this.currentSession.user.activeRole = targetRole;
+    const tokenHeader = this.currentSession.token.split('.')[0] || '';
+    const tokenClaims = JSON.parse(atob(tokenHeader)) as Record<string, unknown>;
+    this.currentSession.token = `${btoa(JSON.stringify({ ...tokenClaims, role: targetRole }))}.demo-token`;
 
     auditLogger.logEvent({
       userId: this.currentSession.user.userId,

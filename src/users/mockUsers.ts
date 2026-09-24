@@ -119,8 +119,8 @@ export const INITIAL_APP_USERS: AppUser[] = [
   },
   {
     userId: 'USR-MYS-P2-001',
-    fullName: 'Ahmed Al-Mansoor',
-    email: 'ahmed.almansoor@mycapital.my',
+    fullName: 'Ahmad bin Razak',
+    email: 'ahmad.admin@wealthpooling.my',
     phone: '+60 12 345 6789',
     department: 'Asset Tokenization & Treasury',
     jobTitle: 'Managing Director & Country Admin',
@@ -128,7 +128,7 @@ export const INITIAL_APP_USERS: AppUser[] = [
     countryNodeId: 'CN-MYS',
     status: 'ACTIVE',
     primaryRole: 'Country Admin',
-    assignedRoles: ['Country Admin', 'Institutional Investor'],
+    assignedRoles: ['Country Admin', 'Project Sponsor', 'Institutional Investor', 'Shariah Reviewer'],
     mfaEnabled: true,
     mfaStatus: 'Enforced',
     kycLevel: 'Level 3',
@@ -510,7 +510,7 @@ export const INITIAL_APP_USERS: AppUser[] = [
   {
     userId: 'USR-TUR-002',
     fullName: 'Zeynep Karaca',
-    email: 'zeynep.karaca@istanbultech.tr',
+    email: 'zeynep.karaca.demo@istanbultech.tr',
     phone: '+90 532 456 8890',
     department: 'Treasury & Regional Governance',
     jobTitle: 'Regional Director & Country Admin',

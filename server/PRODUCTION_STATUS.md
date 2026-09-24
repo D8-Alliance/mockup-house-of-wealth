@@ -1,11 +1,19 @@
 # Production Readiness Status
 
 ## Overview
-The House of Wealth backend has been hardened with critical security fixes addressing tenant scope validation, dynamic JWT role extraction, and role assignment APIs. This document tracks the current state and remaining work.
+The Wealth Pooling backend has been hardened with critical security fixes addressing tenant scope validation, dynamic JWT role extraction, and role assignment APIs. This document tracks the current state and remaining work.
 
 ---
 
 ## ✅ Completed (Phase 1)
+
+### Security and Month 1 foundation fixes
+- Authentication now fails closed when `AUTH_MODE` is missing.
+- OIDC tokens require a matching issuer, audience, expiry, and (when supplied) JWKS key id.
+- Audit write failures are surfaced instead of being silently ignored.
+- Tenant-owned rows have composite organisation/country database constraints.
+- PDP identity and tenant fields are derived from the authenticated server-side tenant.
+- Contract versions, parties, approvals, lifecycle events, and persisted sessions are represented in Prisma.
 
 ### 1. JWT Role Extraction (Fixed)
 - **Issue**: Role was hardcoded to 'Country Admin' regardless of OIDC token contents

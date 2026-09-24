@@ -262,7 +262,7 @@ class RevenueService {
       amount: credits,
       isDebit: false,
       type: 'PURCHASE',
-      description: `Purchased ${credits} HoW AI Utility Credits`,
+      description: `Purchased ${credits} Wealth Pooling AI Utility Credits`,
       timestamp: new Date().toISOString().replace('T', ' ').slice(0, 16),
       balanceAfter: updated.availableCredits
     };
@@ -273,7 +273,7 @@ class RevenueService {
       userId,
       invoiceNumber: `HOW-INV-CREDIT-${generateNumericId('INV', 4)}`,
       date: new Date().toISOString().slice(0, 10),
-      description: `HoW AI Credits Pack (${credits} Credits)`,
+      description: `Wealth Pooling AI Credits Pack (${credits} Credits)`,
       amountMYR: priceMYR,
       amountUSD: priceUSD,
       stream: 'AI Credits',

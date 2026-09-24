@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ChevronDown } from 'lucide-react';
 import { UserRole } from '../../rbac/types';
+import { AuthMode } from '../types/authTypes';
 import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
+import { SINGLE_ROLE_MODE, SINGLE_TEST_ROLE } from '../../rbac/runtimeConfig';
 
 interface LoginFormProps {
   email: string;
@@ -18,7 +20,7 @@ interface LoginFormProps {
   onLoginSubmit: (e: React.FormEvent) => void;
   onForgotPasswordClick: () => void;
   availableRoles?: UserRole[];
-  authMode?: 'DEMO' | 'PRODUCTION';
+  authMode?: AuthMode;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({
@@ -38,7 +40,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   availableRoles,
   authMode = 'DEMO'
 }) => {
-  const rolesList = availableRoles || (Object.keys(ROLE_DEFINITIONS) as UserRole[]);
+  const rolesList = SINGLE_ROLE_MODE
+    ? [SINGLE_TEST_ROLE]
+    : (availableRoles || (Object.keys(ROLE_DEFINITIONS) as UserRole[]));
 
   const handleRoleSelect = (role: UserRole) => {
     setSelectedRole(role);

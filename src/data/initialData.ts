@@ -131,7 +131,7 @@ export const INITIAL_PAYMENT_ACCOUNTS: PaymentAccount[] = [
   {
     id: 'ACC-MEEZAN-01',
     type: 'Bank Account',
-    accountName: 'Ahmed Al-Mansoor',
+    accountName: 'Ahmad bin Razak',
     institutionName: 'Maybank Islamic Malaysia',
     accountNumber: 'PK36 MEZN 0001 0892 8374 8291',
     swiftBic: 'MEZNPKKAXXX',
@@ -145,23 +145,23 @@ export const INITIAL_PAYMENT_ACCOUNTS: PaymentAccount[] = [
 export const INITIAL_BENEFICIARIES: BeneficiaryItem[] = [
   {
     id: 'BEN-001',
-    name: 'Fatima Al-Mansoor',
+    name: 'Noraini Ahmad',
     relation: 'Spouse',
     allocationPercent: 40,
     distributionType: 'Profit Share',
-    email: 'fatima.almansoor@example.org',
-    phone: '+92 300 987 6543',
-    identityNumber: '42101-1988123-1',
+    email: 'noraini.ahmad@felda.gov.my',
+    phone: '+60 12 998 1122',
+    identityNumber: '820101-10-1234',
     payoutMethod: 'Bank Transfer (Maybank Islamic Malaysia)',
     isPrimary: true
   },
   {
     id: 'BEN-002',
-    name: 'Tariq Bin Hassan',
+    name: 'Muhammad Hakim Hassan',
     relation: 'Child',
     allocationPercent: 30,
     distributionType: 'Estate / Wasiyyah',
-    email: 'tariq.hassan@example.org',
+    email: 'hakim.hassan@wealthpooling.my',
     phone: '+60 12 345 6789',
     identityNumber: '960412-14-5561',
     payoutMethod: 'Maybank Islamic Berhad (MYR Settlement)',
@@ -173,10 +173,10 @@ export const INITIAL_BENEFICIARIES: BeneficiaryItem[] = [
     relation: 'Child',
     allocationPercent: 15,
     distributionType: 'Estate / Wasiyyah',
-    email: 'maryam.hassan@example.org',
-    phone: '+90 532 123 4567',
-    identityNumber: 'TR-38910482910',
-    payoutMethod: 'Kuveyt Türk Participation Bank (TRY)',
+    email: 'maryam.hassan@maybank.com.my',
+    phone: '+60 13 456 7890',
+    identityNumber: '900412-14-5567',
+    payoutMethod: 'Maybank Islamic Berhad (MYR Settlement)',
     isPrimary: false
   },
   {

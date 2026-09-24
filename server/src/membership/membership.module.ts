@@ -7,5 +7,6 @@ import { MembershipService } from './membership.service';
   imports: [AuditModule],
   controllers: [MembershipController],
   providers: [MembershipService],
+  exports: [MembershipService],
 })
 export class MembershipModule {}

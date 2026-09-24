@@ -20,7 +20,7 @@ export const AuthenticationGuard: React.FC<AuthenticationGuardProps> = ({ childr
         </span>
         <h2 className="text-2xl font-black text-slate-900 dark:text-white">Authentication Required</h2>
         <p className="text-xs text-slate-500 max-w-md mt-2 mb-6">
-          You must sign in to House of Wealth Enterprise Identity Gateway to view protected financial data and role dashboards.
+          You must sign in to Wealth Pooling Enterprise Identity Gateway to view protected financial data and role dashboards.
         </p>
         <button
           onClick={() => setShowLoginModal(true)}

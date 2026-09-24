@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Building2, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { WealthPoolingLogo } from '../WealthPoolingLogo';
+import { X, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useRBAC } from '../../rbac/RBACContext';
 import { UserRole } from '../../rbac/types';
 import { authService } from '../../auth/services/authService';
@@ -19,7 +20,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
   const { currentRole, authMode, loginUser } = useRBAC();
 
   const [mode, setMode] = useState<'login' | 'register' | 'mfa' | 'forgot'>('login');
-  const [email, setEmail] = useState('ahmed.almansoor@how.org');
+  const [email, setEmail] = useState('ahmad.razak@felda.gov.my');
   const [password, setPassword] = useState('••••••••••••');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -134,11 +135,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
           </button>
 
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
-              <Building2 className="w-5 h-5" />
-            </div>
+            <WealthPoolingLogo compact />
             <div>
-              <h3 className="text-lg font-black tracking-tight text-white">House of Wealth</h3>
+              <h3 className="text-lg font-black tracking-tight text-white">Wealth Pooling</h3>
               <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
                 D-8 Enterprise Identity Gateway ({authMode || 'DEMO'} MODE)
               </span>
@@ -148,7 +147,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
             {mode === 'login' && 'Sign in to access your role-based financial workspace'}
             {mode === 'register' && 'Create a new organisation account on the D-8 network'}
             {mode === 'mfa' && 'Two-Factor Authentication (2FA / MFA Required)'}
-            {mode === 'forgot' && 'Reset your House of Wealth account password'}
+            {mode === 'forgot' && 'Reset your Wealth Pooling account password'}
           </p>
         </div>
         {/* Tabs */}
@@ -226,7 +225,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                 authMode={authMode}
               />
               <p className="text-center text-[11px] text-slate-500 dark:text-slate-400">
-                New to House of Wealth?{' '}
+                New to Wealth Pooling?{' '}
                 <button type="button" onClick={() => { setMode('register'); setError(null); }} className="font-extrabold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer">
                   Create an account
                 </button>

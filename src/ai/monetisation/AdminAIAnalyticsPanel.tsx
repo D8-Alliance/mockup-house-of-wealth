@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { AdminAIAnalyticsSummary, AIUsageLogEntry } from './aiMonetisationTypes';
 import { aiMonetisationService } from './aiMonetisationService';
+import { apiClient } from '../../services/apiClient';
 
 export const AdminAIAnalyticsPanel: React.FC = () => {
   const [summary, setSummary] = useState<AdminAIAnalyticsSummary>(
@@ -27,12 +28,10 @@ export const AdminAIAnalyticsPanel: React.FC = () => {
   );
 
   useEffect(() => {
-    const update = () => {
-      setSummary(aiMonetisationService.getAdminAnalyticsSummary());
-      setAllLogs(aiMonetisationService.getAllPlatformUsageLogs());
-    };
-    const unsubscribe = aiMonetisationService.subscribe(update);
-    return () => unsubscribe();
+    apiClient.getAdminCreditAnalytics().then(({ summary: liveSummary, transactions }) => {
+      setSummary(liveSummary);
+      setAllLogs(transactions.filter((item) => item.type === 'CONSUMPTION').map((item) => ({ id: item.id, userId: item.userId || '', userName: 'Platform User', userTier: 'LIVE', operationKey: (item.operationKey || 'SIMPLE_QUERY') as AIUsageLogEntry['operationKey'], operationName: item.operationKey || 'AI Operation', category: 'AI', targetEntity: item.targetEntity || undefined, creditCost: Math.abs(item.credits), timestamp: item.createdAt, status: 'SUCCESS', balanceBefore: item.balanceBefore, balanceAfter: item.balanceAfter, tokensConsumedEstimate: Math.abs(item.credits) * 480 })));
+    }).catch(() => undefined);
   }, []);
 
   return (

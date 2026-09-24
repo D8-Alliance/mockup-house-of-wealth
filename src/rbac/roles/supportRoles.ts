@@ -34,7 +34,7 @@ export const SUPPORT_ROLES: Record<string, RoleDefinition> = {
     demoUser: {
       name: 'Youssef Mansour',
       email: 'support.youssef@how.org',
-      organization: 'House of Wealth Global Helpdesk',
+      organization: 'Wealth Pooling Global Helpdesk',
       avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=200&q=80'
     }
   },
@@ -43,7 +43,7 @@ export const SUPPORT_ROLES: Record<string, RoleDefinition> = {
     role: 'Guest',
     title: 'Guest / Public Visitor',
     category: 'Participant & User',
-    description: 'Limited public view of the D-8 House of Wealth ecosystem, marketplace offerings, and educational Shariah finance resources.',
+    description: 'Limited public view of the D-8 Wealth Pooling ecosystem, marketplace offerings, and educational Shariah finance resources.',
     badgeColor: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/30',
     accessibleTabs: ['dashboard', 'marketplace'],
     permissions: {
@@ -65,7 +65,7 @@ export const SUPPORT_ROLES: Record<string, RoleDefinition> = {
       'D-8 Islamic Circular Economy Overview'
     ],
     notifications: [
-      'Welcome to House of Wealth! Register to unlock full investment features.'
+      'Welcome to Wealth Pooling! Register to unlock full investment features.'
     ],
     demoUser: {
       name: 'Guest Visitor',

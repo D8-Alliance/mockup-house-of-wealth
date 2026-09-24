@@ -109,7 +109,7 @@ export const ZakatCalculatorCard: React.FC = () => {
         </p>
         <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
           <div>Certificate #: <span className="font-bold font-mono">ZKT-2026-D8</span></div>
-          <div>Issued To: <span className="font-bold">Ahmed Al-Mansoor</span></div>
+          <div>Issued To: <span className="font-bold">Ahmad bin Razak</span></div>
           <div>Status: <span className="text-emerald-600 font-bold">Audit Verified</span></div>
         </div>
       </div>

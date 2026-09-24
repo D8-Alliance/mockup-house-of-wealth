@@ -4,7 +4,7 @@ import { ROLE_DEFINITIONS } from './roleDefinitions';
 import { hasPermission, getAccessibleTabs, isTabAccessible } from './rbacEngine';
 import { UserProfile, NavTab } from '../types';
 import { authService } from '../auth/services/authService';
-import { AuthState } from '../auth/types/authTypes';
+import { AuthMode, AuthState } from '../auth/types/authTypes';
 import { apiClient, BackendAccess, BackendUser } from '../services/apiClient';
 import { shariahContentService } from '../shariah/shariahContentService';
 
@@ -24,8 +24,8 @@ interface RBACContextType {
   exitGuestMode: () => void;
   showLoginModal: boolean;
   setShowLoginModal: (show: boolean) => void;
-  authMode: 'DEMO' | 'PRODUCTION';
-  setAuthMode: (mode: 'DEMO' | 'PRODUCTION') => void;
+  authMode: AuthMode;
+  setAuthMode: (mode: AuthMode) => void;
   assignedRoles: UserRole[];
   tenantContext: {
     userId: string;
@@ -55,33 +55,52 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
   const [currentRole, setCurrentRoleState] = useState<UserRole>('Guest');
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
   const [guestBrowsing, setGuestBrowsing] = useState<boolean>(false);
-  const [authMode, setAuthModeState] = useState<'DEMO' | 'PRODUCTION'>('DEMO');
+  const [authMode, setAuthModeState] = useState<AuthMode>(authService.getAuthState().mode);
   const [backendAccess, setBackendAccess] = useState<BackendAccess | null>(null);
   const [backendUser, setBackendUser] = useState<BackendUser | null>(null);
 
+  const syncBackendIdentity = () => Promise.all([apiClient.getCurrentAccess(), apiClient.getCurrentUser()])
+    .then(([access, user]) => {
+      setBackendAccess(access);
+      setBackendUser(user);
+      setCurrentRoleState(access.role as UserRole);
+      onUserRoleChange?.({
+        ...currentUser,
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: access.role as UserRole,
+        organization: access.organisationId,
+        organizationName: access.organisationId,
+      });
+    });
+
   useEffect(() => {
-    const state = authService.getAuthState();
-    setAuthState(state);
-    if (state.session?.user.activeRole) {
-      setCurrentRoleState(state.session.user.activeRole);
-    }
-    if (state.isAuthenticated) {
-      Promise.all([apiClient.getCurrentAccess(), apiClient.getCurrentUser()])
-        .then(([access, user]) => {
-          setBackendAccess(access);
-          setBackendUser(user);
-          setCurrentRoleState(access.role as UserRole);
-        })
+    void authService.initialize().then(() => {
+      const state = authService.getAuthState();
+      setAuthState(state);
+      if (state.session?.user.activeRole) setCurrentRoleState(state.session.user.activeRole);
+      if (state.isAuthenticated) return syncBackendIdentity()
         .catch(() => {
+          authService.logout();
+          setAuthState(authService.getAuthState());
+          setCurrentRoleState('Guest');
           setBackendAccess(null);
           setBackendUser(null);
         });
-    }
+    }).catch((error: unknown) => {
+      console.error('OIDC initialization failed:', error);
+      authService.logout();
+      setAuthState(authService.getAuthState());
+      setCurrentRoleState('Guest');
+      setBackendAccess(null);
+      setBackendUser(null);
+    });
   }, []);
 
   const roleDef = ROLE_DEFINITIONS[currentRole] || ROLE_DEFINITIONS['Guest'];
 
-  const setAuthMode = (mode: 'DEMO' | 'PRODUCTION') => {
+  const setAuthMode = (mode: AuthMode) => {
     setAuthModeState(mode);
     authService.setMode(mode);
     shariahContentService.setMode(mode);
@@ -124,6 +143,9 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
         avatarUrl: newRoleDef.demoUser.avatarUrl
       };
       onUserRoleChange(updatedUser);
+    }
+    if (authService.getAuthState().isAuthenticated) {
+      void syncBackendIdentity().catch(() => undefined);
     }
   };
 

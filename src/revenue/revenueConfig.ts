@@ -9,7 +9,7 @@ export const MEMBERSHIP_PLANS_CONFIG: MembershipPlan[] = [
   {
     id: 'plan_free',
     tier: 'FREE',
-    name: 'HoW Free',
+    name: 'Wealth Pooling Free',
     badge: 'Standard Access',
     monthlyPriceMYR: 0,
     annualPriceMYR: 0,
@@ -37,7 +37,7 @@ export const MEMBERSHIP_PLANS_CONFIG: MembershipPlan[] = [
   {
     id: 'plan_plus',
     tier: 'PLUS',
-    name: 'HoW Plus',
+    name: 'Wealth Pooling Plus',
     badge: 'Popular for Active Investors',
     monthlyPriceMYR: 39,
     annualPriceMYR: 390,
@@ -47,7 +47,7 @@ export const MEMBERSHIP_PLANS_CONFIG: MembershipPlan[] = [
     description: 'Elevated intelligence with expanded AI credits, due diligence summaries, and priority allocations.',
     featureAccess: [
       'Everything in Free',
-      '100 HoW AI Credits per month',
+      '100 Wealth Pooling AI Credits per month',
       'AI Contract Clause Screener & Analysis',
       'Full Project Due Diligence Summaries',
       'Priority Wealth Pool Allocation Alerts',
@@ -67,7 +67,7 @@ export const MEMBERSHIP_PLANS_CONFIG: MembershipPlan[] = [
   {
     id: 'plan_pro',
     tier: 'PROFESSIONAL',
-    name: 'HoW Professional',
+    name: 'Wealth Pooling Professional',
     badge: 'For Wealth Managers & Family Offices',
     monthlyPriceMYR: 149,
     annualPriceMYR: 1490,
@@ -77,7 +77,7 @@ export const MEMBERSHIP_PLANS_CONFIG: MembershipPlan[] = [
     description: 'Institutional-grade Islamic wealth tools, full AI risk matrices, customizable fatwa checks, and multi-entity pooling.',
     featureAccess: [
       'Everything in Plus',
-      '400 HoW AI Credits per month',
+      '400 Wealth Pooling AI Credits per month',
       'Deep AI Due Diligence & Swot Feasibility Scans',
       'Custom Shariah Fatwa Mapping & Governance Verification',
       'Institutional Deal Room & Syndicate Allocations',
@@ -98,7 +98,7 @@ export const MEMBERSHIP_PLANS_CONFIG: MembershipPlan[] = [
   {
     id: 'plan_enterprise',
     tier: 'ENTERPRISE',
-    name: 'HoW Enterprise',
+    name: 'Wealth Pooling Enterprise',
     badge: 'Institutional & Sovereign Nodes',
     monthlyPriceMYR: 999,
     annualPriceMYR: 9990,
@@ -108,7 +108,7 @@ export const MEMBERSHIP_PLANS_CONFIG: MembershipPlan[] = [
     description: 'Bespoke infrastructure for institutional asset managers, sovereign wealth funds, and national cooperative apexes.',
     featureAccess: [
       'Everything in Professional',
-      '2,500+ HoW AI Credits with custom LLM fine-tuning',
+      '2,500+ Wealth Pooling AI Credits with custom LLM fine-tuning',
       'Multi-Country Node White-Labeling & Governance Matrix',
       'Custom AAOIFI & Local Central Bank Regulatory Modules',
       'Unlimited Team & Institutional Seats with Custom RBAC',

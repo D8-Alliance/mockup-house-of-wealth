@@ -331,9 +331,9 @@ class AIMonetisationService {
       mostPopularOperation: 'Contract Analysis (20 Credits)',
       operationDistribution,
       tierDistribution: [
-        { tier: 'HoW Free', usersCount: 84, creditsBurned: 740, percentage: 28, color: '#94A3B8' },
-        { tier: 'HoW Plus', usersCount: 42, creditsBurned: 1120, percentage: 42, color: '#10B981' },
-        { tier: 'HoW Professional', usersCount: 16, creditsBurned: 620, percentage: 23, color: '#3B82F6' },
+        { tier: 'Wealth Pooling Free', usersCount: 84, creditsBurned: 740, percentage: 28, color: '#94A3B8' },
+        { tier: 'Wealth Pooling Plus', usersCount: 42, creditsBurned: 1120, percentage: 42, color: '#10B981' },
+        { tier: 'Wealth Pooling Professional', usersCount: 16, creditsBurned: 620, percentage: 23, color: '#3B82F6' },
         { tier: 'PDP Enterprise', usersCount: 6, creditsBurned: 180, percentage: 7, color: '#8B5CF6' }
       ],
       dailyConsumptionTrend: [

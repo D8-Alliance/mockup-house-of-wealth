@@ -1,5 +1,5 @@
 import React from 'react';
-import { Globe2, Coins, Users, ShieldCheck, Building2, FileCheck, TrendingUp, Zap, ExternalLink, Lock, ChevronRight } from 'lucide-react';
+import { Globe2, Coins, Users, ShieldCheck, Building2, FileCheck, TrendingUp, Zap, Lock, ChevronRight } from 'lucide-react';
 import { MetricCard } from './MetricCard';
 import { AssetItem, ContractItem, NavTab } from '../../types';
 
@@ -60,19 +60,19 @@ export const ExecutiveDashboardWidgets: React.FC<ExecutiveDashboardWidgetsProps>
           <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-md space-y-4">
             <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
               <Zap className="w-5 h-5 text-amber-500" />
-              <span>Super-Admin Controls</span>
+              <span>Super-Admin Controls (MVP)</span>
             </h3>
             <div className="space-y-2 text-xs">
-              <button onClick={() => alert("Global System Audit initiated.")} className="w-full p-3 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 font-bold rounded-xl text-left flex items-center justify-between cursor-pointer">
-                <span>Trigger Global Audit Run</span>
-                <ExternalLink className="w-4 h-4 text-slate-400" />
+              <button disabled title="Global audit API is not available in the MVP" className="w-full p-3 bg-slate-100/60 dark:bg-slate-700/40 text-slate-400 font-bold rounded-xl text-left flex items-center justify-between cursor-not-allowed">
+                <span>Global Audit Run (Unavailable)</span>
+                <Lock className="w-4 h-4 text-slate-400" />
               </button>
-              <button onClick={() => alert("Emergency Liquidity Freeze dialogue active.")} className="w-full p-3 bg-rose-500/10 text-rose-600 font-bold rounded-xl text-left flex items-center justify-between cursor-pointer border border-rose-500/20">
-                <span>Emergency Protocol Gate</span>
+              <button disabled title="Emergency freeze workflow is not available in the MVP" className="w-full p-3 bg-rose-500/5 text-rose-400/70 font-bold rounded-xl text-left flex items-center justify-between cursor-not-allowed border border-rose-500/10">
+                <span>Emergency Protocol (Unavailable)</span>
                 <Lock className="w-4 h-4" />
               </button>
-              <button onClick={() => setTab('ledger')} className="w-full p-3 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 font-bold rounded-xl text-left flex items-center justify-between cursor-pointer">
-                <span>View Immutable Cryptographic Logs</span>
+              <button onClick={() => setTab('ledger')} title="Opens the MVP ledger view with demo data" className="w-full p-3 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 font-bold rounded-xl text-left flex items-center justify-between cursor-pointer">
+                <span>View Audit Ledger (Demo Data)</span>
                 <ChevronRight className="w-4 h-4 text-slate-400" />
               </button>
             </div>

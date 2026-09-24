@@ -53,7 +53,7 @@ export const INITIAL_CONTRACTS: ContractItem[] = [
     id: '#882-WK',
     title: 'AgriTech Ventures',
     type: 'Wakalah',
-    counterparty: 'HoW Treasury',
+    counterparty: 'Wealth Pooling Treasury',
     status: 'Active',
     maturityDate: 'Jan 15, 2027',
     value: 15000,

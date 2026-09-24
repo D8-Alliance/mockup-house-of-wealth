@@ -35,6 +35,33 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
     return matchesSearch && matchesType;
   });
 
+  const handleExport = () => {
+    const csvCell = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+    const rows = filtered.map(tx => [
+      tx.id,
+      tx.date,
+      tx.time,
+      tx.hash,
+      tx.type,
+      tx.description,
+      tx.isPositive ? tx.amount : -tx.amount,
+      tx.balanceAfter,
+      tx.status
+    ].map(csvCell).join(','));
+    const csv = [
+      ['ID', 'Date', 'Time', 'Transaction Hash', 'Type', 'Description', 'Amount', 'Balance After', 'Status'].map(csvCell).join(','),
+      ...rows
+    ].join('\r\n');
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ledger-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       
@@ -49,12 +76,14 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
           </p>
         </div>
 
-        <button 
-          onClick={() => alert("Exporting transaction ledger CSV/PDF report...")}
-          className="flex items-center gap-2 bg-emerald-600/10 hover:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400 font-bold px-4 py-2.5 rounded-xl border border-emerald-500/30 transition-all cursor-pointer shrink-0 text-xs"
+        <button
+          onClick={handleExport}
+          disabled={filtered.length === 0}
+          title={filtered.length === 0 ? 'There are no ledger records to export' : `Export ${filtered.length} filtered ledger records as CSV`}
+          className="flex items-center gap-2 bg-emerald-600/10 hover:bg-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed text-emerald-600 dark:text-emerald-400 font-bold px-4 py-2.5 rounded-xl border border-emerald-500/30 transition-all cursor-pointer shrink-0 text-xs"
         >
           <Download className="w-4 h-4" />
-          <span>Export Data</span>
+          <span>Export CSV</span>
         </button>
       </div>
 

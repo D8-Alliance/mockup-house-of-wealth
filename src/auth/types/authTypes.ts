@@ -2,6 +2,7 @@ import { UserRole } from '../../rbac/types';
 
 export type UserAccountStatus = 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'LOCKED' | 'DEACTIVATED';
 export type MfaStatusType = 'Enabled' | 'Disabled' | 'Enforced';
+export type AuthMode = 'DEMO' | 'PRE_PRODUCTION' | 'PRODUCTION';
 
 export interface AuthUser {
   userId: string;
@@ -31,7 +32,7 @@ export interface AuthSession {
 export interface AuthState {
   isAuthenticated: boolean;
   session: AuthSession | null;
-  mode: 'DEMO' | 'PRODUCTION';
+  mode: AuthMode;
   status: 'authenticated' | 'unauthenticated' | 'sessionExpired' | 'sessionLoading' | 'accountLocked' | 'accountSuspended';
 }
 

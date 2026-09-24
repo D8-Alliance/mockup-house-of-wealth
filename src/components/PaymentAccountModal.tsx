@@ -173,7 +173,7 @@ export const PaymentAccountModal: React.FC<PaymentAccountModalProps> = ({
               required
               value={accountName}
               onChange={e => setAccountName(e.target.value)}
-              placeholder="e.g. Ahmed Al-Mansoor"
+              placeholder="e.g. Ahmad bin Razak"
               className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>

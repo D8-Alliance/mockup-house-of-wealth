@@ -120,7 +120,7 @@ export const InviteUserModal: React.FC<InviteUserModalProps> = ({
               onChange={e => setRole(e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-purple-600"
             >
-              <option value="Project Sponsor">Project Sponsor / PDP</option>
+              <option value="Project Sponsor">Project Sponsor / Delivery Partner</option>
               <option value="Project Manager">Project Manager</option>
               <option value="Finance Officer">Finance Officer</option>
               <option value="Compliance Officer">Compliance Officer</option>

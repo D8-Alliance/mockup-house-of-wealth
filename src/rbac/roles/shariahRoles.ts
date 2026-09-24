@@ -50,7 +50,7 @@ export const SHARIAH_ROLES: Record<string, RoleDefinition> = {
     category: 'Governance & Risk',
     description: 'Performs line-by-line contract inspections, transactional audits, and verifies profit-sharing ratio accuracy before Fatwa issuance.',
     badgeColor: 'bg-teal-600/10 text-teal-700 dark:text-teal-300 border-teal-600/30',
-    accessibleTabs: ['dashboard', 'contracts', 'assets', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'contracts', 'assets', 'documents', 'ledger', 'profile'],
     permissions: {
       dashboard: ['read'],
       assets: ['read', 'audit'],
@@ -82,7 +82,7 @@ export const SHARIAH_ROLES: Record<string, RoleDefinition> = {
     category: 'Governance & Risk',
     description: 'Votes on platform-wide Shariah rulings, resolves scholar disputes, and sets uniform AAOIFI standard guidelines for D-8 nations.',
     badgeColor: 'bg-emerald-700/10 text-emerald-800 dark:text-emerald-200 border-emerald-700/30',
-    accessibleTabs: ['dashboard', 'contracts', 'assets', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'contracts', 'assets', 'documents', 'ledger', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['read', 'approve'],

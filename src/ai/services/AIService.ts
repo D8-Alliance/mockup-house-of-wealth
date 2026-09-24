@@ -1,13 +1,45 @@
-import { AIRequest, AIResponse } from '../types/aiCoreTypes';
+import { AIRequest, AIResponse, ContractAdvisorProject, ContractAdvisorRecommendation, ContractDraftParams, ContractDraftRecommendation } from '../types/aiCoreTypes';
 import { aiOrchestrator } from './AIOrchestrator';
+import { apiClient, BackendAiRun } from '../../services/apiClient';
+
+function mapBackendAiResponse<T>(run: BackendAiRun): AIResponse<T> | null {
+  const output = run.output;
+  if (!output?.recommendation || !output.confidence || !output.reasoningSummary) return null;
+  return {
+    requestId: run.requestId,
+    runId: run.id,
+    status: 'SUCCESS',
+    recommendation: output.recommendation as T,
+    confidence: output.confidence,
+    reasoningSummary: output.reasoningSummary,
+    riskFlags: output.riskFlags || [],
+    dataSources: output.dataSources || [],
+    limitations: output.limitations || [],
+    requiresHumanReview: output.requiresHumanReview ?? true,
+    generatedAt: run.createdAt,
+  };
+}
 
 export class AIService {
-  public static async analyzeContract(project: any, user: any): Promise<AIResponse> {
+  public static async analyzeContract(project: ContractAdvisorProject, user: {
+    id: string;
+    role: string;
+    organization?: string;
+    countryCode?: string;
+  }): Promise<AIResponse<ContractAdvisorRecommendation>> {
+    const backendRun = await apiClient.analyzeContractAdvisor({
+      projectId: project.projectId,
+      proposedShariahContract: project.proposedShariahContract,
+      context: project.title,
+    });
+    const backendResponse = mapBackendAiResponse<ContractAdvisorRecommendation>(backendRun);
+    if (backendResponse) return backendResponse;
+
     const req: AIRequest = {
       requestId: `AI-REQ-${Date.now()}`,
       userId: user.id,
-      organisationId: user.organization || 'ORG-MYS',
-      countryNodeId: user.countryCode || 'CN-MYS',
+      organisationId: project.organisationId || user.organization || 'ORG-MYS',
+      countryNodeId: project.countryNodeId || user.countryCode || 'CN-MYS',
       role: user.role,
       module: 'contract_advisor',
       action: 'RECOMMEND_CONTRACT',
@@ -15,7 +47,7 @@ export class AIService {
       timestamp: new Date().toISOString()
     };
 
-    return aiOrchestrator.executeAIRequest(req, (base) => ({
+    return aiOrchestrator.executeAIRequest<ContractAdvisorRecommendation>(req, (base) => ({
       ...base,
       recommendation: {
         primaryStructure: 'Musharakah (Joint Venture Capital)',
@@ -42,7 +74,16 @@ export class AIService {
     }));
   }
 
-  public static async generateContractDraft(params: any, user: any): Promise<AIResponse> {
+  public static async generateContractDraft(params: ContractDraftParams, user: {
+    id: string;
+    role: string;
+    organization?: string;
+    countryCode?: string;
+  }): Promise<AIResponse<ContractDraftRecommendation>> {
+    const backendRun = await apiClient.generateContractDraft({ projectId: params.projectId, contractType: params.contractType });
+    const backendResponse = mapBackendAiResponse<ContractDraftRecommendation>(backendRun);
+    if (backendResponse) return backendResponse;
+
     const req: AIRequest = {
       requestId: `AI-REQ-${Date.now()}`,
       userId: user.id,
@@ -55,24 +96,32 @@ export class AIService {
       timestamp: new Date().toISOString()
     };
 
-    return aiOrchestrator.executeAIRequest(req, (base) => ({
+    return aiOrchestrator.executeAIRequest<ContractDraftRecommendation>(req, (base) => ({
       ...base,
       recommendation: {
         title: `DRAFT SHARIAH AGREEMENT (${params.contractType || 'MUDARABAH'})`,
         watermark: 'AI-GENERATED DRAFT • NOT FINAL LEGAL DOCUMENT • NOT FINAL SHARIAH APPROVAL',
         draftText: `THIS MUDARABAH INVESTMENT AGREEMENT is entered into as of ${new Date().toISOString().split('T')[0]} between:
 1. CAPITAL PROVIDERS (Rabb-ul-Mal)
-2. MANAGING PARTNER (Mudarib: ${params.sponsorName || 'FELDA Holdings Berhad'})
+2. MANAGING PARTNER (Mudarib: ${params.sponsorName || 'UNSPECIFIED'})
 
 RECITALS & SHARIAH TERMS:
-1. Capital Amount: $${(params.capital || 8000000).toLocaleString()} USD.
-2. Purpose: Deployment in Halal ${params.sector || 'Agriculture'} Expansion Project.
-3. Profit Sharing Ratio: 80% Rabb-ul-Mal / 20% Mudarib.
+1. Capital Amount: ${params.capital !== undefined ? params.capital.toLocaleString() : 'UNSPECIFIED'} ${params.currency || 'UNSPECIFIED'}.
+2. Purpose: Deployment in Halal ${params.sector || 'UNSPECIFIED'} Expansion Project.
+3. Profit Sharing Ratio: To be agreed and approved; no default ratio is assumed.
 4. Loss Allocation: Losses borne solely by Rabb-ul-Mal pro-rata, except in cases of proven Mudarib negligence or misconduct.
 5. Management Fee: 1.5% p.a. Mudarib fee deducted from realized revenues.
 6. Governing Law & Shariah Oversight: D-8 Shariah Advisory Council & Local Courts.`
       }
     }));
+  }
+
+  public static async analyzeShariah(input: { proposedContract: string; terms: string; projectId: string }) {
+    const run = await apiClient.analyzeShariah(input);
+    if (run.status !== 'COMPLETED' || run.provider === 'sandbox' || !run.output) {
+      throw new Error('A completed production AI analysis is required before human review.');
+    }
+    return run;
   }
 
   public static async matchInvestmentPools(investorProfile: any, pools: any[], user: any): Promise<AIResponse> {

@@ -5,7 +5,7 @@ const STORAGE_KEY = 'how.shariah.content';
 const REVISIONS_KEY = 'how.shariah.revisions';
 const STATUS_KEY = 'how.shariah.status';
 
-type Mode = 'DEMO' | 'PRODUCTION';
+type Mode = 'DEMO' | 'PRE_PRODUCTION' | 'PRODUCTION';
 
 /**
  * WordPress-like content manager for the public Shariah Governance page.
@@ -44,7 +44,7 @@ export class ShariahContentService {
   }
 
   isProduction(): boolean {
-    return this.mode === 'PRODUCTION';
+    return this.mode !== 'DEMO';
   }
 
   getStatus(): ContentStatus {
@@ -56,7 +56,7 @@ export class ShariahContentService {
    * stored published snapshot; in production it is fetched from the backend.
    */
   getPublishedContent(): ShariahContent {
-    if (this.mode === 'PRODUCTION') {
+    if (this.mode !== 'DEMO') {
       return this.getBackendPublished();
     }
     const stored = this.loadStorage<ShariahContent | null>(STORAGE_KEY, null);
@@ -92,7 +92,7 @@ export class ShariahContentService {
     localStorage.setItem('how.shariah.draft', JSON.stringify(draft));
     localStorage.setItem(STATUS_KEY, 'draft');
     this.recordRevision(draft, 'draft', editorName, note);
-    if (this.mode === 'PRODUCTION') this.pushChanges(draft, 'draft', editorName, note);
+    if (this.mode !== 'DEMO') this.pushChanges(draft, 'draft', editorName, note);
     this.emit();
     return draft;
   }
@@ -111,7 +111,7 @@ export class ShariahContentService {
     localStorage.setItem('how.shariah.draft', JSON.stringify(published));
     localStorage.setItem(STATUS_KEY, 'published');
     this.recordRevision(published, 'published', editorName, note);
-    if (this.mode === 'PRODUCTION') this.pushChanges(published, 'published', editorName, note);
+    if (this.mode !== 'DEMO') this.pushChanges(published, 'published', editorName, note);
     this.emit();
     return published;
   }

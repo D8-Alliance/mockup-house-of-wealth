@@ -1,13 +1,17 @@
-export type SponsorOrgType = 
-  | 'FELDA / Plantation & Agriculture'
-  | 'FELCRA / Agro-Land Development'
-  | 'RISDA / Rubber & Rural Innovation'
-  | 'MARA / Entrepreneur Development'
-  | 'GLC / Sovereign-Backed Enterprise'
-  | 'Cooperative Society (Koperasi)'
-  | 'Property & Urban Developer'
-  | 'High-Growth SME'
-  | 'Impact NGO / Waqf Foundation';
+// Add future sponsor entity types here without changing the project model.
+export const SPONSOR_ENTITY_TYPES = [
+  'FELDA / Plantation & Agriculture',
+  'FELCRA / Agro-Land Development',
+  'RISDA / Rubber & Rural Innovation',
+  'MARA / Entrepreneur Development',
+  'GLC / Sovereign-Backed Enterprise',
+  'Cooperative Society (Koperasi)',
+  'Property & Urban Developer',
+  'High-Growth SME',
+  'Impact NGO / Waqf Foundation',
+] as const;
+
+export type SponsorOrgType = string;
 
 export type WorkflowStage = 
   | 'Draft'
@@ -51,6 +55,7 @@ export interface DataRoomDocument {
   fileSize: string;
   uploadDate: string;
   securityLevel: 'Public' | 'Investors Only' | 'Confidential';
+  fileUrl?: string;
 }
 
 export interface TeamMember {
@@ -64,9 +69,10 @@ export interface TeamMember {
 export interface InvestorComm {
   id: string;
   title: string;
+  body?: string;
   date: string;
   author: string;
-  type: 'Quarterly Update' | 'Financial Statement' | 'Milestone Notice' | 'Dividends Announcement';
+  type: 'Quarterly Update' | 'Financial Statement' | 'Milestone Notice' | 'Dividends Announcement' | 'Compliance Notice';
   readCount: number;
 }
 
@@ -76,7 +82,7 @@ export interface SponsorProject {
   orgName: string;
   orgType: SponsorOrgType;
   category: 'Green Energy & Solar' | 'Agro-Industrial' | 'SME Export' | 'Commercial Real Estate' | 'Social Waqf Housing';
-  shariahContract: 'Ijarah (Lease)' | 'Mudarabah (Profit Share)' | 'Musharakah (Partnership)' | 'Istisna (Manufacturing)' | 'Murabahah (Cost-Plus)';
+  shariahContract: 'Ijarah (Lease)' | 'Mudarabah (Profit Share)' | 'Musharakah (Partnership)' | 'Istisna (Manufacturing)' | 'Murabahah (Cost-Plus)' | 'Wakalah (Agency Investment)';
   targetFunding: number;
   raisedFunding: number;
   expectedYield: string;

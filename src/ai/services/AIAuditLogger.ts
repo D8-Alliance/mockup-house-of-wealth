@@ -9,7 +9,7 @@ class AIAuditLoggerService {
       userName: 'Tengku Ahmad Shah',
       organisationId: 'ORG-FELDA-MYS',
       countryNodeId: 'CN-MYS',
-      role: 'Project Sponsor / PDP',
+      role: 'Project Sponsor / Delivery Partner',
       aiFeature: 'contract_advisor',
       inputContextSummary: 'Agri expansion $8M funding request',
       outputSummary: 'Recommended Mudarabah structure with 80/20 investor split',

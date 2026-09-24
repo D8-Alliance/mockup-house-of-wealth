@@ -33,6 +33,7 @@ import { CancelDowngradeModal } from './CancelDowngradeModal';
 import { CreditBalanceModal } from './CreditBalanceModal';
 import { PremiumReportsCatalog } from './PremiumReportsCatalog';
 import { FutureRevenueSection } from './FutureRevenueSection';
+import { BillingTransactionsView } from './BillingTransactionsView';
 import { apiClient } from '../../services/apiClient';
 
 interface MembershipViewProps {
@@ -51,6 +52,7 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
   const [transactions, setTransactions] = useState<CreditTransaction[]>(revenueService.getCreditTransactions(userId));
   const [reports, setReports] = useState<PremiumReportItem[]>(revenueService.getPremiumReports());
   const [billingRecords, setBillingRecords] = useState<BillingRecord[]>(revenueService.getBillingRecords(userId));
+  const [aiModuleDisabled, setAiModuleDisabled] = useState(false);
 
   // Determine initial tab based on user role (RBAC)
   const isSponsor = userRole === 'sponsor' || userRole === 'pdp';
@@ -74,6 +76,24 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
     });
     return unsub;
   }, [userId]);
+
+  useEffect(() => {
+    void apiClient.getFeatureModules()
+      .then(modules => setAiModuleDisabled(modules.some(module => module.moduleKey === 'AI_INTELLIGENCE' && module.mode === 'DISABLED')))
+      .catch(() => setAiModuleDisabled(false));
+  }, []);
+
+  if (aiModuleDisabled) {
+    return (
+      <div className="p-8 rounded-3xl bg-slate-900 text-white border border-amber-500/30 shadow-xl space-y-3">
+        <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">AI Membership Unavailable</span>
+        <h1 className="text-2xl font-black">AI plans and credits are temporarily hidden</h1>
+        <p className="text-sm text-slate-300 max-w-2xl">
+          AI Intelligence is not active while its provider integration is being completed. AI subscriptions, credit purchases, and AI allowances are unavailable until Platform Administration re-enables the module.
+        </p>
+      </div>
+    );
+  }
 
   const currentPlan = plans.find(p => p.id === membership.planId) || plans[0];
 
@@ -194,7 +214,7 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
           <div className="flex justify-between items-center">
             <div>
               <h3 className="font-black text-lg text-slate-900 dark:text-white">
-                HoW AI Credits Usage & Ledger
+                Wealth Pooling AI Credits Usage & Ledger
               </h3>
               <p className="text-xs text-slate-500">
                 Track token consumption across Shariah screening, AI deep scans, and report unlocks.
@@ -230,51 +250,7 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
 
       {/* Billing & Invoices Tab */}
       {activeTab === 'billing' && (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h3 className="font-black text-lg text-slate-900 dark:text-white">
-                Billing Statements & Invoices
-              </h3>
-              <p className="text-xs text-slate-500">
-                Official receipts for subscription memberships, AI credits, and report purchases.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {billingRecords.map(inv => (
-              <div key={inv.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-purple-600">{inv.invoiceNumber}</span>
-                    <span className="px-2 py-[2px] rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                      {inv.status}
-                    </span>
-                  </div>
-                  <div className="font-extrabold text-slate-900 dark:text-white">{inv.description}</div>
-                  <div className="text-[11px] text-slate-400">{inv.date} • {inv.paymentMethod}</div>
-                </div>
-
-                <div className="flex items-center justify-between sm:justify-end gap-4">
-                  <div className="text-right">
-                    <div className="text-base font-black text-slate-900 dark:text-white">
-                      RM {inv.amountMYR}
-                    </div>
-                    <div className="text-[10px] text-slate-400 font-mono">≈ ${inv.amountUSD} USD</div>
-                  </div>
-
-                  <button
-                    onClick={() => alert(`Simulated Download for Invoice ${inv.invoiceNumber}`)}
-                    className="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <BillingTransactionsView />
       )}
 
       {/* Future Regulatory Revenue Tab */}

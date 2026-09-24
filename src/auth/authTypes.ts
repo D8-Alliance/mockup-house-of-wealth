@@ -1,4 +1,5 @@
 import { UserRole } from '../rbac/types';
+import { AuthMode } from './types/authTypes';
 
 export interface UserSession {
   sessionId: string;
@@ -18,5 +19,5 @@ export interface UserSession {
 export interface AuthState {
   isAuthenticated: boolean;
   session: UserSession | null;
-  mode: 'DEMO' | 'PRODUCTION';
+  mode: AuthMode;
 }

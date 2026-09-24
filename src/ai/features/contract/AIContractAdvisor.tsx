@@ -1,28 +1,70 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AIService } from '../../services/AIService';
+import { ContractAdvisorProject } from '../../types/aiCoreTypes';
+import { apiClient } from '../../../services/apiClient';
 import { AIRecommendationCard } from '../../components/AIRecommendationCard';
 import { AIReviewPanel } from '../../components/AIReviewPanel';
 import { AISourcePanel } from '../../components/AISourcePanel';
 import { AIApprovalPanel } from '../../components/AIApprovalPanel';
 import { Scale, Sparkles, FileText, CheckCircle2 } from 'lucide-react';
 
-export const AIContractAdvisor: React.FC<{ user: any }> = ({ user }) => {
-  const [loading, setLoading] = useState(false);
-  const [analysis, setAnalysis] = useState<any>(null);
+interface AIContractAdvisorProps {
+  user: { id: string; role: string; organization?: string; countryCode?: string };
+  project?: ContractAdvisorProject;
+}
 
-  const mockProject = {
-    projectId: 'PROJ-MYS-001',
-    title: 'FELDA Agricultural Expansion',
-    proposedShariahContract: 'Mudarabah',
-    fundingTarget: 8000000,
-    sector: 'Agriculture'
-  };
+export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, project: projectOverride }) => {
+  const [loading, setLoading] = useState(false);
+  const [projects, setProjects] = useState<ContractAdvisorProject[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState(projectOverride?.projectId || '');
+  const [analysis, setAnalysis] = useState<Awaited<ReturnType<typeof AIService.analyzeContract>> | null>(null);
+  const [error, setError] = useState('');
+  const canReview = ['Super Admin', 'AI Administrator', 'AI Model Reviewer', 'Shariah Reviewer', 'Shariah Committee', 'Compliance Officer', 'Risk Officer'].includes(user.role);
+
+  useEffect(() => {
+    if (projectOverride) {
+      setProjects([projectOverride]);
+      setSelectedProjectId(projectOverride.projectId);
+      return;
+    }
+
+    let cancelled = false;
+    apiClient.getProjects()
+      .then((backendProjects) => {
+        if (cancelled) return;
+        const mappedProjects = backendProjects.map((item) => ({
+          projectId: item.projectId,
+          title: item.projectName,
+          proposedShariahContract: item.proposedShariahContract,
+          fundingTarget: Number(item.fundingRequired),
+          sector: item.sector,
+          organisationId: item.organisationId,
+          countryNodeId: item.countryNodeId,
+          currency: item.countryNode?.currency || 'MYR',
+        }));
+        setProjects(mappedProjects);
+        setSelectedProjectId(mappedProjects[0]?.projectId || '');
+      })
+      .catch((loadError) => {
+        if (!cancelled) setError(loadError instanceof Error ? loadError.message : 'Unable to load projects.');
+      });
+
+    return () => { cancelled = true; };
+  }, [projectOverride]);
+
+  const project = projects.find((item) => item.projectId === selectedProjectId);
 
   const handleAnalyze = async () => {
+    if (!project) return;
     setLoading(true);
-    const res = await AIService.analyzeContract(mockProject, user);
-    setAnalysis(res);
-    setLoading(false);
+    setError('');
+    try {
+      setAnalysis(await AIService.analyzeContract(project, user));
+    } catch (analysisError) {
+      setError(analysisError instanceof Error ? analysisError.message : 'Unable to analyze the contract.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -44,7 +86,7 @@ export const AIContractAdvisor: React.FC<{ user: any }> = ({ user }) => {
 
           <button
             onClick={handleAnalyze}
-            disabled={loading}
+            disabled={loading || !project}
             className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/20 flex items-center gap-2 cursor-pointer shrink-0"
           >
             <Sparkles className="w-4 h-4 text-emerald-200" />
@@ -53,31 +95,54 @@ export const AIContractAdvisor: React.FC<{ user: any }> = ({ user }) => {
         </div>
 
         <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/60 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-          <span>Target Project: <strong className="text-slate-900 dark:text-white">{mockProject.title}</strong></span>
-          <span>Target Capital: <strong className="text-slate-900 dark:text-white">${mockProject.fundingTarget.toLocaleString()} USD</strong></span>
-          <span>Current Proposed: <strong className="text-emerald-600 font-bold">{mockProject.proposedShariahContract}</strong></span>
-        </div>
+           <label className="flex items-center gap-2">
+             <span>Project:</span>
+             <select
+               value={selectedProjectId}
+               onChange={(event) => { setSelectedProjectId(event.target.value); setAnalysis(null); }}
+               disabled={loading || projects.length === 0}
+               className="rounded-lg border border-slate-300 bg-white px-2 py-1 font-bold text-slate-900"
+             >
+               {projects.length === 0 && <option value="">Loading projects...</option>}
+               {projects.map((item) => <option key={item.projectId} value={item.projectId}>{item.title}</option>)}
+             </select>
+           </label>
+           {project ? <>
+              <span>Funding Required: <strong className="text-slate-900 dark:text-white">{new Intl.NumberFormat(undefined, { style: 'currency', currency: project.currency || 'MYR', maximumFractionDigits: 0 }).format(project.fundingTarget)}</strong></span>
+              <span>Sponsor Proposed Structure: <strong className="text-emerald-600 font-bold">{project.proposedShariahContract}</strong></span>
+           </> : <span>No projects available for the current tenant.</span>}
+         </div>
       </div>
+
+      {error && <p role="alert" className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">{error}</p>}
 
       {analysis && (
         <div className="space-y-6">
-          <AIRecommendationCard
-            title="Recommended Structure: Musharakah vs Mudarabah Dual Evaluation"
-            subtitle="AAOIFI Standard No. 12 & Standard No. 13 Alignment"
-            recommendationText={`${analysis.recommendation.primaryStructure} is recommended over Mudarabah. ${analysis.recommendation.rationale}`}
+           <AIRecommendationCard
+             title={`Recommended Structure: ${analysis.recommendation.primaryStructure || 'Review Required'} vs ${project.proposedShariahContract}`}
+             subtitle="AI advisory output requiring authorised human review"
+              recommendationText={`${analysis.recommendation.primaryStructure || 'Review Required'} is being considered against ${project.proposedShariahContract}. ${analysis.recommendation.rationale || 'No structured rationale was returned.'}`}
             confidence={analysis.confidence}
             positiveFactors={analysis.reasoningSummary.positiveFactors}
             concerns={analysis.reasoningSummary.concerns}
             disclaimer={analysis.recommendation.disclaimer}
           />
 
-          <AIApprovalPanel roleName={user.role} />
-
-          <AIReviewPanel
-            aiRequestId={analysis.requestId}
-            userId={user.id}
-            roleName={user.role}
-          />
+           {canReview && <>
+             <AIApprovalPanel roleName={user.role} />
+             <AIReviewPanel
+               aiRequestId={analysis.requestId}
+               userId={user.id}
+               roleName={user.role}
+               onDecisionSubmitted={async (decision, note) => {
+                 if (!analysis.runId) throw new Error('AI run identifier is missing.');
+                 await apiClient.reviewAiDecision(analysis.runId, {
+                   decision,
+                   justification: note || 'Human review decision recorded.',
+                 });
+               }}
+             />
+           </>}
 
           <AISourcePanel sources={analysis.dataSources} />
         </div>

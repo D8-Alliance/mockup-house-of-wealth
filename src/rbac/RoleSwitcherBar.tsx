@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useRBAC } from './RBACContext';
 import { ROLE_DEFINITIONS } from './roleDefinitions';
 import { UserRole } from './types';
+import { SINGLE_ROLE_MODE, SINGLE_TEST_ROLE } from './runtimeConfig';
 import { 
   ChevronDown, 
   Check, 
@@ -16,12 +17,14 @@ import {
 } from 'lucide-react';
 
 export const RoleSwitcherBar: React.FC = () => {
-  const { currentRole, setRole, roleDef, setShowLoginModal, isAuthenticated, authMode, setAuthMode, assignedRoles } = useRBAC();
+  const { currentRole, setRole, roleDef, setShowLoginModal, isAuthenticated, authMode, setAuthMode, assignedRoles, activeUser, tenantContext } = useRBAC();
   const [isOpen, setIsOpen] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const rolesList = (authMode === 'PRODUCTION' ? assignedRoles : (Object.keys(ROLE_DEFINITIONS) as UserRole[]));
+  const rolesList = SINGLE_ROLE_MODE
+    ? [SINGLE_TEST_ROLE]
+    : (authMode === 'DEMO' ? (Object.keys(ROLE_DEFINITIONS) as UserRole[]) : assignedRoles);
 
   const categories = [
     'System Executive',
@@ -42,18 +45,19 @@ export const RoleSwitcherBar: React.FC = () => {
         
         {/* Left Info Pill */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={() => setAuthMode(authMode === 'DEMO' ? 'PRODUCTION' : 'DEMO')}
-            className={`flex items-center gap-1.5 px-2.5 py-1 font-extrabold rounded-lg border cursor-pointer transition-all ${
-              authMode === 'DEMO' 
-                ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30' 
-                : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/30'
-            }`}
-            title="Click to toggle between DEMO MODE and PRODUCTION MODE"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span className="tracking-wide uppercase font-mono text-[10px]">{authMode} MODE</span>
-          </button>
+          <label className="flex items-center gap-1.5 px-2.5 py-1 font-extrabold rounded-lg border bg-slate-800 text-slate-200 border-slate-700">
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <select
+              value={authMode}
+              onChange={event => setAuthMode(event.target.value as typeof authMode)}
+              className="bg-transparent uppercase font-mono text-[10px] outline-none cursor-pointer"
+              title="Select runtime readiness mode"
+            >
+              <option value="DEMO">DEMO MODE</option>
+              <option value="PRE_PRODUCTION">PRE-PRODUCTION MODE</option>
+              <option value="PRODUCTION">PRODUCTION MODE</option>
+            </select>
+          </label>
 
           <span className="text-slate-400 font-medium">Active Role:</span>
 
@@ -84,7 +88,14 @@ export const RoleSwitcherBar: React.FC = () => {
                     </button>
                   </div>
 
-                  {authMode === 'PRODUCTION' && (
+                   {authMode === 'PRE_PRODUCTION' && (
+                     <p className="text-[10px] text-amber-400 flex items-center gap-1">
+                       <ShieldAlert className="w-3 h-3" />
+                       Pre-production: real backend preview; MFA is not configured in this mode.
+                     </p>
+                   )}
+
+                   {authMode === 'PRODUCTION' && (
                     <p className="text-[10px] text-amber-400 flex items-center gap-1">
                       <ShieldAlert className="w-3 h-3" />
                       Production Mode: Limited strictly to your assigned roles.
@@ -166,7 +177,7 @@ export const RoleSwitcherBar: React.FC = () => {
         {/* Right Action Controls */}
         <div className="flex items-center gap-3">
           <div className="hidden lg:flex items-center gap-2 text-[11px] text-slate-400">
-            <span>Org: <strong className="text-white">{roleDef.demoUser.organization}</strong></span>
+            <span>Org: <strong className="text-white">{activeUser.organizationName || tenantContext.organisationId}</strong></span>
           </div>
 
           <button

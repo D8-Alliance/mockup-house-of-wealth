@@ -279,7 +279,7 @@ export const WalletView: React.FC = () => {
               </div>
 
               <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-[11px] text-emerald-700 dark:text-emerald-300">
-                Transfers between internal wallets execute instantaneously on the House of Wealth cryptographic ledger.
+                Transfers between internal wallets execute instantaneously on the Wealth Pooling cryptographic ledger.
               </div>
 
               <div className="pt-3 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-3">

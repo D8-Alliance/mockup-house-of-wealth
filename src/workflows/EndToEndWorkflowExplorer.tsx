@@ -71,7 +71,7 @@ export const EndToEndWorkflowExplorer: React.FC<{ onRefresh: () => void }> = ({ 
           <span className="px-3 py-1 rounded-full text-[10px] font-black bg-purple-600 text-white shadow-sm">
             MVP WORKFLOW ORCHESTRATOR
           </span>
-          <h2 className="text-xl font-black text-slate-900 dark:text-white mt-1">House of Wealth End-to-End Test Engine</h2>
+          <h2 className="text-xl font-black text-slate-900 dark:text-white mt-1">Wealth Pooling End-to-End Test Engine</h2>
           <p className="text-xs text-slate-500">
             Simulate or inspect any stage of the 17-step Shariah wealth pooling pipeline in real time.
           </p>

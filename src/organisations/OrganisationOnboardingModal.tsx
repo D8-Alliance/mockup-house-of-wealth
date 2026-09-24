@@ -169,7 +169,7 @@ export const OrganisationOnboardingModal: React.FC<OrganisationOnboardingModalPr
                     <option value="Government">Government</option>
                     <option value="Government-Linked Company">Government-Linked Company</option>
                     <option value="Corporation">Corporation</option>
-                    <option value="Project Sponsor / PDP">Project Sponsor / PDP</option>
+                    <option value="Project Sponsor / Delivery Partner">Project Sponsor / Delivery Partner</option>
                     <option value="Financial Institution">Financial Institution</option>
                     <option value="Investment Fund">Investment Fund</option>
                     <option value="Family Office">Family Office</option>

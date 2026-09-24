@@ -20,6 +20,7 @@ import { AdminCenterView } from './AdminCenterView';
 import { ProjectSponsorView } from './sponsor/ProjectSponsorView';
 import { MembershipView } from './revenue/MembershipView';
 import { BeneficiariesView } from './BeneficiariesView';
+import { BillingTransactionsView } from './revenue/BillingTransactionsView';
 
 interface MainTabViewsProps {
   currentTab: NavTab;
@@ -101,6 +102,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
             assets={assets}
             lang={lang}
             onOpenAssetRegister={onOpenAssetRegister}
+            onOpenContractWizard={onOpenContractWizard}
           />
         </RoleGuard>
       )}
@@ -197,6 +199,8 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
           <MembershipView userId={user.id} userRole={user.role} />
         </RoleGuard>
       )}
+
+      {currentTab === 'billing-transactions' && <BillingTransactionsView />}
     </>
   );
 };

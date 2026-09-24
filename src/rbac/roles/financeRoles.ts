@@ -39,7 +39,7 @@ export const FINANCE_ROLES: Record<string, RoleDefinition> = {
     demoUser: {
       name: 'Mohamed El-Sayed',
       email: 'mohamed.elsayed@finance.how.org',
-      organization: 'House of Wealth Treasury Dept',
+      organization: 'Wealth Pooling Treasury Dept',
       avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80'
     }
   },

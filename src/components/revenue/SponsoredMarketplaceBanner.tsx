@@ -65,7 +65,7 @@ export const SponsoredMarketplaceBanner: React.FC<SponsoredMarketplaceBannerProp
       <div className="relative z-10 pt-3 border-t border-white/10 flex items-center justify-between text-[9.5px] text-slate-400">
         <span className="flex items-center gap-1">
           <Info className="w-3 h-3 text-amber-400" />
-          <span>Commercial Sponsorship Notice • Paid Placement via House of Wealth Monetisation Engine</span>
+          <span>Commercial Sponsorship Notice • Paid Placement via Wealth Pooling Monetisation Engine</span>
         </span>
         <span className="hidden sm:inline font-mono">
           Campaign Valid: {banner.startDate} to {banner.endDate}

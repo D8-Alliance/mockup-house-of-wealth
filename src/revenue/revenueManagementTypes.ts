@@ -27,7 +27,7 @@ export interface RevenueTransactionItem {
   customerOrg: string;
   customerEmail: string;
   country: string;
-  userType: 'Retail Investor' | 'HNWI Investor' | 'Institutional Investor' | 'PDP / Project Sponsor' | 'Enterprise Member' | 'Shariah Scholar / Firm';
+  userType: 'Retail Investor' | 'HNWI Investor' | 'Institutional Investor' | 'Delivery Partner / Project Sponsor' | 'Enterprise Member' | 'Shariah Scholar / Firm';
   category: RevenueCategory;
   description: string;
   amountMYR: number;

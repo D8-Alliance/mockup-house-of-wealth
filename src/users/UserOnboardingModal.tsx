@@ -43,7 +43,7 @@ export const UserOnboardingModal: React.FC<UserOnboardingModalProps> = ({
         {step === 1 && (
           <div className="space-y-4 text-xs">
             <p className="text-slate-600 dark:text-slate-300">
-              Welcome to the House of Wealth Platform. Set your security credentials and activate Multi-Factor Authentication.
+              Welcome to the Wealth Pooling Platform. Set your security credentials and activate Multi-Factor Authentication.
             </p>
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Create Account Password</label>

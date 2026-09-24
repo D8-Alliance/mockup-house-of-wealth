@@ -13,6 +13,14 @@ export class PdpService {
   ) {}
 
   async saveDraft(actor: AuthenticatedUser, input: SavePdpApplicationDto) {
+    const [countryNode, organisation] = await Promise.all([
+      this.prisma.countryNode.findUnique({ where: { code: actor.countryNodeId } }),
+      this.prisma.organisation.findUnique({ where: { id: actor.organisationId } }),
+    ]);
+    if (!countryNode || !organisation || organisation.countryNodeId !== countryNode.code) {
+      throw new ForbiddenException('Authenticated tenant is not valid');
+    }
+
     const existing = input.id
       ? await this.prisma.pdpApplication.findUnique({ where: { id: input.id } })
       : await this.prisma.pdpApplication.findFirst({
@@ -31,10 +39,10 @@ export class PdpService {
       ? await this.prisma.pdpApplication.update({
           where: { id: existing.id },
           data: {
-            userEmail: input.userEmail,
-            countryCode: input.countryCode,
-            countryName: input.countryName,
-            organisationName: input.organisationName,
+            userEmail: actor.email,
+            countryCode: countryNode.code.replace(/^CN-/, ''),
+            countryName: countryNode.name,
+            organisationName: organisation.name,
             pdpType: input.pdpType,
             payload: input.payload as Prisma.InputJsonValue,
             kybStatus: 'IN_PROGRESS',
@@ -44,10 +52,10 @@ export class PdpService {
           data: {
             applicationNumber: await this.nextApplicationNumber(),
             userId: actor.userId,
-            userEmail: input.userEmail,
-            countryCode: input.countryCode,
-            countryName: input.countryName,
-            organisationName: input.organisationName,
+            userEmail: actor.email,
+            countryCode: countryNode.code.replace(/^CN-/, ''),
+            countryName: countryNode.name,
+            organisationName: organisation.name,
             pdpType: input.pdpType,
             payload: input.payload as Prisma.InputJsonValue,
           },
@@ -78,9 +86,11 @@ export class PdpService {
       throw new BadRequestException('All compliance declarations must be accepted before submission');
     }
 
+    const kybModule = await this.prisma.featureModule.findUnique({ where: { moduleKey: 'KYB_VERIFICATION' } });
+    const kybStatus = kybModule?.mode === 'MANUAL_REVIEW' ? 'PENDING_MANUAL_REVIEW' : 'SUBMITTED';
     const submitted = await this.prisma.pdpApplication.update({
       where: { id },
-      data: { status: 'SUBMITTED', kybStatus: 'SUBMITTED', submittedAt: new Date() },
+      data: { status: 'SUBMITTED', kybStatus, submittedAt: new Date() },
     });
 
     await this.audit.recordActor(actor, {
@@ -89,10 +99,33 @@ export class PdpService {
       resourceId: submitted.id,
       countryNodeId: actor.countryNodeId,
       organisationId: actor.organisationId,
-      metadata: { applicationNumber: submitted.applicationNumber, pdpType: submitted.pdpType },
+      metadata: { applicationNumber: submitted.applicationNumber, pdpType: submitted.pdpType, kybMode: kybModule?.mode ?? 'ACTIVE' },
     });
 
     return this.toResponse(submitted);
+  }
+
+  async reviewKyb(actor: AuthenticatedUser, id: string, decision: 'APPROVED' | 'REJECTED', justification: string) {
+    if (!justification.trim()) throw new BadRequestException('A manual review justification is required');
+    const application = await this.prisma.pdpApplication.findUnique({ where: { id } });
+    if (!application) throw new NotFoundException('PDP application not found');
+    if (!['PENDING_MANUAL_REVIEW', 'SUBMITTED', 'UNDER_REVIEW'].includes(application.kybStatus)) {
+      throw new BadRequestException('This KYB application is not awaiting review');
+    }
+
+    const reviewed = await this.prisma.pdpApplication.update({
+      where: { id },
+      data: { kybStatus: decision === 'APPROVED' ? 'VERIFIED_MANUAL' : 'REJECTED' },
+    });
+    await this.audit.recordActor(actor, {
+      action: `pdp.kyb.${decision.toLowerCase()}`,
+      resourceType: 'PdpApplication',
+      resourceId: id,
+      countryNodeId: actor.countryNodeId,
+      organisationId: actor.organisationId,
+      metadata: { justification, manualReview: true },
+    });
+    return this.toResponse(reviewed);
   }
 
   async getMine(actor: AuthenticatedUser) {

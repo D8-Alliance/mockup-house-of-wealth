@@ -58,7 +58,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({ isOpen, onCl
     }, activeUser.id, currentRole);
 
     if (isSubmit) {
-      projectService.updateProjectStatus(created.projectId, 'SUBMITTED', activeUser.id, currentRole, 'Initial submission by Project Sponsor / PDP.');
+      projectService.updateProjectStatus(created.projectId, 'SUBMITTED', activeUser.id, currentRole, 'Initial submission by Project Sponsor / Delivery Partner.');
     }
 
     onSaved();

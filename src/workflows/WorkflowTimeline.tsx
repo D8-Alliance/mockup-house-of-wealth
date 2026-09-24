@@ -29,8 +29,8 @@ interface WorkflowTimelineProps {
 }
 
 export const WORKFLOW_STEPS = [
-  { id: 'draft', label: '1. Project Created', icon: FilePlus, role: 'Project Sponsor / PDP' },
-  { id: 'submitted', label: '2. Submitted', icon: Send, role: 'Project Sponsor / PDP' },
+  { id: 'draft', label: '1. Project Created', icon: FilePlus, role: 'Project Sponsor / Delivery Partner' },
+  { id: 'submitted', label: '2. Submitted', icon: Send, role: 'Project Sponsor / Delivery Partner' },
   { id: 'review', label: '3. Project Review', icon: Eye, role: 'Project Reviewer' },
   { id: 'dd', label: '4. Due Diligence', icon: ShieldCheck, role: 'DD Auditor' },
   { id: 'shariah', label: '5. Shariah Review', icon: BookOpen, role: 'Shariah Board' },
@@ -80,7 +80,7 @@ export const WorkflowTimeline: React.FC<WorkflowTimelineProps> = ({
         <div>
           <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
             <Activity className="w-4 h-4 text-purple-600" />
-            House of Wealth MVP End-to-End Lifecycle Pipeline
+            Wealth Pooling MVP End-to-End Lifecycle Pipeline
           </h3>
           <p className="text-[11px] text-slate-500">
             Current Stage: <span className="font-bold text-purple-600 dark:text-purple-400">{WORKFLOW_STEPS[activeIndex]?.label}</span> ({WORKFLOW_STEPS[activeIndex]?.role})
