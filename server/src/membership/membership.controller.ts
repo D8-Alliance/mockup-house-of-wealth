@@ -25,6 +25,11 @@ export class MembershipController {
     return this.membershipService.billing(actor);
   }
 
+  @Get('ai-capabilities')
+  capabilities() {
+    return this.membershipService.getCapabilityPricing();
+  }
+
   @Get('me/credits')
   credits(@CurrentUser() actor: AuthenticatedUser) {
     return this.membershipService.getCreditSummary(actor);

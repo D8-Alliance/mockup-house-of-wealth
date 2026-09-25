@@ -70,12 +70,11 @@ export const ProjectSponsorView: React.FC = () => {
 
   const [pdpSub, setPdpSub] = useState<PDPSubscription>(revenueService.getPDPSubscription(sponsorOrgId));
   const [pdpPlans] = useState(revenueService.getPDPPlans());
-  const [creditBalance, setCreditBalance] = useState<HoWCreditBalance>(revenueService.getCreditBalance(userId));
+  const [creditBalance, setCreditBalance] = useState<HoWCreditBalance>({ userId, totalCredits: 0, usedCredits: 0, availableCredits: 0, monthlyAllowance: 0, purchasedCredits: 0, resetDate: '' });
 
   useEffect(() => {
     const unsubRev = revenueService.subscribe(() => {
       setPdpSub(revenueService.getPDPSubscription(sponsorOrgId));
-      setCreditBalance(revenueService.getCreditBalance(userId));
     });
     const unsubPdp = pdpService.subscribe(() => {
       const updated = pdpService.getApplicationById('PDP-2026-MYS-0014') || pdpService.getAllApplications()[0];
@@ -146,6 +145,7 @@ export const ProjectSponsorView: React.FC = () => {
       projectSponsorId: session.user.userId,
       sponsorEntityType: newProj.orgType,
     });
+    void apiClient.getMembershipCreditSummary().then(summary => setCreditBalance({ userId: summary.userId, totalCredits: summary.totalPoolCredits, usedCredits: summary.usedCredits, availableCredits: summary.availableBalance, monthlyAllowance: summary.monthlyAllowance, purchasedCredits: summary.purchasedCredits ?? 0, resetDate: summary.resetDate })).catch(() => undefined);
 
     if (documents.businessPlan) await apiClient.uploadProjectDocument(backendProject.projectId, documents.businessPlan);
     if (documents.financialProjection) await apiClient.uploadProjectDocument(backendProject.projectId, documents.financialProjection);

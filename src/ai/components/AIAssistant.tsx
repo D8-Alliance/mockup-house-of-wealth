@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bot, Send, X, Sparkles, MessageSquare, HelpCircle, ShieldCheck, Coins, AlertCircle } from 'lucide-react';
 import { AIConfidenceBadge } from './AIConfidenceBadge';
-import { aiMonetisationService } from '../monetisation/aiMonetisationService';
+import { apiClient } from '../../services/apiClient';
 import { AI_NON_ADVICE_DISCLAIMER } from '../monetisation/aiCreditPricingConfig';
 
 interface AIAssistantProps {
@@ -27,7 +27,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
   currentContext = 'General Platform', 
   onClose 
 }) => {
-  const [credits, setCredits] = useState(aiMonetisationService.getCreditBalanceBreakdown(userId).remainingCredits);
+  const [credits, setCredits] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'msg-1',
@@ -41,11 +41,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
   const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
-    const update = () => {
-      setCredits(aiMonetisationService.getCreditBalanceBreakdown(userId).remainingCredits);
-    };
-    const unsubscribe = aiMonetisationService.subscribe(update);
-    return () => unsubscribe();
+    void apiClient.getMembershipCreditSummary().then(summary => setCredits(summary.availableBalance)).catch(() => setCredits(0));
   }, [userId]);
 
   const sampleQuestions = [
@@ -57,7 +53,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     'What is my portfolio concentration?'
   ];
 
-  const handleSend = (queryText?: string) => {
+  const handleSend = async (queryText?: string) => {
     const textToSend = queryText || inputQuery;
     if (!textToSend.trim()) return;
 
@@ -72,11 +68,13 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
       return;
     }
 
-    // Deduct 1 credit for Simple AI Query
-    aiMonetisationService.consumeCreditsForOperation(userId, 'SIMPLE_QUERY', {
-      targetEntity: currentContext,
-      userName
-    });
+    try {
+      const result = await apiClient.consumeMembershipCredits('SIMPLE_QUERY', currentContext);
+      setCredits(result.balanceAfter);
+    } catch {
+      setMessages(prev => [...prev, { id: `err-${Date.now()}`, sender: 'AI', text: 'Unable to consume AI credits. Please refresh and try again.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
+      return;
+    }
 
     const userMsg: ChatMessage = {
       id: `usr-${Date.now()}`,

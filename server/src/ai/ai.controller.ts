@@ -7,6 +7,7 @@ import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { AiService } from './ai.service';
 import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagSearchDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { FeasibilityReviewDto } from './project-feasibility.dto';
 
 @Controller('ai')
 @UseGuards(FeatureModuleGuard)
@@ -43,6 +44,18 @@ export class AiController {
   @Post('projects/due-diligence/scan')
   @Roles('Super Admin', 'AI Administrator', 'Compliance Officer', 'KYC Officer', 'KYB Officer', 'AML Officer', 'Risk Officer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office')
   scanProjectDueDiligence(@CurrentUser() actor: AuthenticatedUser, @Body() input: ProjectDueDiligenceDto) { return this.ai.scanProjectDueDiligence(actor, input.projectId); }
+
+  @Post('projects/:projectId/feasibility/analyze')
+  @Roles('Project Sponsor', 'Project Manager', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Country Admin', 'Organization Admin', 'AI Model Reviewer', 'Shariah Reviewer')
+  analyzeProjectFeasibility(@CurrentUser() actor: AuthenticatedUser, @Param('projectId') projectId: string) { return this.ai.runProjectFeasibility(actor, projectId); }
+
+  @Get('projects/:projectId/feasibility/latest')
+  @Roles('Super Admin', 'Project Sponsor', 'Project Manager', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Country Admin', 'Organization Admin', 'AI Model Reviewer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee')
+  latestProjectFeasibility(@CurrentUser() actor: AuthenticatedUser, @Param('projectId') projectId: string) { return this.ai.latestProjectFeasibility(actor, projectId); }
+
+  @Post('projects/:projectId/feasibility/:runId/review')
+  @Roles('Project Sponsor', 'Project Manager', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Country Admin', 'Organization Admin', 'AI Model Reviewer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee')
+  reviewProjectFeasibility(@CurrentUser() actor: AuthenticatedUser, @Param('projectId') projectId: string, @Param('runId') runId: string, @Body() input: FeasibilityReviewDto) { return this.ai.reviewProjectFeasibility(actor, projectId, runId, input); }
 
   @Get('projects/:projectId/due-diligence/latest')
   @Roles('Super Admin', 'AI Administrator', 'Compliance Officer', 'KYC Officer', 'KYB Officer', 'AML Officer', 'Risk Officer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee')

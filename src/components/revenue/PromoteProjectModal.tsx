@@ -28,7 +28,7 @@ export const PromoteProjectModal: React.FC<PromoteProjectModalProps> = ({
   projectId,
   projectTitle,
   orgName,
-  availableCredits = 120,
+  availableCredits = 0,
   onClose,
   onSuccess
 }) => {

@@ -47,7 +47,7 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
 }) => {
   const [plans, setPlans] = useState<MembershipPlan[]>(revenueService.getPlans());
   const [membership, setMembership] = useState<UserMembership>(revenueService.getUserMembership(userId));
-  const [creditBalance, setCreditBalance] = useState<HoWCreditBalance>(revenueService.getCreditBalance(userId));
+  const [creditBalance, setCreditBalance] = useState<HoWCreditBalance>({ userId, totalCredits: 0, usedCredits: 0, availableCredits: 0, monthlyAllowance: 0, purchasedCredits: 0, resetDate: '' });
   const [featureUsage, setFeatureUsage] = useState<FeatureUsageStats>(revenueService.getFeatureUsage(userId));
   const [transactions, setTransactions] = useState<CreditTransaction[]>(revenueService.getCreditTransactions(userId));
   const [reports, setReports] = useState<PremiumReportItem[]>(revenueService.getPremiumReports());
@@ -68,7 +68,6 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
     const unsub = revenueService.subscribe(() => {
       setPlans(revenueService.getPlans());
       setMembership(revenueService.getUserMembership(userId));
-      setCreditBalance(revenueService.getCreditBalance(userId));
       setFeatureUsage(revenueService.getFeatureUsage(userId));
       setTransactions(revenueService.getCreditTransactions(userId));
       setReports(revenueService.getPremiumReports());
@@ -76,6 +75,18 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
     });
     return unsub;
   }, [userId]);
+
+  useEffect(() => {
+    void apiClient.getMembershipCreditSummary().then(summary => setCreditBalance({
+      userId: summary.userId,
+      totalCredits: summary.totalPoolCredits,
+      usedCredits: summary.usedThisMonth,
+      availableCredits: summary.availableBalance,
+      monthlyAllowance: summary.monthlyAllowance,
+      purchasedCredits: summary.purchasedCredits ?? summary.additionalCredits,
+      resetDate: summary.resetDate,
+    })).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     void apiClient.getFeatureModules()
@@ -129,8 +140,11 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
     revenueService.unlockPremiumReport(reportId, userId);
   };
 
-  const handleTopUpCredits = (credits: number, priceMYR: number, priceUSD: number, method: string) => {
-    revenueService.topUpCredits(userId, credits, priceMYR, priceUSD, method);
+  const handleTopUpCredits = async (credits: number, _priceMYR: number, _priceUSD: number, method: string) => {
+    const packageId = credits === 50 ? 'topup_50' : credits === 275 ? 'topup_250' : credits === 1150 ? 'topup_1000' : 'topup_3000';
+    await apiClient.topUpMembershipCredits(packageId, method);
+    const summary = await apiClient.getMembershipCreditSummary();
+    setCreditBalance({ userId: summary.userId, totalCredits: summary.totalPoolCredits, usedCredits: summary.usedCredits, availableCredits: summary.availableBalance, monthlyAllowance: summary.monthlyAllowance, purchasedCredits: summary.purchasedCredits ?? 0, resetDate: summary.resetDate });
   };
 
   return (

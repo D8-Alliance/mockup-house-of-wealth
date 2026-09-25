@@ -569,6 +569,8 @@ model AiRun {
   model          String
   createdAt      DateTime       @default(now())
   completedAt    DateTime?
+  reviewStage    String         @default("DRAFT")
+  reviewHistory  Json?
   conversation   AiConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   decision       AiDecision?
 
@@ -683,6 +685,53 @@ model AiCreditTransaction {
   subscription   MembershipSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
   @@index([userId, createdAt])
   @@index([type, createdAt])
+}
+
+// Authoritative AI credit wallet. Legacy MembershipSubscription and
+// AiCreditTransaction rows remain for compatibility with existing billing data.
+model AiCreditWallet {
+  id                String   @id @default(cuid())
+  userId            String
+  organisationId    String
+  subscriptionPlan  String
+  monthlyAllowance  Int      @default(0)
+  purchasedCredits  Int      @default(0)
+  bonusCredits      Int      @default(0)
+  usedCredits       Int      @default(0)
+  availableBalance  Int      @default(0)
+  resetDate         DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, organisationId])
+  @@index([organisationId, updatedAt])
+}
+
+model AiCapabilityPricing {
+  id              String   @id @default(cuid())
+  operationKey    String   @unique
+  featureType     String
+  operationName   String
+  creditsRequired Int
+  enabled         Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model AiUsageTransaction {
+  id              String   @id @default(cuid())
+  userId          String
+  organisationId  String
+  featureType     String
+  operationName   String
+  creditsConsumed Int
+  projectId       String?
+  timestamp       DateTime @default(now())
+  status          String
+
+  @@index([userId, timestamp])
+  @@index([organisationId, timestamp])
+  @@index([featureType, timestamp])
 }
 
 model MembershipBillingRecord {

@@ -37,7 +37,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
   userId = 'USR-8821',
   onNavigateToMembership
 }) => {
-  const [balance, setBalance] = useState<AICreditBalanceBreakdown>({ userId, remainingCredits: 0, usedThisMonth: 0, monthlyAllowance: 0, additionalCredits: 0, totalPoolCredits: 0, resetDate: '', userTier: 'FREE' });
+  const [balance, setBalance] = useState<AICreditBalanceBreakdown>({ userId, availableBalance: 0, usedCredits: 0, remainingCredits: 0, usedThisMonth: 0, monthlyAllowance: 0, additionalCredits: 0, totalPoolCredits: 0, resetDate: '', userTier: 'FREE' });
   const [history, setHistory] = useState<AIUsageLogEntry[]>([]);
   const [operations] = useState<AIOperationConfig[]>(aiMonetisationService.getAIOperations());
   const [activeTestOp, setActiveTestOp] = useState<AIOperationKey | null>(null);
@@ -94,7 +94,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
           </div>
           <div className="my-2">
             <div className="text-3xl font-black font-mono tracking-tight text-white">
-              {balance.remainingCredits}
+              {balance.availableBalance}
             </div>
             <span className="text-[10px] text-purple-200">AI Credits Available</span>
           </div>
@@ -206,7 +206,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {operations.map(op => {
-            const hasCredits = balance.remainingCredits >= op.creditCost;
+            const hasCredits = balance.availableBalance >= op.creditCost;
             return (
               <div
                 key={op.key}

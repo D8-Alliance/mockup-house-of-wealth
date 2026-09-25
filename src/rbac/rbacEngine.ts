@@ -40,7 +40,7 @@ export function canApproveWorkflow(role: UserRole, workflowName: string): boolea
  * Checks whether a role has read access to a specific tab.
  */
 export function isTabAccessible(role: UserRole, tab: NavTab): boolean {
-  if (tab === 'billing-transactions') return role !== 'Guest';
+  if (tab === 'billing-transactions' || tab === 'membership') return role !== 'Guest';
   const roleDef = ROLE_DEFINITIONS[role];
   if (!roleDef) return false;
   return roleDef.accessibleTabs.includes(tab);

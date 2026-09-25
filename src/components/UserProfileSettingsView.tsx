@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   User, 
   Mail, 
@@ -42,6 +42,8 @@ import { AvatarChangeModal } from './AvatarChangeModal';
 import { PaymentAccountModal } from './PaymentAccountModal';
 import { BeneficiaryModal } from './BeneficiaryModal';
 import { revenueService } from '../revenue/revenueService';
+import { HoWCreditBalance } from '../revenue/revenueTypes';
+import { apiClient } from '../services/apiClient';
 
 interface UserProfileSettingsViewProps {
   user: UserProfile;
@@ -86,10 +88,14 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
   };
 
   const userMembership = revenueService.getUserMembership(user.id);
-  const creditBalance = revenueService.getCreditBalance(user.id);
+  const [creditBalance, setCreditBalance] = useState<HoWCreditBalance>({ userId: user.id, totalCredits: 0, usedCredits: 0, availableCredits: 0, monthlyAllowance: 0, purchasedCredits: 0, resetDate: '' });
   const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'shariah' | 'beneficiary' | 'notifications' | 'api'>('personal');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+
+  useEffect(() => {
+    void apiClient.getMembershipCreditSummary().then(summary => setCreditBalance({ userId: summary.userId, totalCredits: summary.totalPoolCredits, usedCredits: summary.usedCredits, availableCredits: summary.availableBalance, monthlyAllowance: summary.monthlyAllowance, purchasedCredits: summary.purchasedCredits ?? 0, resetDate: summary.resetDate })).catch(() => undefined);
+  }, [user.id]);
 
   // Bank & E-Wallet Modal state
   const [accountModalOpen, setAccountModalOpen] = useState(false);

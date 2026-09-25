@@ -55,6 +55,9 @@ export const apiClient = {
   topUpMembershipCredits: (packageId: string, paymentMethod: string) => request<{ transaction: BackendCreditTransaction; balance: BackendCreditSummary }>('/membership/me/credits/top-up', { method: 'POST', body: JSON.stringify({ packageId, paymentMethod }) }),
   getAdminCreditAnalytics: () => request<{ summary: AdminAIAnalyticsSummary; transactions: BackendCreditTransaction[] }>('/membership/admin/credits/analytics'),
   getProjects: () => request<BackendProject[]>('/projects'),
+  analyzeProjectFeasibility: (projectId: string) => request<BackendFeasibilityAssessment>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/analyze`, { method: 'POST' }),
+  getLatestProjectFeasibility: (projectId: string) => request<BackendFeasibilityAssessment | null>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/latest`),
+  reviewProjectFeasibility: (projectId: string, runId: string, input: { reviewStage: string; decision: string; comment: string }) => request<BackendFeasibilityAssessment>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/${encodeURIComponent(runId)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   runProjectDueDiligence: (projectId: string) => request<BackendDueDiligenceScan>('/ai/projects/due-diligence/scan', { method: 'POST', body: JSON.stringify({ projectId }) }),
   getLatestProjectDueDiligence: (projectId: string) => request<BackendDueDiligenceScan | null>(`/ai/projects/${encodeURIComponent(projectId)}/due-diligence/latest`),
   analyzeProjectDocument: (projectId: string, documentId: string) => request<BackendDocumentAnalysis>(`/ai/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/analyze`, { method: 'POST' }),
@@ -367,6 +370,32 @@ export interface BackendProject {
   documents?: BackendProjectDocument[];
 }
 
+export interface BackendFeasibilityAssessment {
+  id: string;
+  requestId: string;
+  project?: { projectId: string; projectCode: string; projectName: string; sector: string; fundingRequired: number | string; status: string };
+  output?: { recommendation?: { financialAnalysis?: Record<string, unknown>; riskAnalysis?: Record<string, unknown>; [key: string]: unknown } };
+  financialAnalysis: { npv: number | null; irr: number | null; dscr: number | null; roi: number | null; paybackPeriod: number | null; profitMargin: number | null; cashflow: Record<string, unknown>; fundingReadiness: string; assumptions?: Record<string, unknown>; scenarios?: Array<{ name: string; status: string; adjustmentPercent: number | null; npv: number | null; irr: number | null; roi: number | null; paybackPeriod: number | null }>; [key: string]: unknown };
+  riskAnalysis: { riskFlags: Array<{ title: string; severity: string; description: string }>; missingEvidence: string[]; keyAssumptions: Array<{ name: string; value: unknown }>; projectRiskAssessment?: { overallLevel: string; risks: Array<{ category: string; level: string; description: string; impact: string; mitigation: string }>; requiresHumanReview: boolean }; [key: string]: unknown };
+  evidenceIntelligence: {
+    scorePercent: number;
+    status: string;
+    components: { projectData: number; requiredDocuments: number; financialAssumptions: number; supportingEvidence: number };
+    coverage: Array<{ key: string; label: string; status: string; importance: string; requiredAction: string }>;
+    matrix: Array<{ evidence: string; status: string; priority: string; requiredAction: string }>;
+    nextActions: string[];
+    confidenceReasons: string[];
+    disclaimer: string;
+  };
+  confidence: { level: string; scorePercent: number; disclaimer: string; reasons: string[] };
+  projectFeasibility?: { available: boolean; score: number | null; status: string; components: { financialFeasibility: number | null; marketAssumptions: number | null; executionReadiness: number | null; riskExposure: number | null }; reason: string };
+  investmentReadiness: { status: string; label: string; evidenceStatus: string; financialStatus: string; riskLevel: string; complianceStatus: string; shariahStatus?: string; requiresHumanReview: boolean; disclaimer: string };
+  shariahAssessment: { structure: string; reviewTitle: string; suitability: string; checks: Array<{ label: string; status: string }>; requiredInformation: string[]; potentialConcerns: string[]; status: string; humanReviewRequired: boolean };
+  humanReviewRequired: boolean;
+  reviewStage: string;
+  reviewHistory?: Array<{ stage: string; reviewerId?: string; reviewerRole?: string; date?: string; decision?: string; comment?: string; actorId?: string; at?: string; note?: string | null }>;
+}
+
 export interface BackendProjectMilestone {
   id: string;
   title: string;
@@ -395,6 +424,8 @@ export interface BackendDueDiligenceScan {
 
 export interface BackendCreditSummary {
   userId: string;
+  availableBalance: number;
+  usedCredits: number;
   remainingCredits: number;
   usedThisMonth: number;
   monthlyAllowance: number;
@@ -402,6 +433,8 @@ export interface BackendCreditSummary {
   totalPoolCredits: number;
   resetDate: string;
   userTier: string;
+  purchasedCredits?: number;
+  bonusCredits?: number;
 }
 
 export interface BackendCreditTransaction {

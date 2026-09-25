@@ -75,7 +75,7 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
     <ErrorBoundary>
       <div 
         dir={isRtl ? 'rtl' : 'ltr'} 
-        className="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200"
+        className="min-h-screen min-w-0 max-w-full overflow-x-hidden bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200"
       >
       <RoleSwitcherBar />
 
@@ -91,7 +91,7 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
         onOpenPdpRegister={() => setPdpRegisterOpen(true)}
       />
 
-      <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-grow min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <MainTabViews
           currentTab={currentTab}
           setTab={setTab}

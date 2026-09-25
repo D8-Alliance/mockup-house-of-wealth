@@ -166,6 +166,8 @@ class AIMonetisationService {
 
     return {
       userId,
+      availableBalance: rawBalance.availableCredits,
+      usedCredits: usedThisMonth,
       remainingCredits: rawBalance.availableCredits,
       usedThisMonth,
       monthlyAllowance: rawBalance.monthlyAllowance,

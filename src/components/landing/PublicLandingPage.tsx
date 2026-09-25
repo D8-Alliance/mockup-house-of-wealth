@@ -15,7 +15,8 @@ import {
   Coins,
   CheckCircle2,
   ChevronDown,
-  X
+  X,
+  Menu
 } from 'lucide-react';
 import { INITIAL_COUNTRY_NODES } from '../../countryNodes/mockCountryNodes';
 import { INITIAL_MARKETPLACE } from '../../data/initialData';
@@ -39,6 +40,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
   const countries = INITIAL_COUNTRY_NODES;
   const [selectedCountryId, setSelectedCountryId] = useState<string>('CN-MYS');
   const [pageId, setPageId] = useState<PublicPageId>('home');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { setShowLoginModal, showLoginModal, isAuthenticated } = useRBAC();
 
   const navigate = (page: PublicPageId) => {
@@ -73,10 +75,10 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
   const totalOrgs = countries.reduce((sum, c) => sum + c.activeOrganisationsCount, 0);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 font-sans">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 font-sans">
       {/* Top Utility Bar */}
       <div className="bg-slate-950 text-white border-b border-slate-800 py-2.5 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="w-full max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5">
             <span className="text-slate-400 font-medium">D-8 Member States:</span>
             <span className="text-emerald-400 font-extrabold uppercase tracking-wider text-[10px]">
@@ -100,9 +102,9 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
       {/* Hero Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16 gap-4">
-            <div className="flex items-center gap-3 cursor-pointer">
+        <div className="w-full max-w-full lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 max-w-full overflow-hidden justify-between items-center h-16 gap-3">
+            <div className="flex min-w-0 max-w-full items-center gap-3 cursor-pointer">
               <WealthPoolingLogo compact />
             </div>
 
@@ -116,12 +118,29 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
             <button
               onClick={() => setShowLoginModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
+              className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
               <span>Sign In / Register</span>
             </button>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="flex lg:hidden shrink-0 p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
           </div>
+          {mobileMenuOpen && (
+            <div className="lg:hidden w-full max-w-full overflow-hidden border-t border-slate-200 dark:border-slate-800 py-3 space-y-1">
+              {(['about', 'members', 'shariah', 'news', 'contact'] as PublicPageId[]).map((page) => (
+                <button key={page} onClick={() => { navigate(page); setMobileMenuOpen(false); }} className="w-full rounded-xl px-4 py-2.5 text-left text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                  {page === 'about' ? 'About D-8' : page === 'members' ? 'Member States' : page === 'shariah' ? 'Shariah Governance' : page === 'news' ? 'News & Updates' : 'Contact'}
+                </button>
+              ))}
+              <button onClick={() => setShowLoginModal(true)} className="w-full rounded-xl px-4 py-2.5 text-left text-sm font-semibold text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">Sign In / Register</button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -133,7 +152,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
               <Globe2 className="w-4 h-4 text-emerald-500" />
               <span>Select your country node:</span>
             </div>
-            <div className="flex-1 flex flex-wrap gap-2">
+            <div className="w-full min-w-0 flex flex-wrap gap-2">
               {countries.map((c) => {
                 const isSelected = c.countryNodeId === selectedCountryId;
                 return (
@@ -161,9 +180,9 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
         <div className="absolute top-0 right-0 w-[40rem] h-[40rem] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-            <div className="space-y-6">
+        <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+          <div className="grid min-w-0 grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+            <div className="min-w-0 space-y-6">
               <div className="flex items-center gap-2">
                 <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
                   {selectedCountry.countryName} Node
@@ -173,7 +192,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
                 </span>
               </div>
 
-              <h1 className="text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+              <h1 className="min-w-0 break-words text-3xl sm:text-5xl font-black tracking-tight leading-tight">
                 Cross-Border Islamic
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-400"> Circular Economy</span>
               </h1>
@@ -186,20 +205,20 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
               </p>
 
               {/* Live D-8 Network Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              <div className="grid min-w-0 grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="min-w-0 p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                   <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{countries.length}</p>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Member States</p>
                 </div>
-                <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <div className="min-w-0 p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                   <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{totalProjects}</p>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Active Projects</p>
                 </div>
-                <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <div className="min-w-0 p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                   <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{totalPools}</p>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Wealth Pools</p>
                 </div>
-                <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <div className="min-w-0 p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                   <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{totalUsers.toLocaleString()}</p>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Verified Users</p>
                 </div>
@@ -226,7 +245,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
             </div>
 
             {/* Right: Selected Country Card */}
-            <div className="space-y-4">
+            <div className="min-w-0 space-y-4">
               <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white border border-slate-700/60 shadow-2xl">
                 <div className="flex items-center gap-4 mb-4">
                   <img

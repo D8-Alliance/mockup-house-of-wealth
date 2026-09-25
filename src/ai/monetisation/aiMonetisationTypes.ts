@@ -21,6 +21,8 @@ export interface AIOperationConfig {
 
 export interface AICreditBalanceBreakdown {
   userId: string;
+  availableBalance: number;
+  usedCredits: number;
   remainingCredits: number;
   usedThisMonth: number;
   monthlyAllowance: number;
