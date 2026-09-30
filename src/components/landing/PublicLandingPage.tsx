@@ -89,26 +89,19 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
             <span className="px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono text-[10px] font-bold">
               PUBLIC VISITOR — GUEST ACCESS
             </span>
-            <button
-              onClick={() => setShowLoginModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>Sign In to System</span>
-            </button>
           </div>
         </div>
       </div>
 
       {/* Hero Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md">
-        <div className="w-full max-w-full lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 max-w-full overflow-hidden justify-between items-center h-16 gap-3">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center h-16 gap-3">
             <div className="flex min-w-0 max-w-full items-center gap-3 cursor-pointer">
               <WealthPoolingLogo compact />
             </div>
 
-            <div className="hidden lg:flex items-center gap-6 text-xs font-bold text-slate-600 dark:text-slate-300">
+            <div className="hidden lg:flex min-w-0 justify-end items-center gap-6 text-xs font-bold text-slate-600 dark:text-slate-300">
               <span onClick={() => navigate('about')} className="cursor-pointer hover:text-emerald-600">About D-8</span>
               <span onClick={() => navigate('members')} className="cursor-pointer hover:text-emerald-600">Member States</span>
               <span onClick={() => navigate('shariah')} className="cursor-pointer hover:text-emerald-600">Shariah Governance</span>
@@ -118,7 +111,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
             <button
               onClick={() => setShowLoginModal(true)}
-              className="hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
+              className="hidden sm:flex shrink-0 items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
             >
               <LogIn className="w-4 h-4" />
               <span>Sign In / Register</span>

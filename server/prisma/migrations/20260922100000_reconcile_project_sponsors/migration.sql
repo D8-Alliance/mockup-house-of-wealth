@@ -1,5 +1,22 @@
+INSERT INTO "CountryNode" ("code", "name", "currency", "timezone", "regulatoryProfile", "status", "verificationStatus", "flagUrl", "createdAt", "updatedAt")
+VALUES
+  ('CN-MYS', 'Malaysia', 'MYR', 'Asia/Kuala_Lumpur', 'Malaysia Islamic finance and securities framework', 'ACTIVE', 'VERIFIED', '/flags/my.svg', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('CN-TUR', 'Turkiye', 'TRY', 'Europe/Istanbul', 'Turkiye financial and participation finance framework', 'ACTIVE', 'VERIFIED', '/flags/tr.svg', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('CN-NGA', 'Nigeria', 'NGN', 'Africa/Lagos', 'Nigeria non-interest finance framework', 'ACTIVE', 'VERIFIED', '/flags/ng.svg', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("code") DO NOTHING;
+
+INSERT INTO "Organisation" ("id", "name", "countryNodeId", "status", "createdAt", "updatedAt")
+VALUES
+  ('ORG-FELDA-MYS', 'FELDA Development Partner', 'CN-MYS', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('ORG-MYS-P2-CAP', 'Malaysian Sovereign Capital', 'CN-MYS', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('ORG-TURK-LOG', 'Turkiye Logistics Partner', 'CN-TUR', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('ORG-MYS-P2-AGRI', 'Malaysian Rural Agribusiness', 'CN-MYS', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('ORG-NGA-WAQF', 'Lagos Waqf Development Partner', 'CN-NGA', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+ON CONFLICT ("id") DO NOTHING;
+
 INSERT INTO "User" ("id", "idpProvider", "idpSubjectId", "email", "name", "isActive", "createdAt", "updatedAt")
 VALUES
+  ('USR-SYS-001', 'mock', 'USR-SYS-001', 'system@houseofwealth.local', 'House of Wealth System', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('USR-AHMAD-PDP', 'mock', 'USR-AHMAD-PDP', 'ahmad.pdp@felda.gov.my', 'Ahmad Razak (PDP Lead)', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('USR-TARIQ-PDP', 'mock', 'USR-TARIQ-PDP', 'tariq.pdp@mycapital.my', 'Tariq Al-Mansoor', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   ('USR-MEHMET-PDP', 'mock', 'USR-MEHMET-PDP', 'mehmet.pdp@istanbultech.tr', 'Mehmet Yilmaz', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),

@@ -70,19 +70,19 @@ model User {
   updatedAt    DateTime @updatedAt
 
   // User can have multiple roles per organisation/country node
-  roleAssignments UserRoleAssignment[]
-  projectTeamMemberships ProjectTeamMember[]
-  sponsoredProjects Project[]
-  projectAnnouncements ProjectAnnouncement[]
-  promotionCampaigns ProjectPromotionCampaign[]
-  promotionPayments PromotionPayment[]
-  sessions        Session[]
-  createdContractTemplates ContractTemplate[]
-  createdContractClauses ContractClause[]
+  roleAssignments             UserRoleAssignment[]
+  projectTeamMemberships      ProjectTeamMember[]
+  sponsoredProjects           Project[]
+  projectAnnouncements        ProjectAnnouncement[]
+  promotionCampaigns          ProjectPromotionCampaign[]
+  promotionPayments           PromotionPayment[]
+  sessions                    Session[]
+  createdContractTemplates    ContractTemplate[]
+  createdContractClauses      ContractClause[]
   createdContractInputSchemas ContractInputSchema[]
-  createdShariahRules ShariahRule[]
-  createdDocumentVersions DocumentVersion[] @relation("DocumentVersionCreator")
-  approvedDocumentVersions DocumentVersion[] @relation("DocumentVersionApprover")
+  createdShariahRules         ShariahRule[]
+  createdDocumentVersions     DocumentVersion[]          @relation("DocumentVersionCreator")
+  approvedDocumentVersions    DocumentVersion[]          @relation("DocumentVersionApprover")
 
   @@unique([idpProvider, idpSubjectId])
   @@index([email])
@@ -132,27 +132,28 @@ model CountryNode {
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
-  organisations       Organisation[]
-  projects            Project[]
-  pools               WealthPool[]
-  contracts           Contract[]
-  shariahReviews      ShariahReview[]
-  auditEvents         AuditEvent[]
-  fundingRequests     FundingRequest[]
-  userRoleAssignments UserRoleAssignment[]
-  projectDocuments    ProjectDocument[]
-  projectTeamMembers  ProjectTeamMember[]
+  organisations        Organisation[]
+  projects             Project[]
+  pools                WealthPool[]
+  contracts            Contract[]
+  shariahReviews       ShariahReview[]
+  auditEvents          AuditEvent[]
+  fundingRequests      FundingRequest[]
+  userRoleAssignments  UserRoleAssignment[]
+  projectDocuments     ProjectDocument[]
+  evidenceRequirements ProjectEvidenceRequirement[]
+  projectTeamMembers   ProjectTeamMember[]
   projectAnnouncements ProjectAnnouncement[]
-  promotionCampaigns  ProjectPromotionCampaign[]
-  dueDiligenceScans   ProjectDueDiligenceScan[]
-  documentAnalyses    ProjectDocumentAnalysis[]
-  projectMilestones   ProjectMilestone[]
-  lifecycleEvents     ProjectLifecycleEvent[]
-  contractTemplates   ContractTemplate[]
-  contractClauses     ContractClause[]
+  promotionCampaigns   ProjectPromotionCampaign[]
+  dueDiligenceScans    ProjectDueDiligenceScan[]
+  documentAnalyses     ProjectDocumentAnalysis[]
+  projectMilestones    ProjectMilestone[]
+  lifecycleEvents      ProjectLifecycleEvent[]
+  contractTemplates    ContractTemplate[]
+  contractClauses      ContractClause[]
   contractInputSchemas ContractInputSchema[]
-  shariahRules        ShariahRule[]
-  documentVersions    DocumentVersion[]
+  shariahRules         ShariahRule[]
+  documentVersions     DocumentVersion[]
 }
 
 model Organisation {
@@ -164,26 +165,27 @@ model Organisation {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
-  projects            Project[]
-  pools               WealthPool[]
-  auditEvents         AuditEvent[]
-  userRoleAssignments UserRoleAssignment[]
-  fundingRequests     FundingRequest[]
-  contracts           Contract[]
-  shariahReviews      ShariahReview[]
-  projectDocuments    ProjectDocument[]
-  projectTeamMembers  ProjectTeamMember[]
+  projects             Project[]
+  pools                WealthPool[]
+  auditEvents          AuditEvent[]
+  userRoleAssignments  UserRoleAssignment[]
+  fundingRequests      FundingRequest[]
+  contracts            Contract[]
+  shariahReviews       ShariahReview[]
+  projectDocuments     ProjectDocument[]
+  evidenceRequirements ProjectEvidenceRequirement[]
+  projectTeamMembers   ProjectTeamMember[]
   projectAnnouncements ProjectAnnouncement[]
-  promotionCampaigns  ProjectPromotionCampaign[]
-  dueDiligenceScans   ProjectDueDiligenceScan[]
-  documentAnalyses    ProjectDocumentAnalysis[]
-  projectMilestones   ProjectMilestone[]
-  lifecycleEvents     ProjectLifecycleEvent[]
-  contractTemplates   ContractTemplate[]
-  contractClauses     ContractClause[]
+  promotionCampaigns   ProjectPromotionCampaign[]
+  dueDiligenceScans    ProjectDueDiligenceScan[]
+  documentAnalyses     ProjectDocumentAnalysis[]
+  projectMilestones    ProjectMilestone[]
+  lifecycleEvents      ProjectLifecycleEvent[]
+  contractTemplates    ContractTemplate[]
+  contractClauses      ContractClause[]
   contractInputSchemas ContractInputSchema[]
-  shariahRules        ShariahRule[]
-  documentVersions    DocumentVersion[]
+  shariahRules         ShariahRule[]
+  documentVersions     DocumentVersion[]
 
   @@unique([id, countryNodeId])
   @@index([countryNodeId])
@@ -212,21 +214,22 @@ model Project {
   updatedAt               DateTime @updatedAt
   lifecycleVersion        Int      @default(1)
 
-  organisation    Organisation     @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode     CountryNode      @relation(fields: [countryNodeId], references: [code])
-  projectSponsor  User             @relation(fields: [projectSponsorId], references: [id])
-  pools           WealthPool[]
-  fundingRequests FundingRequest[]
-  shariahReviews  ShariahReview[]
-  documents       ProjectDocument[]
-  teamMembers     ProjectTeamMember[]
-  announcements   ProjectAnnouncement[]
-  promotionCampaigns ProjectPromotionCampaign[]
-  ragDocuments     RagDocument[]
-  milestones       ProjectMilestone[]
-  lifecycleEvents  ProjectLifecycleEvent[]
-  documentAnalyses ProjectDocumentAnalysis[]
-  dueDiligenceScans ProjectDueDiligenceScan[]
+  organisation         Organisation                 @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode          CountryNode                  @relation(fields: [countryNodeId], references: [code])
+  projectSponsor       User                         @relation(fields: [projectSponsorId], references: [id])
+  pools                WealthPool[]
+  fundingRequests      FundingRequest[]
+  shariahReviews       ShariahReview[]
+  documents            ProjectDocument[]
+  teamMembers          ProjectTeamMember[]
+  announcements        ProjectAnnouncement[]
+  promotionCampaigns   ProjectPromotionCampaign[]
+  ragDocuments         RagDocument[]
+  milestones           ProjectMilestone[]
+  lifecycleEvents      ProjectLifecycleEvent[]
+  documentAnalyses     ProjectDocumentAnalysis[]
+  dueDiligenceScans    ProjectDueDiligenceScan[]
+  evidenceRequirements ProjectEvidenceRequirement[]
 
   @@index([countryNodeId])
   @@index([organisationId])
@@ -234,19 +237,19 @@ model Project {
 }
 
 model ProjectMilestone {
-  id               String   @id @default(cuid())
-  projectId        String
-  organisationId   String
-  countryNodeId    String
-  title            String
-  targetDate       DateTime?
-  completionPct    Int      @default(0)
-  disbursementAmount Decimal @db.Decimal(18, 2) @default(0)
-  status           String   @default("UPCOMING")
-  shariahSignoff  Boolean  @default(false)
-  auditorSignoff  Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                 String    @id @default(cuid())
+  projectId          String
+  organisationId     String
+  countryNodeId      String
+  title              String
+  targetDate         DateTime?
+  completionPct      Int       @default(0)
+  disbursementAmount Decimal   @default(0) @db.Decimal(18, 2)
+  status             String    @default("UPCOMING")
+  shariahSignoff     Boolean   @default(false)
+  auditorSignoff     Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   project      Project      @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
   organisation Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
@@ -318,7 +321,7 @@ model ProjectAnnouncement {
 }
 
 model ProjectPromotionCampaign {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   projectId      String
   organisationId String
   countryNodeId  String
@@ -329,20 +332,20 @@ model ProjectPromotionCampaign {
   status         String
   startDate      DateTime
   endDate        DateTime?
-  priceMYR       Decimal  @db.Decimal(18, 2)
-  creditsCost    Int      @default(0)
+  priceMYR       Decimal   @db.Decimal(18, 2)
+  creditsCost    Int       @default(0)
   paymentMethod  String
   paymentStatus  String
-  views          Int      @default(0)
-  clicks         Int      @default(0)
-  investorLeads  Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  views          Int       @default(0)
+  clicks         Int       @default(0)
+  investorLeads  Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  project      Project      @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
-  owner        User         @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  organisation Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode  CountryNode  @relation(fields: [countryNodeId], references: [code])
+  project      Project           @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  owner        User              @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  organisation Organisation      @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode  CountryNode       @relation(fields: [countryNodeId], references: [code])
   payment      PromotionPayment?
 
   @@index([projectId, status])
@@ -368,64 +371,94 @@ model PromotionPayment {
 }
 
 model ProjectDocument {
-  id                String   @id @default(cuid())
-  projectId         String
-  organisationId    String
-  countryNodeId     String
-  uploadedBy        String
-  fileName          String
-  mimeType          String
-  fileSize          Int
-  fileContent       Bytes
-  extractedText     String   @db.Text
-  extractionStatus  String   @default("EXTRACTED")
-  extractionError   String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(cuid())
+  projectId        String
+  organisationId   String
+  countryNodeId    String
+  uploadedBy       String
+  fileName         String
+  mimeType         String
+  fileSize         Int
+  fileContent      Bytes
+  extractedText    String   @db.Text
+  extractionStatus String   @default("EXTRACTED")
+  extractionError  String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  project      Project     @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
-  organisation Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode  CountryNode @relation(fields: [countryNodeId], references: [code])
-  analyses      ProjectDocumentAnalysis[]
+  project              Project                      @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  organisation         Organisation                 @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode          CountryNode                  @relation(fields: [countryNodeId], references: [code])
+  analyses             ProjectDocumentAnalysis[]
+  evidenceRequirements ProjectEvidenceRequirement[] @relation("EvidenceDocument")
 
   @@index([projectId])
   @@index([organisationId, countryNodeId])
   @@index([extractionStatus])
 }
 
+model ProjectEvidenceRequirement {
+  id                 String   @id @default(cuid())
+  projectId          String
+  organisationId     String
+  countryNodeId      String
+  evidenceType       String
+  description        String
+  requiredFormat     String
+  priority           String
+  status             String   @default("MISSING")
+  uploadedDocumentId String?
+  verificationStatus String   @default("NOT_STARTED")
+  verificationResult Json?
+  confidenceScore    Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  project          Project          @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  organisation     Organisation     @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode      CountryNode      @relation(fields: [countryNodeId], references: [code])
+  uploadedDocument ProjectDocument? @relation("EvidenceDocument", fields: [uploadedDocumentId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, evidenceType])
+  @@index([organisationId, countryNodeId])
+  @@index([projectId, status])
+}
+
 model ProjectDueDiligenceScan {
-  id              String   @id @default(cuid())
-  projectId       String
-  organisationId  String
-  countryNodeId   String
-  requestedBy     String
-  status          String   @default("COMPLETED")
-  confidenceScore Int      @default(0)
+  id               String       @id @default(cuid())
+  projectId        String
+  organisationId   String
+  countryNodeId    String
+  requestedBy      String
+  status           String       @default("COMPLETED")
+  confidenceScore  Int          @default(0)
   missingDocuments Json
-  findings        Json
-  createdAt       DateTime @default(now())
-  completedAt     DateTime?
-  project         Project  @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
-  organisation    Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode     CountryNode @relation(fields: [countryNodeId], references: [code])
+  findings         Json
+  createdAt        DateTime     @default(now())
+  completedAt      DateTime?
+  project          Project      @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  organisation     Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode      CountryNode  @relation(fields: [countryNodeId], references: [code])
+
   @@index([projectId, createdAt])
   @@index([organisationId, countryNodeId, createdAt])
 }
 
 model ProjectDocumentAnalysis {
-  id           String   @id @default(cuid())
-  documentId   String
-  projectId    String
-  organisationId String
-  countryNodeId String
-  analysedBy   String
+  id              String          @id @default(cuid())
+  documentId      String
+  projectId       String
+  organisationId  String
+  countryNodeId   String
+  analysedBy      String
   confidenceScore Int
-  result       Json
-  createdAt    DateTime @default(now())
-  document     ProjectDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  project      Project @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
-  organisation Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode  CountryNode @relation(fields: [countryNodeId], references: [code])
+  result          Json
+  createdAt       DateTime        @default(now())
+  document        ProjectDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  project         Project         @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  organisation    Organisation    @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode     CountryNode     @relation(fields: [countryNodeId], references: [code])
+
   @@index([documentId, createdAt])
   @@index([projectId, createdAt])
 }
@@ -554,8 +587,8 @@ model AiMessage {
 }
 
 model AiRun {
-  id             String         @id @default(cuid())
-  requestId      String         @unique
+  id             String          @id @default(cuid())
+  requestId      String          @unique
   featureKey     String
   action         String
   userId         String
@@ -564,12 +597,12 @@ model AiRun {
   conversationId String?
   input          Json
   output         Json?
-  status         String         @default("PENDING")
+  status         String          @default("PENDING")
   provider       String
   model          String
-  createdAt      DateTime       @default(now())
+  createdAt      DateTime        @default(now())
   completedAt    DateTime?
-  reviewStage    String         @default("DRAFT")
+  reviewStage    String          @default("DRAFT")
   reviewHistory  Json?
   conversation   AiConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
   decision       AiDecision?
@@ -577,55 +610,70 @@ model AiRun {
   @@index([organisationId, countryNodeId, createdAt])
   @@index([userId, createdAt])
   @@index([featureKey, status])
+  @@index([featureKey, reviewStage])
 }
 
 model AiDecision {
-  id           String   @id @default(cuid())
-  runId        String   @unique
-  decision     String
+  id            String   @id @default(cuid())
+  runId         String   @unique
+  decision      String
   justification String?
-  reviewerId   String
-  reviewerRole String
-  createdAt    DateTime @default(now())
-  run          AiRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
+  reviewerId    String
+  reviewerRole  String
+  createdAt     DateTime @default(now())
+  run           AiRun    @relation(fields: [runId], references: [id], onDelete: Cascade)
 }
 
 model RagDocument {
-  id             String      @id @default(cuid())
-  organisationId String
-  countryNodeId  String
-  uploadedBy     String
-  projectId      String?
-  title          String
-  sourceType     String
+  id               String     @id @default(cuid())
+  // GLOBAL (all D-8 country nodes) | COUNTRY (one country node) | PROJECT (one project). See src/ai/rag-scope.ts.
+  scope            String     @default("PROJECT")
+  // De-duplication key: "GLOBAL", the country code, or the project id.
+  scopeKey         String
+  // Owner tenant; for COUNTRY scope countryNodeId is the target country, for PROJECT it is the project tenant.
+  organisationId   String
+  countryNodeId    String
+  uploadedBy       String
+  projectId        String?
+  title            String
+  sourceType       String
   documentCategory String?
-  contractType   String?
-  authority      String?
-  jurisdiction   String?
-  industry       String?
-  approvalStatus String   @default("DRAFT")
-  contentHash    String
-  status         String      @default("ACTIVE")
-  metadata       Json?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  project        Project?    @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
-  chunks         RagChunk[]
+  contractType     String?
+  authority        String?
+  jurisdiction     String?
+  industry         String?
+  approvalStatus   String     @default("DRAFT") // DRAFT | REVIEWED | APPROVED | REJECTED
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  approvedBy       String?
+  approvedAt       DateTime?
+  reviewComment    String?
+  contentHash      String
+  status           String     @default("ACTIVE")
+  metadata         Json?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  project          Project?   @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  chunks           RagChunk[]
 
-  @@unique([organisationId, countryNodeId, contentHash])
+  @@unique([scope, scopeKey, contentHash])
+  @@index([scope, countryNodeId, approvalStatus, status])
   @@index([projectId, organisationId, countryNodeId, status])
   @@index([organisationId, countryNodeId, status])
   @@index([organisationId, countryNodeId, contractType, jurisdiction, approvalStatus])
 }
 
 model RagChunk {
-  id         String      @id @default(cuid())
+  id         String                       @id @default(cuid())
   documentId String
   chunkIndex Int
   content    String
   metadata   Json?
-  createdAt  DateTime    @default(now())
-  document   RagDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  // pgvector column (768 dims, see rag-embedding.service.ts); its HNSW index (RagChunk_embedding_idx) cannot be expressed
+  // in Prisma and is managed only in SQL migrations — never accept a generated DROP for it.
+  embedding  Unsupported("vector(768)")?
+  createdAt  DateTime                     @default(now())
+  document   RagDocument                  @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@unique([documentId, chunkIndex])
   @@index([documentId])
@@ -651,25 +699,25 @@ model ZakatCalculation {
 // Membership state is keyed by the authenticated identity subject because
 // OIDC users may not yet have a local User row.
 model MembershipSubscription {
-  id                   String   @id @default(cuid())
-  userId               String   @unique
+  id                   String                @id @default(cuid())
+  userId               String                @unique
   planId               String
   tier                 String
   billingInterval      String
-  status               String   @default("Active")
+  status               String                @default("Active")
   currentPeriodStart   DateTime
   currentPeriodEnd     DateTime
-  autoRenew            Boolean  @default(true)
-  paymentMethodSummary String   @default("Simulated Payment Gateway")
+  autoRenew            Boolean               @default(true)
+  paymentMethodSummary String                @default("Simulated Payment Gateway")
   aiCreditsRemaining   Int
   aiCreditsTotal       Int
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
   creditTransactions   AiCreditTransaction[]
 }
 
 model AiCreditTransaction {
-  id             String   @id @default(cuid())
+  id             String                 @id @default(cuid())
   userId         String
   subscriptionId String
   type           String
@@ -678,11 +726,12 @@ model AiCreditTransaction {
   credits        Int
   balanceBefore  Int
   balanceAfter   Int
-  amountMYR      Decimal? @db.Decimal(18, 2)
+  amountMYR      Decimal?               @db.Decimal(18, 2)
   paymentMethod  String?
   reference      String?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime               @default(now())
   subscription   MembershipSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
   @@index([userId, createdAt])
   @@index([type, createdAt])
 }
@@ -690,18 +739,18 @@ model AiCreditTransaction {
 // Authoritative AI credit wallet. Legacy MembershipSubscription and
 // AiCreditTransaction rows remain for compatibility with existing billing data.
 model AiCreditWallet {
-  id                String   @id @default(cuid())
-  userId            String
-  organisationId    String
-  subscriptionPlan  String
-  monthlyAllowance  Int      @default(0)
-  purchasedCredits  Int      @default(0)
-  bonusCredits      Int      @default(0)
-  usedCredits       Int      @default(0)
-  availableBalance  Int      @default(0)
-  resetDate         DateTime
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(cuid())
+  userId           String
+  organisationId   String
+  subscriptionPlan String
+  monthlyAllowance Int      @default(0)
+  purchasedCredits Int      @default(0)
+  bonusCredits     Int      @default(0)
+  usedCredits      Int      @default(0)
+  availableBalance Int      @default(0)
+  resetDate        DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@unique([userId, organisationId])
   @@index([organisationId, updatedAt])
@@ -774,30 +823,30 @@ model PdpApplication {
 // ---------------------------------------------------------------------------
 
 model ShariahReview {
-  id                String   @id @default(cuid())
-  projectId         String
-  organisationId    String
-  countryNodeId     String
-  proposedContract  String
-  status            String   @default("PROPOSED") // PROPOSED | UNDER_REVIEW | CHANGES_REQUESTED | APPROVED | MODIFIED | OVERRIDDEN | REJECTED | REVERTED
-  aiResult          Json?
-  confidence        Decimal? @db.Decimal(5, 2)
-  createdBy         String
-  revision          Int      @default(1)
-  parentReviewId    String?
-  requestedChanges  String?
-  submittedAt       DateTime @default(now())
-  reviewedBy        String?
-  reviewedAt        DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String    @id @default(cuid())
+  projectId        String
+  organisationId   String
+  countryNodeId    String
+  proposedContract String
+  status           String    @default("PROPOSED") // PROPOSED | UNDER_REVIEW | CHANGES_REQUESTED | APPROVED | MODIFIED | OVERRIDDEN | REJECTED | REVERTED
+  aiResult         Json?
+  confidence       Decimal?  @db.Decimal(5, 2)
+  createdBy        String
+  revision         Int       @default(1)
+  parentReviewId   String?
+  requestedChanges String?
+  submittedAt      DateTime  @default(now())
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  project     Project            @relation(fields: [projectId], references: [projectId])
-  decisions  ShariahDecision[]
-  parentReview ShariahReview? @relation("ShariahReviewRevisions", fields: [parentReviewId], references: [id])
-  childReviews ShariahReview[] @relation("ShariahReviewRevisions")
+  project      Project           @relation(fields: [projectId], references: [projectId])
+  decisions    ShariahDecision[]
+  parentReview ShariahReview?    @relation("ShariahReviewRevisions", fields: [parentReviewId], references: [id])
+  childReviews ShariahReview[]   @relation("ShariahReviewRevisions")
   organisation Organisation      @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode CountryNode        @relation(fields: [countryNodeId], references: [code])
+  countryNode  CountryNode       @relation(fields: [countryNodeId], references: [code])
 
   @@index([projectId])
   @@index([organisationId, countryNodeId])
@@ -808,7 +857,7 @@ model ShariahReview {
 model ShariahDecision {
   id            String   @id @default(cuid())
   reviewId      String
-  decision      String   // ACCEPTED | MODIFIED | OVERRIDDEN | REJECTED
+  decision      String // ACCEPTED | MODIFIED | OVERRIDDEN | REJECTED
   justification String?
   actorId       String
   actorRole     String
@@ -820,17 +869,17 @@ model ShariahDecision {
 }
 
 model Notification {
-  id             String   @id @default(cuid())
+  id              String    @id @default(cuid())
   recipientUserId String
-  organisationId String
-  countryNodeId  String
-  type           String
-  title          String
-  message        String
-  resourceType   String?
-  resourceId     String?
-  readAt         DateTime?
-  createdAt      DateTime @default(now())
+  organisationId  String
+  countryNodeId   String
+  type            String
+  title           String
+  message         String
+  resourceType    String?
+  resourceId      String?
+  readAt          DateTime?
+  createdAt       DateTime  @default(now())
 
   @@index([recipientUserId, readAt, createdAt])
   @@index([organisationId, countryNodeId, createdAt])
@@ -841,31 +890,32 @@ model Notification {
 // ---------------------------------------------------------------------------
 
 model Contract {
-  id             String   @id @default(cuid())
-  contractNumber String   @unique
-  contractType   String
-  title          String?
-  templateId     String?
-  status         String   @default("DRAFT")
-  wizardData     Json?
+  id               String    @id @default(cuid())
+  contractNumber   String    @unique
+  contractType     String
+  title            String?
+  templateId       String?
+  status           String    @default("DRAFT")
+  wizardData       Json?
   complianceReport Json?
-  lastGeneratedAt DateTime?
-  organisationId String
-  countryNodeId  String
-  createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  lastGeneratedAt  DateTime?
+  organisationId   String
+  countryNodeId    String
+  createdBy        String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  organisation Organisation       @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode  CountryNode        @relation(fields: [countryNodeId], references: [code])
-  versions     ContractVersion[]
-  parties      ContractParty[]
-  approvals    ContractApproval[]
-  events       ContractEvent[]
+  organisation     Organisation       @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode      CountryNode        @relation(fields: [countryNodeId], references: [code])
+  versions         ContractVersion[]
+  parties          ContractParty[]
+  approvals        ContractApproval[]
+  events           ContractEvent[]
   documentVersions DocumentVersion[]
 
   @@index([organisationId, countryNodeId])
   @@index([status])
+  @@index([contractType, status])
 }
 
 // ---------------------------------------------------------------------------
@@ -887,9 +937,9 @@ model ContractTemplate {
   createdDate    DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organisation Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode  CountryNode  @relation(fields: [countryNodeId], references: [code])
-  creator      User         @relation(fields: [createdBy], references: [id])
+  organisation Organisation     @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode  CountryNode      @relation(fields: [countryNodeId], references: [code])
+  creator      User             @relation(fields: [createdBy], references: [id])
   clauses      ContractClause[]
 
   @@unique([organisationId, countryNodeId, contractType, templateName, version])
@@ -898,30 +948,31 @@ model ContractTemplate {
 }
 
 model ContractClause {
-  id              String   @id @default(cuid())
-  organisationId  String
-  countryNodeId   String
-  templateId      String?
-  contractType    String
-  industry        String?
-  clauseCategory  String
-  clauseTitle     String
-  clauseText      String   @db.Text
+  id               String   @id @default(cuid())
+  organisationId   String
+  countryNodeId    String
+  templateId       String?
+  contractType     String
+  industry         String?
+  clauseCategory   String
+  clauseTitle      String
+  clauseText       String   @db.Text
   shariahReference String?
-  jurisdiction    String
-  riskLevel       String   @default("MEDIUM")
-  approvalStatus  String   @default("PENDING")
-  createdBy       String
-  createdDate     DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  jurisdiction     String
+  riskLevel        String   @default("MEDIUM")
+  approvalStatus   String   @default("PENDING")
+  createdBy        String
+  createdDate      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  organisation Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode  CountryNode  @relation(fields: [countryNodeId], references: [code])
+  organisation Organisation      @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode  CountryNode       @relation(fields: [countryNodeId], references: [code])
   template     ContractTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  creator      User @relation(fields: [createdBy], references: [id])
+  creator      User              @relation(fields: [createdBy], references: [id])
 
   @@index([organisationId, countryNodeId, contractType, approvalStatus])
   @@index([templateId])
+  @@index([industry])
 }
 
 model ContractInputSchema {
@@ -939,8 +990,8 @@ model ContractInputSchema {
   updatedAt      DateTime @updatedAt
 
   organisation Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode  CountryNode @relation(fields: [countryNodeId], references: [code])
-  creator      User @relation(fields: [createdBy], references: [id])
+  countryNode  CountryNode  @relation(fields: [countryNodeId], references: [code])
+  creator      User         @relation(fields: [createdBy], references: [id])
 
   @@unique([organisationId, countryNodeId, contractType, schemaName, version])
   @@index([organisationId, countryNodeId, contractType, approvalStatus])
@@ -962,30 +1013,31 @@ model ShariahRule {
   updatedAt       DateTime @updatedAt
 
   organisation Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode  CountryNode @relation(fields: [countryNodeId], references: [code])
-  creator      User @relation(fields: [createdBy], references: [id])
+  countryNode  CountryNode  @relation(fields: [countryNodeId], references: [code])
+  creator      User         @relation(fields: [createdBy], references: [id])
 
   @@unique([organisationId, countryNodeId, contractType, ruleName])
   @@index([organisationId, countryNodeId, contractType, severity, approvalStatus])
+  @@index([jurisdiction])
 }
 
 model DocumentVersion {
-  id           String   @id @default(cuid())
-  documentId   String
+  id             String   @id @default(cuid())
+  documentId     String
   organisationId String
-  countryNodeId String
-  version      Int
-  createdBy    String
-  reviewStatus String   @default("DRAFT")
-  approvedBy   String?
-  createdDate  DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  countryNodeId  String
+  version        Int
+  createdBy      String
+  reviewStatus   String   @default("DRAFT")
+  approvedBy     String?
+  createdDate    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  document     Contract @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document     Contract     @relation(fields: [documentId], references: [id], onDelete: Cascade)
   organisation Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode  CountryNode @relation(fields: [countryNodeId], references: [code])
-  creator      User @relation("DocumentVersionCreator", fields: [createdBy], references: [id])
-  approver     User? @relation("DocumentVersionApprover", fields: [approvedBy], references: [id])
+  countryNode  CountryNode  @relation(fields: [countryNodeId], references: [code])
+  creator      User         @relation("DocumentVersionCreator", fields: [createdBy], references: [id])
+  approver     User?        @relation("DocumentVersionApprover", fields: [approvedBy], references: [id], onDelete: Restrict)
 
   @@unique([documentId, version])
   @@index([organisationId, countryNodeId, reviewStatus])

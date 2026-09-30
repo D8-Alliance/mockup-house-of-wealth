@@ -1,4 +1,5 @@
 import { IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { RAG_REVIEW_DECISIONS, RAG_SCOPES, RagReviewDecision, RagScope } from './rag-scope';
 
 export class ChatDto {
   @IsString()
@@ -76,6 +77,12 @@ export class AiDecisionDto {
 }
 
 export class RagDocumentDto {
+  // GLOBAL = all D-8 country nodes, COUNTRY = one country node, PROJECT = one project. Defaults to PROJECT with a projectId, else COUNTRY.
+  @IsOptional() @IsIn(RAG_SCOPES) scope?: RagScope;
+
+  // COUNTRY scope only; defaults to the actor's country node.
+  @IsOptional() @IsString() countryNodeId?: string;
+
   @IsOptional()
   @IsString()
   @MinLength(1)
@@ -94,7 +101,6 @@ export class RagDocumentDto {
   @IsOptional() @IsString() authority?: string;
   @IsOptional() @IsString() jurisdiction?: string;
   @IsOptional() @IsString() industry?: string;
-  @IsOptional() @IsIn(['DRAFT', 'REVIEWED', 'APPROVED']) approvalStatus?: 'DRAFT' | 'REVIEWED' | 'APPROVED';
 
   @IsString()
   @MinLength(1)
@@ -125,7 +131,11 @@ export class RagSearchDto {
   @IsOptional() @IsString() authority?: string;
   @IsOptional() @IsString() jurisdiction?: string;
   @IsOptional() @IsString() industry?: string;
-  @IsOptional() @IsIn(['DRAFT', 'REVIEWED', 'APPROVED']) approvalStatus?: 'DRAFT' | 'REVIEWED' | 'APPROVED';
+}
+
+export class RagReviewDto {
+  @IsIn(RAG_REVIEW_DECISIONS) decision!: RagReviewDecision;
+  @IsOptional() @IsString() comment?: string;
 }
 
 export class ContractRetrievalDto {

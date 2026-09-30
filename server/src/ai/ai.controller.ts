@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -6,7 +6,7 @@ import { Roles } from '../auth/roles.decorator';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { AiService } from './ai.service';
-import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagSearchDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
 import { FeasibilityReviewDto } from './project-feasibility.dto';
 
 @Controller('ai')
@@ -69,12 +69,30 @@ export class AiController {
   @Roles('Super Admin', 'AI Administrator', 'AI Model Reviewer', 'Shariah Reviewer', 'Shariah Committee', 'Compliance Officer', 'Risk Officer')
   review(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: AiDecisionDto) { return this.ai.reviewDecision(actor, id, input); }
 
-  @Post('rag/documents')
+  @Get('rag/countries')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
+  ragCountries() { return this.ai.listRagCountries(); }
+
+  @Get('rag/documents')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
+  listDocuments(@CurrentUser() actor: AuthenticatedUser, @Query('scope') scope?: string, @Query('projectId') projectId?: string, @Query('approvalStatus') approvalStatus?: string) {
+    return this.ai.listRagDocuments(actor, { scope, projectId, approvalStatus });
+  }
+
+  @Post('rag/documents/:id/review')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
+  reviewDocument(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: RagReviewDto) { return this.ai.reviewRagDocument(actor, id, input); }
+
+  @Post('rag/embeddings/backfill')
   @Roles('Super Admin', 'AI Administrator')
+  backfillEmbeddings(@CurrentUser() actor: AuthenticatedUser) { return this.ai.backfillRagEmbeddings(actor); }
+
+  @Post('rag/documents')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
   createDocument(@CurrentUser() actor: AuthenticatedUser, @Body() input: RagDocumentDto) { return this.ai.createDocument(actor, input); }
 
   @Post('rag/documents/upload')
-  @Roles('Super Admin', 'AI Administrator')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
   @UseInterceptors(FileInterceptor('file', {
     limits: { fileSize: 10 * 1024 * 1024 },
     fileFilter: (_request, file, callback) => callback(null, file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf')),

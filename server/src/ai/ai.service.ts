@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -6,11 +6,17 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import pdfParse from 'pdf-parse';
+import * as XLSX from 'xlsx';
 import { AiProvider } from './ai.provider';
-import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, RagDocumentDto, RagSearchDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
 import { scopeOf } from './ai.types';
+import { chunkPages, chunkText, cleanPages, expandQuery, extractPdfPages, queryVariants, RagChunkInput, scoreChunk } from './rag-text';
+import { RAG_EMBEDDING_DIMENSIONS, RagEmbeddingService } from './rag-embedding.service';
+import { assertRagTransition, canManageRagScope, isRagManager, ragManagementWhere, RagScope, ragScopeKey, ragVisibilitySql, ragVisibilityWhere } from './rag-scope';
 import { MembershipService } from '../membership/membership.service';
 import { ContractClauseRetriever } from './contract-clause-retriever.service';
+
+export interface RagSearchResult { id: string; documentId: string; content: string; title: string; sourceType: string; scope: string; pageStart?: number | null; pageEnd?: number | null; paragraphRefs?: string[]; retrieval?: 'keyword' | 'vector' | 'hybrid'; score?: number }
 
 @Injectable()
 export class AiService {
@@ -19,6 +25,7 @@ export class AiService {
     private readonly audit: AuditService,
     private readonly membership: MembershipService,
     private readonly contractRetriever: ContractClauseRetriever,
+    private readonly embeddings: RagEmbeddingService,
     @Inject('AI_PROVIDER') private readonly provider: AiProvider,
   ) {}
 
@@ -30,7 +37,9 @@ export class AiService {
     if (!conversation) throw new NotFoundException('AI conversation not found in the current tenant');
 
     await this.prisma.aiMessage.create({ data: { conversationId: conversation.id, role: 'user', content: input.message } });
-    const result = await this.run(actor, 'chat', 'CHAT', input.message, { message: input.message }, conversation.id);
+    // Ground chat answers in approved knowledge (GLOBAL + the user's country); chat still works if retrieval fails.
+    const ragResults = await this.searchDocuments(actor, { query: input.message, limit: 5 }).catch(() => [] as RagSearchResult[]);
+    const result = await this.run(actor, 'chat', 'CHAT', input.message, { message: input.message, ragSources: this.toRagSources(ragResults) }, conversation.id);
     await this.prisma.aiMessage.create({ data: { conversationId: conversation.id, role: 'assistant', content: JSON.stringify(result.output?.recommendation ?? {}) } });
     return { conversationId: conversation.id, run: result };
   }
@@ -69,9 +78,7 @@ export class AiService {
         hasVerifiedAssetBackingEvidence: evidenceTypes.has('asset_backing'),
         legitimacyStatus: evidenceTypes.has('corporate_kyb') && evidenceTypes.has('due_diligence') ? 'DEMO_VERIFIED' : 'UNVERIFIED',
       },
-      ragSources: ragResults.map((result) => 'document' in result
-        ? { title: result.document.title, sourceType: result.document.sourceType, content: result.content }
-        : { title: result.title, sourceType: result.sourceType, content: result.content }),
+      ragSources: this.toRagSources(ragResults),
       contractClauses: contractKnowledge.clauses,
       contractKnowledgeSources: contractKnowledge.sources,
       shariahRules,
@@ -122,9 +129,7 @@ export class AiService {
     return this.run(actor, 'shariah_assistant', 'ANALYZE_SHARIAH', input.terms, {
       ...input,
       ...projectContext,
-      ragSources: ragResults.map((result) => 'document' in result
-        ? { title: result.document.title, sourceType: result.document.sourceType, content: result.content }
-        : { title: result.title, sourceType: result.sourceType, content: result.content }),
+      ragSources: this.toRagSources(ragResults),
       contractClauses: contractKnowledge.clauses,
       contractKnowledgeSources: contractKnowledge.sources,
       shariahRules,
@@ -181,9 +186,36 @@ export class AiService {
     if (!document) throw new NotFoundException('Project document not found');
     assertTenantScope(actor, document.project, 'Project document');
     this.assertProjectSponsorScope(actor, document.project.projectSponsorId);
+    // Charge credits before any state change so an insufficient balance cannot
+    // leave the requirement in AI_PROCESSING or the AiRun in RUNNING.
     await this.membership.consumeCredits(actor, 'PROJECT_SUMMARY', documentId);
-    if (!document.extractedText.trim()) throw new BadRequestException('The document has no extractable text. OCR is required before analysis.');
-    const content = document.extractedText;
+    const requirement = await this.prisma.projectEvidenceRequirement.findFirst({ where: { projectId, uploadedDocumentId: documentId, organisationId: document.organisationId, countryNodeId: document.countryNodeId } });
+    if (requirement) await this.prisma.projectEvidenceRequirement.update({ where: { id: requirement.id }, data: { status: 'AI_PROCESSING', verificationStatus: 'AI_PROCESSING' } });
+    const aiRun = await this.prisma.aiRun.create({ data: { requestId: randomUUID(), featureKey: 'project_evidence_verification', action: 'ANALYZE_PROJECT_EVIDENCE', userId: actor.userId, organisationId: document.organisationId, countryNodeId: document.countryNodeId, input: { projectId, documentId, evidenceType: requirement?.evidenceType || null, fileName: document.fileName }, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });
+    await this.audit.recordActor(actor, { action: 'ai.request', resourceType: 'AiRun', resourceId: aiRun.id, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { featureKey: aiRun.featureKey, documentId } });
+    const failVerification = async (reason: string, missingFields: string[]) => {
+      await this.prisma.aiRun.update({ where: { id: aiRun.id }, data: { status: 'FAILED', output: { error: reason }, completedAt: new Date() } });
+      if (requirement) await this.prisma.projectEvidenceRequirement.update({ where: { id: requirement.id }, data: { status: 'REQUIRES_REVIEW', verificationStatus: 'REQUIRES_REVIEW', verificationResult: { validationResult: reason, missingFields } } });
+    };
+    let extractedContent = document.extractedText.trim();
+    if (!extractedContent && /\.(xlsx|xls)$/i.test(document.fileName)) {
+      try {
+        const workbook = XLSX.read(document.fileContent, { type: 'buffer' });
+        extractedContent = workbook.SheetNames.map((sheetName) => `Sheet: ${sheetName}\n${XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName])}`).join('\n').trim();
+      } catch {
+        await failVerification('The spreadsheet could not be read.', ['Readable spreadsheet content']);
+        throw new BadRequestException('The spreadsheet could not be read. Upload a valid XLSX file.');
+      }
+      await this.prisma.projectDocument.update({ where: { id: documentId }, data: { extractedText: extractedContent, extractionStatus: extractedContent.length >= 20 ? 'EXTRACTED' : 'FAILED', extractionError: extractedContent.length >= 20 ? null : 'The spreadsheet contains insufficient extractable content.' } });
+    } else if (!extractedContent && /\.csv$/i.test(document.fileName)) {
+      extractedContent = Buffer.from(document.fileContent).toString('utf8').trim();
+      await this.prisma.projectDocument.update({ where: { id: documentId }, data: { extractedText: extractedContent, extractionStatus: extractedContent.length >= 20 ? 'EXTRACTED' : 'FAILED', extractionError: extractedContent.length >= 20 ? null : 'The CSV contains insufficient extractable content.' } });
+    }
+    if (!extractedContent) {
+      await failVerification('OCR required before analysis.', ['Extractable document text']);
+      throw new BadRequestException('The document has no extractable text. OCR is required before analysis.');
+    }
+    const content = extractedContent;
     const result = {
       documentName: document.fileName,
       parties: Array.from(new Set((content.match(/\b[A-Z][A-Za-z&,. ]{2,60}(?:Berhad|Ltd|Limited|Sdn Bhd|LLC)\b/g) || []).slice(0, 10))),
@@ -194,9 +226,57 @@ export class AiService {
       requiresHumanReview: true,
     };
     const confidenceScore = result.parties.length || result.importantDates.length || result.extractedFigures.length || result.keyTerms.length ? 70 : 20;
-    const analysis = await this.prisma.projectDocumentAnalysis.create({ data: { documentId, projectId, organisationId: document.organisationId, countryNodeId: document.countryNodeId, analysedBy: actor.userId, confidenceScore, result } });
+    // Match document content only; the file name is user-controlled and must not satisfy verification.
+    const lowerContent = content.toLowerCase();
+    const lines = content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const financialEvidence = {
+      revenueAssumptions: lines.filter((line) => /revenue|income|sales|turnover/i.test(line)).slice(0, 10),
+      costAssumptions: lines.filter((line) => /cost|expense|opex|capex/i.test(line)).slice(0, 10),
+      cashInflows: lines.filter((line) => /cash\s?inflow|receipts|cash generated|collections/i.test(line)).slice(0, 10),
+      cashOutflows: lines.filter((line) => /cash\s?outflow|payments|disbursement|cash spent/i.test(line)).slice(0, 10),
+      projectionPeriod: (content.match(/(?:\d+\s*(?:year|month)s?|FY\s?\d{2,4}|20\d{2}\s?[-–]\s?20\d{2})/gi) || []).slice(0, 10),
+    };
+    // Each evidence type must show every listed element (any synonym, matched as a
+    // word prefix) plus type-specific substance. VERIFIED still only means
+    // "ready for human verification" — it is never an approval.
+    const hasNumbers = (content.match(/\d[\d,]*(?:\.\d+)?/g) || []).length >= 5;
+    const evidenceChecks: Record<string, Array<{ field: string; terms: string[] } | { field: string; test: () => boolean }>> = {
+      FINANCIAL_MODEL: [
+        { field: 'Revenue assumptions', terms: ['revenue', 'sales', 'turnover'] },
+        { field: 'Cost assumptions', terms: ['cost', 'expense', 'opex', 'capex'] },
+        { field: 'Profitability measure', terms: ['profit', 'net income', 'ebitda', 'margin'] },
+        { field: 'Numeric projections', test: () => hasNumbers },
+      ],
+      CASHFLOW_FORECAST: [
+        { field: 'Cashflow statement', terms: ['cashflow', 'cash flow'] },
+        { field: 'Cash inflows', terms: ['inflow', 'receipts', 'collections', 'cash generated'] },
+        { field: 'Cash outflows', terms: ['outflow', 'payments', 'disbursement', 'cash spent'] },
+        { field: 'Projection period', test: () => financialEvidence.projectionPeriod.length > 0 },
+        { field: 'Numeric projections', test: () => hasNumbers },
+      ],
+      ASSET_VALUATION: [
+        { field: 'Valuation or appraisal', terms: ['valuation', 'appraisal', 'valuer'] },
+        { field: 'Stated value', terms: ['market value', 'asset value', 'valued at', 'fair value', 'appraised value'] },
+        { field: 'Monetary figure', test: () => result.extractedFigures.length > 0 },
+      ],
+      LEGAL_OWNERSHIP: [
+        { field: 'Title or registration instrument', terms: ['title deed', 'certificate of title', 'land title', 'grant', 'registration'] },
+        { field: 'Owner identification', terms: ['owner', 'ownership', 'proprietor', 'registered to'] },
+      ],
+    };
+    const containsTerm = (term: string) => new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(lowerContent);
+    const missingFields = requirement ? (evidenceChecks[requirement.evidenceType] || []).filter((check) => 'terms' in check ? !check.terms.some(containsTerm) : !check.test()).map((check) => check.field) : [];
+    const finalStatus = requirement && confidenceScore >= 70 && missingFields.length === 0 ? 'VERIFIED' : 'REQUIRES_REVIEW';
+    const enrichedResult = { ...result, financialEvidence };
+    const analysis = await this.prisma.projectDocumentAnalysis.create({ data: { documentId, projectId, organisationId: document.organisationId, countryNodeId: document.countryNodeId, analysedBy: actor.userId, confidenceScore, result: enrichedResult } });
+    await this.prisma.aiRun.update({ where: { id: aiRun.id }, data: { status: 'COMPLETED', output: { analysisId: analysis.id, evidenceType: requirement?.evidenceType || null, extractedInformation: enrichedResult, missingFields, verificationStatus: finalStatus }, completedAt: new Date() } });
+    await this.audit.recordActor(actor, { action: 'ai.response', resourceType: 'AiRun', resourceId: aiRun.id, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { featureKey: aiRun.featureKey, confidenceScore, verificationStatus: finalStatus, requiresHumanReview: true } });
+    if (requirement) {
+      await this.prisma.projectEvidenceRequirement.update({ where: { id: requirement.id }, data: { status: finalStatus, verificationStatus: finalStatus, confidenceScore, verificationResult: { analysisId: analysis.id, extractedInformation: enrichedResult, validationResult: finalStatus === 'VERIFIED' ? 'Required evidence terms detected.' : 'Human verification required.', missingFields } } });
+      if (finalStatus === 'VERIFIED') await this.audit.recordActor(actor, { action: 'project.evidence.verified', resourceType: 'ProjectEvidenceRequirement', resourceId: requirement.id, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { projectId, documentId, evidenceType: requirement.evidenceType, confidenceScore } });
+    }
     await this.audit.recordActor(actor, { action: 'project.document.analyze', resourceType: 'ProjectDocument', resourceId: documentId, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { analysisId: analysis.id, confidenceScore } });
-    return { ...analysis, ...result, confidence: { level: confidenceScore >= 70 ? 'MEDIUM' : 'LOW', scorePercent: confidenceScore, disclaimer: 'Text extraction is advisory and requires legal, financial, compliance, and Shariah verification.' } };
+    return { ...analysis, ...enrichedResult, missingFields, validationResult: finalStatus === 'VERIFIED' ? 'Required evidence terms detected.' : 'Human verification required.', verificationStatus: finalStatus, confidence: { level: confidenceScore >= 70 ? 'MEDIUM' : 'LOW', scorePercent: confidenceScore, disclaimer: 'Text extraction is advisory and requires legal, financial, compliance, and Shariah verification.' } };
   }
 
   analyzeProjectFeasibility(actor: AuthenticatedUser, input: { projectId: string; project: Record<string, unknown>; documents: Array<Record<string, unknown>>; financialAnalysis: Record<string, unknown>; riskAnalysis: Record<string, unknown> }) {
@@ -204,12 +284,12 @@ export class AiService {
   }
 
   async runProjectFeasibility(actor: AuthenticatedUser, projectId: string) {
-    const project = await this.prisma.project.findUnique({ where: { projectId }, include: { documents: { select: { id: true, fileName: true, extractedText: true, extractionStatus: true, createdAt: true } }, milestones: { select: { title: true, completionPct: true, status: true } } } });
+    const project = await this.prisma.project.findUnique({ where: { projectId }, include: { documents: { select: { id: true, fileName: true, extractedText: true, extractionStatus: true, createdAt: true } }, evidenceRequirements: true, milestones: { select: { title: true, completionPct: true, status: true } } } });
     if (!project) throw new NotFoundException('Project not found in the current tenant');
     assertTenantScope(actor, project, 'Project');
     this.assertProjectSponsorScope(actor, project.projectSponsorId);
     const financialAnalysis = this.buildFinancialAnalysis(project, project.documents.map((document) => document.extractedText).join('\n'));
-    const evidenceIntelligence = this.buildEvidenceIntelligence(project, project.documents, financialAnalysis);
+    const evidenceIntelligence = this.buildEvidenceIntelligence(project, project.documents, financialAnalysis, project.evidenceRequirements);
     const projectRiskAssessment = this.buildProjectRiskAssessment(financialAnalysis, evidenceIntelligence, project.milestones);
     const projectFeasibility = this.buildProjectFeasibilityScore(financialAnalysis, evidenceIntelligence, projectRiskAssessment, project.milestones);
     const riskAnalysis = { ...this.buildFeasibilityRiskAnalysis(project, project.documents), projectRiskAssessment };
@@ -221,12 +301,13 @@ export class AiService {
     const history = [{ stage: 'DRAFT', reviewerId: actor.userId, reviewerRole: 'AI System', date: new Date().toISOString(), decision: 'AI_RECOMMENDATION', comment: 'AI analysis generated. Human review required; no funding approval was granted.' }];
     const updated = await this.prisma.aiRun.update({ where: { id: aiRun.id }, data: { output, reviewStage: 'DRAFT', reviewHistory: history } });
     await this.audit.recordActor(actor, { action: 'project.feasibility.analyze', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { aiRunId: updated.id, documentCount: project.documents.length, reviewStage: 'DRAFT' } });
-    return { ...updated, project: { projectId, projectCode: project.projectCode, projectName: project.projectName, sector: project.sector, fundingRequired: project.fundingRequired, status: project.status }, financialAnalysis, riskAnalysis, evidenceIntelligence, projectFeasibility, confidence, investmentReadiness, shariahAssessment, humanReviewRequired: true, reviewStage: 'DRAFT' };
+    await this.audit.recordActor(actor, { action: 'project.feasibility.analysis_refreshed', resourceType: 'AiRun', resourceId: updated.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId, source: 'LATEST_PROJECT_DOCUMENTS', evidenceRequirementCount: project.evidenceRequirements.length, evidenceReadinessScore: evidenceIntelligence.scorePercent } });
+    return { ...updated, project: { projectId, projectCode: project.projectCode, projectName: project.projectName, sector: project.sector, fundingRequired: project.fundingRequired, status: project.status }, financialAnalysis, riskAnalysis, evidenceIntelligence, projectFeasibility, confidence, investmentReadiness, shariahAssessment, humanReviewRequired: true, reviewStage: 'DRAFT', roleResponsibility: this.reviewResponsibility('DRAFT') };
   }
 
-  async latestProjectFeasibility(actor: AuthenticatedUser, projectId: string) { const project = await this.prisma.project.findUnique({ where: { projectId }, include: { documents: { select: { fileName: true, extractedText: true, extractionStatus: true } } } }); if (!project) throw new NotFoundException('Project not found in the current tenant'); assertTenantScope(actor, project, 'Project'); const runs = await this.prisma.aiRun.findMany({ where: { featureKey: 'project_feasibility', organisationId: project.organisationId, countryNodeId: project.countryNodeId }, orderBy: { createdAt: 'desc' }, take: 25 }); const run = runs.find((item) => (item.input as { projectId?: string }).projectId === projectId); if (!run) return null; const storedOutput = run.output as { recommendation?: { financialAnalysis?: Record<string, unknown>; riskAnalysis?: Record<string, unknown>; evidenceIntelligence?: Record<string, unknown>; confidence?: Record<string, unknown>; investmentReadiness?: Record<string, unknown>; shariahAssessment?: Record<string, unknown> }; evidenceIntelligence?: Record<string, unknown>; confidence?: Record<string, unknown>; investmentReadiness?: Record<string, unknown>; shariahAssessment?: Record<string, unknown>; humanReviewRequired?: boolean } | null; const recommendation = storedOutput?.recommendation; const financialAnalysis = recommendation?.financialAnalysis || {}; const evidenceIntelligence = recommendation?.evidenceIntelligence || storedOutput?.evidenceIntelligence || this.buildEvidenceIntelligence(project, project.documents, financialAnalysis); const confidence = recommendation?.confidence || storedOutput?.confidence || { level: Number(evidenceIntelligence.scorePercent || 0) >= 70 ? 'MEDIUM' : 'LOW', scorePercent: evidenceIntelligence.scorePercent || 0, disclaimer: 'Confidence reflects evidence quality and completeness, not project viability.', reasons: evidenceIntelligence.confidenceReasons || [] }; const riskAnalysis = recommendation?.riskAnalysis || {}; const investmentReadiness = recommendation?.investmentReadiness || storedOutput?.investmentReadiness || this.buildInvestmentReadiness(evidenceIntelligence, financialAnalysis, (riskAnalysis as { projectRiskAssessment?: unknown }).projectRiskAssessment || []); const shariahAssessment = recommendation?.shariahAssessment || storedOutput?.shariahAssessment || this.buildShariahStructureAssessment(project.proposedShariahContract, project, project.documents); return { ...run, project: { projectId: project.projectId, projectCode: project.projectCode, projectName: project.projectName, sector: project.sector, fundingRequired: project.fundingRequired, status: project.status }, financialAnalysis, riskAnalysis, evidenceIntelligence, confidence, investmentReadiness, shariahAssessment, humanReviewRequired: storedOutput?.humanReviewRequired !== false, reviewStage: run.reviewStage }; }
+  async latestProjectFeasibility(actor: AuthenticatedUser, projectId: string) { const project = await this.prisma.project.findUnique({ where: { projectId }, include: { documents: { select: { fileName: true, extractedText: true, extractionStatus: true } }, evidenceRequirements: true } }); if (!project) throw new NotFoundException('Project not found in the current tenant'); assertTenantScope(actor, project, 'Project'); const runs = await this.prisma.aiRun.findMany({ where: { featureKey: 'project_feasibility', organisationId: project.organisationId, countryNodeId: project.countryNodeId }, orderBy: { createdAt: 'desc' }, take: 25 }); const run = runs.find((item) => (item.input as { projectId?: string }).projectId === projectId); if (!run) return null; const storedOutput = run.output as { recommendation?: { financialAnalysis?: Record<string, unknown>; riskAnalysis?: Record<string, unknown>; evidenceIntelligence?: Record<string, unknown>; confidence?: Record<string, unknown>; investmentReadiness?: Record<string, unknown>; shariahAssessment?: Record<string, unknown> }; evidenceIntelligence?: Record<string, unknown>; confidence?: Record<string, unknown>; investmentReadiness?: Record<string, unknown>; shariahAssessment?: Record<string, unknown>; humanReviewRequired?: boolean } | null; const recommendation = storedOutput?.recommendation; const financialAnalysis = recommendation?.financialAnalysis || {}; const evidenceIntelligence = recommendation?.evidenceIntelligence || storedOutput?.evidenceIntelligence || this.buildEvidenceIntelligence(project, project.documents, financialAnalysis, project.evidenceRequirements); const confidence = recommendation?.confidence || storedOutput?.confidence || { level: Number(evidenceIntelligence.scorePercent || 0) >= 70 ? 'MEDIUM' : 'LOW', scorePercent: evidenceIntelligence.scorePercent || 0, disclaimer: 'Confidence reflects evidence quality and completeness, not project viability.', reasons: evidenceIntelligence.confidenceReasons || [] }; const riskAnalysis = recommendation?.riskAnalysis || {}; const investmentReadiness = recommendation?.investmentReadiness || storedOutput?.investmentReadiness || this.buildInvestmentReadiness(evidenceIntelligence, financialAnalysis, (riskAnalysis as { projectRiskAssessment?: unknown }).projectRiskAssessment || []); const shariahAssessment = recommendation?.shariahAssessment || storedOutput?.shariahAssessment || this.buildShariahStructureAssessment(project.proposedShariahContract, project, project.documents); return { ...run, project: { projectId: project.projectId, projectCode: project.projectCode, projectName: project.projectName, sector: project.sector, fundingRequired: project.fundingRequired, status: project.status }, financialAnalysis, riskAnalysis, evidenceIntelligence, confidence, investmentReadiness, shariahAssessment, humanReviewRequired: storedOutput?.humanReviewRequired !== false, reviewStage: run.reviewStage, roleResponsibility: this.reviewResponsibility(run.reviewStage) }; }
 
-  async reviewProjectFeasibility(actor: AuthenticatedUser, projectId: string, runId: string, input: { reviewStage: string; decision: string; comment: string }) {
+  async reviewProjectFeasibility(actor: AuthenticatedUser, projectId: string, runId: string, input: { reviewStage: string; decision: string; comment: string; supportingEvidence?: string[] }) {
     const project = await this.prisma.project.findUnique({ where: { projectId } });
     if (!project) throw new NotFoundException('Project not found in the current tenant');
     assertTenantScope(actor, project, 'Project');
@@ -250,10 +331,23 @@ export class AiService {
     const targetStage = isFinalCommitteeReview || !accepted ? run.reviewStage : nextStage[run.reviewStage];
     if (!targetStage || (accepted && !isFinalCommitteeReview && ![run.reviewStage, targetStage].includes(input.reviewStage)) || (!accepted && input.reviewStage !== run.reviewStage) || (isFinalCommitteeReview && input.reviewStage !== run.reviewStage)) throw new BadRequestException(`Invalid feasibility review transition from ${run.reviewStage} to ${input.reviewStage}`);
     const history = Array.isArray(run.reviewHistory) ? run.reviewHistory : [];
-    const reviewEntry = { stage: run.reviewStage, reviewerId: actor.userId, reviewerRole: actor.role, date: new Date().toISOString(), decision: input.decision, comment: input.comment.trim() };
+    const reviewStatus = input.decision === 'REJECTED' ? 'REJECTED' : input.decision === 'REQUEST_CHANGES' ? 'REQUEST_CHANGES' : 'APPROVED';
+    const reviewEntry = { stage: run.reviewStage, reviewerId: actor.userId, reviewer: actor.userId, reviewerRole: actor.role, date: new Date().toISOString(), status: reviewStatus, decision: input.decision, comment: input.comment.trim(), supportingEvidence: input.supportingEvidence || [] };
     const updated = await this.prisma.aiRun.update({ where: { id: run.id }, data: { reviewStage: targetStage, reviewHistory: [...history, reviewEntry] } });
-    await this.audit.recordActor(actor, { action: 'project.feasibility.review_decision', resourceType: 'AiRun', resourceId: run.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId, reviewStage: run.reviewStage, targetStage, decision: input.decision, comment: input.comment } });
-    return { ...updated, humanReviewRequired: true, finalHumanDecisionRecorded: isFinalCommitteeReview };
+    await this.audit.recordActor(actor, { action: 'project.feasibility.review_decision', resourceType: 'AiRun', resourceId: run.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId, reviewStage: run.reviewStage, targetStage, reviewerId: actor.userId, reviewerRole: actor.role, status: reviewStatus, decision: input.decision, comment: input.comment, supportingEvidence: input.supportingEvidence || [], aiRecommendationIsNotApproval: true } });
+    return { ...updated, humanReviewRequired: true, finalHumanDecisionRecorded: isFinalCommitteeReview, reviewStatus, aiRecommendationIsNotApproval: true, roleResponsibility: this.reviewResponsibility(targetStage) };
+  }
+
+  private reviewResponsibility(stage: string) {
+    const responsibilities: Record<string, string[]> = {
+      FINANCE_REVIEW: ['NPV', 'IRR', 'DSCR', 'Cashflow'],
+      RISK_REVIEW: ['Risk flags', 'Stress scenarios'],
+      COMPLIANCE_REVIEW: ['Documents', 'Regulatory requirements'],
+      SHARIAH_REVIEW: ['Contract structure', 'Shariah concerns'],
+      INVESTMENT_COMMITTEE_REVIEW: ['Final human investment decision'],
+      FINAL_DECISION: ['Final human investment decision'],
+    };
+    return responsibilities[stage] || ['Project submission and readiness for formal review'];
   }
 
   private buildFinancialAnalysis(project: { totalProjectCost: Prisma.Decimal; sponsorContribution: Prisma.Decimal; fundingRequired: Prisma.Decimal }, text: string) {
@@ -283,8 +377,8 @@ export class AiService {
     const has = (terms: string[]) => terms.some((term) => text.includes(term));
     const checksByStructure: Record<string, Array<{ label: string; complete: boolean; required: string }>> = {
       Musharakah: [
-        { label: 'Partners identified', complete: Boolean(project.projectSponsorId), required: 'Identify all Musharakah partners and their legal capacity.' },
-        { label: 'Capital contribution available', complete: Number(project.sponsorContribution) > 0, required: 'Document each partner contribution and funding source.' },
+        { label: 'Partner relationship identified', complete: Boolean(project.projectSponsorId), required: 'Identify all Musharakah partners and their legal capacity.' },
+        { label: 'Capital contribution concept identified', complete: Number(project.sponsorContribution) > 0, required: 'Document each partner contribution and funding source.' },
         { label: 'Profit sharing ratio', complete: has(['profit sharing ratio', 'profit-sharing ratio', 'profit split']), required: 'Provide the agreed profit-sharing ratio and calculation basis.' },
         { label: 'Loss allocation basis', complete: has(['loss sharing', 'loss allocation']), required: 'Confirm loss allocation follows contributed capital and applicable Shariah rules.' },
       ],
@@ -310,9 +404,11 @@ export class AiService {
         { label: 'Cashflow and redemption terms', complete: has(['redemption', 'distribution', 'periodic payment']), required: 'Provide distribution, maturity, redemption, and default terms.' },
       ],
     };
-    const checks = checksByStructure[structure] || [{ label: 'Recognised structure identified', complete: false, required: 'Confirm the proposed structure and provide the approved term sheet.' }];
+    const checks = checksByStructure[structure] || [{ label: 'Proposed Structure Detected', complete: false, required: 'Confirm the proposed structure and provide the approved term sheet.' }];
     const missing = checks.filter((check) => !check.complete).map((check) => check.required);
-    return { structure, reviewTitle: `${structure} Review`, suitability: missing.length ? 'REQUIRES_SHARIAH_REVIEW' : 'SUITABLE_FOR_SHARIAH_REVIEW', checks: checks.map((check) => ({ label: check.label, status: check.complete ? 'COMPLETE' : 'MISSING' })), requiredInformation: missing, potentialConcerns: missing.length ? ['The proposed structure cannot be treated as Shariah-compliant until the missing information is independently reviewed.', ...missing] : ['Confirm asset ownership, risk allocation, profit treatment, and prohibited elements during formal Shariah review.'], status: 'PENDING_SHARIAH_REVIEW', humanReviewRequired: true };
+    const assessment = checks.filter((check) => check.complete).map((check) => check.label);
+    const status = missing.length ? 'REQUIRES_INFORMATION' : 'READY_FOR_SHARIAH_REVIEW';
+    return { structure, reviewTitle: `${structure} Review`, suitability: missing.length ? 'REQUIRES_SHARIAH_REVIEW' : 'READY_FOR_SHARIAH_REVIEW', checks: checks.map((check) => ({ label: check.label, status: check.complete ? 'COMPLETE' : 'MISSING' })), assessment, requiredInformation: missing, missingInformation: missing, potentialConcerns: missing.length ? ['The proposed structure is detected but cannot be treated as Shariah-approved until the missing information is independently reviewed.', ...missing] : ['Confirm asset ownership, risk allocation, profit treatment, and prohibited elements during formal Shariah review.'], status, statusFlow: ['DETECTED', 'REQUIRES_INFORMATION', 'READY_FOR_SHARIAH_REVIEW', 'REVIEWED_BY_SHARIAH_REVIEWER'], humanReviewStatus: 'NOT_REVIEWED', humanReviewRequired: true, disclaimer: 'AI assessment is not a Shariah ruling or approval. Final determination requires qualified Shariah review.' };
   }
 
   private buildFeasibilityRiskAnalysis(project: { description: string; status: string }, documents: Array<{ fileName: string; extractedText: string; extractionStatus: string }>) { const text = documents.map((document) => document.extractedText).join('\n').toLowerCase(); const missingEvidence = ['financial model or cashflow forecast', 'asset appraisal or valuation', 'legal and ownership evidence'].filter((item) => !text.includes(item.split(' ')[0])); const riskFlags = [{ title: 'Missing evidence', severity: missingEvidence.length ? 'HIGH' : 'LOW', description: missingEvidence.length ? `Missing: ${missingEvidence.join(', ')}` : 'Core evidence keywords were found in uploaded documents.' }, ...(documents.some((document) => document.extractionStatus === 'FAILED') ? [{ title: 'Document extraction failure', severity: 'HIGH', description: 'One or more uploaded documents could not be reliably extracted.' }] : [])]; return { riskFlags, missingEvidence, keyAssumptions: [{ name: 'Project description', value: project.description }, { name: 'Project lifecycle status', value: project.status }, { name: 'Uploaded document count', value: documents.length }], sourceDocuments: documents.map((document) => document.fileName) }; }
@@ -327,13 +423,19 @@ export class AiService {
     return { available: true, score, status: score >= 70 ? 'SUFFICIENT_FEASIBILITY_EVIDENCE' : 'REQUIRES_ADDITIONAL_INFORMATION', components: { financialFeasibility: 35, marketAssumptions: marketScore, executionReadiness: 20, riskExposure: projectRiskAssessment.overallLevel === 'LOW' ? 25 : projectRiskAssessment.overallLevel === 'MEDIUM' ? 15 : 0 }, reason: 'Score reflects financial feasibility, market assumptions, execution readiness, and risk exposure. It is not an investment approval.' };
   }
 
-  private buildEvidenceIntelligence(project: { description: string; sector: string; fundingRequired: Prisma.Decimal; totalProjectCost: Prisma.Decimal; sponsorContribution: Prisma.Decimal; proposedShariahContract: string }, documents: Array<{ fileName: string; extractedText: string; extractionStatus: string }>, financialAnalysis: Record<string, unknown>) {
+  private buildEvidenceIntelligence(project: { description: string; sector: string; fundingRequired: Prisma.Decimal; totalProjectCost: Prisma.Decimal; sponsorContribution: Prisma.Decimal; proposedShariahContract: string }, documents: Array<{ fileName: string; extractedText: string; extractionStatus: string }>, financialAnalysis: Record<string, unknown>, requirements: Array<{ evidenceType: string; status: string; uploadedDocumentId: string | null }> = []) {
     const text = documents.map((document) => `${document.fileName}\n${document.extractedText}`).join('\n').toLowerCase();
     const hasAny = (terms: string[]) => terms.some((term) => text.includes(term));
-    const hasFinancialModel = hasAny(['financial model', 'income statement', 'profit and loss', 'financial projection', 'audited financial']);
-    const hasCashflowProjection = Array.isArray((financialAnalysis.cashflow as { extractedCashFlows?: unknown[] } | undefined)?.extractedCashFlows) && ((financialAnalysis.cashflow as { extractedCashFlows?: unknown[] }).extractedCashFlows?.length || 0) >= 2;
-    const hasAssetValuation = hasAny(['valuation report', 'asset valuation', 'asset appraisal', 'land appraisal', 'property valuation']);
-    const hasLegalOwnership = hasAny(['legal ownership', 'land title', 'title deed', 'ownership document', 'certificate of title']);
+    // Per evidence type: once dedicated evidence has been uploaded, only its
+    // verification result counts; otherwise fall back to scanning all documents.
+    const evidenceAvailable = (type: string, fallback: () => boolean) => {
+      const uploaded = requirements.find((item) => item.evidenceType === type && item.uploadedDocumentId);
+      return uploaded ? uploaded.status === 'VERIFIED' : fallback();
+    };
+    const hasFinancialModel = evidenceAvailable('FINANCIAL_MODEL', () => hasAny(['financial model', 'income statement', 'profit and loss', 'financial projection', 'audited financial']));
+    const hasCashflowProjection = evidenceAvailable('CASHFLOW_FORECAST', () => Array.isArray((financialAnalysis.cashflow as { extractedCashFlows?: unknown[] } | undefined)?.extractedCashFlows) && ((financialAnalysis.cashflow as { extractedCashFlows?: unknown[] }).extractedCashFlows?.length || 0) >= 2);
+    const hasAssetValuation = evidenceAvailable('ASSET_VALUATION', () => hasAny(['valuation report', 'asset valuation', 'asset appraisal', 'land appraisal', 'property valuation']));
+    const hasLegalOwnership = evidenceAvailable('LEGAL_OWNERSHIP', () => hasAny(['legal ownership', 'land title', 'title deed', 'ownership document', 'certificate of title']));
     const hasBusinessPlan = hasAny(['business plan', 'feasibility study']) || Boolean(project.description.trim());
     const hasMarketStudy = hasAny(['market study', 'market analysis', 'market demand', 'offtake', 'customer research']);
     const hasShariahStructure = Boolean(project.proposedShariahContract && ['ijarah', 'musharakah', 'mudarabah', 'wakalah', 'sukuk'].includes(project.proposedShariahContract.toLowerCase()));
@@ -356,10 +458,11 @@ export class AiService {
       { evidence: 'Legal Documents', status: hasLegalOwnership ? 'AVAILABLE' : 'MISSING', priority: 'High', requiredAction: hasLegalOwnership ? 'No action required.' : 'Submit ownership, title, and registration documents.' },
       { evidence: 'Market Study', status: hasMarketStudy ? 'AVAILABLE' : 'MISSING', priority: 'High', requiredAction: hasMarketStudy ? 'Review' : 'Upload' },
     ];
-    const projectDataScore = [project.description.trim(), project.sector.trim(), Number(project.fundingRequired) > 0, Number(project.totalProjectCost) > 0, Number(project.sponsorContribution) >= 0].filter(Boolean).length / 5 * 25;
-    const documentScore = matrix.filter((item) => item.status === 'AVAILABLE').length / matrix.length * 35;
+    const weights = { projectData: 30, requiredDocuments: 25, financialAssumptions: 30, supportingEvidence: 15 };
+    const projectDataScore = [project.description.trim(), project.sector.trim(), Number(project.fundingRequired) > 0, Number(project.totalProjectCost) > 0, Number(project.sponsorContribution) >= 0].filter(Boolean).length / 5 * weights.projectData;
+    const documentScore = matrix.filter((item) => item.status === 'AVAILABLE').length / matrix.length * weights.requiredDocuments;
     const financialScore = (hasFinancialModel ? 15 : 0) + (hasCashflowProjection ? 15 : 0);
-    const supportingScore = documents.length > 0 && documents.every((document) => document.extractionStatus !== 'FAILED') ? 10 : documents.length ? 5 : 0;
+    const supportingScore = documents.length > 0 && documents.every((document) => document.extractionStatus !== 'FAILED') ? weights.supportingEvidence : documents.length ? Math.round(weights.supportingEvidence / 2) : 0;
     const scorePercent = Math.round(projectDataScore + documentScore + financialScore + supportingScore);
     const confidenceReasons = [
       `${documents.length} project document${documents.length === 1 ? '' : 's'} available for assessment.`,
@@ -369,20 +472,27 @@ export class AiService {
       ...(hasLegalOwnership ? [] : ['No legal ownership documents submitted.']),
       ...(hasMarketStudy ? [] : ['No market study or historical market evidence submitted.']),
     ];
-    return { scorePercent, status: scorePercent >= 70 ? 'SUFFICIENT_EVIDENCE' : 'INSUFFICIENT_EVIDENCE', components: { projectData: Math.round(projectDataScore), requiredDocuments: Math.round(documentScore), financialAssumptions: financialScore, supportingEvidence: supportingScore }, coverage, matrix, nextActions: coverage.filter((item) => item.status === 'PENDING').map((item) => item.requiredAction).filter((action) => action !== 'No action required.').slice(0, 5), confidenceReasons, disclaimer: 'Evidence readiness measures the quality and completeness of submitted evidence. It does not indicate project viability, approval, or investment suitability.' };
+    return { scorePercent, status: scorePercent >= 70 ? 'SUFFICIENT_EVIDENCE' : 'INSUFFICIENT_EVIDENCE', weights, components: { projectData: Math.round(projectDataScore), requiredDocuments: Math.round(documentScore), financialAssumptions: financialScore, supportingEvidence: supportingScore }, contributions: { projectData: Math.round(projectDataScore), requiredDocuments: Math.round(documentScore), financialAssumptions: financialScore, supportingEvidence: supportingScore }, coverage, matrix, nextActions: coverage.filter((item) => item.status === 'PENDING').map((item) => item.requiredAction).filter((action) => action !== 'No action required.').slice(0, 5), confidenceReasons, methodology: 'Evidence Readiness evaluates data completeness, document availability, and supporting evidence quality before financial feasibility assessment. It does not indicate whether the project is financially good or bad.', disclaimer: 'Evidence readiness measures the quality and completeness of submitted evidence. It does not indicate project viability, approval, or investment suitability.' };
   }
   private buildProjectRiskAssessment(financialAnalysis: Record<string, any>, evidenceIntelligence: Record<string, any>, milestones: Array<{ title: string; completionPct: number; status: string }>) {
     const matrix = evidenceIntelligence.matrix as Array<{ evidence: string; status: string }>;
     const available = (name: string) => matrix.some((item) => item.evidence === name && item.status === 'AVAILABLE');
-    const financialMissing = financialAnalysis.financialFeasibility === 'REQUIRES_ADDITIONAL_INFORMATION';
+    const missingEvidence = matrix.filter((item) => item.status !== 'AVAILABLE').map((item) => item.evidence);
+    const financialInputsMissing = ['Financial Model', 'Cashflow Forecast'].filter((item) => missingEvidence.includes(item));
+    const informationRiskLevel = missingEvidence.some((item) => ['Financial Model', 'Cashflow Forecast', 'Valuation Report', 'Legal Documents'].includes(item)) ? 'HIGH' : missingEvidence.length ? 'MEDIUM' : 'LOW';
+    const informationReason = missingEvidence.length ? `Missing submitted evidence: ${missingEvidence.join(', ')}.` : 'Required project evidence is available for assessment.';
+    const informationImpact = missingEvidence.length ? 'Project, financial, ownership, or market viability cannot be fully assessed until the missing evidence is verified.' : 'No material information availability constraint was identified.';
+    const informationMitigation = missingEvidence.length ? `Upload and verify: ${missingEvidence.join(', ')}.` : 'Maintain current evidence and refresh documents when assumptions change.';
+    const financialMetricRisk = financialAnalysis.dscr !== null && financialAnalysis.dscr < 1;
     const risks = [
-      { category: 'Market Risk', level: financialAnalysis.assumptions?.revenue === null ? 'HIGH' : 'MEDIUM', description: financialAnalysis.assumptions?.revenue === null ? 'Revenue assumptions were not found in the submitted financial evidence.' : 'Revenue assumptions require validation against market demand and offtake evidence.', impact: 'Revenue shortfall could reduce cash generation and debt repayment capacity.', mitigation: 'Submit customer, pricing, offtake, and market validation evidence.' },
-      { category: 'Financial Risk', level: financialMissing || financialAnalysis.dscr === null ? 'HIGH' : financialAnalysis.dscr < 1 ? 'HIGH' : 'MEDIUM', description: financialMissing ? 'Core financial metrics cannot be calculated from the submitted model.' : financialAnalysis.dscr === null ? 'Debt service coverage cannot be assessed because debt service data is missing.' : 'Financial performance remains dependent on the submitted assumptions.', impact: 'Unexpected costs or weaker cashflow may impair returns and repayment.', mitigation: 'Provide an auditable model with CAPEX, OPEX, revenue, debt service, and sensitivity assumptions.' },
-      { category: 'Execution Risk', level: milestones.length && milestones.every((milestone) => milestone.completionPct >= 0) ? 'MEDIUM' : 'HIGH', description: milestones.length ? 'Execution milestones are present but require delivery monitoring.' : 'No project execution milestones were submitted.', impact: 'Delays may increase costs and defer revenue generation.', mitigation: 'Provide a dated implementation plan, owners, dependencies, and completion evidence.' },
-      { category: 'Operational Risk', level: financialAnalysis.assumptions?.opex === null ? 'HIGH' : 'MEDIUM', description: financialAnalysis.assumptions?.opex === null ? 'Operating expense assumptions were not found.' : 'Operating costs require validation against operating capacity and supplier assumptions.', impact: 'Higher operating costs could reduce profit margin and cashflow.', mitigation: 'Submit an OPEX schedule, supplier quotations, staffing plan, and operating controls.' },
-      { category: 'Regulatory Risk', level: available('Legal Documents') ? 'MEDIUM' : 'HIGH', description: available('Legal Documents') ? 'Legal evidence is available for human compliance review.' : 'Legal ownership and registration evidence is missing.', impact: 'Unresolved ownership or regulatory matters may prevent approval or funding.', mitigation: 'Submit title, ownership, registration, permits, and compliance evidence for review.' },
+      { type: 'INFORMATION', category: 'Information Availability Risk', level: informationRiskLevel, reason: informationReason, description: informationReason, impact: informationImpact, mitigation: informationMitigation, mitigationAction: informationMitigation },
+      { type: 'PROJECT', category: 'Market Risk', level: 'MEDIUM', reason: financialAnalysis.assumptions?.revenue === null ? 'Revenue assumptions require market evidence.' : 'Revenue assumptions require validation against market demand and offtake evidence.', description: financialAnalysis.assumptions?.revenue === null ? 'Revenue assumptions require market evidence.' : 'Revenue assumptions require validation against market demand and offtake evidence.', impact: 'Revenue shortfall could reduce cash generation and debt repayment capacity.', mitigation: 'Submit customer, pricing, offtake, and market validation evidence.', mitigationAction: 'Submit customer, pricing, offtake, and market validation evidence.' },
+      { type: 'PROJECT', category: 'Financial Risk', level: financialMetricRisk ? 'HIGH' : 'MEDIUM', reason: financialMetricRisk ? 'Debt service coverage is below the minimum assessed threshold.' : 'No adverse financial metric has been identified from the available inputs.', description: financialMetricRisk ? 'Debt service coverage is below the minimum assessed threshold.' : 'No adverse financial metric has been identified from the available inputs.', impact: 'Weak debt service coverage may impair repayment capacity.', mitigation: 'Review pricing, costs, leverage, repayment structure, and downside sensitivity.', mitigationAction: 'Review pricing, costs, leverage, repayment structure, and downside sensitivity.' },
+      { type: 'PROJECT', category: 'Execution Risk', level: milestones.length && milestones.every((milestone) => milestone.completionPct >= 0) ? 'MEDIUM' : 'HIGH', reason: milestones.length ? 'Execution milestones are present but require delivery monitoring.' : 'No project execution milestones were submitted.', description: milestones.length ? 'Execution milestones are present but require delivery monitoring.' : 'No project execution milestones were submitted.', impact: 'Delays may increase costs and defer revenue generation.', mitigation: 'Provide a dated implementation plan, owners, dependencies, and completion evidence.', mitigationAction: 'Provide a dated implementation plan, owners, dependencies, and completion evidence.' },
+      { type: 'PROJECT', category: 'Operational Risk', level: 'MEDIUM', reason: financialAnalysis.assumptions?.opex === null ? 'Operating expense assumptions require operational validation.' : 'Operating costs require validation against operating capacity and supplier assumptions.', description: financialAnalysis.assumptions?.opex === null ? 'Operating expense assumptions require operational validation.' : 'Operating costs require validation against operating capacity and supplier assumptions.', impact: 'Higher operating costs could reduce profit margin and cashflow.', mitigation: 'Submit an OPEX schedule, supplier quotations, staffing plan, and operating controls.', mitigationAction: 'Submit an OPEX schedule, supplier quotations, staffing plan, and operating controls.' },
+      { type: 'PROJECT', category: 'Regulatory Risk', level: 'MEDIUM', reason: available('Legal Documents') ? 'Legal evidence is available for human compliance review.' : 'Regulatory exposure remains unverified until ownership and registration evidence is reviewed.', description: available('Legal Documents') ? 'Legal evidence is available for human compliance review.' : 'Regulatory exposure remains unverified until ownership and registration evidence is reviewed.', impact: 'Unresolved ownership or regulatory matters may prevent approval or funding.', mitigation: 'Submit title, ownership, registration, permits, and compliance evidence for review.', mitigationAction: 'Submit title, ownership, registration, permits, and compliance evidence for review.' },
     ];
-    return { overallLevel: risks.some((risk) => risk.level === 'HIGH') ? 'HIGH' : risks.some((risk) => risk.level === 'MEDIUM') ? 'MEDIUM' : 'LOW', risks, requiresHumanReview: true };
+    return { overallLevel: risks.filter((risk) => risk.type === 'PROJECT').some((risk) => risk.level === 'HIGH') ? 'HIGH' : risks.some((risk) => risk.level === 'MEDIUM') ? 'MEDIUM' : 'LOW', risks, projectRisks: risks.filter((risk) => risk.type === 'PROJECT'), informationRisks: risks.filter((risk) => risk.type === 'INFORMATION'), informationInputsMissing: financialInputsMissing, requiresHumanReview: true };
   }
 
   private buildInvestmentReadiness(evidenceIntelligence: Record<string, any>, financialAnalysis: Record<string, any>, projectRiskAssessment: any, shariahAssessment: Record<string, any> = { requiredInformation: ['Shariah assessment not available in this stored run.'] }, projectFeasibility: Record<string, any> = { available: false }) {
@@ -392,7 +502,20 @@ export class AiService {
     const criticalBlocker = financialStatus === 'NOT_FINANCIALLY_FEASIBLE' || projectRiskAssessment.overallLevel === 'HIGH';
     const complete = evidenceIntelligence.scorePercent >= 70 && financialStatus === 'FEASIBLE_FOR_HUMAN_REVIEW' && projectRiskAssessment.overallLevel !== 'HIGH' && complianceStatus !== 'INCOMPLETE' && shariahComplete && projectFeasibility.available;
     const status = complete ? 'GREEN' : criticalBlocker ? 'RED' : 'YELLOW';
-    return { status, label: status === 'GREEN' ? 'Ready for Investment Review' : status === 'RED' ? 'Not Ready' : 'Requires Additional Information', evidenceStatus: evidenceIntelligence.status, financialStatus, riskLevel: projectRiskAssessment.overallLevel, complianceStatus, shariahStatus: shariahComplete ? 'INFORMATION_COMPLETE_PENDING_REVIEW' : 'INFORMATION_INCOMPLETE', requiresHumanReview: true, disclaimer: 'Investment readiness is a decision-support status and is not approval, investment advice, or a viability guarantee.' };
+    const label = status === 'GREEN' ? 'Ready for Investment Review' : status === 'RED' ? 'Not Ready' : 'Requires Additional Information';
+    const reasons = [
+      { category: 'Evidence', status: evidenceIntelligence.scorePercent >= 70 ? 'COMPLETE' : 'INCOMPLETE', detail: evidenceIntelligence.status },
+      { category: 'Financial', status: financialStatus === 'FEASIBLE_FOR_HUMAN_REVIEW' ? 'READY' : 'REQUIRES_ADDITIONAL_INFORMATION', detail: financialStatus || 'Not assessed' },
+      { category: 'Risk', status: projectRiskAssessment.overallLevel, detail: projectRiskAssessment.overallLevel === 'HIGH' ? 'Critical project risk requires review.' : 'No critical project risk identified.' },
+      { category: 'Compliance', status: complianceStatus === 'INCOMPLETE' ? 'INCOMPLETE' : 'PENDING_HUMAN_REVIEW', detail: complianceStatus },
+    ];
+    const reviewCanProceedAfter = [
+      { requirement: 'Financial Model Verified', complete: evidenceIntelligence.matrix?.some((item: { evidence: string; status: string }) => item.evidence === 'Financial Model' && item.status === 'AVAILABLE') },
+      { requirement: 'Cashflow Verified', complete: evidenceIntelligence.matrix?.some((item: { evidence: string; status: string }) => item.evidence === 'Cashflow Forecast' && item.status === 'AVAILABLE') },
+      { requirement: 'Legal Documents Verified', complete: evidenceIntelligence.matrix?.some((item: { evidence: string; status: string }) => item.evidence === 'Legal Documents' && item.status === 'AVAILABLE') },
+    ];
+    const recommendedNextStep = financialStatus !== 'FEASIBLE_FOR_HUMAN_REVIEW' ? 'Complete financial evidence submission before financial assessment.' : complianceStatus === 'INCOMPLETE' ? 'Submit and verify legal ownership documents before compliance review.' : !shariahComplete ? 'Complete the missing Shariah information before qualified Shariah review.' : 'Proceed to the next authorised human review stage.';
+    return { status, label, category: status, reasons, reviewCanProceedAfter, recommendedNextStep, evidenceStatus: evidenceIntelligence.status, financialStatus, riskLevel: projectRiskAssessment.overallLevel, complianceStatus, shariahStatus: shariahComplete ? 'INFORMATION_COMPLETE_PENDING_REVIEW' : 'INFORMATION_INCOMPLETE', requiresHumanReview: true, disclaimer: 'AI recommends a readiness status only. It does not approve investment, provide investment advice, or replace authorised human finance, risk, compliance, and Shariah review.' };
   }
 
   private extractFinancialFacts(text: string) {
@@ -449,82 +572,258 @@ export class AiService {
     });
   }
 
-  async createDocument(actor: AuthenticatedUser, input: RagDocumentDto) {
-    const scope = scopeOf(actor);
-    if (input.projectId) {
+  async listRagCountries() {
+    return this.prisma.countryNode.findMany({ where: { status: 'ACTIVE' }, select: { code: true, name: true }, orderBy: { name: 'asc' } });
+  }
+
+  async listRagDocuments(actor: AuthenticatedUser, filter: { scope?: string; projectId?: string; approvalStatus?: string }) {
+    if (!isRagManager(actor.role)) throw new ForbiddenException('Only knowledge-base managers can list documents.');
+    const documents = await this.prisma.ragDocument.findMany({
+      where: {
+        AND: [
+          ragManagementWhere(actor),
+          filter.scope ? { scope: filter.scope } : {},
+          filter.projectId ? { projectId: filter.projectId } : {},
+          filter.approvalStatus ? { approvalStatus: filter.approvalStatus } : {},
+        ],
+      },
+      select: { id: true, scope: true, countryNodeId: true, organisationId: true, projectId: true, title: true, sourceType: true, documentCategory: true, contractType: true, authority: true, jurisdiction: true, approvalStatus: true, status: true, metadata: true, uploadedBy: true, reviewedBy: true, reviewedAt: true, approvedBy: true, approvedAt: true, reviewComment: true, createdAt: true, _count: { select: { chunks: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    return documents.map(({ _count, ...document }) => ({ ...document, chunkCount: _count.chunks }));
+  }
+
+  async createDocument(actor: AuthenticatedUser, input: RagDocumentDto, prepared?: { chunks: RagChunkInput[]; source?: Prisma.InputJsonObject }) {
+    const scope: RagScope = input.scope || (input.projectId ? 'PROJECT' : 'COUNTRY');
+    let target: { organisationId: string; countryNodeId: string; projectId: string | null };
+    if (scope === 'PROJECT') {
+      if (!input.projectId) throw new BadRequestException('A project must be selected for PROJECT scope.');
       const project = await this.prisma.project.findUnique({ where: { projectId: input.projectId } });
       if (!project) throw new NotFoundException('Project not found in the current tenant');
       assertTenantScope(actor, project, 'Project');
+      target = { organisationId: project.organisationId, countryNodeId: project.countryNodeId, projectId: project.projectId };
+    } else {
+      if (input.projectId) throw new BadRequestException(`${scope} documents cannot be linked to a project.`);
+      const countryNodeId = scope === 'COUNTRY' ? input.countryNodeId || actor.countryNodeId : actor.countryNodeId;
+      const country = await this.prisma.countryNode.findUnique({ where: { code: countryNodeId }, select: { status: true } });
+      if (!country || country.status !== 'ACTIVE') throw new BadRequestException('Target country node is not an active D-8 member state.');
+      target = { organisationId: actor.organisationId, countryNodeId, projectId: null };
     }
+    if (!canManageRagScope(actor, scope, target.countryNodeId)) throw new ForbiddenException(`Your role cannot add ${scope} knowledge${scope === 'GLOBAL' ? '' : ' for this country'}.`);
+    const chunks = prepared?.chunks ?? chunkText(cleanPages([input.content])[0]);
+    if (!chunks.length) throw new BadRequestException('The document has no usable text after cleanup.');
     const contentHash = createHash('sha256').update(input.content).digest('hex');
-    const document = await this.prisma.ragDocument.create({
-      data: { ...scope, projectId: input.projectId || null, uploadedBy: actor.userId, title: input.title, sourceType: input.sourceType, documentCategory: input.documentCategory, contractType: input.contractType, authority: input.authority, jurisdiction: input.jurisdiction, industry: input.industry, approvalStatus: input.approvalStatus || 'DRAFT', contentHash, chunks: { create: this.chunk(input.content) } },
-      include: { chunks: true },
+    let document;
+    try {
+      document = await this.prisma.ragDocument.create({
+        // Always DRAFT: content reaches the LLM only after review and approval by other people.
+        data: {
+          scope, scopeKey: ragScopeKey(scope, target), ...target, uploadedBy: actor.userId, title: input.title, sourceType: input.sourceType, documentCategory: input.documentCategory, contractType: input.contractType, authority: input.authority, jurisdiction: input.jurisdiction, industry: input.industry, approvalStatus: 'DRAFT', contentHash,
+          metadata: { source: prepared?.source ?? { type: 'TEXT' }, chunking: { strategy: 'line-aware', size: 1200, overlap: 200, chunkCount: chunks.length } },
+          chunks: { create: chunks.map((chunk) => ({ chunkIndex: chunk.chunkIndex, content: chunk.content, metadata: chunk.metadata })) },
+        },
+        select: { id: true, scope: true, countryNodeId: true, organisationId: true, projectId: true, title: true, sourceType: true, approvalStatus: true, status: true, createdAt: true },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw new ConflictException(`This document already exists in the ${scope} knowledge base.`);
+      throw error;
+    }
+    const embedding = await this.embedDocumentChunks(document.id);
+    await this.audit.recordActor(actor, { action: 'ai.rag.document_create', resourceType: 'RagDocument', resourceId: document.id, organisationId: target.organisationId, countryNodeId: target.countryNodeId, metadata: { title: input.title, scope, projectId: target.projectId, chunkCount: chunks.length, embeddingStatus: embedding.status } });
+    return { ...document, chunkCount: chunks.length, embedding };
+  }
+
+  async reviewRagDocument(actor: AuthenticatedUser, id: string, input: RagReviewDto) {
+    const document = await this.prisma.ragDocument.findUnique({ where: { id } });
+    if (!document) throw new NotFoundException('Knowledge-base document not found');
+    if (!canManageRagScope(actor, document.scope as RagScope, document.countryNodeId)) throw new ForbiddenException('Your role cannot review this knowledge-base document.');
+    const problem = assertRagTransition(document, input.decision, actor.userId);
+    if (problem) throw new BadRequestException(problem);
+    const now = new Date();
+    const updated = await this.prisma.ragDocument.update({
+      where: { id },
+      data: {
+        approvalStatus: input.decision,
+        reviewComment: input.comment?.trim() || null,
+        ...(input.decision === 'REVIEWED' ? { reviewedBy: actor.userId, reviewedAt: now } : {}),
+        ...(input.decision === 'APPROVED' ? { approvedBy: actor.userId, approvedAt: now } : {}),
+      },
+      select: { id: true, scope: true, approvalStatus: true, reviewedBy: true, approvedBy: true, reviewComment: true },
     });
-    await this.audit.recordActor(actor, { action: 'ai.rag.document_create', resourceType: 'RagDocument', resourceId: document.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { title: input.title, scope: input.projectId ? 'PROJECT' : 'GLOBAL' } });
-    return document;
+    // Approved content must be searchable semantically: retry any chunks the provider missed at upload.
+    const embedding = input.decision === 'APPROVED' ? await this.embedDocumentChunks(id) : undefined;
+    await this.audit.recordActor(actor, { action: `ai.rag.document_${input.decision.toLowerCase()}`, resourceType: 'RagDocument', resourceId: id, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { scope: document.scope, from: document.approvalStatus, to: input.decision, comment: input.comment || null, embeddingStatus: embedding?.status ?? null } });
+    return { ...updated, ...(embedding ? { embedding } : {}) };
+  }
+
+  /**
+   * Knowledge-base maintenance for the documents the actor manages:
+   * 1. rebuilds legacy documents (fixed 1,200-character slices, no chunk
+   *    metadata) with the current cleanup and line-aware chunking;
+   * 2. generates embeddings for every chunk that has none.
+   */
+  async backfillRagEmbeddings(actor: AuthenticatedUser) {
+    if (!['Super Admin', 'AI Administrator'].includes(actor.role)) throw new ForbiddenException('Only Super Admin or AI Administrator can backfill embeddings.');
+    const scopeSql = actor.role === 'Super Admin' ? Prisma.empty : Prisma.sql`AND (d."scope" = 'GLOBAL' OR d."countryNodeId" = ${actor.countryNodeId})`;
+    const legacy = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+      SELECT DISTINCT c."documentId" AS id FROM "RagChunk" c
+      INNER JOIN "RagDocument" d ON d."id" = c."documentId"
+      WHERE c."metadata" IS NULL AND d."status" = 'ACTIVE' ${scopeSql}`);
+    const rebuilt: Array<{ documentId: string; chunksBefore: number; chunksAfter: number }> = [];
+    for (const document of legacy) {
+      const result = await this.rebuildLegacyChunks(document.id);
+      if (result) rebuilt.push({ documentId: document.id, ...result });
+    }
+    const documents: Array<{ documentId: string } & Awaited<ReturnType<AiService['embedDocumentChunks']>>> = [];
+    if (this.embeddings.enabled) {
+      const candidates = await this.prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+        SELECT DISTINCT c."documentId" AS id FROM "RagChunk" c
+        INNER JOIN "RagDocument" d ON d."id" = c."documentId"
+        WHERE c."embedding" IS NULL AND d."status" = 'ACTIVE' ${scopeSql}`);
+      for (const candidate of candidates) documents.push({ documentId: candidate.id, ...(await this.embedDocumentChunks(candidate.id)) });
+    }
+    await this.audit.recordActor(actor, { action: 'ai.rag.embedding_backfill', resourceType: 'RagDocument', resourceId: actor.organisationId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { model: this.embeddings.model || null, rebuiltDocuments: rebuilt.length, embeddedDocuments: documents.length } });
+    return { enabled: this.embeddings.enabled, model: this.embeddings.model || null, rebuilt, documents };
+  }
+
+  /**
+   * Legacy chunks were plain consecutive 1,200-character slices, so joining
+   * them in order restores the original text exactly. Returns null when the
+   * document is not a legacy document (any chunk already has metadata).
+   */
+  private async rebuildLegacyChunks(documentId: string): Promise<{ chunksBefore: number; chunksAfter: number } | null> {
+    const chunks = await this.prisma.ragChunk.findMany({ where: { documentId }, orderBy: { chunkIndex: 'asc' }, select: { content: true, metadata: true } });
+    if (!chunks.length || chunks.some((chunk) => chunk.metadata !== null)) return null;
+    const rebuilt = chunkText(cleanPages([chunks.map((chunk) => chunk.content).join('')])[0]);
+    if (!rebuilt.length) return null;
+    const document = await this.prisma.ragDocument.findUnique({ where: { id: documentId }, select: { metadata: true } });
+    const metadata = document?.metadata && typeof document.metadata === 'object' && !Array.isArray(document.metadata) ? document.metadata as Prisma.JsonObject : {};
+    await this.prisma.$transaction([
+      this.prisma.ragChunk.deleteMany({ where: { documentId } }),
+      this.prisma.ragChunk.createMany({ data: rebuilt.map((chunk) => ({ documentId, chunkIndex: chunk.chunkIndex, content: chunk.content, metadata: chunk.metadata })) }),
+      this.prisma.ragDocument.update({ where: { id: documentId }, data: { metadata: { ...metadata, chunking: { strategy: 'line-aware', size: 1200, overlap: 200, chunkCount: rebuilt.length, rebuiltFromLegacy: true, rebuiltAt: new Date().toISOString() } } } }),
+    ]);
+    return { chunksBefore: chunks.length, chunksAfter: rebuilt.length };
+  }
+
+  /**
+   * Embeds chunks that have no vector yet and records the outcome on the
+   * document. Never throws: without embeddings, keyword retrieval still works.
+   */
+  private async embedDocumentChunks(documentId: string): Promise<{ status: 'COMPLETE' | 'PARTIAL' | 'UNAVAILABLE' | 'DISABLED'; model: string | null; embeddedChunks: number; totalChunks: number }> {
+    const totalChunks = await this.prisma.ragChunk.count({ where: { documentId } });
+    let status: 'COMPLETE' | 'PARTIAL' | 'UNAVAILABLE' | 'DISABLED' = 'DISABLED';
+    if (this.embeddings.enabled) {
+      const pending = await this.prisma.$queryRaw<Array<{ id: string; content: string }>>(Prisma.sql`
+        SELECT "id", "content" FROM "RagChunk" WHERE "documentId" = ${documentId} AND "embedding" IS NULL ORDER BY "chunkIndex"`);
+      const vectors = pending.length ? await this.embeddings.embed(pending.map((chunk) => chunk.content)) : [];
+      if (vectors) {
+        await this.prisma.$transaction(pending.map((chunk, index) => this.prisma.$executeRaw(Prisma.sql`
+          UPDATE "RagChunk" SET "embedding" = ${RagEmbeddingService.toVectorLiteral(vectors[index])}::vector WHERE "id" = ${chunk.id}`)));
+      }
+      const [{ missing }] = await this.prisma.$queryRaw<Array<{ missing: number }>>(Prisma.sql`
+        SELECT COUNT(*)::int AS missing FROM "RagChunk" WHERE "documentId" = ${documentId} AND "embedding" IS NULL`);
+      status = missing === 0 ? 'COMPLETE' : missing < totalChunks ? 'PARTIAL' : 'UNAVAILABLE';
+      const result = { status, model: this.embeddings.model, embeddedChunks: totalChunks - missing, totalChunks };
+      const document = await this.prisma.ragDocument.findUnique({ where: { id: documentId }, select: { metadata: true } });
+      const metadata = document?.metadata && typeof document.metadata === 'object' && !Array.isArray(document.metadata) ? document.metadata as Prisma.JsonObject : {};
+      await this.prisma.ragDocument.update({ where: { id: documentId }, data: { metadata: { ...metadata, embedding: { ...result, updatedAt: new Date().toISOString() } } } });
+      return result;
+    }
+    return { status, model: null, embeddedChunks: 0, totalChunks };
   }
 
   async uploadPdf(actor: AuthenticatedUser, metadata: Partial<RagDocumentDto>, file?: Express.Multer.File) {
     if (!file) throw new BadRequestException('A PDF file is required');
-    const parsed = await pdfParse(file.buffer);
-    const content = parsed.text.trim();
+    // Page-aware extraction that removes overlaid duplicate text, running headers and TOC leaders.
+    const pages = cleanPages(await extractPdfPages(pdfParse, file.buffer));
+    const content = pages.filter(Boolean).join('\n\n').trim();
     if (content.length < 20) throw new BadRequestException('The PDF contains no extractable text. Scanned PDFs require OCR before upload.');
 
     const title = file.originalname.replace(/\.pdf$/i, '').trim() || 'Uploaded PDF document';
-    return this.createDocument(actor, { ...metadata, title: metadata.title || title, sourceType: metadata.sourceType || 'PDF_DOCUMENT', content });
+    return this.createDocument(
+      actor,
+      { ...metadata, title: metadata.title || title, sourceType: metadata.sourceType || 'PDF_DOCUMENT', content } as RagDocumentDto,
+      { chunks: chunkPages(pages), source: { type: 'PDF', fileName: file.originalname, pageCount: pages.length, nonEmptyPages: pages.filter(Boolean).length } },
+    );
   }
 
-  async searchDocuments(actor: AuthenticatedUser, input: RagSearchDto) {
+  /**
+   * Retrieval for users and the LLM: APPROVED documents only, GLOBAL + the
+   * relevant country + (with a project) that project's own documents.
+   * Keyword search expands Islamic-finance spelling variants and ranks by
+   * relevance; when embeddings are available it is fused with vector search
+   * using Reciprocal Rank Fusion.
+   */
+  async searchDocuments(actor: AuthenticatedUser, input: RagSearchDto): Promise<RagSearchResult[]> {
     const limit = input.limit || 5;
-    const scope = tenantScopeFilter(actor);
+    let project: { projectId: string; countryNodeId: string } | undefined;
     if (input.projectId) {
-      const project = await this.prisma.project.findUnique({ where: { projectId: input.projectId } });
-      if (!project) throw new NotFoundException('Project not found in the current tenant');
-      assertTenantScope(actor, project, 'Project');
-      if (project.organisationId !== actor.organisationId && actor.role !== 'Country Admin' && actor.role !== 'Super Admin') {
-        throw new ForbiddenException('Project is outside your organisation scope');
-      }
+      const found = await this.prisma.project.findUnique({ where: { projectId: input.projectId } });
+      if (!found) throw new NotFoundException('Project not found in the current tenant');
+      assertTenantScope(actor, found, 'Project');
+      this.assertProjectSponsorScope(actor, found.projectSponsorId);
+      project = { projectId: found.projectId, countryNodeId: found.countryNodeId };
     }
-    if (input.embedding?.length) {
-      const vector = `[${input.embedding.join(',')}]`;
-      const scopeSql = scope.organisationId
-        ? Prisma.sql`AND d."organisationId" = ${scope.organisationId} AND d."countryNodeId" = ${scope.countryNodeId}`
-        : scope.countryNodeId
-          ? Prisma.sql`AND d."countryNodeId" = ${scope.countryNodeId}`
-        : Prisma.sql``;
-      const projectSql = input.projectId ? Prisma.sql`AND (d."projectId" = ${input.projectId} OR d."projectId" IS NULL)` : Prisma.sql`AND d."projectId" IS NULL`;
+    const documentFilter: Prisma.RagDocumentWhereInput = { status: 'ACTIVE', approvalStatus: 'APPROVED', ...(input.documentCategory ? { documentCategory: input.documentCategory } : {}), ...(input.contractType ? { contractType: input.contractType } : {}), ...(input.authority ? { authority: input.authority } : {}), ...(input.jurisdiction ? { jurisdiction: input.jurisdiction } : {}), ...(input.industry ? { industry: input.industry } : {}) };
+    const toPages = (metadata: unknown) => {
+      const value = metadata && typeof metadata === 'object' ? metadata as { pageStart?: number | null; pageEnd?: number | null; paragraphRefs?: string[] } : {};
+      return { pageStart: value.pageStart ?? null, pageEnd: value.pageEnd ?? null, paragraphRefs: value.paragraphRefs ?? [] };
+    };
+
+    const expanded = expandQuery(input.query);
+    const candidates = await this.prisma.ragChunk.findMany({
+      where: { OR: queryVariants(expanded).map((variant) => ({ content: { contains: variant, mode: 'insensitive' as const } })), document: { AND: [ragVisibilityWhere(actor, project), documentFilter] } },
+      take: 300,
+      include: { document: { select: { title: true, sourceType: true, scope: true } } },
+    });
+    const keywordRanked: RagSearchResult[] = candidates
+      .map((chunk) => ({ id: chunk.id, documentId: chunk.documentId, content: chunk.content, title: chunk.document.title, sourceType: chunk.document.sourceType, scope: chunk.document.scope, ...toPages(chunk.metadata), score: scoreChunk(chunk.content, expanded) }))
+      .filter((result) => (result.score ?? 0) > 0)
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
+    if (input.embedding?.length && input.embedding.length !== RAG_EMBEDDING_DIMENSIONS) throw new BadRequestException(`Query embedding must have ${RAG_EMBEDDING_DIMENSIONS} dimensions.`);
+    const queryVector = input.embedding?.length ? input.embedding : (await this.embeddings.embed([input.query]))?.[0];
+    let vectorRanked: RagSearchResult[] = [];
+    if (queryVector) {
       const metadataSql = Prisma.sql`
         AND (${input.documentCategory || null}::text IS NULL OR d."documentCategory" = ${input.documentCategory})
         AND (${input.contractType || null}::text IS NULL OR d."contractType" = ${input.contractType})
         AND (${input.authority || null}::text IS NULL OR d."authority" = ${input.authority})
         AND (${input.jurisdiction || null}::text IS NULL OR d."jurisdiction" = ${input.jurisdiction})
-        AND (${input.industry || null}::text IS NULL OR d."industry" = ${input.industry})
-        AND (${input.approvalStatus || 'APPROVED'}::text IS NULL OR d."approvalStatus" = ${input.approvalStatus || 'APPROVED'})`;
-      const vectorResults = await this.prisma.$queryRaw<Array<{ id: string; documentId: string; content: string; title: string; sourceType: string; score: number }>>(Prisma.sql`
-        SELECT c."id", c."documentId", c."content", d."title", d."sourceType",
-          1 - (c."embedding" <=> ${vector}::vector) AS score
+        AND (${input.industry || null}::text IS NULL OR d."industry" = ${input.industry})`;
+      const rows = await this.prisma.$queryRaw<Array<{ id: string; documentId: string; content: string; title: string; sourceType: string; scope: string; metadata: unknown; score: number }>>(Prisma.sql`
+        SELECT c."id", c."documentId", c."content", c."metadata", d."title", d."sourceType", d."scope",
+          1 - (c."embedding" <=> ${RagEmbeddingService.toVectorLiteral(queryVector)}::vector) AS score
         FROM "RagChunk" c
         INNER JOIN "RagDocument" d ON d."id" = c."documentId"
          WHERE d."status" = 'ACTIVE'
-           ${scopeSql}
-           ${projectSql}
+           AND d."approvalStatus" = 'APPROVED'
+           ${ragVisibilitySql(actor, project)}
            ${metadataSql}
            AND c."embedding" IS NOT NULL
-        ORDER BY c."embedding" <=> ${vector}::vector
-        LIMIT ${limit}
+        ORDER BY c."embedding" <=> ${RagEmbeddingService.toVectorLiteral(queryVector)}::vector
+        LIMIT ${Math.max(limit * 4, 20)}
       `);
-      await this.audit.recordActor(actor, { action: 'ai.rag.vector_search', resourceType: 'RagDocument', resourceId: actor.organisationId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { query: input.query, resultCount: vectorResults.length } });
-      return vectorResults;
+      vectorRanked = rows.map(({ metadata, score, ...row }) => ({ ...row, ...toPages(metadata), score: Number(score) }));
     }
-    const documents = await this.prisma.ragChunk.findMany({
-      where: { document: { ...scope, status: 'ACTIVE', approvalStatus: input.approvalStatus || 'APPROVED', ...(input.documentCategory ? { documentCategory: input.documentCategory } : {}), ...(input.contractType ? { contractType: input.contractType } : {}), ...(input.authority ? { authority: input.authority } : {}), ...(input.jurisdiction ? { jurisdiction: input.jurisdiction } : {}), ...(input.industry ? { industry: input.industry } : {}), ...(input.projectId ? { OR: [{ projectId: input.projectId }, { projectId: null }] } : { projectId: null }) }, content: { contains: input.query, mode: 'insensitive' } },
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-      include: { document: true },
-    });
-    await this.audit.recordActor(actor, { action: 'ai.rag.search', resourceType: 'RagDocument', resourceId: actor.organisationId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { query: input.query, embeddingProvided: Boolean(input.embedding), resultCount: documents.length } });
-    return documents;
+
+    // Reciprocal Rank Fusion (k = 60) of the keyword and vector rankings.
+    const fused = new Map<string, RagSearchResult & { fusedScore: number }>();
+    for (const [list, retrieval] of [[keywordRanked, 'keyword'], [vectorRanked, 'vector']] as const) {
+      list.forEach((result, rank) => {
+        const existing = fused.get(result.id);
+        const contribution = 1 / (60 + rank + 1);
+        if (existing) { existing.fusedScore += contribution; existing.retrieval = 'hybrid'; } else fused.set(result.id, { ...result, retrieval, fusedScore: contribution });
+      });
+    }
+    const results = [...fused.values()]
+      .sort((a, b) => b.fusedScore - a.fusedScore)
+      .slice(0, limit)
+      .map(({ fusedScore, ...result }) => ({ ...result, score: Number(fusedScore.toFixed(5)) }));
+    await this.audit.recordActor(actor, { action: 'ai.rag.search', resourceType: 'RagDocument', resourceId: actor.organisationId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { query: input.query, projectId: project?.projectId ?? null, mode: queryVector ? 'hybrid' : 'keyword', keywordMatches: keywordRanked.length, vectorMatches: vectorRanked.length, resultCount: results.length } });
+    return results;
   }
 
   private async run(actor: AuthenticatedUser, featureKey: string, action: string, prompt: string, context: Record<string, unknown>, conversationId?: string) {
@@ -585,11 +884,9 @@ export class AiService {
     };
   }
 
-  private chunk(content: string) {
-    const size = 1200;
-    const chunks: { chunkIndex: number; content: string }[] = [];
-    for (let offset = 0, index = 0; offset < content.length; offset += size, index += 1) chunks.push({ chunkIndex: index, content: content.slice(offset, offset + size) });
-    return chunks;
+  /** Compact, citable RAG context for the LLM. */
+  private toRagSources(results: RagSearchResult[]) {
+    return results.map(({ title, sourceType, scope, content, pageStart, pageEnd, paragraphRefs }) => ({ title, sourceType, scope, pages: pageStart ? (pageEnd && pageEnd !== pageStart ? `${pageStart}-${pageEnd}` : `${pageStart}`) : null, paragraphRefs, content }));
   }
 
   private assertProjectSponsorScope(actor: AuthenticatedUser, projectSponsorId: string) {

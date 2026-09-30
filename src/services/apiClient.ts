@@ -57,7 +57,7 @@ export const apiClient = {
   getProjects: () => request<BackendProject[]>('/projects'),
   analyzeProjectFeasibility: (projectId: string) => request<BackendFeasibilityAssessment>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/analyze`, { method: 'POST' }),
   getLatestProjectFeasibility: (projectId: string) => request<BackendFeasibilityAssessment | null>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/latest`),
-  reviewProjectFeasibility: (projectId: string, runId: string, input: { reviewStage: string; decision: string; comment: string }) => request<BackendFeasibilityAssessment>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/${encodeURIComponent(runId)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  reviewProjectFeasibility: (projectId: string, runId: string, input: { reviewStage: string; decision: string; comment: string; supportingEvidence?: string[] }) => request<BackendFeasibilityAssessment & { reviewStatus?: string; roleResponsibility?: string[]; aiRecommendationIsNotApproval?: boolean }>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/${encodeURIComponent(runId)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   runProjectDueDiligence: (projectId: string) => request<BackendDueDiligenceScan>('/ai/projects/due-diligence/scan', { method: 'POST', body: JSON.stringify({ projectId }) }),
   getLatestProjectDueDiligence: (projectId: string) => request<BackendDueDiligenceScan | null>(`/ai/projects/${encodeURIComponent(projectId)}/due-diligence/latest`),
   analyzeProjectDocument: (projectId: string, documentId: string) => request<BackendDocumentAnalysis>(`/ai/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/analyze`, { method: 'POST' }),
@@ -69,6 +69,12 @@ export const apiClient = {
     body: JSON.stringify(input),
   }),
   getProjectDocuments: (projectId: string) => request<BackendProjectDocument[]>(`/projects/${encodeURIComponent(projectId)}/documents`),
+  getProjectEvidenceRequirements: (projectId: string) => request<BackendEvidenceRequirement[]>(`/projects/${encodeURIComponent(projectId)}/evidence/requirements`),
+  uploadProjectEvidence: (projectId: string, evidenceType: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<BackendEvidenceRequirement>(`/projects/${encodeURIComponent(projectId)}/evidence/${encodeURIComponent(evidenceType)}/upload`, { method: 'POST', body: formData });
+  },
   getProjectTeam: (projectId: string) => request<BackendProjectTeamMember[]>(`/projects/${encodeURIComponent(projectId)}/team`),
   getProjectTeamCandidates: (projectId: string) => request<ProjectTeamCandidate[]>(`/projects/${encodeURIComponent(projectId)}/team/candidates`),
   addProjectTeamMember: (projectId: string, input: { userId: string; projectRole: string }) => request<BackendProjectTeamMember>(`/projects/${encodeURIComponent(projectId)}/team`, {
@@ -180,18 +186,27 @@ export const apiClient = {
     method: 'POST',
     body: JSON.stringify(input),
   }),
-  createRagDocument: (input: { projectId?: string; title: string; sourceType: string; content: string; documentCategory?: string; contractType?: string; authority?: string; jurisdiction?: string; industry?: string; approvalStatus?: string }) => request<BackendRagDocument>('/ai/rag/documents', {
+  getRagCountries: () => request<BackendRagCountry[]>('/ai/rag/countries'),
+  listRagDocuments: (filter: { scope?: RagScope; projectId?: string; approvalStatus?: string } = {}) => {
+    const params = new URLSearchParams(Object.entries(filter).filter(([, value]) => Boolean(value)) as [string, string][]);
+    return request<BackendRagDocument[]>(`/ai/rag/documents${params.size ? `?${params}` : ''}`);
+  },
+  backfillRagEmbeddings: () => request<{ enabled: boolean; model: string | null; rebuilt: Array<{ documentId: string; chunksBefore: number; chunksAfter: number }>; documents: Array<{ documentId: string } & RagEmbeddingStatus> }>('/ai/rag/embeddings/backfill', { method: 'POST' }),
+  reviewRagDocument: (id: string, input: { decision: 'REVIEWED' | 'APPROVED' | 'REJECTED'; comment?: string }) => request<BackendRagDocument>(`/ai/rag/documents/${encodeURIComponent(id)}/review`, {
     method: 'POST',
     body: JSON.stringify(input),
   }),
-  uploadRagPdf: (projectId: string | undefined, file: File, metadata: { documentCategory?: string; contractType?: string; authority?: string; jurisdiction?: string; industry?: string; approvalStatus?: string } = {}) => {
+  createRagDocument: (input: RagDocumentMetadata & { title: string; sourceType: string; content: string }) => request<BackendRagDocument>('/ai/rag/documents', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }),
+  uploadRagPdf: (file: File, metadata: RagDocumentMetadata) => {
     const formData = new FormData();
-    if (projectId) formData.append('projectId', projectId);
     Object.entries(metadata).forEach(([key, value]) => { if (value) formData.append(key, value); });
     formData.append('file', file);
     return request<BackendRagDocument>('/ai/rag/documents/upload', { method: 'POST', body: formData });
   },
-  searchRagDocuments: (input: { projectId?: string; query: string; limit?: number; documentCategory?: string; contractType?: string; authority?: string; jurisdiction?: string; industry?: string; approvalStatus?: string }) => request<BackendRagSearchResult[]>('/ai/rag/documents/search', {
+  searchRagDocuments: (input: { projectId?: string; query: string; limit?: number; documentCategory?: string; contractType?: string; authority?: string; jurisdiction?: string; industry?: string }) => request<BackendRagSearchResult[]>('/ai/rag/documents/search', {
     method: 'POST',
     body: JSON.stringify(input),
   }),
@@ -333,12 +348,55 @@ export interface BackendUser {
   updatedAt: string;
 }
 
+/** GLOBAL = all 9 D-8 country nodes, COUNTRY = one country node, PROJECT = one project. */
+export type RagScope = 'GLOBAL' | 'COUNTRY' | 'PROJECT';
+
+export interface RagDocumentMetadata {
+  scope: RagScope;
+  countryNodeId?: string;
+  projectId?: string;
+  title?: string;
+  sourceType?: string;
+  documentCategory?: string;
+  contractType?: string;
+  authority?: string;
+  jurisdiction?: string;
+  industry?: string;
+}
+
+export interface RagEmbeddingStatus {
+  status: 'COMPLETE' | 'PARTIAL' | 'UNAVAILABLE' | 'DISABLED';
+  model: string | null;
+  embeddedChunks: number;
+  totalChunks: number;
+}
+
+export interface BackendRagCountry {
+  code: string;
+  name: string;
+}
+
 export interface BackendRagDocument {
   id: string;
+  scope: RagScope;
+  countryNodeId: string;
+  organisationId: string;
   projectId?: string | null;
   title: string;
   sourceType: string;
+  documentCategory?: string | null;
+  contractType?: string | null;
+  authority?: string | null;
+  jurisdiction?: string | null;
+  approvalStatus: 'DRAFT' | 'REVIEWED' | 'APPROVED' | 'REJECTED';
   status: string;
+  uploadedBy: string;
+  reviewedBy?: string | null;
+  approvedBy?: string | null;
+  reviewComment?: string | null;
+  chunkCount?: number;
+  embedding?: RagEmbeddingStatus;
+  metadata?: { embedding?: RagEmbeddingStatus; source?: { type?: string; fileName?: string; pageCount?: number } } | null;
   createdAt: string;
   chunks?: { id: string; content: string; chunkIndex: number }[];
 }
@@ -349,6 +407,11 @@ export interface BackendRagSearchResult {
   content: string;
   title: string;
   sourceType: string;
+  scope: RagScope;
+  pageStart?: number | null;
+  pageEnd?: number | null;
+  paragraphRefs?: string[];
+  retrieval?: 'keyword' | 'vector' | 'hybrid';
   score?: number;
 }
 
@@ -376,24 +439,28 @@ export interface BackendFeasibilityAssessment {
   project?: { projectId: string; projectCode: string; projectName: string; sector: string; fundingRequired: number | string; status: string };
   output?: { recommendation?: { financialAnalysis?: Record<string, unknown>; riskAnalysis?: Record<string, unknown>; [key: string]: unknown } };
   financialAnalysis: { npv: number | null; irr: number | null; dscr: number | null; roi: number | null; paybackPeriod: number | null; profitMargin: number | null; cashflow: Record<string, unknown>; fundingReadiness: string; assumptions?: Record<string, unknown>; scenarios?: Array<{ name: string; status: string; adjustmentPercent: number | null; npv: number | null; irr: number | null; roi: number | null; paybackPeriod: number | null }>; [key: string]: unknown };
-  riskAnalysis: { riskFlags: Array<{ title: string; severity: string; description: string }>; missingEvidence: string[]; keyAssumptions: Array<{ name: string; value: unknown }>; projectRiskAssessment?: { overallLevel: string; risks: Array<{ category: string; level: string; description: string; impact: string; mitigation: string }>; requiresHumanReview: boolean }; [key: string]: unknown };
+  riskAnalysis: { riskFlags: Array<{ title: string; severity: string; description: string }>; missingEvidence: string[]; keyAssumptions: Array<{ name: string; value: unknown }>; projectRiskAssessment?: { overallLevel: string; risks: Array<{ type?: string; category: string; level: string; reason?: string; description: string; impact: string; mitigation?: string; mitigationAction?: string }>; requiresHumanReview: boolean }; [key: string]: unknown };
   evidenceIntelligence: {
     scorePercent: number;
     status: string;
     components: { projectData: number; requiredDocuments: number; financialAssumptions: number; supportingEvidence: number };
+    weights?: { projectData: number; requiredDocuments: number; financialAssumptions: number; supportingEvidence: number };
+    contributions?: { projectData: number; requiredDocuments: number; financialAssumptions: number; supportingEvidence: number };
     coverage: Array<{ key: string; label: string; status: string; importance: string; requiredAction: string }>;
     matrix: Array<{ evidence: string; status: string; priority: string; requiredAction: string }>;
     nextActions: string[];
     confidenceReasons: string[];
     disclaimer: string;
+    methodology?: string;
   };
   confidence: { level: string; scorePercent: number; disclaimer: string; reasons: string[] };
   projectFeasibility?: { available: boolean; score: number | null; status: string; components: { financialFeasibility: number | null; marketAssumptions: number | null; executionReadiness: number | null; riskExposure: number | null }; reason: string };
-  investmentReadiness: { status: string; label: string; evidenceStatus: string; financialStatus: string; riskLevel: string; complianceStatus: string; shariahStatus?: string; requiresHumanReview: boolean; disclaimer: string };
-  shariahAssessment: { structure: string; reviewTitle: string; suitability: string; checks: Array<{ label: string; status: string }>; requiredInformation: string[]; potentialConcerns: string[]; status: string; humanReviewRequired: boolean };
+  investmentReadiness: { status: string; category?: string; label: string; reasons?: Array<{ category: string; status: string; detail: string }>; reviewCanProceedAfter?: Array<{ requirement: string; complete: boolean }>; recommendedNextStep?: string; evidenceStatus: string; financialStatus: string; riskLevel: string; complianceStatus: string; shariahStatus?: string; requiresHumanReview: boolean; disclaimer: string };
+  shariahAssessment: { structure: string; reviewTitle: string; suitability: string; checks: Array<{ label: string; status: string }>; assessment?: string[]; requiredInformation: string[]; missingInformation?: string[]; potentialConcerns: string[]; status: string; statusFlow?: string[]; humanReviewStatus?: string; disclaimer?: string; humanReviewRequired: boolean };
   humanReviewRequired: boolean;
   reviewStage: string;
-  reviewHistory?: Array<{ stage: string; reviewerId?: string; reviewerRole?: string; date?: string; decision?: string; comment?: string; actorId?: string; at?: string; note?: string | null }>;
+  roleResponsibility?: string[];
+  reviewHistory?: Array<{ stage: string; reviewerId?: string; reviewer?: string; reviewerRole?: string; date?: string; status?: string; decision?: string; comment?: string; supportingEvidence?: string[]; actorId?: string; at?: string; note?: string | null }>;
 }
 
 export interface BackendProjectMilestone {
@@ -491,6 +558,21 @@ export interface BackendProjectDocument {
   uploadedBy: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface BackendEvidenceRequirement {
+  id: string;
+  projectId: string;
+  evidenceType: string;
+  description: string;
+  requiredFormat: string;
+  priority: string;
+  status: 'MISSING' | 'UPLOADED' | 'AI_PROCESSING' | 'VERIFIED' | 'REQUIRES_REVIEW';
+  uploadedDocumentId?: string | null;
+  verificationStatus: string;
+  confidenceScore: number;
+  verificationResult?: { analysisId?: string; extractedInformation?: Record<string, unknown>; validationResult?: string; missingFields?: string[] } | null;
+  uploadedDocument?: Pick<BackendProjectDocument, 'id' | 'fileName' | 'mimeType' | 'extractionStatus' | 'createdAt'> | null;
 }
 
 export interface BackendProjectTeamMember {

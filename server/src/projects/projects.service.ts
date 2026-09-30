@@ -8,6 +8,7 @@ import { AddProjectTeamMemberDto, CreateProjectAnnouncementDto, CreateProjectPro
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { BadRequestException } from '@nestjs/common';
 import pdfParse from 'pdf-parse';
+import * as XLSX from 'xlsx';
 
 const PROJECT_PROMOTION_PACKAGES = [
   { id: 'pkg_free_listing', title: 'Free Project Listing', badgeType: 'Promoted', durationDays: 0, priceMYR: 0, creditsCost: 0 },
@@ -15,6 +16,15 @@ const PROJECT_PROMOTION_PACKAGES = [
   { id: 'pkg_featured_30d', title: 'Featured Project (30 Days)', badgeType: 'Featured', durationDays: 30, priceMYR: 299, creditsCost: 150 },
   { id: 'pkg_sponsored_30d', title: 'Sponsored Project Spotlight (30 Days)', badgeType: 'Sponsored', durationDays: 30, priceMYR: 499, creditsCost: 250 },
 ] as const;
+
+const EVIDENCE_REQUIREMENTS = [
+  { evidenceType: 'FINANCIAL_MODEL', description: 'Historical and projected financial model with assumptions, revenue, costs, and profitability.', requiredFormat: 'PDF, XLSX, CSV', priority: 'CRITICAL' },
+  { evidenceType: 'CASHFLOW_FORECAST', description: 'Five-year cashflow projection with monthly or annual assumptions and funding drawdown schedule.', requiredFormat: 'PDF, XLSX, CSV', priority: 'CRITICAL' },
+  { evidenceType: 'ASSET_VALUATION', description: 'Independent valuation or appraisal supporting the project assets and their stated value.', requiredFormat: 'PDF', priority: 'HIGH' },
+  { evidenceType: 'LEGAL_OWNERSHIP', description: 'Title, ownership, registration, permit, or other legal documents proving control of the relevant assets.', requiredFormat: 'PDF', priority: 'HIGH' },
+] as const;
+
+const EVIDENCE_DOCUMENT_SELECT = { id: true, fileName: true, mimeType: true, extractionStatus: true, createdAt: true } as const;
 
 @Injectable()
 export class ProjectsService {
@@ -111,14 +121,61 @@ export class ProjectsService {
     });
   }
 
+  // Read-only: requirement rows are only written when evidence is uploaded.
+  // Types without a stored row are returned as MISSING placeholders.
+  async listEvidenceRequirements(projectId: string, user: AuthenticatedUser) {
+    const project = await this.get(projectId, user);
+    const stored = await this.prisma.projectEvidenceRequirement.findMany({ where: { projectId: project.projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId }, include: { uploadedDocument: { select: EVIDENCE_DOCUMENT_SELECT } } });
+    return EVIDENCE_REQUIREMENTS.map((requirement) => stored.find((item) => item.evidenceType === requirement.evidenceType) ?? {
+      id: `${project.projectId}:${requirement.evidenceType}`,
+      projectId: project.projectId,
+      organisationId: project.organisationId,
+      countryNodeId: project.countryNodeId,
+      ...requirement,
+      status: 'MISSING',
+      uploadedDocumentId: null,
+      verificationStatus: 'NOT_STARTED',
+      verificationResult: null,
+      confidenceScore: 0,
+      uploadedDocument: null,
+    });
+  }
+
+  async uploadEvidence(projectId: string, evidenceType: string, file: Express.Multer.File | undefined, user: AuthenticatedUser) {
+    const requirement = EVIDENCE_REQUIREMENTS.find((item) => item.evidenceType === evidenceType);
+    if (!requirement) throw new BadRequestException('Unsupported evidence type.');
+    if (!file) throw new BadRequestException('An evidence file is required.');
+    const allowedExtensions = requirement.requiredFormat.split(',').map((format) => format.trim().toLowerCase());
+    const extension = file.originalname.toLowerCase().split('.').pop() || '';
+    if (!allowedExtensions.includes(extension)) throw new BadRequestException(`${evidenceType.replaceAll('_', ' ')} must be uploaded as ${requirement.requiredFormat}.`);
+    const project = await this.get(projectId, user);
+    const previous = await this.prisma.projectEvidenceRequirement.findUnique({ where: { projectId_evidenceType: { projectId: project.projectId, evidenceType } }, select: { uploadedDocumentId: true } });
+    // The previous document is kept (not deleted) as part of the evidence audit trail.
+    const document = await this.storeDocument(project, file, user);
+    const reset = { uploadedDocumentId: document.id, status: 'UPLOADED', verificationStatus: 'NOT_STARTED', confidenceScore: 0, verificationResult: Prisma.JsonNull };
+    const updated = await this.prisma.projectEvidenceRequirement.upsert({
+      where: { projectId_evidenceType: { projectId: project.projectId, evidenceType } },
+      update: reset,
+      create: { projectId: project.projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, ...requirement, ...reset },
+      include: { uploadedDocument: { select: EVIDENCE_DOCUMENT_SELECT } },
+    });
+    await this.audit.recordActor(user, { action: 'project.evidence.upload', resourceType: 'ProjectEvidenceRequirement', resourceId: updated.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId: project.projectId, evidenceType, documentId: document.id, previousDocumentId: previous?.uploadedDocumentId ?? null, status: updated.status } });
+    return updated;
+  }
+
   async uploadDocument(projectId: string, file: Express.Multer.File | undefined, user: AuthenticatedUser) {
     const project = await this.get(projectId, user);
-    if (!file) throw new BadRequestException('A PDF file is required');
+    if (!file) throw new BadRequestException('A PDF, DOCX, XLSX, or CSV file is required.');
+    return this.storeDocument(project, file, user);
+  }
+
+  private async storeDocument(project: { projectId: string; organisationId: string; countryNodeId: string }, file: Express.Multer.File, user: AuthenticatedUser) {
 
     let extractedText = '';
     let extractionStatus = 'NOT_APPLICABLE';
     let extractionError: string | null = null;
-    if (file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf')) {
+    const extension = file.originalname.toLowerCase().split('.').pop();
+    if (file.mimetype === 'application/pdf' || extension === 'pdf') {
       extractionStatus = 'EXTRACTED';
       try {
         const parsed = await pdfParse(file.buffer);
@@ -130,6 +187,20 @@ export class ProjectsService {
       } catch (error) {
         extractionStatus = 'FAILED';
         extractionError = error instanceof Error ? error.message.slice(0, 500) : 'PDF text extraction failed';
+      }
+    } else if (extension === 'csv') {
+      extractedText = file.buffer.toString('utf8').trim();
+      extractionStatus = extractedText.length >= 20 ? 'EXTRACTED' : 'FAILED';
+      extractionError = extractionStatus === 'FAILED' ? 'The CSV contains insufficient extractable content.' : null;
+    } else if (extension === 'xlsx' || extension === 'xls') {
+      try {
+        const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+        extractedText = workbook.SheetNames.map((sheetName) => `Sheet: ${sheetName}\n${XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName])}`).join('\n').trim();
+        extractionStatus = extractedText.length >= 20 ? 'EXTRACTED' : 'FAILED';
+        extractionError = extractionStatus === 'FAILED' ? 'The spreadsheet contains insufficient extractable content.' : null;
+      } catch (error) {
+        extractionStatus = 'FAILED';
+        extractionError = error instanceof Error ? error.message.slice(0, 500) : 'Spreadsheet extraction failed';
       }
     }
 
