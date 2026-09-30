@@ -46,6 +46,7 @@ import { UpgradePromptBanner } from './revenue/UpgradePromptBanner';
 import { AIUsageDashboard } from '../ai/monetisation/AIUsageDashboard';
 import { AdminAIAnalyticsPanel } from '../ai/monetisation/AdminAIAnalyticsPanel';
 import { AIRagKnowledgeBase } from '../ai/components/AIRagKnowledgeBase';
+import { AICitationAudit } from '../ai/components/AICitationAudit';
 import { ShariahReviewInbox } from '../ai/components/ShariahReviewInbox';
 import { BuyAICreditsModal } from '../ai/monetisation/BuyAICreditsModal';
 import { aiMonetisationService } from '../ai/monetisation/aiMonetisationService';
@@ -67,7 +68,8 @@ type AIEngineTab =
   | 'pool-optimizer'
   | 'governance-admin'
   | 'admin-ai-analytics'
-  | 'rag-knowledge-base';
+  | 'rag-knowledge-base'
+  | 'citation-audit';
 
 interface AIWealthEngineViewProps {
   onNavigateToMembership?: () => void;
@@ -116,12 +118,15 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
   const isSuperAdmin = activeUser.role === 'Super Admin' || activeUser.role === 'AI Administrator';
   const canViewAiAdministration = ['Super Admin', 'AI Administrator', 'AI Model Reviewer'].includes(activeUser.role);
   const canViewShariahBoard = ['Super Admin', 'Country Admin', 'Organization Admin', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee'].includes(activeUser.role);
+  // Mirrors CITATION_AUDIT_VIEWERS in server/src/ai/citation-audit.ts.
+  const canViewCitationAudit = ['Super Admin', 'AI Administrator', 'Country Admin', 'Shariah Reviewer', 'Shariah Committee'].includes(activeUser.role);
   const canViewProjectFeasibility = ['Super Admin', 'Project Sponsor', 'Project Manager', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Country Admin', 'Organization Admin', 'AI Model Reviewer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'].includes(activeUser.role);
 
   useEffect(() => {
     if (!canViewAiAdministration && (activeTab === 'governance-admin' || activeTab === 'admin-ai-analytics')) setActiveTab('overview');
     if (!canViewProjectFeasibility && activeTab === 'project-analyzer') setActiveTab('overview');
-  }, [activeTab, canViewAiAdministration, canViewProjectFeasibility]);
+    if (!canViewCitationAudit && activeTab === 'citation-audit') setActiveTab('overview');
+  }, [activeTab, canViewAiAdministration, canViewProjectFeasibility, canViewCitationAudit]);
 
   if (aiModuleDisabled) {
     return (
@@ -157,7 +162,8 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
        { id: 'governance-admin' as AIEngineTab, label: 'AI Governance Admin', icon: <Settings className="w-4 h-4" /> },
        { id: 'admin-ai-analytics' as AIEngineTab, label: 'Admin AI Analytics', icon: <BarChart3 className="w-4 h-4 text-purple-400" />, badge: 'Admin' },
      ] : []),
-     { id: 'rag-knowledge-base', label: 'AI Knowledge Base', icon: <FileText className="w-4 h-4 text-purple-400" />, badge: 'RAG' }
+     { id: 'rag-knowledge-base', label: 'AI Knowledge Base', icon: <FileText className="w-4 h-4 text-purple-400" />, badge: 'RAG' },
+     ...(canViewCitationAudit ? [{ id: 'citation-audit' as AIEngineTab, label: 'Citation Audit', icon: <ShieldCheck className="w-4 h-4 text-purple-400" />, badge: 'Audit' }] : []),
   ];
 
   const primaryTabIds: AIEngineTab[] = ['overview', 'project-analyzer', 'contract-advisor', 'agreement-generation'];
@@ -372,6 +378,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
         {activeTab === 'governance-admin' && canViewAiAdministration && <AIGovernanceAdminPanel />}
         {activeTab === 'admin-ai-analytics' && canViewAiAdministration && <AdminAIAnalyticsPanel />}
         {activeTab === 'rag-knowledge-base' && <AIRagKnowledgeBase userRole={activeUser.role} />}
+        {activeTab === 'citation-audit' && canViewCitationAudit && <AICitationAudit userRole={activeUser.role} />}
       </div>
 
       {/* Top Up Modal */}

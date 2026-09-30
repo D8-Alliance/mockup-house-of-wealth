@@ -186,6 +186,24 @@ export const apiClient = {
     method: 'POST',
     body: JSON.stringify(input),
   }),
+  listCitations: (filter: CitationAuditFilter & { page?: number; pageSize?: number } = {}) => request<CitationAuditPage>(`/ai/citations${citationQuery(filter)}`),
+  getCitationSummary: (filter: Pick<CitationAuditFilter, 'countryNodeId' | 'from' | 'to'> = {}) => request<CitationAuditSummary>(`/ai/citations/summary${citationQuery(filter)}`),
+  reviewCitation: (id: string, input: { status: CitationReviewStatus; comment?: string }) => request<BackendAiCitation>(`/ai/citations/${encodeURIComponent(id)}/review`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  }),
+  exportCitationsCsv: async (filter: CitationAuditFilter = {}) => {
+    const token = authService.getAuthState().session?.token;
+    const response = await fetch(`${API_BASE_URL}/ai/citations/export${citationQuery(filter)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!response.ok) throw new Error(await response.text() || 'Citation export failed.');
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || 'citation-audit.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+    return Number(response.headers.get('x-row-count') || 0);
+  },
   listAiConversations: () => request<BackendAiConversationSummary[]>('/ai/conversations'),
   getAiConversation: (id: string) => request<BackendAiConversation>(`/ai/conversations/${encodeURIComponent(id)}`),
   supersedeRagDocument: (id: string, supersededById: string | null) => request<BackendRagDocument>(`/ai/rag/documents/${encodeURIComponent(id)}/supersede`, {
@@ -381,6 +399,57 @@ export interface RagEmbeddingStatus {
 /** Grounding of an assistant answer in approved knowledge-base sources (validated server-side). */
 export type AiGroundingStatus = 'GROUNDED' | 'PARTIALLY_GROUNDED' | 'UNSUPPORTED' | 'NO_SOURCES';
 
+export type CitationReviewStatus = 'UNREVIEWED' | 'CONFIRMED' | 'INCORRECT' | 'IRRELEVANT';
+
+export interface CitationAuditFilter {
+  documentId?: string;
+  scope?: RagScope | '';
+  countryNodeId?: string;
+  groundingStatus?: AiGroundingStatus | '';
+  quoteVerified?: 'true' | 'false' | '';
+  reviewStatus?: CitationReviewStatus | '';
+  from?: string;
+  to?: string;
+  search?: string;
+}
+
+const citationQuery = (filter: object) => {
+  const params = new URLSearchParams(Object.entries(filter as Record<string, string | number | undefined>).filter(([, value]) => value !== undefined && value !== '').map(([key, value]) => [key, String(value)]));
+  return params.size ? `?${params}` : '';
+};
+
+export interface CitationAuditItem extends BackendAiCitation {
+  question: string | null;
+  answer: string;
+  answerCreatedAt: string;
+  conversationId: string;
+  messageId: string;
+  groundingStatus: AiGroundingStatus | null;
+  confidence: { level?: string; scorePercent?: number } | null;
+  userId: string;
+  organisationId: string;
+  countryNodeId: string;
+  documentStatus: string;
+}
+
+export interface CitationAuditPage {
+  total: number;
+  page: number;
+  pageSize: number;
+  canReview: boolean;
+  items: CitationAuditItem[];
+}
+
+export interface CitationAuditSummary {
+  countryNodeId: string | null;
+  totalAnswers: number;
+  grounding: Record<AiGroundingStatus, number>;
+  totalCitations: number;
+  unverifiedQuotes: number;
+  reviews: Record<CitationReviewStatus, number>;
+  topDocuments: Array<{ documentId: string | null; title: string; answers: number; citations: number; superseded: boolean }>;
+}
+
 export interface BackendAiCitation {
   id: string;
   marker: number;
@@ -397,6 +466,11 @@ export interface BackendAiCitation {
   quoteVerified: boolean;
   excerpt: string;
   retrievalScore: number | null;
+  reviewStatus?: CitationReviewStatus;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
+  reviewComment?: string | null;
+  document?: { supersededById: string | null } | null;
   createdAt: string;
 }
 
@@ -465,6 +539,7 @@ export interface BackendRagDocument {
   supersededBy?: { id: string; title: string } | null;
   effectiveFrom?: string | null;
   chunkCount?: number;
+  citedInAnswers?: number;
   embedding?: RagEmbeddingStatus;
   metadata?: { embedding?: RagEmbeddingStatus; source?: { type?: string; fileName?: string; pageCount?: number } } | null;
   createdAt: string;

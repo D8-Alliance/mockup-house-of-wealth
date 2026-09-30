@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -6,14 +7,39 @@ import { Roles } from '../auth/roles.decorator';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { AiService } from './ai.service';
-import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { CitationAuditService } from './citation-audit.service';
+import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, CitationAuditQueryDto, CitationReviewDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
 import { FeasibilityReviewDto } from './project-feasibility.dto';
 
 @Controller('ai')
 @UseGuards(FeatureModuleGuard)
 @RequireFeatureModule('AI_INTELLIGENCE')
 export class AiController {
-  constructor(private readonly ai: AiService) {}
+  constructor(private readonly ai: AiService, private readonly citations: CitationAuditService) {}
+
+  // Citation Audit (per-role scope and audit logging live in CitationAuditService).
+  @Get('citations')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin', 'Shariah Reviewer', 'Shariah Committee')
+  listCitations(@CurrentUser() actor: AuthenticatedUser, @Query() query: CitationAuditQueryDto) { return this.citations.list(actor, query); }
+
+  @Get('citations/summary')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin', 'Shariah Reviewer', 'Shariah Committee')
+  citationSummary(@CurrentUser() actor: AuthenticatedUser, @Query() query: CitationAuditQueryDto) { return this.citations.summary(actor, query); }
+
+  @Get('citations/export')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin', 'Shariah Reviewer', 'Shariah Committee')
+  async exportCitations(@CurrentUser() actor: AuthenticatedUser, @Query() query: CitationAuditQueryDto, @Res() response: Response) {
+    const result = await this.citations.exportCsv(actor, query);
+    response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    response.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+    response.setHeader('X-Row-Count', String(result.rowCount));
+    // BOM so spreadsheet apps read UTF-8 (Arabic/Malay text) correctly.
+    response.send(`\uFEFF${result.csv}`);
+  }
+
+  @Post('citations/:id/review')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
+  reviewCitation(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: CitationReviewDto) { return this.citations.review(actor, id, input); }
 
   @Post('chat') chat(@CurrentUser() actor: AuthenticatedUser, @Body() input: ChatDto) { return this.ai.chat(actor, input); }
 

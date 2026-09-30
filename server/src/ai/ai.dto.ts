@@ -1,5 +1,6 @@
 import { IsArray, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, MinLength, ValidateIf } from 'class-validator';
 import { RAG_REVIEW_DECISIONS, RAG_SCOPES, RagReviewDecision, RagScope } from './rag-scope';
+import { CITATION_REVIEW_STATUSES, CitationReviewStatus, GROUNDING_STATUSES } from './citation-audit';
 
 export class ChatDto {
   @IsString()
@@ -139,6 +140,25 @@ export class RagSearchDto {
   @IsOptional() @IsString() authority?: string;
   @IsOptional() @IsString() jurisdiction?: string;
   @IsOptional() @IsString() industry?: string;
+}
+
+export class CitationAuditQueryDto {
+  @IsOptional() @IsString() documentId?: string;
+  @IsOptional() @IsIn(RAG_SCOPES) scope?: string;
+  @IsOptional() @IsString() countryNodeId?: string;
+  @IsOptional() @IsIn(GROUNDING_STATUSES) groundingStatus?: string;
+  @IsOptional() @IsIn(['true', 'false']) quoteVerified?: 'true' | 'false';
+  @IsOptional() @IsIn(CITATION_REVIEW_STATUSES) reviewStatus?: string;
+  @IsOptional() @IsDateString() from?: string;
+  @IsOptional() @IsDateString() to?: string;
+  @IsOptional() @IsString() search?: string;
+  @IsOptional() @IsString() page?: string;
+  @IsOptional() @IsString() pageSize?: string;
+}
+
+export class CitationReviewDto {
+  @IsIn(CITATION_REVIEW_STATUSES) status!: CitationReviewStatus;
+  @IsOptional() @IsString() comment?: string;
 }
 
 export class RagSupersedeDto {

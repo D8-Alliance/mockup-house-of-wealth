@@ -88,7 +88,7 @@ export class AiService {
         conversationId: conversation.id,
         role: 'assistant',
         content: grounded.answer,
-        metadata: { runId, groundingStatus: grounded.groundingStatus, confidence: grounded.confidence, limitations: grounded.limitations, unsupportedSentences: grounded.unsupportedSentences, droppedLabels: grounded.droppedLabels, sourceCount: sources.length },
+        metadata: { question: input.message, runId, groundingStatus: grounded.groundingStatus, confidence: grounded.confidence, limitations: grounded.limitations, unsupportedSentences: grounded.unsupportedSentences, droppedLabels: grounded.droppedLabels, sourceCount: sources.length },
         citations: {
           create: grounded.citations.map((citation) => ({
             marker: citation.marker,
@@ -648,7 +648,7 @@ export class AiService {
   getConversation(actor: AuthenticatedUser, id: string) {
     return this.prisma.aiConversation.findFirst({
       where: { id, userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId },
-      include: { messages: { orderBy: { createdAt: 'asc' }, include: { citations: { orderBy: { marker: 'asc' } } } }, runs: { include: { decision: true }, orderBy: { createdAt: 'asc' } } },
+      include: { messages: { orderBy: { createdAt: 'asc' }, include: { citations: { orderBy: { marker: 'asc' }, include: { document: { select: { supersededById: true } } } } } }, runs: { include: { decision: true }, orderBy: { createdAt: 'asc' } } },
     });
   }
 
@@ -671,7 +671,10 @@ export class AiService {
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
-    return documents.map(({ _count, ...document }) => ({ ...document, chunkCount: _count.chunks }));
+    const cited = documents.length ? await this.prisma.$queryRaw<Array<{ documentId: string; answers: number }>>(Prisma.sql`
+      SELECT "documentId", COUNT(DISTINCT "messageId")::int AS answers FROM "AiCitation"
+      WHERE "documentId" IN (${Prisma.join(documents.map((document) => document.id))}) GROUP BY "documentId"`) : [];
+    return documents.map(({ _count, ...document }) => ({ ...document, chunkCount: _count.chunks, citedInAnswers: cited.find((row) => row.documentId === document.id)?.answers ?? 0 }));
   }
 
   async createDocument(actor: AuthenticatedUser, input: RagDocumentDto, prepared?: { chunks: RagChunkInput[]; source?: Prisma.InputJsonObject }) {

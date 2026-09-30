@@ -607,6 +607,12 @@ model AiCitation {
   quoteVerified  Boolean      @default(false)
   excerpt        String       @db.Text
   retrievalScore Float?
+  // Human review of the citation: UNREVIEWED | CONFIRMED | INCORRECT | IRRELEVANT.
+  // The answer is never rewritten; flagged citations are shown with a warning.
+  reviewStatus   String       @default("UNREVIEWED")
+  reviewedBy     String?
+  reviewedAt     DateTime?
+  reviewComment  String?
   createdAt      DateTime     @default(now())
   message        AiMessage    @relation(fields: [messageId], references: [id], onDelete: Cascade)
   chunk          RagChunk?    @relation(fields: [chunkId], references: [id], onDelete: SetNull)
@@ -615,6 +621,7 @@ model AiCitation {
   @@unique([messageId, marker])
   @@index([documentId, createdAt])
   @@index([chunkId])
+  @@index([reviewStatus, createdAt])
 }
 
 model AiRun {

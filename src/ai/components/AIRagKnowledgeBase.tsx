@@ -292,6 +292,7 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
               <span className={`rounded-full px-2 py-0.5 font-bold ${APPROVAL_BADGE[document.approvalStatus] || APPROVAL_BADGE.DRAFT}`}>{document.approvalStatus}</span>
               <span className="text-slate-500">{document.sourceType} · {document.chunkCount ?? 0} chunks{document.metadata?.source?.pageCount ? ` · ${document.metadata.source.pageCount} pages` : ''}</span>
               {document.metadata?.embedding && <span className={`rounded-full px-2 py-0.5 font-bold ${EMBEDDING_BADGE[document.metadata.embedding.status].className}`}>{EMBEDDING_BADGE[document.metadata.embedding.status].label}</span>}
+              <span className="rounded-full bg-purple-50 px-2 py-0.5 font-bold text-purple-700">Cited in {document.citedInAnswers ?? 0} answer{document.citedInAnswers === 1 ? '' : 's'}</span>
             </div>
             {document.effectiveFrom && <p className="mt-1 text-slate-500">Effective from {new Date(document.effectiveFrom).toLocaleDateString()}</p>}
             {document.reviewComment && <p className="mt-1 text-slate-600 dark:text-slate-300">Comment: {document.reviewComment}</p>}
@@ -306,6 +307,9 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
                 {replacementOptions(document).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.title}{candidate.effectiveFrom ? ` (effective ${new Date(candidate.effectiveFrom).toLocaleDateString()})` : ''}</option>)}
               </select>
               <button onClick={() => void supersede(document, replacementFor[document.id])} disabled={busy || !replacementFor[document.id]} className="rounded-xl bg-slate-700 px-3 py-2 font-bold text-white disabled:opacity-50">Mark superseded</button>
+              {replacementFor[document.id] && (document.citedInAnswers ?? 0) > 0 && <p className="w-full rounded-lg bg-amber-50 p-2 text-[11px] text-amber-800">
+                Impact: {document.citedInAnswers} existing answer{document.citedInAnswers === 1 ? '' : 's'} cite this document. They keep their citations (shown as superseded to users); new answers will use the replacement only. Review them in Citation Audit.
+              </p>}
             </div>}
             {['DRAFT', 'REVIEWED'].includes(document.approvalStatus) && <div className="mt-2 flex flex-wrap items-center gap-2">
               <input value={reviewComment[document.id] || ''} onChange={(event) => setReviewComment((current) => ({ ...current, [document.id]: event.target.value }))} placeholder="Review comment (optional)" className={`min-w-0 flex-1 ${inputClass}`} />

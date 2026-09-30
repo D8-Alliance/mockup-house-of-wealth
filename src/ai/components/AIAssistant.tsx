@@ -73,6 +73,14 @@ const SourceList: React.FC<{ message: BackendAiMessage; openMarker: number | nul
                   : <span className="not-italic">(not found verbatim in the source)</span>}
               </p>
             )}
+            {(citation.reviewStatus === 'INCORRECT' || citation.reviewStatus === 'IRRELEVANT') && (
+              <p className="mt-1 flex items-start gap-1 rounded-lg bg-rose-50 p-1.5 font-semibold text-rose-700">
+                <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                A reviewer flagged this source as {citation.reviewStatus === 'INCORRECT' ? 'incorrect' : 'not relevant'} for this answer{citation.reviewComment ? `: ${citation.reviewComment}` : '.'}
+              </p>
+            )}
+            {citation.reviewStatus === 'CONFIRMED' && <p className="mt-1 text-emerald-700"><CheckCircle2 className="inline h-3 w-3" /> Confirmed by a reviewer</p>}
+            {citation.document?.supersededById && <p className="mt-1 text-slate-500">This document has since been superseded by a newer version.</p>}
             {open && <p className="mt-1.5 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-2 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{citation.excerpt}</p>}
             {open && !citation.chunkId && <p className="mt-1 text-slate-400">Source text shown as it was when the answer was given; the document has since been re-indexed or removed.</p>}
           </div>
@@ -204,6 +212,9 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ userRole, userName, pr
                   ? <p className="whitespace-pre-wrap text-xs">{message.content}</p>
                   : <AnswerText text={message.content} citations={message.citations || []} onCite={(marker) => setOpenSource(openMarker === marker ? null : { messageId: message.id, marker })} />}
                 {!isUser && grounding && <p className={`mt-2 rounded-lg border px-2 py-1 text-[10px] font-bold ${grounding.className}`}>{grounding.label}</p>}
+                {!isUser && message.citations?.some((citation) => citation.reviewStatus === 'INCORRECT' || citation.reviewStatus === 'IRRELEVANT') && (
+                  <p className="mt-1 rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700">A reviewer has flagged a source in this answer — see Sources below.</p>
+                )}
                 {!isUser && <SourceList message={message} openMarker={openMarker} onToggle={(marker) => setOpenSource(openMarker === marker ? null : { messageId: message.id, marker })} />}
                 {!isUser && meta.limitations?.length ? <ul className="mt-2 list-disc pl-4 text-[10px] text-slate-500">{meta.limitations.map((item) => <li key={item}>{item}</li>)}</ul> : null}
                 {!isUser && meta.confidence && <div className="mt-2 border-t border-slate-200 pt-1.5 dark:border-slate-700"><AIConfidenceBadge confidence={meta.confidence} /></div>}
