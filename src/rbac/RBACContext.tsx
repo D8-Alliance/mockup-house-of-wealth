@@ -38,7 +38,16 @@ interface RBACContextType {
   currentUserId: string;
 }
 
-const RBACContext = createContext<RBACContextType | undefined>(undefined);
+// Keep a single context instance across Vite HMR re-evaluations of this module
+// (e.g. when apiClient/authService change). Otherwise consumers pick up a fresh
+// context object while the mounted provider still serves the old one, and
+// useRBAC throws "must be used within an RBACProvider".
+const rbacContextGlobal = globalThis as typeof globalThis & {
+  __RBAC_CONTEXT__?: React.Context<RBACContextType | undefined>;
+};
+const RBACContext =
+  rbacContextGlobal.__RBAC_CONTEXT__ ??
+  (rbacContextGlobal.__RBAC_CONTEXT__ = createContext<RBACContextType | undefined>(undefined));
 
 interface RBACProviderProps {
   children: ReactNode;
