@@ -1,4 +1,4 @@
-import { IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsArray, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, MinLength, ValidateIf } from 'class-validator';
 import { RAG_REVIEW_DECISIONS, RAG_SCOPES, RagReviewDecision, RagScope } from './rag-scope';
 
 export class ChatDto {
@@ -9,6 +9,11 @@ export class ChatDto {
   @IsOptional()
   @IsString()
   conversationId?: string;
+
+  // Adds that project's approved documents to the retrieval scope (access is checked).
+  @IsOptional()
+  @IsString()
+  projectId?: string;
 }
 
 export class ContractAdvisorDto {
@@ -83,6 +88,9 @@ export class RagDocumentDto {
   // COUNTRY scope only; defaults to the actor's country node.
   @IsOptional() @IsString() countryNodeId?: string;
 
+  // Date from which the standard or regulation applies (ISO 8601).
+  @IsOptional() @IsDateString() effectiveFrom?: string;
+
   @IsOptional()
   @IsString()
   @MinLength(1)
@@ -131,6 +139,11 @@ export class RagSearchDto {
   @IsOptional() @IsString() authority?: string;
   @IsOptional() @IsString() jurisdiction?: string;
   @IsOptional() @IsString() industry?: string;
+}
+
+export class RagSupersedeDto {
+  // Replacement document id, or null to restore the document as current.
+  @ValidateIf((_object, value) => value !== null) @IsString() supersededById!: string | null;
 }
 
 export class RagReviewDto {

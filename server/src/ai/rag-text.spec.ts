@@ -49,6 +49,11 @@ describe('rag-text', () => {
     expect(scoreChunk('Unrelated text about leasing', expandQuery('Musharakah'))).toBe(0);
   });
 
+  it('ignores English and Malay question words so natural questions keep their meaningful terms', () => {
+    expect(expandQuery('What must an Islamic institution disclose about Zakah?').groups.map((group) => group[0])).toEqual(['islamic', 'institution', 'disclose', 'zakah']);
+    expect(expandQuery('Apakah yang perlu didedahkan tentang zakat?').groups.map((group) => group[0])).toEqual(['didedahkan', 'zakat']);
+  });
+
   it('ranks chunks that match more query terms higher', () => {
     const query = expandQuery('zakah disclosure');
     const both = scoreChunk('The Zakah base should be disclosed. Disclosure of Zakah.', query);

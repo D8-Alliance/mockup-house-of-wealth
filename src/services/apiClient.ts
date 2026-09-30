@@ -182,9 +182,15 @@ export const apiClient = {
     method: 'PATCH',
     body: JSON.stringify({ mode }),
   }),
-  aiChat: (input: { message: string; conversationId?: string }) => request<BackendAiRun>('/ai/chat', {
+  aiChat: (input: { message: string; conversationId?: string; projectId?: string }) => request<BackendAiChatResponse>('/ai/chat', {
     method: 'POST',
     body: JSON.stringify(input),
+  }),
+  listAiConversations: () => request<BackendAiConversationSummary[]>('/ai/conversations'),
+  getAiConversation: (id: string) => request<BackendAiConversation>(`/ai/conversations/${encodeURIComponent(id)}`),
+  supersedeRagDocument: (id: string, supersededById: string | null) => request<BackendRagDocument>(`/ai/rag/documents/${encodeURIComponent(id)}/supersede`, {
+    method: 'POST',
+    body: JSON.stringify({ supersededById }),
   }),
   getRagCountries: () => request<BackendRagCountry[]>('/ai/rag/countries'),
   listRagDocuments: (filter: { scope?: RagScope; projectId?: string; approvalStatus?: string } = {}) => {
@@ -354,6 +360,7 @@ export type RagScope = 'GLOBAL' | 'COUNTRY' | 'PROJECT';
 export interface RagDocumentMetadata {
   scope: RagScope;
   countryNodeId?: string;
+  effectiveFrom?: string;
   projectId?: string;
   title?: string;
   sourceType?: string;
@@ -369,6 +376,65 @@ export interface RagEmbeddingStatus {
   model: string | null;
   embeddedChunks: number;
   totalChunks: number;
+}
+
+/** Grounding of an assistant answer in approved knowledge-base sources (validated server-side). */
+export type AiGroundingStatus = 'GROUNDED' | 'PARTIALLY_GROUNDED' | 'UNSUPPORTED' | 'NO_SOURCES';
+
+export interface BackendAiCitation {
+  id: string;
+  marker: number;
+  sourceLabel: string;
+  chunkId: string | null;
+  documentId: string | null;
+  documentTitle: string;
+  sourceType: string;
+  scope: RagScope;
+  pageStart: number | null;
+  pageEnd: number | null;
+  paragraphRefs: string[] | null;
+  quote: string | null;
+  quoteVerified: boolean;
+  excerpt: string;
+  retrievalScore: number | null;
+  createdAt: string;
+}
+
+export interface BackendAiMessage {
+  id: string;
+  conversationId: string;
+  role: 'user' | 'assistant';
+  content: string;
+  metadata?: {
+    runId?: string | null;
+    groundingStatus?: AiGroundingStatus;
+    confidence?: { level: 'HIGH' | 'MEDIUM' | 'LOW'; scorePercent: number; disclaimer: string };
+    limitations?: string[];
+    unsupportedSentences?: string[];
+    sourceCount?: number;
+  } | null;
+  citations?: BackendAiCitation[];
+  createdAt: string;
+}
+
+export interface BackendAiChatResponse {
+  conversationId: string;
+  runId: string | null;
+  message: BackendAiMessage;
+}
+
+export interface BackendAiConversationSummary {
+  id: string;
+  title: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count: { messages: number };
+}
+
+export interface BackendAiConversation {
+  id: string;
+  title: string | null;
+  messages: BackendAiMessage[];
 }
 
 export interface BackendRagCountry {
@@ -394,6 +460,10 @@ export interface BackendRagDocument {
   reviewedBy?: string | null;
   approvedBy?: string | null;
   reviewComment?: string | null;
+  supersededById?: string | null;
+  supersededAt?: string | null;
+  supersededBy?: { id: string; title: string } | null;
+  effectiveFrom?: string | null;
   chunkCount?: number;
   embedding?: RagEmbeddingStatus;
   metadata?: { embedding?: RagEmbeddingStatus; source?: { type?: string; fileName?: string; pageCount?: number } } | null;

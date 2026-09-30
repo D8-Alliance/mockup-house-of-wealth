@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -8,18 +8,21 @@ import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import pdfParse from 'pdf-parse';
 import * as XLSX from 'xlsx';
 import { AiProvider } from './ai.provider';
-import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
 import { scopeOf } from './ai.types';
-import { chunkPages, chunkText, cleanPages, expandQuery, extractPdfPages, queryVariants, RagChunkInput, scoreChunk } from './rag-text';
+import { GroundedAnswer, groundAnswer, labelSources, noSourcesAnswer } from './ai-citations';
+import { chunkPages, chunkText, cleanPages, expandQuery, extractPdfPages, MIN_KEYWORD_SCORE, queryVariants, RagChunkInput, scoreChunk } from './rag-text';
 import { RAG_EMBEDDING_DIMENSIONS, RagEmbeddingService } from './rag-embedding.service';
 import { assertRagTransition, canManageRagScope, isRagManager, ragManagementWhere, RagScope, ragScopeKey, ragVisibilitySql, ragVisibilityWhere } from './rag-scope';
 import { MembershipService } from '../membership/membership.service';
 import { ContractClauseRetriever } from './contract-clause-retriever.service';
 
-export interface RagSearchResult { id: string; documentId: string; content: string; title: string; sourceType: string; scope: string; pageStart?: number | null; pageEnd?: number | null; paragraphRefs?: string[]; retrieval?: 'keyword' | 'vector' | 'hybrid'; score?: number }
+export interface RagSearchResult { id: string; documentId: string; content: string; title: string; sourceType: string; scope: string; pageStart?: number | null; pageEnd?: number | null; paragraphRefs?: string[]; effectiveFrom?: string | null; retrieval?: 'keyword' | 'vector' | 'hybrid'; score?: number }
 
 @Injectable()
 export class AiService {
+  private readonly logger = new Logger(AiService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
@@ -29,6 +32,12 @@ export class AiService {
     @Inject('AI_PROVIDER') private readonly provider: AiProvider,
   ) {}
 
+  /**
+   * Knowledge-base assistant. Answers only from approved RAG sources (GLOBAL,
+   * the user's country, and the project when given); every citation is
+   * validated server-side and stored with a snapshot in AiCitation. When
+   * nothing relevant is retrieved the model is not called and no credits are used.
+   */
   async chat(actor: AuthenticatedUser, input: ChatDto) {
     const scope = scopeOf(actor);
     const conversation = input.conversationId
@@ -36,12 +45,83 @@ export class AiService {
       : await this.prisma.aiConversation.create({ data: { ...scope, title: input.message.slice(0, 80) } });
     if (!conversation) throw new NotFoundException('AI conversation not found in the current tenant');
 
+    // Project access errors must surface; other retrieval failures degrade to "no sources".
+    if (input.projectId) {
+      const project = await this.prisma.project.findUnique({ where: { projectId: input.projectId } });
+      if (!project) throw new NotFoundException('Project not found in the current tenant');
+      assertTenantScope(actor, project, 'Project');
+      this.assertProjectSponsorScope(actor, project.projectSponsorId);
+    }
+    const sources = labelSources(await this.searchDocuments(actor, { query: input.message, projectId: input.projectId, limit: Number(process.env.AI_CHAT_MAX_SOURCES) || 4 }).catch(() => [] as RagSearchResult[]));
+    const history = (await this.prisma.aiMessage.findMany({ where: { conversationId: conversation.id }, orderBy: { createdAt: 'desc' }, take: 6, select: { role: true, content: true } }))
+      .reverse()
+      .map((message) => ({ role: message.role === 'assistant' ? 'assistant' as const : 'user' as const, content: message.content.slice(0, 2000) }));
     await this.prisma.aiMessage.create({ data: { conversationId: conversation.id, role: 'user', content: input.message } });
-    // Ground chat answers in approved knowledge (GLOBAL + the user's country); chat still works if retrieval fails.
-    const ragResults = await this.searchDocuments(actor, { query: input.message, limit: 5 }).catch(() => [] as RagSearchResult[]);
-    const result = await this.run(actor, 'chat', 'CHAT', input.message, { message: input.message, ragSources: this.toRagSources(ragResults) }, conversation.id);
-    await this.prisma.aiMessage.create({ data: { conversationId: conversation.id, role: 'assistant', content: JSON.stringify(result.output?.recommendation ?? {}) } });
-    return { conversationId: conversation.id, run: result };
+
+    let grounded: GroundedAnswer;
+    let runId: string | null = null;
+    if (!sources.length) {
+      grounded = noSourcesAnswer();
+    } else {
+      await this.membership.consumeCredits(actor, 'SIMPLE_QUERY', conversation.id);
+      const run = await this.prisma.aiRun.create({ data: { requestId: randomUUID(), featureKey: 'chat', action: 'GROUNDED_ANSWER', userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, conversationId: conversation.id, input: { question: input.message, projectId: input.projectId ?? null, sources: sources.map(({ label, result }) => ({ label, chunkId: result.id, documentId: result.documentId, title: result.title, scope: result.scope, pageStart: result.pageStart ?? null, pageEnd: result.pageEnd ?? null, retrieval: result.retrieval ?? null, score: result.score ?? null })) }, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });
+      runId = run.id;
+      await this.audit.recordActor(actor, { action: 'ai.request', resourceType: 'AiRun', resourceId: run.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { featureKey: 'chat', sourceCount: sources.length } });
+      try {
+        const raw = await this.provider.chat({
+          question: input.message,
+          history,
+          sources: sources.map(({ label, result }) => ({ label, title: result.title, scope: result.scope, sourceType: result.sourceType, pages: this.pageRange(result), paragraphRefs: result.paragraphRefs ?? [], effectiveFrom: result.effectiveFrom ?? null, text: result.content })),
+        });
+        grounded = groundAnswer(raw, sources);
+        await this.prisma.aiRun.update({ where: { id: run.id }, data: { status: 'COMPLETED', completedAt: new Date(), output: { raw, groundingStatus: grounded.groundingStatus, confidence: grounded.confidence, citedLabels: grounded.citations.map((citation) => citation.label), droppedLabels: grounded.droppedLabels, unsupportedSentences: grounded.unsupportedSentences } as unknown as Prisma.InputJsonValue } });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message.slice(0, 300) : 'unknown error';
+        this.logger.warn(`AI chat run ${run.id} failed: ${reason}`);
+        await this.prisma.aiRun.update({ where: { id: run.id }, data: { status: 'FAILED', output: { error: 'AI provider failed', reason } } });
+        throw new ServiceUnavailableException('AI provider is unavailable. Check that the configured Ollama or OpenAI endpoint is running.');
+      }
+    }
+
+    const message = await this.prisma.aiMessage.create({
+      data: {
+        conversationId: conversation.id,
+        role: 'assistant',
+        content: grounded.answer,
+        metadata: { runId, groundingStatus: grounded.groundingStatus, confidence: grounded.confidence, limitations: grounded.limitations, unsupportedSentences: grounded.unsupportedSentences, droppedLabels: grounded.droppedLabels, sourceCount: sources.length },
+        citations: {
+          create: grounded.citations.map((citation) => ({
+            marker: citation.marker,
+            sourceLabel: citation.label,
+            chunkId: citation.source.id,
+            documentId: citation.source.documentId,
+            documentTitle: citation.source.title,
+            sourceType: citation.source.sourceType,
+            scope: citation.source.scope,
+            pageStart: citation.source.pageStart ?? null,
+            pageEnd: citation.source.pageEnd ?? null,
+            paragraphRefs: citation.source.paragraphRefs ?? [],
+            quote: citation.quote,
+            quoteVerified: citation.quoteVerified,
+            excerpt: citation.source.content,
+            retrievalScore: citation.source.score ?? null,
+          })),
+        },
+      },
+      include: { citations: { orderBy: { marker: 'asc' } } },
+    });
+    await this.prisma.aiConversation.update({ where: { id: conversation.id }, data: { updatedAt: new Date() } });
+    await this.audit.recordActor(actor, { action: 'ai.chat.answer', resourceType: 'AiMessage', resourceId: message.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { conversationId: conversation.id, runId, groundingStatus: grounded.groundingStatus, citationCount: grounded.citations.length, citedDocuments: [...new Set(grounded.citations.map((citation) => citation.source.documentId))] } });
+    return { conversationId: conversation.id, runId, message };
+  }
+
+  listConversations(actor: AuthenticatedUser) {
+    return this.prisma.aiConversation.findMany({
+      where: { userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, status: 'ACTIVE' },
+      orderBy: { updatedAt: 'desc' },
+      take: 30,
+      select: { id: true, title: true, createdAt: true, updatedAt: true, _count: { select: { messages: true } } },
+    });
   }
 
   async contractAdvisor(actor: AuthenticatedUser, input: ContractAdvisorDto) {
@@ -568,7 +648,7 @@ export class AiService {
   getConversation(actor: AuthenticatedUser, id: string) {
     return this.prisma.aiConversation.findFirst({
       where: { id, userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId },
-      include: { messages: { orderBy: { createdAt: 'asc' } }, runs: { include: { decision: true }, orderBy: { createdAt: 'asc' } } },
+      include: { messages: { orderBy: { createdAt: 'asc' }, include: { citations: { orderBy: { marker: 'asc' } } } }, runs: { include: { decision: true }, orderBy: { createdAt: 'asc' } } },
     });
   }
 
@@ -587,7 +667,7 @@ export class AiService {
           filter.approvalStatus ? { approvalStatus: filter.approvalStatus } : {},
         ],
       },
-      select: { id: true, scope: true, countryNodeId: true, organisationId: true, projectId: true, title: true, sourceType: true, documentCategory: true, contractType: true, authority: true, jurisdiction: true, approvalStatus: true, status: true, metadata: true, uploadedBy: true, reviewedBy: true, reviewedAt: true, approvedBy: true, approvedAt: true, reviewComment: true, createdAt: true, _count: { select: { chunks: true } } },
+      select: { id: true, scope: true, countryNodeId: true, organisationId: true, projectId: true, title: true, sourceType: true, documentCategory: true, contractType: true, authority: true, jurisdiction: true, approvalStatus: true, status: true, metadata: true, supersededById: true, supersededAt: true, effectiveFrom: true, supersededBy: { select: { id: true, title: true } }, uploadedBy: true, reviewedBy: true, reviewedAt: true, approvedBy: true, approvedAt: true, reviewComment: true, createdAt: true, _count: { select: { chunks: true } } },
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
@@ -619,7 +699,7 @@ export class AiService {
       document = await this.prisma.ragDocument.create({
         // Always DRAFT: content reaches the LLM only after review and approval by other people.
         data: {
-          scope, scopeKey: ragScopeKey(scope, target), ...target, uploadedBy: actor.userId, title: input.title, sourceType: input.sourceType, documentCategory: input.documentCategory, contractType: input.contractType, authority: input.authority, jurisdiction: input.jurisdiction, industry: input.industry, approvalStatus: 'DRAFT', contentHash,
+          scope, scopeKey: ragScopeKey(scope, target), ...target, uploadedBy: actor.userId, title: input.title, sourceType: input.sourceType, documentCategory: input.documentCategory, contractType: input.contractType, authority: input.authority, jurisdiction: input.jurisdiction, industry: input.industry, approvalStatus: 'DRAFT', contentHash, effectiveFrom: input.effectiveFrom ? new Date(input.effectiveFrom) : null,
           metadata: { source: prepared?.source ?? { type: 'TEXT' }, chunking: { strategy: 'line-aware', size: 1200, overlap: 200, chunkCount: chunks.length } },
           chunks: { create: chunks.map((chunk) => ({ chunkIndex: chunk.chunkIndex, content: chunk.content, metadata: chunk.metadata })) },
         },
@@ -655,6 +735,32 @@ export class AiService {
     const embedding = input.decision === 'APPROVED' ? await this.embedDocumentChunks(id) : undefined;
     await this.audit.recordActor(actor, { action: `ai.rag.document_${input.decision.toLowerCase()}`, resourceType: 'RagDocument', resourceId: id, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { scope: document.scope, from: document.approvalStatus, to: input.decision, comment: input.comment || null, embeddingStatus: embedding?.status ?? null } });
     return { ...updated, ...(embedding ? { embedding } : {}) };
+  }
+
+  /**
+   * Marks a document as replaced by a newer approved version (or restores it
+   * with supersededById = null). Superseded documents stay for audit and
+   * existing citations but are excluded from retrieval.
+   */
+  async supersedeRagDocument(actor: AuthenticatedUser, id: string, input: RagSupersedeDto) {
+    const document = await this.prisma.ragDocument.findUnique({ where: { id } });
+    if (!document) throw new NotFoundException('Knowledge-base document not found');
+    if (!canManageRagScope(actor, document.scope as RagScope, document.countryNodeId)) throw new ForbiddenException('Your role cannot manage this knowledge-base document.');
+    const replacementId = input.supersededById || null;
+    if (replacementId) {
+      if (replacementId === id) throw new BadRequestException('A document cannot supersede itself.');
+      const replacement = await this.prisma.ragDocument.findUnique({ where: { id: replacementId } });
+      if (!replacement) throw new NotFoundException('Replacement document not found');
+      if (!canManageRagScope(actor, replacement.scope as RagScope, replacement.countryNodeId)) throw new ForbiddenException('Your role cannot use this replacement document.');
+      if (replacement.approvalStatus !== 'APPROVED' || replacement.status !== 'ACTIVE' || replacement.supersededById) throw new BadRequestException('The replacement must be an active, approved, current document.');
+    }
+    const updated = await this.prisma.ragDocument.update({
+      where: { id },
+      data: { supersededById: replacementId, supersededAt: replacementId ? new Date() : null },
+      select: { id: true, supersededById: true, supersededAt: true, supersededBy: { select: { id: true, title: true } } },
+    });
+    await this.audit.recordActor(actor, { action: replacementId ? 'ai.rag.document_superseded' : 'ai.rag.document_restored', resourceType: 'RagDocument', resourceId: id, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { scope: document.scope, supersededById: replacementId, previousSupersededById: document.supersededById } });
+    return updated;
   }
 
   /**
@@ -766,7 +872,7 @@ export class AiService {
       this.assertProjectSponsorScope(actor, found.projectSponsorId);
       project = { projectId: found.projectId, countryNodeId: found.countryNodeId };
     }
-    const documentFilter: Prisma.RagDocumentWhereInput = { status: 'ACTIVE', approvalStatus: 'APPROVED', ...(input.documentCategory ? { documentCategory: input.documentCategory } : {}), ...(input.contractType ? { contractType: input.contractType } : {}), ...(input.authority ? { authority: input.authority } : {}), ...(input.jurisdiction ? { jurisdiction: input.jurisdiction } : {}), ...(input.industry ? { industry: input.industry } : {}) };
+    const documentFilter: Prisma.RagDocumentWhereInput = { status: 'ACTIVE', approvalStatus: 'APPROVED', supersededById: null, ...(input.documentCategory ? { documentCategory: input.documentCategory } : {}), ...(input.contractType ? { contractType: input.contractType } : {}), ...(input.authority ? { authority: input.authority } : {}), ...(input.jurisdiction ? { jurisdiction: input.jurisdiction } : {}), ...(input.industry ? { industry: input.industry } : {}) };
     const toPages = (metadata: unknown) => {
       const value = metadata && typeof metadata === 'object' ? metadata as { pageStart?: number | null; pageEnd?: number | null; paragraphRefs?: string[] } : {};
       return { pageStart: value.pageStart ?? null, pageEnd: value.pageEnd ?? null, paragraphRefs: value.paragraphRefs ?? [] };
@@ -776,11 +882,11 @@ export class AiService {
     const candidates = await this.prisma.ragChunk.findMany({
       where: { OR: queryVariants(expanded).map((variant) => ({ content: { contains: variant, mode: 'insensitive' as const } })), document: { AND: [ragVisibilityWhere(actor, project), documentFilter] } },
       take: 300,
-      include: { document: { select: { title: true, sourceType: true, scope: true } } },
+      include: { document: { select: { title: true, sourceType: true, scope: true, effectiveFrom: true } } },
     });
     const keywordRanked: RagSearchResult[] = candidates
-      .map((chunk) => ({ id: chunk.id, documentId: chunk.documentId, content: chunk.content, title: chunk.document.title, sourceType: chunk.document.sourceType, scope: chunk.document.scope, ...toPages(chunk.metadata), score: scoreChunk(chunk.content, expanded) }))
-      .filter((result) => (result.score ?? 0) > 0)
+      .map((chunk) => ({ id: chunk.id, documentId: chunk.documentId, content: chunk.content, title: chunk.document.title, sourceType: chunk.document.sourceType, scope: chunk.document.scope, effectiveFrom: chunk.document.effectiveFrom?.toISOString() ?? null, ...toPages(chunk.metadata), score: scoreChunk(chunk.content, expanded) }))
+      .filter((result) => (result.score ?? 0) >= MIN_KEYWORD_SCORE)
       .sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
 
     if (input.embedding?.length && input.embedding.length !== RAG_EMBEDDING_DIMENSIONS) throw new BadRequestException(`Query embedding must have ${RAG_EMBEDDING_DIMENSIONS} dimensions.`);
@@ -793,20 +899,26 @@ export class AiService {
         AND (${input.authority || null}::text IS NULL OR d."authority" = ${input.authority})
         AND (${input.jurisdiction || null}::text IS NULL OR d."jurisdiction" = ${input.jurisdiction})
         AND (${input.industry || null}::text IS NULL OR d."industry" = ${input.industry})`;
-      const rows = await this.prisma.$queryRaw<Array<{ id: string; documentId: string; content: string; title: string; sourceType: string; scope: string; metadata: unknown; score: number }>>(Prisma.sql`
-        SELECT c."id", c."documentId", c."content", c."metadata", d."title", d."sourceType", d."scope",
+      const rows = await this.prisma.$queryRaw<Array<{ id: string; documentId: string; content: string; title: string; sourceType: string; scope: string; effectiveFrom: Date | null; metadata: unknown; score: number }>>(Prisma.sql`
+        SELECT c."id", c."documentId", c."content", c."metadata", d."title", d."sourceType", d."scope", d."effectiveFrom",
           1 - (c."embedding" <=> ${RagEmbeddingService.toVectorLiteral(queryVector)}::vector) AS score
         FROM "RagChunk" c
         INNER JOIN "RagDocument" d ON d."id" = c."documentId"
          WHERE d."status" = 'ACTIVE'
            AND d."approvalStatus" = 'APPROVED'
+           AND d."supersededById" IS NULL
            ${ragVisibilitySql(actor, project)}
            ${metadataSql}
            AND c."embedding" IS NOT NULL
         ORDER BY c."embedding" <=> ${RagEmbeddingService.toVectorLiteral(queryVector)}::vector
         LIMIT ${Math.max(limit * 4, 20)}
       `);
-      vectorRanked = rows.map(({ metadata, score, ...row }) => ({ ...row, ...toPages(metadata), score: Number(score) }));
+      // Nearest neighbours always exist; below this cosine similarity they are unrelated
+      // (nomic-embed-text on FAS 1: relevant questions >= 0.63, unrelated <= 0.45).
+      const minSimilarity = Number(process.env.RAG_MIN_VECTOR_SIMILARITY) || 0.55;
+      vectorRanked = rows
+        .map(({ metadata, score, effectiveFrom, ...row }) => ({ ...row, effectiveFrom: effectiveFrom ? new Date(effectiveFrom).toISOString() : null, ...toPages(metadata), score: Number(score) }))
+        .filter((result) => result.score >= minSimilarity);
     }
 
     // Reciprocal Rank Fusion (k = 60) of the keyword and vector rankings.
@@ -886,7 +998,12 @@ export class AiService {
 
   /** Compact, citable RAG context for the LLM. */
   private toRagSources(results: RagSearchResult[]) {
-    return results.map(({ title, sourceType, scope, content, pageStart, pageEnd, paragraphRefs }) => ({ title, sourceType, scope, pages: pageStart ? (pageEnd && pageEnd !== pageStart ? `${pageStart}-${pageEnd}` : `${pageStart}`) : null, paragraphRefs, content }));
+    return results.map((result) => ({ title: result.title, sourceType: result.sourceType, scope: result.scope, pages: this.pageRange(result), paragraphRefs: result.paragraphRefs, effectiveFrom: result.effectiveFrom ?? null, content: result.content }));
+  }
+
+  private pageRange(result: Pick<RagSearchResult, 'pageStart' | 'pageEnd'>): string | null {
+    if (!result.pageStart) return null;
+    return result.pageEnd && result.pageEnd !== result.pageStart ? `${result.pageStart}-${result.pageEnd}` : `${result.pageStart}`;
   }
 
   private assertProjectSponsorScope(actor: AuthenticatedUser, projectSponsorId: string) {

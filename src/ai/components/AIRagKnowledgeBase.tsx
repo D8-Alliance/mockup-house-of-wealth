@@ -56,6 +56,8 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
   const [authority, setAuthority] = useState('');
   const [jurisdiction, setJurisdiction] = useState('International');
   const [industry, setIndustry] = useState('');
+  const [effectiveFrom, setEffectiveFrom] = useState('');
+  const [replacementFor, setReplacementFor] = useState<Record<string, string>>({});
   const [content, setContent] = useState('');
   const [file, setFile] = useState<File | null>(null);
 
@@ -93,6 +95,7 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
     authority: authority || undefined,
     jurisdiction,
     industry: industry || undefined,
+    effectiveFrom: effectiveFrom || undefined,
   });
 
   const scopeReady = () => {
@@ -152,6 +155,24 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
       setBusy(false);
     }
   };
+
+  /** Marks a document as replaced by a newer approved version, or restores it (null). */
+  const supersede = async (document: BackendRagDocument, supersededById: string | null) => {
+    setBusy(true);
+    setMessage('');
+    try {
+      await apiClient.supersedeRagDocument(document.id, supersededById);
+      setReplacementFor((current) => ({ ...current, [document.id]: '' }));
+      setMessage(supersededById ? `"${document.title}" is now superseded and will no longer be used by the AI. Existing citations are kept.` : `"${document.title}" is current again.`);
+      loadDocuments();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Unable to update the document version.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const replacementOptions = (document: BackendRagDocument) => documents.filter((candidate) => candidate.id !== document.id && candidate.approvalStatus === 'APPROVED' && !candidate.supersededById);
 
   const backfill = async () => {
     setBusy(true);
@@ -237,6 +258,9 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
           <input value={authority} onChange={(event) => setAuthority(event.target.value)} placeholder="Authority (e.g. AAOIFI, BNM SAC)" className={inputClass} />
           <select value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} className={inputClass}><option>International</option>{countries.map((country) => <option key={country.code}>{country.name}</option>)}</select>
           <input value={industry} onChange={(event) => setIndustry(event.target.value)} placeholder="Industry (e.g. Real Estate)" className={inputClass} />
+          <label className="text-xs font-bold text-slate-700 dark:text-slate-200">Effective from (optional — date the standard or regulation applies)
+            <input type="date" value={effectiveFrom} onChange={(event) => setEffectiveFrom(event.target.value)} className={`mt-1 w-full ${inputClass}`} />
+          </label>
           <select value={sourceType} onChange={(event) => setSourceType(event.target.value)} className={inputClass}>
             <option value="AAOIFI_STANDARD">AAOIFI Standard</option>
             <option value="FATWA">Fatwa</option>
@@ -269,7 +293,20 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
               <span className="text-slate-500">{document.sourceType} · {document.chunkCount ?? 0} chunks{document.metadata?.source?.pageCount ? ` · ${document.metadata.source.pageCount} pages` : ''}</span>
               {document.metadata?.embedding && <span className={`rounded-full px-2 py-0.5 font-bold ${EMBEDDING_BADGE[document.metadata.embedding.status].className}`}>{EMBEDDING_BADGE[document.metadata.embedding.status].label}</span>}
             </div>
+            {document.effectiveFrom && <p className="mt-1 text-slate-500">Effective from {new Date(document.effectiveFrom).toLocaleDateString()}</p>}
             {document.reviewComment && <p className="mt-1 text-slate-600 dark:text-slate-300">Comment: {document.reviewComment}</p>}
+            {document.supersededById && <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-slate-100 p-2 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+              <span className="rounded-full bg-slate-700 px-2 py-0.5 text-[10px] font-bold text-white">SUPERSEDED</span>
+              <span>Replaced by <strong>{document.supersededBy?.title || 'a newer version'}</strong>{document.supersededAt ? ` on ${new Date(document.supersededAt).toLocaleDateString()}` : ''}. Not used by the AI; kept for audit and existing citations.</span>
+              <button onClick={() => void supersede(document, null)} disabled={busy} className="rounded-lg border border-slate-300 px-2 py-1 font-bold disabled:opacity-50">Restore as current</button>
+            </div>}
+            {document.approvalStatus === 'APPROVED' && !document.supersededById && replacementOptions(document).length > 0 && <div className="mt-2 flex flex-wrap items-center gap-2">
+              <select value={replacementFor[document.id] || ''} onChange={(event) => setReplacementFor((current) => ({ ...current, [document.id]: event.target.value }))} className={`min-w-0 flex-1 ${inputClass}`}>
+                <option value="">Superseded by a newer version...</option>
+                {replacementOptions(document).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.title}{candidate.effectiveFrom ? ` (effective ${new Date(candidate.effectiveFrom).toLocaleDateString()})` : ''}</option>)}
+              </select>
+              <button onClick={() => void supersede(document, replacementFor[document.id])} disabled={busy || !replacementFor[document.id]} className="rounded-xl bg-slate-700 px-3 py-2 font-bold text-white disabled:opacity-50">Mark superseded</button>
+            </div>}
             {['DRAFT', 'REVIEWED'].includes(document.approvalStatus) && <div className="mt-2 flex flex-wrap items-center gap-2">
               <input value={reviewComment[document.id] || ''} onChange={(event) => setReviewComment((current) => ({ ...current, [document.id]: event.target.value }))} placeholder="Review comment (optional)" className={`min-w-0 flex-1 ${inputClass}`} />
               {document.approvalStatus === 'DRAFT'

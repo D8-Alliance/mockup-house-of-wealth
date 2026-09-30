@@ -194,7 +194,15 @@ const TERM_VARIANTS: string[][] = [
   ['tawarruq'],
 ];
 
-const STOP_WORDS = new Set(['the', 'and', 'for', 'with', 'from', 'that', 'this', 'are', 'was', 'were', 'which', 'what', 'into', 'about', 'dan', 'yang', 'untuk', 'dengan', 'dalam', 'atau', 'rules', 'rule']);
+const STOP_WORDS = new Set([
+  // English function and question words
+  'the', 'and', 'for', 'with', 'from', 'that', 'this', 'are', 'was', 'were', 'which', 'what', 'into', 'about', 'how', 'does', 'should', 'must', 'can', 'could', 'would', 'will', 'when', 'where', 'who', 'why', 'explain', 'describe', 'tell', 'please', 'their', 'there', 'its', 'has', 'have', 'rules', 'rule',
+  // Malay function and question words
+  'dan', 'yang', 'untuk', 'dengan', 'dalam', 'atau', 'apakah', 'adakah', 'bagaimana', 'mengapa', 'kenapa', 'apa', 'mana', 'siapa', 'bila', 'perlu', 'tentang', 'ialah', 'adalah', 'boleh', 'kita', 'saya', 'ini', 'itu', 'oleh', 'kepada', 'pada', 'dari', 'daripada', 'sila', 'terangkan',
+]);
+
+/** Keyword hits below this score match fewer than half of the meaningful query terms and are ignored. */
+export const MIN_KEYWORD_SCORE = 1;
 
 export interface ExpandedQuery {
   /** Each group is satisfied by any of its variants (all lower-case). */

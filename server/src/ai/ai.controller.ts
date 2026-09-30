@@ -6,7 +6,7 @@ import { Roles } from '../auth/roles.decorator';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { AiService } from './ai.service';
-import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
 import { FeasibilityReviewDto } from './project-feasibility.dto';
 
 @Controller('ai')
@@ -79,6 +79,10 @@ export class AiController {
     return this.ai.listRagDocuments(actor, { scope, projectId, approvalStatus });
   }
 
+  @Post('rag/documents/:id/supersede')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
+  supersedeDocument(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: RagSupersedeDto) { return this.ai.supersedeRagDocument(actor, id, input); }
+
   @Post('rag/documents/:id/review')
   @Roles('Super Admin', 'AI Administrator', 'Country Admin')
   reviewDocument(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: RagReviewDto) { return this.ai.reviewRagDocument(actor, id, input); }
@@ -102,6 +106,8 @@ export class AiController {
   }
 
   @Post('rag/documents/search') search(@CurrentUser() actor: AuthenticatedUser, @Body() input: RagSearchDto) { return this.ai.searchDocuments(actor, input); }
+
+  @Get('conversations') listConversations(@CurrentUser() actor: AuthenticatedUser) { return this.ai.listConversations(actor); }
 
   @Get('conversations/:id') getConversation(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) {
     return this.ai.getConversation(actor, id);

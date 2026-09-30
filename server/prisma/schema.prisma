@@ -582,8 +582,39 @@ model AiMessage {
   metadata       Json?
   createdAt      DateTime       @default(now())
   conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  citations      AiCitation[]
 
   @@index([conversationId, createdAt])
+}
+
+// A source cited by an AI assistant answer. Snapshots (title, pages, quote,
+// excerpt) are kept because chunks can be rebuilt and documents superseded;
+// chunkId/documentId link back while the source still exists.
+model AiCitation {
+  id             String       @id @default(cuid())
+  messageId      String
+  marker         Int
+  sourceLabel    String
+  chunkId        String?
+  documentId     String?
+  documentTitle  String
+  sourceType     String
+  scope          String
+  pageStart      Int?
+  pageEnd        Int?
+  paragraphRefs  Json?
+  quote          String?
+  quoteVerified  Boolean      @default(false)
+  excerpt        String       @db.Text
+  retrievalScore Float?
+  createdAt      DateTime     @default(now())
+  message        AiMessage    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  chunk          RagChunk?    @relation(fields: [chunkId], references: [id], onDelete: SetNull)
+  document       RagDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@unique([messageId, marker])
+  @@index([documentId, createdAt])
+  @@index([chunkId])
 }
 
 model AiRun {
@@ -625,9 +656,9 @@ model AiDecision {
 }
 
 model RagDocument {
-  id               String     @id @default(cuid())
+  id               String        @id @default(cuid())
   // GLOBAL (all D-8 country nodes) | COUNTRY (one country node) | PROJECT (one project). See src/ai/rag-scope.ts.
-  scope            String     @default("PROJECT")
+  scope            String        @default("PROJECT")
   // De-duplication key: "GLOBAL", the country code, or the project id.
   scopeKey         String
   // Owner tenant; for COUNTRY scope countryNodeId is the target country, for PROJECT it is the project tenant.
@@ -642,21 +673,29 @@ model RagDocument {
   authority        String?
   jurisdiction     String?
   industry         String?
-  approvalStatus   String     @default("DRAFT") // DRAFT | REVIEWED | APPROVED | REJECTED
+  approvalStatus   String        @default("DRAFT") // DRAFT | REVIEWED | APPROVED | REJECTED
   reviewedBy       String?
   reviewedAt       DateTime?
   approvedBy       String?
   approvedAt       DateTime?
   reviewComment    String?
   contentHash      String
-  status           String     @default("ACTIVE")
+  status           String        @default("ACTIVE")
   metadata         Json?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-  project          Project?   @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  project          Project?      @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
   chunks           RagChunk[]
+  // Versioning: a superseded document is kept for audit and existing citations but is never retrieved again.
+  supersededById   String?
+  supersededAt     DateTime?
+  effectiveFrom    DateTime?
+  supersededBy     RagDocument?  @relation("RagSupersession", fields: [supersededById], references: [id], onDelete: SetNull)
+  supersedes       RagDocument[] @relation("RagSupersession")
+  citations        AiCitation[]
 
   @@unique([scope, scopeKey, contentHash])
+  @@index([supersededById])
   @@index([scope, countryNodeId, approvalStatus, status])
   @@index([projectId, organisationId, countryNodeId, status])
   @@index([organisationId, countryNodeId, status])
@@ -664,7 +703,7 @@ model RagDocument {
 }
 
 model RagChunk {
-  id         String                       @id @default(cuid())
+  id         String                      @id @default(cuid())
   documentId String
   chunkIndex Int
   content    String
@@ -672,8 +711,9 @@ model RagChunk {
   // pgvector column (768 dims, see rag-embedding.service.ts); its HNSW index (RagChunk_embedding_idx) cannot be expressed
   // in Prisma and is managed only in SQL migrations — never accept a generated DROP for it.
   embedding  Unsupported("vector(768)")?
-  createdAt  DateTime                     @default(now())
-  document   RagDocument                  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdAt  DateTime                    @default(now())
+  document   RagDocument                 @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  citations  AiCitation[]
 
   @@unique([documentId, chunkIndex])
   @@index([documentId])

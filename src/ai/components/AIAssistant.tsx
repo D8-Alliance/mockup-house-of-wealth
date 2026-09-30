@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Bot, Send, X, Sparkles, MessageSquare, HelpCircle, ShieldCheck, Coins, AlertCircle } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AlertCircle, BookOpen, Bot, CheckCircle2, Coins, History, HelpCircle, Plus, Send, Sparkles, X } from 'lucide-react';
 import { AIConfidenceBadge } from './AIConfidenceBadge';
-import { apiClient } from '../../services/apiClient';
+import { AiGroundingStatus, apiClient, BackendAiCitation, BackendAiConversationSummary, BackendAiMessage } from '../../services/apiClient';
 import { AI_NON_ADVICE_DISCLAIMER } from '../monetisation/aiCreditPricingConfig';
 
 interface AIAssistantProps {
@@ -9,206 +9,245 @@ interface AIAssistantProps {
   userName: string;
   userId?: string;
   currentContext?: string;
+  /** Adds this project's approved documents to the knowledge the assistant can cite. */
+  projectId?: string;
   onClose?: () => void;
 }
 
-interface ChatMessage {
-  id: string;
-  sender: 'USER' | 'AI';
-  text: string;
-  timestamp: string;
-  confidence?: any;
-}
+const GROUNDING: Record<AiGroundingStatus, { label: string; className: string }> = {
+  GROUNDED: { label: 'Supported by cited sources', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  PARTIALLY_GROUNDED: { label: 'Partly supported — some statements have no source', className: 'bg-amber-50 text-amber-800 border-amber-200' },
+  UNSUPPORTED: { label: 'Not supported by the cited sources — verify before use', className: 'bg-rose-50 text-rose-700 border-rose-200' },
+  NO_SOURCES: { label: 'Not covered by the approved knowledge base', className: 'bg-slate-100 text-slate-600 border-slate-200' },
+};
 
-export const AIAssistant: React.FC<AIAssistantProps> = ({ 
-  userRole, 
-  userName, 
-  userId = 'USR-8821', 
-  currentContext = 'General Platform', 
-  onClose 
-}) => {
-  const [credits, setCredits] = useState(0);
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: 'msg-1',
-      sender: 'AI',
-      text: `Assalamu Alaikum ${userName}! I am your Wealth Pooling AI Assistant. How can I assist you with Shariah wealth pooling, contract structure, due diligence, or risk assessment today? (1 Credit per query)`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      confidence: { level: 'HIGH', scorePercent: 96, disclaimer: 'AI guidance requires human review.' }
-    }
-  ]);
+const SCOPE_BADGE: Record<string, string> = {
+  GLOBAL: 'bg-purple-100 text-purple-800',
+  COUNTRY: 'bg-blue-100 text-blue-800',
+  PROJECT: 'bg-emerald-100 text-emerald-800',
+};
+
+const SAMPLE_QUESTIONS = [
+  'What must be disclosed about Zakah?',
+  'Explain Musharakah profit and loss sharing',
+  'How are profits allocated to investment account holders?',
+  'What is Istisna\'a?',
+  'Apakah yang perlu didedahkan tentang zakat?',
+];
+
+const time = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const pages = (citation: BackendAiCitation) => !citation.pageStart ? '' : citation.pageEnd && citation.pageEnd !== citation.pageStart ? `pp. ${citation.pageStart}-${citation.pageEnd}` : `p. ${citation.pageStart}`;
+
+/** Renders "[1]" markers in an answer as buttons that open the matching source. */
+const AnswerText: React.FC<{ text: string; citations: BackendAiCitation[]; onCite: (marker: number) => void }> = ({ text, citations, onCite }) => (
+  <p className="whitespace-pre-wrap text-xs">
+    {text.split(/(\[\d+\])/g).map((part, index) => {
+      const marker = part.match(/^\[(\d+)\]$/);
+      if (!marker || !citations.some((citation) => citation.marker === Number(marker[1]))) return <React.Fragment key={index}>{part}</React.Fragment>;
+      return <button key={index} type="button" onClick={() => onCite(Number(marker[1]))} className="mx-0.5 rounded bg-purple-100 px-1 font-bold text-purple-700 hover:bg-purple-200 dark:bg-purple-900/60 dark:text-purple-200">{marker[1]}</button>;
+    })}
+  </p>
+);
+
+const SourceList: React.FC<{ message: BackendAiMessage; openMarker: number | null; onToggle: (marker: number) => void }> = ({ message, openMarker, onToggle }) => {
+  const citations = message.citations || [];
+  if (!citations.length) return null;
+  return (
+    <div className="mt-2 space-y-1.5 border-t border-slate-200 pt-2 dark:border-slate-700">
+      <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500"><BookOpen className="h-3 w-3" /> Sources</span>
+      {citations.map((citation) => {
+        const open = openMarker === citation.marker;
+        return (
+          <div key={citation.id} className={`rounded-xl border p-2 text-[10px] ${open ? 'border-purple-300 bg-white dark:bg-slate-900' : 'border-slate-200 dark:border-slate-700'}`}>
+            <button type="button" onClick={() => onToggle(citation.marker)} className="flex w-full flex-wrap items-center gap-1.5 text-left">
+              <span className="rounded bg-purple-100 px-1 font-bold text-purple-700">{citation.marker}</span>
+              <strong className="text-slate-800 dark:text-slate-100">{citation.documentTitle}</strong>
+              <span className={`rounded-full px-1.5 py-0.5 font-bold ${SCOPE_BADGE[citation.scope] || 'bg-slate-100 text-slate-600'}`}>{citation.scope}</span>
+              {pages(citation) && <span className="text-slate-500">{pages(citation)}</span>}
+              {citation.paragraphRefs?.length ? <span className="text-slate-500">{citation.paragraphRefs.join(' ')}</span> : null}
+            </button>
+            {citation.quote && (
+              <p className={`mt-1 italic ${citation.quoteVerified ? 'text-slate-600 dark:text-slate-300' : 'text-amber-700'}`}>
+                “{citation.quote}” {citation.quoteVerified
+                  ? <span className="not-italic text-emerald-700"><CheckCircle2 className="inline h-3 w-3" /> found in source</span>
+                  : <span className="not-italic">(not found verbatim in the source)</span>}
+              </p>
+            )}
+            {open && <p className="mt-1.5 max-h-40 overflow-y-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-2 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{citation.excerpt}</p>}
+            {open && !citation.chunkId && <p className="mt-1 text-slate-400">Source text shown as it was when the answer was given; the document has since been re-indexed or removed.</p>}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+export const AIAssistant: React.FC<AIAssistantProps> = ({ userRole, userName, projectId, onClose }) => {
+  const [credits, setCredits] = useState<number | null>(null);
+  const [conversationId, setConversationId] = useState<string | undefined>();
+  const [messages, setMessages] = useState<BackendAiMessage[]>([]);
+  const [conversations, setConversations] = useState<BackendAiConversationSummary[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [openSource, setOpenSource] = useState<{ messageId: string; marker: number } | null>(null);
   const [inputQuery, setInputQuery] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    void apiClient.getMembershipCreditSummary().then(summary => setCredits(summary.availableBalance)).catch(() => setCredits(0));
-  }, [userId]);
+  const refreshCredits = useCallback(() => {
+    apiClient.getMembershipCreditSummary().then((summary) => setCredits(summary.availableBalance)).catch(() => setCredits(null));
+  }, []);
+  const refreshConversations = useCallback(() => {
+    apiClient.listAiConversations().then(setConversations).catch(() => setConversations([]));
+  }, []);
 
-  const sampleQuestions = [
-    'What pools match my profile?',
-    'Summarise this project',
-    'What are the main risks?',
-    'What documents are missing?',
-    'Explain this Musharakah structure',
-    'What is my portfolio concentration?'
-  ];
+  useEffect(() => { refreshCredits(); refreshConversations(); }, [refreshCredits, refreshConversations]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, isSending]);
+
+  const openConversation = async (id: string) => {
+    setError('');
+    setShowHistory(false);
+    try {
+      const conversation = await apiClient.getAiConversation(id);
+      setConversationId(conversation.id);
+      setMessages(conversation.messages);
+      setOpenSource(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to load the conversation.');
+    }
+  };
+
+  const newConversation = () => {
+    setConversationId(undefined);
+    setMessages([]);
+    setOpenSource(null);
+    setShowHistory(false);
+    setError('');
+  };
 
   const handleSend = async (queryText?: string) => {
-    const textToSend = queryText || inputQuery;
-    if (!textToSend.trim()) return;
-
-    if (credits < 1) {
-      const errMsg: ChatMessage = {
-        id: `err-${Date.now()}`,
-        sender: 'AI',
-        text: 'Insufficient AI credits (0 remaining). Please top up your credits or upgrade your membership tier to continue using the AI assistant.',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages(prev => [...prev, errMsg]);
-      return;
-    }
-
+    const text = (queryText ?? inputQuery).trim();
+    if (!text || isSending) return;
+    setError('');
+    setInputQuery('');
+    // Optimistic user message; the server's copy replaces it when the conversation is reloaded.
+    const pending: BackendAiMessage = { id: `pending-${Date.now()}`, conversationId: conversationId || '', role: 'user', content: text, createdAt: new Date().toISOString() };
+    setMessages((current) => [...current, pending]);
+    setIsSending(true);
     try {
-      const result = await apiClient.consumeMembershipCredits('SIMPLE_QUERY', currentContext);
-      setCredits(result.balanceAfter);
-    } catch {
-      setMessages(prev => [...prev, { id: `err-${Date.now()}`, sender: 'AI', text: 'Unable to consume AI credits. Please refresh and try again.', timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }]);
-      return;
+      // Credits are charged by the server, and only when a sourced answer is generated.
+      const response = await apiClient.aiChat({ message: text, conversationId, projectId });
+      setConversationId(response.conversationId);
+      setMessages((current) => [...current, response.message]);
+      refreshConversations();
+    } catch (cause) {
+      setMessages((current) => current.filter((message) => message.id !== pending.id));
+      setInputQuery(text);
+      setError(cause instanceof Error ? cause.message : 'The AI assistant is unavailable. Please try again.');
+    } finally {
+      setIsSending(false);
+      refreshCredits();
     }
-
-    const userMsg: ChatMessage = {
-      id: `usr-${Date.now()}`,
-      sender: 'USER',
-      text: textToSend,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    setMessages(prev => [...prev, userMsg]);
-    if (!queryText) setInputQuery('');
-    setIsTyping(true);
-
-    setTimeout(() => {
-      let aiReply = 'I have analyzed your query based on current Wealth Pooling database parameters.';
-      
-      const q = textToSend.toLowerCase();
-      if (q.includes('match') || q.includes('profile') || q.includes('pools')) {
-        aiReply = 'Based on your moderate risk profile, FELDA Agri Expansion Pool (92% match, 10.5% return) and Urban Commercial Waqf (88% match, 8.2% return) appear potentially aligned.';
-      } else if (q.includes('summarise') || q.includes('project')) {
-        aiReply = 'The FELDA Agriculture Expansion Project seeks $8M USD under a Mudarabah contract structure with an 80/20 profit sharing split. Operating cashflows indicate a projected DSCR of 1.65.';
-      } else if (q.includes('risk')) {
-        aiReply = 'Key identified risks include: 1) Secondary market liquidity constraints, 2) Commodity export price fluctuation, and 3) Pending land title appraisal verification.';
-      } else if (q.includes('missing') || q.includes('document')) {
-        aiReply = 'The due diligence checklist indicates 2 missing files: Independent Land Appraisal Report (Jengka-04) and Environmental RSPO Certification.';
-      } else if (q.includes('musharakah') || q.includes('structure')) {
-        aiReply = 'In a Musharakah joint venture, all partners contribute capital and share profits according to agreed ratios, while capital losses are borne strictly pro-rata to capital contribution.';
-      } else if (q.includes('portfolio') || q.includes('concentration')) {
-        aiReply = 'Your current portfolio holds 65% in Agriculture, 25% in Commercial Real Estate, and 10% Cash/Sukuk reserves. Consider diversifying into Green Energy or Infrastructure.';
-      }
-
-      const aiMsg: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        sender: 'AI',
-        text: aiReply,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        confidence: { level: 'HIGH', scorePercent: 94, disclaimer: 'AI output must be reviewed by authorized human decision makers.' }
-      };
-
-      setMessages(prev => [...prev, aiMsg]);
-      setIsTyping(false);
-    }, 700);
   };
 
   return (
-    <div className="flex flex-col h-[540px] max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl overflow-hidden font-sans text-xs">
+    <div className="flex h-[600px] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white font-sans text-xs shadow-2xl dark:border-slate-800 dark:bg-slate-900">
       {/* Header */}
-      <div className="p-4 bg-gradient-to-r from-slate-900 to-purple-950 text-white flex items-center justify-between shrink-0">
+      <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-slate-900 to-purple-950 p-4 text-white">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-2xl bg-emerald-500/20 border border-emerald-500/30">
-            <Bot className="w-5 h-5 text-emerald-400" />
-          </div>
+          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/20 p-2"><Bot className="h-5 w-5 text-emerald-400" /></div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-black text-sm text-white">AI Assistant</h3>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-500/30">
-                <Coins className="w-3 h-3" /> {credits} Cr
+              <h3 className="text-sm font-black text-white">AI Assistant</h3>
+              <span className="flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] text-emerald-400">
+                <Coins className="h-3 w-3" /> {credits ?? '–'} Cr
               </span>
             </div>
-            <p className="text-[10px] text-slate-300">Role: <strong className="text-emerald-400">{userRole}</strong> • 1 Cr / query</p>
+            <p className="text-[10px] text-slate-300">Role: <strong className="text-emerald-400">{userRole}</strong> • 1 Cr per sourced answer</p>
           </div>
         </div>
-        {onClose && (
-          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-white/10 text-slate-300 hover:text-white cursor-pointer">
-            <X className="w-4 h-4" />
-          </button>
-        )}
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => setShowHistory((value) => !value)} title="Conversation history" className="rounded-full p-1.5 text-slate-300 hover:bg-white/10 hover:text-white"><History className="h-4 w-4" /></button>
+          <button type="button" onClick={newConversation} title="New conversation" className="rounded-full p-1.5 text-slate-300 hover:bg-white/10 hover:text-white"><Plus className="h-4 w-4" /></button>
+          {onClose && <button type="button" onClick={onClose} className="rounded-full p-1.5 text-slate-300 hover:bg-white/10 hover:text-white"><X className="h-4 w-4" /></button>}
+        </div>
       </div>
+
+      {showHistory && (
+        <div className="max-h-48 shrink-0 overflow-y-auto border-b border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-800/60">
+          {conversations.length === 0 && <p className="p-2 text-[10px] text-slate-500">No previous conversations.</p>}
+          {conversations.map((conversation) => (
+            <button key={conversation.id} type="button" onClick={() => void openConversation(conversation.id)} className={`block w-full rounded-lg px-2 py-1.5 text-left text-[11px] hover:bg-white dark:hover:bg-slate-700 ${conversation.id === conversationId ? 'bg-white font-bold dark:bg-slate-700' : ''}`}>
+              <span className="block truncate text-slate-800 dark:text-slate-100">{conversation.title || 'Conversation'}</span>
+              <span className="text-[9px] text-slate-400">{new Date(conversation.updatedAt).toLocaleString()} · {conversation._count.messages} messages</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Messages */}
-      <div className="flex-grow p-4 overflow-y-auto space-y-3">
-        {messages.map(m => (
-          <div key={m.id} className={`flex flex-col ${m.sender === 'USER' ? 'items-end' : 'items-start'}`}>
-            <div className={`p-3 rounded-2xl max-w-[85%] leading-relaxed ${
-              m.sender === 'USER'
-                ? 'bg-emerald-600 text-white rounded-tr-none'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-100 border border-slate-200 dark:border-slate-700/80 rounded-tl-none'
-            }`}>
-              <p className="text-xs">{m.text}</p>
-              {m.confidence && (
-                <div className="mt-2 pt-1.5 border-t border-slate-200 dark:border-slate-700">
-                  <AIConfidenceBadge confidence={m.confidence} />
-                </div>
-              )}
-            </div>
-            <span className="text-[9px] text-slate-400 mt-1 font-mono">{m.timestamp}</span>
-          </div>
-        ))}
-
-        {isTyping && (
-          <div className="flex items-center gap-2 text-slate-400 text-[10px] italic">
-            <Sparkles className="w-3 h-3 text-purple-500 animate-spin" />
-            AI is analyzing Wealth Pooling records (-1 credit)...
+      <div className="flex-grow space-y-3 overflow-y-auto p-4">
+        {messages.length === 0 && (
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            <p>Assalamu Alaikum {userName}. I answer questions about Islamic finance using only the approved knowledge base (AAOIFI standards, country guidance{projectId ? ', and this project\'s documents' : ''}), and I cite the source of every statement. I do not give Shariah rulings, legal, financial or investment advice.</p>
           </div>
         )}
+        {messages.map((message) => {
+          const isUser = message.role === 'user';
+          const meta = message.metadata || {};
+          const grounding = meta.groundingStatus ? GROUNDING[meta.groundingStatus] : null;
+          const openMarker = openSource?.messageId === message.id ? openSource.marker : null;
+          return (
+            <div key={message.id} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+              <div className={`max-w-[90%] rounded-2xl p-3 leading-relaxed ${isUser ? 'rounded-tr-none bg-emerald-600 text-white' : 'rounded-tl-none border border-slate-200 bg-slate-100 text-slate-800 dark:border-slate-700/80 dark:bg-slate-800 dark:text-slate-100'}`}>
+                {isUser
+                  ? <p className="whitespace-pre-wrap text-xs">{message.content}</p>
+                  : <AnswerText text={message.content} citations={message.citations || []} onCite={(marker) => setOpenSource(openMarker === marker ? null : { messageId: message.id, marker })} />}
+                {!isUser && grounding && <p className={`mt-2 rounded-lg border px-2 py-1 text-[10px] font-bold ${grounding.className}`}>{grounding.label}</p>}
+                {!isUser && <SourceList message={message} openMarker={openMarker} onToggle={(marker) => setOpenSource(openMarker === marker ? null : { messageId: message.id, marker })} />}
+                {!isUser && meta.limitations?.length ? <ul className="mt-2 list-disc pl-4 text-[10px] text-slate-500">{meta.limitations.map((item) => <li key={item}>{item}</li>)}</ul> : null}
+                {!isUser && meta.confidence && <div className="mt-2 border-t border-slate-200 pt-1.5 dark:border-slate-700"><AIConfidenceBadge confidence={meta.confidence} /></div>}
+              </div>
+              <span className="mt-1 font-mono text-[9px] text-slate-400">{time(message.createdAt)}</span>
+            </div>
+          );
+        })}
+        {isSending && (
+          <div className="flex items-center gap-2 text-[10px] italic text-slate-400">
+            <Sparkles className="h-3 w-3 animate-spin text-purple-500" />
+            Searching the approved knowledge base and preparing a sourced answer...
+          </div>
+        )}
+        {error && <p role="alert" className="flex items-start gap-1.5 rounded-xl bg-rose-50 p-2.5 text-[11px] font-semibold text-rose-700"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{error}</p>}
+        <div ref={bottomRef} />
       </div>
 
-      {/* Sample Question Chips */}
-      <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200/80 dark:border-slate-800 overflow-x-auto flex items-center gap-1.5 scrollbar-none shrink-0">
-        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
-          <HelpCircle className="w-3 h-3" /> Prompts:
-        </span>
-        {sampleQuestions.map((q, idx) => (
-          <button
-            key={idx}
-            onClick={() => handleSend(q)}
-            className="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-700 hover:bg-emerald-50 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 font-semibold text-[10px] whitespace-nowrap border border-slate-200/80 dark:border-slate-600 cursor-pointer shrink-0"
-          >
-            {q}
+      {/* Sample questions */}
+      <div className="scrollbar-none flex shrink-0 items-center gap-1.5 overflow-x-auto border-t border-slate-200/80 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-800/60">
+        <span className="flex shrink-0 items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-slate-400"><HelpCircle className="h-3 w-3" /> Try:</span>
+        {SAMPLE_QUESTIONS.map((question) => (
+          <button key={question} type="button" onClick={() => void handleSend(question)} disabled={isSending} className="shrink-0 whitespace-nowrap rounded-xl border border-slate-200/80 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:bg-emerald-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 dark:hover:bg-slate-600">
+            {question}
           </button>
         ))}
       </div>
 
-      {/* Mandatory Disclaimer Footer */}
-      <div className="px-3 py-1 bg-amber-500/10 border-t border-amber-500/20 text-[9.5px] text-amber-800 dark:text-amber-300 text-center shrink-0">
-        {AI_NON_ADVICE_DISCLAIMER}
-      </div>
+      <div className="shrink-0 border-t border-amber-500/20 bg-amber-500/10 px-3 py-1 text-center text-[9.5px] text-amber-800 dark:text-amber-300">{AI_NON_ADVICE_DISCLAIMER}</div>
 
-      {/* Input Field */}
-      <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center gap-2 shrink-0">
+      {/* Input */}
+      <form onSubmit={(event) => { event.preventDefault(); void handleSend(); }} className="flex shrink-0 items-center gap-2 border-t border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
         <input
           type="text"
           value={inputQuery}
-          onChange={e => setInputQuery(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSend()}
-          placeholder="Ask AI about projects, contracts, risks... (1 Cr)"
-          className="flex-grow p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+          onChange={(event) => setInputQuery(event.target.value)}
+          disabled={isSending}
+          placeholder="Ask about Islamic finance standards, contracts, Zakah..."
+          className="flex-grow rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         />
-        <button
-          onClick={() => handleSend()}
-          className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer flex items-center gap-1 font-bold text-xs"
-        >
-          <Send className="w-3.5 h-3.5" />
+        <button type="submit" disabled={isSending || !inputQuery.trim()} className="flex items-center gap-1 rounded-xl bg-emerald-600 p-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
+          <Send className="h-3.5 w-3.5" />
         </button>
-      </div>
+      </form>
     </div>
   );
 };
