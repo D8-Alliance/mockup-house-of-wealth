@@ -7,7 +7,8 @@ import { AppModule } from './app.module';
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: eKYC provider webhooks are verified against the exact bytes received.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.enableCors({ origin: true, credentials: true });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 

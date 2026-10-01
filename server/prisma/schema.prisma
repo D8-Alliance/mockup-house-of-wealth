@@ -866,6 +866,111 @@ model PdpApplication {
 }
 
 // ---------------------------------------------------------------------------
+// KYC (individual identity verification), reviewed manually by KYC officers
+// ---------------------------------------------------------------------------
+
+model KycApplication {
+  id                  String    @id @default(cuid())
+  applicationNumber   String    @unique
+  userId              String
+  userEmail           String
+  // Applicant tenant; the review queue is scoped by countryNodeId.
+  organisationId      String
+  countryNodeId       String
+  fullName            String    @default("")
+  dateOfBirth         DateTime?
+  nationality         String    @default("")
+  idDocumentType      String    @default("") // NATIONAL_ID | PASSPORT
+  idDocumentNumber    String    @default("")
+  idDocumentExpiry    DateTime?
+  residentialAddress  String    @default("")
+  // DRAFT | SUBMITTED | RESUBMISSION_REQUIRED | APPROVED | REJECTED. See src/kyc/kyc-workflow.ts.
+  status              String    @default("DRAFT")
+  kycLevel            String? // LEVEL_1 | LEVEL_2 | LEVEL_3, set on approval
+  submittedAt         DateTime?
+  reviewedAt          DateTime?
+  reviewedBy          String?
+  reviewComment       String?
+  // Advisory output of the automated checks (src/kyc/checks). Never changes status; officers decide.
+  checkRecommendation String? // CLEAR | ATTENTION | ADVERSE | PENDING
+  checkReasons        Json      @default("[]")
+  checksUpdatedAt     DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  documents KycDocument[]
+  reviews   KycReview[]
+  checks    KycCheckResult[]
+
+  @@index([userId, createdAt])
+  @@index([countryNodeId, status, submittedAt])
+}
+
+model KycDocument {
+  id            String   @id @default(cuid())
+  applicationId String
+  documentType  String // ID_FRONT | ID_BACK | PASSPORT | SELFIE | PROOF_OF_ADDRESS
+  fileName      String
+  mimeType      String
+  fileSize      Int
+  fileContent   Bytes
+  // SHA-256 of fileContent at upload, so later changes to the stored file are detectable.
+  sha256        String
+  uploadedBy    String
+  createdAt     DateTime @default(now())
+
+  application KycApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, documentType])
+}
+
+// One row per provider run of an automated check. A run belongs to one
+// submission round; shadow rows never affect the recommendation.
+model KycCheckResult {
+  id              String    @id @default(cuid())
+  applicationId   String
+  round           Int // increments each time the checks are (re)run for the application
+  checkType       String // see KYC_CHECK_TYPES in src/kyc/checks/check-types.ts
+  provider        String
+  providerVersion String
+  status          String // PASS | FAIL | REVIEW | PENDING | ERROR | SKIPPED
+  score           Float?
+  reasons         Json      @default("[]")
+  identity        Json? // identity fields the provider extracted, if any
+  // Provider transaction id; async webhooks must match it exactly.
+  externalRef     String?
+  shadow          Boolean   @default(false)
+  // Shadow rows only: whether the final shadow status equalled the primary's (null until both are final).
+  agree           Boolean?
+  // Full provider response; personal data, never returned by the API.
+  raw             Json?
+  latencyMs       Int       @default(0)
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  application KycApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, externalRef])
+  @@index([applicationId, round, checkType])
+}
+
+// One row per reviewer decision; the application row holds only the latest.
+model KycReview {
+  id            String   @id @default(cuid())
+  applicationId String
+  reviewerId    String
+  reviewerRole  String
+  decision      String // APPROVED | REJECTED | RESUBMISSION_REQUIRED
+  kycLevel      String?
+  comment       String
+  createdAt     DateTime @default(now())
+
+  application KycApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
 // Shariah governance review and human signoff
 // ---------------------------------------------------------------------------
 

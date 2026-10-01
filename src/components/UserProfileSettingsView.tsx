@@ -43,7 +43,9 @@ import { PaymentAccountModal } from './PaymentAccountModal';
 import { BeneficiaryModal } from './BeneficiaryModal';
 import { revenueService } from '../revenue/revenueService';
 import { HoWCreditBalance } from '../revenue/revenueTypes';
-import { apiClient } from '../services/apiClient';
+import { apiClient, KycApplication } from '../services/apiClient';
+import { KycApplicationPanel } from '../kyc/KycApplicationPanel';
+import { kycBadgeText } from '../kyc/kycLabels';
 
 interface UserProfileSettingsViewProps {
   user: UserProfile;
@@ -89,13 +91,26 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
 
   const userMembership = revenueService.getUserMembership(user.id);
   const [creditBalance, setCreditBalance] = useState<HoWCreditBalance>({ userId: user.id, totalCredits: 0, usedCredits: 0, availableCredits: 0, monthlyAllowance: 0, purchasedCredits: 0, resetDate: '' });
-  const [activeTab, setActiveTab] = useState<'personal' | 'security' | 'shariah' | 'beneficiary' | 'notifications' | 'api'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'kyc' | 'security' | 'shariah' | 'beneficiary' | 'notifications' | 'api'>('personal');
+  const [kycApplication, setKycApplication] = useState<KycApplication | null>(null);
+  const [kycLoading, setKycLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
   useEffect(() => {
     void apiClient.getMembershipCreditSummary().then(summary => setCreditBalance({ userId: summary.userId, totalCredits: summary.totalPoolCredits, usedCredits: summary.usedCredits, availableCredits: summary.availableBalance, monthlyAllowance: summary.monthlyAllowance, purchasedCredits: summary.purchasedCredits ?? 0, resetDate: summary.resetDate })).catch(() => undefined);
   }, [user.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setKycLoading(true);
+    apiClient.getMyKyc()
+      .then((application) => { if (!cancelled) setKycApplication(application); })
+      .catch(() => { if (!cancelled) setKycApplication(null); })
+      .finally(() => { if (!cancelled) setKycLoading(false); });
+    return () => { cancelled = true; };
+  }, [user.id]);
+  const kycBadge = kycBadgeText(kycApplication);
 
   // Bank & E-Wallet Modal state
   const [accountModalOpen, setAccountModalOpen] = useState(false);
@@ -277,10 +292,17 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
             <span>D-8 Islamic Circular Economy Node</span>
           </div>
 
-          <div className="relative z-10 bg-emerald-900/60 backdrop-blur-md text-emerald-200 px-3 py-1 rounded-full text-xs font-bold border border-emerald-400/30 flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>AAOIFI KYC Level 3 Verified</span>
-          </div>
+          {!kycLoading && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('kyc')}
+              className={`relative z-10 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold border flex items-center gap-1.5 cursor-pointer ${kycBadge.verified ? 'bg-emerald-900/60 text-emerald-200 border-emerald-400/30' : 'bg-slate-900/50 text-amber-200 border-amber-300/30'}`}
+              title="Open identity verification"
+            >
+              {kycBadge.verified ? <ShieldCheck className="w-4 h-4 text-emerald-400" /> : <AlertCircle className="w-4 h-4 text-amber-300" />}
+              <span>{kycBadge.text}</span>
+            </button>
+          )}
         </div>
 
         {/* Profile Details Header Bar */}
@@ -357,6 +379,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
         <div className="px-6 border-t border-slate-100 dark:border-slate-700/60 bg-slate-50/50 dark:bg-slate-900/30 flex overflow-x-auto gap-2">
           {[
             { id: 'personal', label: 'Personal Info', icon: <User className="w-4 h-4" /> },
+            { id: 'kyc', label: 'Identity Verification', icon: <ShieldCheck className="w-4 h-4" /> },
             { id: 'security', label: 'Security & Auth', icon: <Lock className="w-4 h-4" /> },
             { id: 'shariah', label: 'Shariah & Financial', icon: <Coins className="w-4 h-4" /> },
             { id: 'beneficiary', label: 'Beneficiaries & Wasiyyah', icon: <HeartHandshake className="w-4 h-4" /> },
@@ -382,6 +405,10 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
         </div>
 
       </div>
+
+      {activeTab === 'kyc' && (
+        <KycApplicationPanel application={kycApplication} loading={kycLoading} onChange={setKycApplication} />
+      )}
 
       {/* TAB 1: PERSONAL INFORMATION */}
       {activeTab === 'personal' && (

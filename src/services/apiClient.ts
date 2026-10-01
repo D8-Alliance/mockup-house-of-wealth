@@ -26,7 +26,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new Error(message || `API request failed with status ${response.status}`);
   }
 
-  return response.json() as Promise<T>;
+  // Nest sends an empty body when a handler returns null (e.g. "no KYC application yet").
+  const text = await response.text();
+  return (text ? JSON.parse(text) : null) as T;
 }
 
 export interface ZakatCalculation {
@@ -257,7 +259,144 @@ export const apiClient = {
     method: 'POST',
     body: JSON.stringify(input),
   }),
+  getMyKyc: () => request<KycApplication | null>('/kyc/me'),
+  saveMyKycDraft: (input: KycDraftInput) => request<KycApplication>('/kyc/me', { method: 'PUT', body: JSON.stringify(input) }),
+  uploadMyKycDocument: (documentType: KycDocumentType, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return request<KycDocument>(`/kyc/me/documents/${documentType}`, { method: 'POST', body: formData });
+  },
+  submitMyKyc: () => request<KycApplication>('/kyc/me/submit', { method: 'POST' }),
+  downloadMyKycDocument: (documentId: string) => openAuthenticatedFile(`/kyc/me/documents/${encodeURIComponent(documentId)}/download`),
+  getKycQueue: (status: KycReviewableStatus = 'SUBMITTED') => request<KycQueueItem[]>(`/kyc/applications?status=${status}`),
+  getKycApplicationForReview: (id: string) => request<KycApplication>(`/kyc/applications/${encodeURIComponent(id)}`),
+  downloadKycDocumentForReview: (applicationId: string, documentId: string) => openAuthenticatedFile(`/kyc/applications/${encodeURIComponent(applicationId)}/documents/${encodeURIComponent(documentId)}/download`),
+  reviewKycApplication: (id: string, input: { decision: KycDecision; comment: string; kycLevel?: KycLevel }) => request<KycApplication>(`/kyc/applications/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  rerunKycChecks: (id: string) => request<KycApplication>(`/kyc/applications/${encodeURIComponent(id)}/checks/run`, { method: 'POST' }),
 };
+
+/** Fetches a protected file with the bearer token and opens it in a new tab. */
+async function openAuthenticatedFile(path: string) {
+  const token = authService.getAuthState().session?.token;
+  const response = await fetch(`${API_BASE_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!response.ok) throw new Error(await response.text() || 'File is unavailable.');
+  const blobUrl = URL.createObjectURL(await response.blob());
+  window.open(blobUrl, '_blank', 'noopener');
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+}
+
+/** Server errors arrive as Nest JSON bodies; this pulls out the human-readable message. */
+export function apiErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) return fallback;
+  try {
+    const parsed = JSON.parse(error.message) as { message?: string | string[] };
+    if (Array.isArray(parsed.message)) return parsed.message.join('; ');
+    return parsed.message || fallback;
+  } catch {
+    return error.message || fallback;
+  }
+}
+
+export type KycStatus = 'DRAFT' | 'SUBMITTED' | 'RESUBMISSION_REQUIRED' | 'APPROVED' | 'REJECTED';
+export type KycReviewableStatus = Exclude<KycStatus, 'DRAFT'>;
+export type KycDocumentType = 'ID_FRONT' | 'ID_BACK' | 'PASSPORT' | 'SELFIE' | 'PROOF_OF_ADDRESS';
+export type KycIdDocumentType = 'NATIONAL_ID' | 'PASSPORT';
+export type KycLevel = 'LEVEL_1' | 'LEVEL_2' | 'LEVEL_3';
+export type KycDecision = 'APPROVED' | 'REJECTED' | 'RESUBMISSION_REQUIRED';
+
+export interface KycDraftInput {
+  fullName?: string;
+  dateOfBirth?: string;
+  nationality?: string;
+  idDocumentType?: KycIdDocumentType;
+  idDocumentNumber?: string;
+  idDocumentExpiry?: string;
+  residentialAddress?: string;
+}
+
+export interface KycDocument {
+  id: string;
+  documentType: KycDocumentType;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  sha256: string;
+  createdAt: string;
+}
+
+export interface KycReviewRecord {
+  id: string;
+  reviewerId: string;
+  reviewerRole: string;
+  decision: KycDecision;
+  kycLevel: KycLevel | null;
+  comment: string;
+  createdAt: string;
+}
+
+export interface KycApplication {
+  id: string;
+  applicationNumber: string;
+  userId: string;
+  userEmail: string;
+  countryNodeId: string;
+  fullName: string;
+  dateOfBirth: string | null;
+  nationality: string;
+  idDocumentType: KycIdDocumentType | '';
+  idDocumentNumber: string;
+  idDocumentExpiry: string | null;
+  residentialAddress: string;
+  status: KycStatus;
+  kycLevel: KycLevel | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  reviewComment: string | null;
+  documents: KycDocument[];
+  requiredDocuments: KycDocumentType[];
+  missing?: string[];
+  reviews?: KycReviewRecord[];
+  // Officer views only: advisory output of the automated checks.
+  checkRecommendation?: KycCheckRecommendation | null;
+  checkReasons?: string[];
+  checksUpdatedAt?: string | null;
+  checks?: KycCheckResult[];
+}
+
+export type KycCheckRecommendation = 'CLEAR' | 'ATTENTION' | 'ADVERSE' | 'PENDING';
+export type KycCheckStatus = 'PASS' | 'FAIL' | 'REVIEW' | 'PENDING' | 'ERROR' | 'SKIPPED';
+
+export interface KycCheckResult {
+  id: string;
+  round: number;
+  checkType: string;
+  provider: string;
+  providerVersion: string;
+  status: KycCheckStatus;
+  score: number | null;
+  reasons: string[];
+  shadow: boolean;
+  agree: boolean | null;
+  latencyMs: number;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface KycQueueItem {
+  id: string;
+  applicationNumber: string;
+  userEmail: string;
+  fullName: string;
+  nationality: string;
+  idDocumentType: KycIdDocumentType | '';
+  idDocumentNumberMasked: string;
+  countryNodeId: string;
+  status: KycReviewableStatus;
+  kycLevel: KycLevel | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  documentCount: number;
+}
 
 export interface DashboardSummary {
   source: 'database';
