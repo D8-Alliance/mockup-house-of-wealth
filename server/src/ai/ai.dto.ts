@@ -116,6 +116,21 @@ export class RagDocumentDto {
   content!: string;
 }
 
+// Multipart fields sent with a PDF upload; content comes from the file, and title/sourceType have file-based defaults.
+export class RagUploadMetadataDto {
+  @IsOptional() @IsIn(RAG_SCOPES) scope?: RagScope;
+  @IsOptional() @IsString() countryNodeId?: string;
+  @IsOptional() @IsDateString() effectiveFrom?: string;
+  @IsOptional() @IsString() @MinLength(1) projectId?: string;
+  @IsOptional() @IsString() title?: string;
+  @IsOptional() @IsString() sourceType?: string;
+  @IsOptional() @IsString() documentCategory?: string;
+  @IsOptional() @IsString() contractType?: string;
+  @IsOptional() @IsString() authority?: string;
+  @IsOptional() @IsString() jurisdiction?: string;
+  @IsOptional() @IsString() industry?: string;
+}
+
 export class RagSearchDto {
   @IsOptional()
   @IsString()

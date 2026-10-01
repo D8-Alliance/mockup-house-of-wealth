@@ -206,13 +206,24 @@ export class MembershipService {
     return { receiptNumber, content: ['WEALTH POOLING PAYMENT RECEIPT', `Receipt: ${receiptNumber}`, `Description: ${transaction.description}`, `Amount: MYR ${transaction.amountMYR.toFixed(2)}`, `Payment method: ${transaction.method}`, `Status: ${transaction.status}`, `Date: ${transaction.createdAt.toISOString()}`, '', 'This receipt is system-generated and does not constitute investment advice.'].join('\n') };
   }
 
-  async consumeCredits(actor: AuthenticatedUser, operationKey: string, targetEntity?: string) {
+  /**
+   * Checks plan entitlement and balance without charging, so callers can bill
+   * only after the AI work succeeds. consumeCredits re-checks atomically.
+   */
+  async assertCanConsume(actor: AuthenticatedUser, operationKey: string) {
     const pricing = await this.getPricing(operationKey);
-    const cost = pricing.creditsRequired;
     const wallet = await this.getWallet(actor);
     const plan = PLANS.find((candidate) => candidate.tier === wallet.subscriptionPlan) || PLANS[0];
     if (!plan.aiCapabilities.includes(operationKey as (typeof AI_CAPABILITIES)[number])) throw new BadRequestException('This AI capability is not included in the current subscription plan. Please upgrade plan or purchase credits.');
-    const result = await this.prisma.$transaction(async (tx) => {
+    if (wallet.availableBalance < pricing.creditsRequired) throw new BadRequestException('Insufficient AI Credits. Please upgrade plan or purchase credits.');
+    return { pricing, wallet };
+  }
+
+  /** With `client`, charges inside the caller's transaction and leaves the audit entry to the caller (recordCreditAudit). */
+  async consumeCredits(actor: AuthenticatedUser, operationKey: string, targetEntity?: string, client?: Prisma.TransactionClient) {
+    const { pricing, wallet } = await this.assertCanConsume(actor, operationKey);
+    const cost = pricing.creditsRequired;
+    const charge = async (tx: Prisma.TransactionClient) => {
       const updated = await tx.aiCreditWallet.updateMany({ where: { id: wallet.id, availableBalance: { gte: cost } }, data: { availableBalance: { decrement: cost }, usedCredits: { increment: cost } } });
       if (!updated.count) throw new BadRequestException('Insufficient AI Credits. Please upgrade plan or purchase credits.');
       const current = await tx.aiCreditWallet.findUniqueOrThrow({ where: { id: wallet.id } });
@@ -220,10 +231,16 @@ export class MembershipService {
       await tx.membershipSubscription.update({ where: { id: subscription.id }, data: { aiCreditsRemaining: current.availableBalance } });
       const legacy = await tx.aiCreditTransaction.create({ data: { userId: actor.userId, subscriptionId: subscription.id, type: 'CONSUMPTION', operationKey, targetEntity, credits: -cost, balanceBefore: current.availableBalance + cost, balanceAfter: current.availableBalance } });
       const usage = await tx.aiUsageTransaction.create({ data: { userId: actor.userId, organisationId: actor.organisationId, featureType: pricing.featureType, operationName: pricing.operationName, creditsConsumed: cost, projectId: targetEntity?.startsWith('PROJ-') ? targetEntity : null, status: 'COMPLETED' } });
-      return { ...legacy, usageTransactionId: usage.id, operationName: pricing.operationName };
-    });
-    await this.audit.recordActor(actor, { action: 'ai.credits.consume', resourceType: 'AiUsageTransaction', resourceId: result.usageTransactionId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { operationKey, operationName: pricing.operationName, cost, targetEntity } });
+      return { ...legacy, usageTransactionId: usage.id, operationName: pricing.operationName, cost };
+    };
+    if (client) return charge(client);
+    const result = await this.prisma.$transaction(charge);
+    await this.recordCreditAudit(actor, operationKey, result, targetEntity);
     return result;
+  }
+
+  recordCreditAudit(actor: AuthenticatedUser, operationKey: string, result: { usageTransactionId: string; operationName: string; cost: number }, targetEntity?: string) {
+    return this.audit.recordActor(actor, { action: 'ai.credits.consume', resourceType: 'AiUsageTransaction', resourceId: result.usageTransactionId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { operationKey, operationName: result.operationName, cost: result.cost, targetEntity } });
   }
 
   async topUpCredits(actor: AuthenticatedUser, packageId: string, paymentMethod: string) {

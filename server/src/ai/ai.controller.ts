@@ -8,7 +8,7 @@ import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { AiService } from './ai.service';
 import { CitationAuditService } from './citation-audit.service';
-import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, CitationAuditQueryDto, CitationReviewDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, RagUploadMetadataDto, CitationAuditQueryDto, CitationReviewDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
 import { FeasibilityReviewDto } from './project-feasibility.dto';
 
 @Controller('ai')
@@ -88,7 +88,7 @@ export class AiController {
   latestDueDiligence(@CurrentUser() actor: AuthenticatedUser, @Param('projectId') projectId: string) { return this.ai.latestProjectDueDiligence(actor, projectId); }
 
   @Post('projects/:projectId/documents/:documentId/analyze')
-  @Roles('Super Admin', 'AI Administrator', 'Compliance Officer', 'Risk Officer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin', 'Compliance Officer', 'Risk Officer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee')
   analyzeProjectDocument(@CurrentUser() actor: AuthenticatedUser, @Param('projectId') projectId: string, @Param('documentId') documentId: string) { return this.ai.analyzeProjectDocument(actor, projectId, documentId); }
 
   @Post('decisions/:id/review')
@@ -127,7 +127,7 @@ export class AiController {
     limits: { fileSize: 10 * 1024 * 1024 },
     fileFilter: (_request, file, callback) => callback(null, file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf')),
   }))
-  uploadDocument(@CurrentUser() actor: AuthenticatedUser, @Body() metadata: Partial<RagDocumentDto>, @UploadedFile() file?: Express.Multer.File) {
+  uploadDocument(@CurrentUser() actor: AuthenticatedUser, @Body() metadata: RagUploadMetadataDto, @UploadedFile() file?: Express.Multer.File) {
     return this.ai.uploadPdf(actor, metadata, file);
   }
 

@@ -8,7 +8,7 @@ import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import pdfParse from 'pdf-parse';
 import * as XLSX from 'xlsx';
 import { AiProvider } from './ai.provider';
-import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, RagUploadMetadataDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
 import { scopeOf } from './ai.types';
 import { GroundedAnswer, groundAnswer, labelSources, noSourcesAnswer } from './ai-citations';
 import { chunkPages, chunkText, cleanPages, expandQuery, extractPdfPages, MIN_KEYWORD_SCORE, queryVariants, RagChunkInput, scoreChunk } from './rag-text';
@@ -37,13 +37,14 @@ export class AiService {
    * the user's country, and the project when given); every citation is
    * validated server-side and stored with a snapshot in AiCitation. When
    * nothing relevant is retrieved the model is not called and no credits are used.
+   * Nothing is written to the conversation and no credits are charged until an
+   * answer exists, so a failed request leaves no orphan question behind.
    */
   async chat(actor: AuthenticatedUser, input: ChatDto) {
     const scope = scopeOf(actor);
-    const conversation = input.conversationId
-      ? await this.prisma.aiConversation.findFirst({ where: { id: input.conversationId, ...scope } })
-      : await this.prisma.aiConversation.create({ data: { ...scope, title: input.message.slice(0, 80) } });
-    if (!conversation) throw new NotFoundException('AI conversation not found in the current tenant');
+    const existing = input.conversationId ? await this.prisma.aiConversation.findFirst({ where: { id: input.conversationId, ...scope } }) : null;
+    if (input.conversationId && !existing) throw new NotFoundException('AI conversation not found in the current tenant');
+    const conversationId = existing?.id ?? randomUUID();
 
     // Project access errors must surface; other retrieval failures degrade to "no sources".
     if (input.projectId) {
@@ -53,18 +54,21 @@ export class AiService {
       this.assertProjectSponsorScope(actor, project.projectSponsorId);
     }
     const sources = labelSources(await this.searchDocuments(actor, { query: input.message, projectId: input.projectId, limit: Number(process.env.AI_CHAT_MAX_SOURCES) || 4 }).catch(() => [] as RagSearchResult[]));
-    const history = (await this.prisma.aiMessage.findMany({ where: { conversationId: conversation.id }, orderBy: { createdAt: 'desc' }, take: 6, select: { role: true, content: true } }))
-      .reverse()
-      .map((message) => ({ role: message.role === 'assistant' ? 'assistant' as const : 'user' as const, content: message.content.slice(0, 2000) }));
-    await this.prisma.aiMessage.create({ data: { conversationId: conversation.id, role: 'user', content: input.message } });
+    const history = existing
+      ? (await this.prisma.aiMessage.findMany({ where: { conversationId }, orderBy: { createdAt: 'desc' }, take: 6, select: { role: true, content: true } }))
+        .reverse()
+        .map((message) => ({ role: message.role === 'assistant' ? 'assistant' as const : 'user' as const, content: message.content.slice(0, 2000) }))
+      : [];
 
     let grounded: GroundedAnswer;
     let runId: string | null = null;
     if (!sources.length) {
       grounded = noSourcesAnswer();
     } else {
-      await this.membership.consumeCredits(actor, 'SIMPLE_QUERY', conversation.id);
-      const run = await this.prisma.aiRun.create({ data: { requestId: randomUUID(), featureKey: 'chat', action: 'GROUNDED_ANSWER', userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, conversationId: conversation.id, input: { question: input.message, projectId: input.projectId ?? null, sources: sources.map(({ label, result }) => ({ label, chunkId: result.id, documentId: result.documentId, title: result.title, scope: result.scope, pageStart: result.pageStart ?? null, pageEnd: result.pageEnd ?? null, retrieval: result.retrieval ?? null, score: result.score ?? null })) }, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });
+      // Reject unentitled or empty wallets up front; the charge itself happens only after a successful answer.
+      await this.membership.assertCanConsume(actor, 'SIMPLE_QUERY');
+      // A new conversation does not exist yet; the run is linked when the answer is saved.
+      const run = await this.prisma.aiRun.create({ data: { requestId: randomUUID(), featureKey: 'chat', action: 'GROUNDED_ANSWER', userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, conversationId: existing?.id ?? null, input: { question: input.message, projectId: input.projectId ?? null, sources: sources.map(({ label, result }) => ({ label, chunkId: result.id, documentId: result.documentId, title: result.title, scope: result.scope, pageStart: result.pageStart ?? null, pageEnd: result.pageEnd ?? null, retrieval: result.retrieval ?? null, score: result.score ?? null })) }, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });
       runId = run.id;
       await this.audit.recordActor(actor, { action: 'ai.request', resourceType: 'AiRun', resourceId: run.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { featureKey: 'chat', sourceCount: sources.length } });
       try {
@@ -83,36 +87,48 @@ export class AiService {
       }
     }
 
-    const message = await this.prisma.aiMessage.create({
-      data: {
-        conversationId: conversation.id,
-        role: 'assistant',
-        content: grounded.answer,
-        metadata: { question: input.message, runId, groundingStatus: grounded.groundingStatus, confidence: grounded.confidence, limitations: grounded.limitations, unsupportedSentences: grounded.unsupportedSentences, droppedLabels: grounded.droppedLabels, sourceCount: sources.length },
-        citations: {
-          create: grounded.citations.map((citation) => ({
-            marker: citation.marker,
-            sourceLabel: citation.label,
-            chunkId: citation.source.id,
-            documentId: citation.source.documentId,
-            documentTitle: citation.source.title,
-            sourceType: citation.source.sourceType,
-            scope: citation.source.scope,
-            pageStart: citation.source.pageStart ?? null,
-            pageEnd: citation.source.pageEnd ?? null,
-            paragraphRefs: citation.source.paragraphRefs ?? [],
-            quote: citation.quote,
-            quoteVerified: citation.quoteVerified,
-            excerpt: citation.source.content,
-            retrievalScore: citation.source.score ?? null,
-          })),
+    // Question, answer and credit charge are saved together or not at all. Explicit
+    // timestamps keep the question ordered before the answer within one transaction.
+    const askedAt = new Date();
+    const { message, charge } = await this.prisma.$transaction(async (tx) => {
+      if (existing) await tx.aiConversation.update({ where: { id: conversationId }, data: { updatedAt: askedAt } });
+      else await tx.aiConversation.create({ data: { id: conversationId, ...scope, title: input.message.slice(0, 80) } });
+      await tx.aiMessage.create({ data: { conversationId, role: 'user', content: input.message, createdAt: askedAt } });
+      if (runId && !existing) await tx.aiRun.update({ where: { id: runId }, data: { conversationId } });
+      const charge = runId ? await this.membership.consumeCredits(actor, 'SIMPLE_QUERY', conversationId, tx) : null;
+      const message = await tx.aiMessage.create({
+        data: {
+          conversationId,
+          createdAt: new Date(askedAt.getTime() + 1),
+          role: 'assistant',
+          content: grounded.answer,
+          metadata: { question: input.message, runId, groundingStatus: grounded.groundingStatus, confidence: grounded.confidence, limitations: grounded.limitations, unsupportedSentences: grounded.unsupportedSentences, droppedLabels: grounded.droppedLabels, sourceCount: sources.length },
+          citations: {
+            create: grounded.citations.map((citation) => ({
+              marker: citation.marker,
+              sourceLabel: citation.label,
+              chunkId: citation.source.id,
+              documentId: citation.source.documentId,
+              documentTitle: citation.source.title,
+              sourceType: citation.source.sourceType,
+              scope: citation.source.scope,
+              pageStart: citation.source.pageStart ?? null,
+              pageEnd: citation.source.pageEnd ?? null,
+              paragraphRefs: citation.source.paragraphRefs ?? [],
+              quote: citation.quote,
+              quoteVerified: citation.quoteVerified,
+              excerpt: citation.source.content,
+              retrievalScore: citation.source.score ?? null,
+            })),
+          },
         },
-      },
-      include: { citations: { orderBy: { marker: 'asc' } } },
+        include: { citations: { orderBy: { marker: 'asc' } } },
+      });
+      return { message, charge };
     });
-    await this.prisma.aiConversation.update({ where: { id: conversation.id }, data: { updatedAt: new Date() } });
-    await this.audit.recordActor(actor, { action: 'ai.chat.answer', resourceType: 'AiMessage', resourceId: message.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { conversationId: conversation.id, runId, groundingStatus: grounded.groundingStatus, citationCount: grounded.citations.length, citedDocuments: [...new Set(grounded.citations.map((citation) => citation.source.documentId))] } });
-    return { conversationId: conversation.id, runId, message };
+    if (charge) await this.membership.recordCreditAudit(actor, 'SIMPLE_QUERY', charge, conversationId);
+    await this.audit.recordActor(actor, { action: 'ai.chat.answer', resourceType: 'AiMessage', resourceId: message.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { conversationId, runId, groundingStatus: grounded.groundingStatus, citationCount: grounded.citations.length, citedDocuments: [...new Set(grounded.citations.map((citation) => citation.source.documentId))] } });
+    return { conversationId, runId, message };
   }
 
   listConversations(actor: AuthenticatedUser) {
@@ -843,7 +859,7 @@ export class AiService {
     return { status, model: null, embeddedChunks: 0, totalChunks };
   }
 
-  async uploadPdf(actor: AuthenticatedUser, metadata: Partial<RagDocumentDto>, file?: Express.Multer.File) {
+  async uploadPdf(actor: AuthenticatedUser, metadata: RagUploadMetadataDto, file?: Express.Multer.File) {
     if (!file) throw new BadRequestException('A PDF file is required');
     // Page-aware extraction that removes overlaid duplicate text, running headers and TOC leaders.
     const pages = cleanPages(await extractPdfPages(pdfParse, file.buffer));

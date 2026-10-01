@@ -515,6 +515,8 @@ async function seed(): Promise<void> {
       await tx.ragDocument.upsert({
         where: { id: `RAG-${demoDocument.id}` },
         update: {
+          scope: 'PROJECT',
+          scopeKey: DEMO_PROJECT.projectId,
           projectId: DEMO_PROJECT.projectId,
           organisationId: DEMO_PROJECT.organisationId,
           countryNodeId: DEMO_PROJECT.countryNodeId,
@@ -528,6 +530,9 @@ async function seed(): Promise<void> {
         },
         create: {
           id: `RAG-${demoDocument.id}`,
+          // PROJECT scope keys on the project id (see ragScopeKey in src/ai/rag-scope.ts).
+          scope: 'PROJECT',
+          scopeKey: DEMO_PROJECT.projectId,
           projectId: DEMO_PROJECT.projectId,
           organisationId: DEMO_PROJECT.organisationId,
           countryNodeId: DEMO_PROJECT.countryNodeId,
