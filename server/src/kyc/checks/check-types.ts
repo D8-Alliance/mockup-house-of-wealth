@@ -9,6 +9,7 @@
 export const KYC_CHECK_TYPES = [
   'DOCUMENT_CONSISTENCY', // internal: expiry, age, national ID format vs date of birth
   'DUPLICATE_IDENTITY', // internal: same ID number used by another user
+  'DOCUMENT_CONTENT', // local OCR: text read from the uploaded documents vs what the applicant entered
   'DOCUMENT', // provider: OCR + authenticity of the identity document
   'LIVENESS', // provider: real person, not a photo, screen or deepfake
   'FACE_MATCH', // provider: selfie matches the document photo
@@ -53,6 +54,7 @@ export interface CheckSubject {
   idDocumentType: string;
   idDocumentNumber: string;
   idDocumentExpiry: Date | null;
+  residentialAddress: string;
   documentTypes: string[];
   loadDocument(documentType: string): Promise<{ mimeType: string; content: Buffer } | null>;
 }

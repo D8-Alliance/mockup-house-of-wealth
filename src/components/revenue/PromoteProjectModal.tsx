@@ -14,6 +14,7 @@ import { PROMOTION_DISCLAIMER_TEXT } from '../../revenue/marketplaceMonetisation
 import { PromotionPackage } from '../../revenue/marketplaceMonetisationTypes';
 import { marketplaceMonetisationService } from '../../revenue/marketplaceMonetisationService';
 import { apiClient } from '../../services/apiClient';
+import { todayInPlatformZone } from '../../utils/platformTime';
 
 interface PromoteProjectModalProps {
   projectId: string;
@@ -34,7 +35,7 @@ export const PromoteProjectModal: React.FC<PromoteProjectModalProps> = ({
 }) => {
   const packages = marketplaceMonetisationService.getActivePackages().filter(p => p.targetType === 'PROJECT');
   const [selectedPkg, setSelectedPkg] = useState<PromotionPackage>(packages[1] || packages[0]);
-  const [startDate, setStartDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState<string>(todayInPlatformZone());
   const [payMethod, setPayMethod] = useState<'RM' | 'CREDITS'>('RM');
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Wallet, 
   ArrowUpRight, 
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { LanguageCode } from '../types';
 import { TRANSLATIONS } from '../data/translations';
+import { apiClient, BackendFinancialAccount } from '../services/apiClient';
 
 interface SubWallet {
   id: string;
@@ -28,79 +29,38 @@ interface SubWallet {
   badgeBg: string;
 }
 
-export const WalletView: React.FC = () => {
-  const [wallets, setWallets] = useState<SubWallet[]>([
-    {
-      id: 'WAL-01',
-      name: 'Investment Wallet',
-      type: 'investment',
-      balance: 1240500,
-      currency: 'USD',
-      description: 'Capital currently deployed in active Sukuk, Waqf, and RWA Pools.',
-      color: 'from-blue-600 to-indigo-600',
-      badgeBg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
-    },
-    {
-      id: 'WAL-02',
-      name: 'Cash Wallet',
-      type: 'cash',
-      balance: 184250,
-      currency: 'USD',
-      description: 'Liquid funds available for instant pool investments or bank transfers.',
-      color: 'from-emerald-600 to-teal-600',
-      badgeBg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-    },
-    {
-      id: 'WAL-03',
-      name: 'Profit Wallet',
-      type: 'profit',
-      balance: 42800,
-      currency: 'USD',
-      description: 'Accumulated Mudarabah and Musharakah dividend returns ready for payout.',
-      color: 'from-amber-500 to-orange-600',
-      badgeBg: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-    },
-    {
-      id: 'WAL-04',
-      name: 'Locked Wallet',
-      type: 'locked',
-      balance: 150000,
-      currency: 'USD',
-      description: 'Collateral reserves and lock-up capital under active contract tenure.',
-      color: 'from-purple-600 to-pink-600',
-      badgeBg: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
-    },
-    {
-      id: 'WAL-05',
-      name: 'Withdrawal Wallet',
-      type: 'withdrawal',
-      balance: 25000,
-      currency: 'USD',
-      description: 'Funds currently clearing SWIFT / D-8 interbank settlement channels.',
-      color: 'from-slate-700 to-slate-900',
-      badgeBg: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
-    }
-  ]);
+export const WalletView: React.FC<{ accounts: BackendFinancialAccount[]; onRefresh: () => Promise<void> }> = ({ accounts, onRefresh }) => {
+  const [wallets, setWallets] = useState<SubWallet[]>([]);
+  useEffect(() => {
+    setWallets(accounts.map((account) => {
+      const type: SubWallet['type'] = account.accountCode.includes('PROFIT') ? 'profit' : account.accountCode.includes('LOCKED') ? 'locked' : account.accountCode.includes('WITHDRAWAL') ? 'withdrawal' : account.ownerType === 'POOL' ? 'investment' : 'cash';
+      const styles = { investment: ['from-blue-600 to-indigo-600', 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'], cash: ['from-emerald-600 to-teal-600', 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'], profit: ['from-amber-500 to-orange-600', 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'], locked: ['from-purple-600 to-pink-600', 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'], withdrawal: ['from-slate-700 to-slate-900', 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'] }[type];
+      return { id: account.id, name: account.accountCode, type, balance: 0, currency: account.currency, description: `Server-backed ${account.accountType.toLowerCase()} account.`, color: styles[0], badgeBg: styles[1] };
+    }));
+    void Promise.all(accounts.map(async (account) => apiClient.getFinancialAccountBalance(account.id))).then((balances) => setWallets((current) => current.map((wallet) => { const balance = balances.find((item) => item.accountId === wallet.id); return balance ? { ...wallet, balance: balance.balance } : wallet; }))).catch(() => undefined);
+  }, [accounts]);
 
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [fromWallet, setFromWallet] = useState('WAL-03');
-  const [toWallet, setToWallet] = useState('WAL-02');
+  const [fromWallet, setFromWallet] = useState('');
+  const [toWallet, setToWallet] = useState('');
   const [transferAmount, setTransferAmount] = useState('10000');
   const [autoReinvest, setAutoReinvest] = useState(true);
 
   const totalBalance = wallets.reduce((acc, w) => acc + w.balance, 0);
 
-  const handleExecuteTransfer = (e: React.FormEvent) => {
+  const handleExecuteTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     const amt = parseFloat(transferAmount) || 0;
     if (amt <= 0) return;
 
-    setWallets(wallets.map(w => {
-      if (w.id === fromWallet) return { ...w, balance: Math.max(0, w.balance - amt) };
-      if (w.id === toWallet) return { ...w, balance: w.balance + amt };
-      return w;
-    }));
-    setShowTransferModal(false);
+    if (!fromWallet || !toWallet) return;
+    try {
+      await apiClient.transferFinancialAccounts({ sourceAccountId: fromWallet, destinationAccountId: toWallet, amount: amt, description: autoReinvest ? 'Wallet transfer and profit reinvestment' : 'Internal wallet transfer', idempotencyKey: `wallet-transfer-${Date.now()}` });
+      await onRefresh();
+      setShowTransferModal(false);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Transfer failed.');
+    }
   };
 
   return (

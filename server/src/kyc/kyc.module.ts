@@ -7,6 +7,7 @@ import { buildKycCheckProviders } from './checks/kyc-check-providers';
 import { KycChecksService } from './checks/kyc-checks.service';
 import { KycController, KycWebhookController } from './kyc.controller';
 import { KycService } from './kyc.service';
+import { KycLivenessService } from './liveness/kyc-liveness.service';
 
 @Module({
   imports: [AuditModule, FeatureModuleModule],
@@ -14,6 +15,7 @@ import { KycService } from './kyc.service';
   providers: [
     KycService,
     KycChecksService,
+    KycLivenessService,
     { provide: KYC_CHECK_PROVIDERS, useFactory: (prisma: PrismaService) => buildKycCheckProviders(prisma), inject: [PrismaService] },
   ],
 })

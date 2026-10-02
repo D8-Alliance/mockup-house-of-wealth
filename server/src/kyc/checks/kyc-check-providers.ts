@@ -1,6 +1,8 @@
 import { PrismaService } from '../../prisma.service';
 import { KYC_CHECK_TYPES, KycCheckProvider, KycCheckType } from './check-types';
+import { DocumentContentProvider } from './providers/document-content.provider';
 import { HttpVendorProvider } from './providers/http-vendor.provider';
+import { LocalLivenessProvider } from './providers/liveness.provider';
 import { InternalRulesProvider } from './providers/internal-rules.provider';
 import { MockKycProvider } from './providers/mock.provider';
 import { MlServiceProvider } from './providers/ml-service.provider';
@@ -9,7 +11,8 @@ const list = (value: string | undefined) => (value ?? '').split(',').map((item) 
 
 /** The only place check providers are registered. External ones activate when their env is complete. */
 export function buildKycCheckProviders(prisma: PrismaService, env: NodeJS.ProcessEnv = process.env): KycCheckProvider[] {
-  const providers: KycCheckProvider[] = [new InternalRulesProvider(prisma), new MockKycProvider()];
+  // DocumentContentProvider runs fully on this server (PDF text + bundled Tesseract OCR).
+  const providers: KycCheckProvider[] = [new InternalRulesProvider(prisma), new DocumentContentProvider(), new LocalLivenessProvider(prisma), new MockKycProvider()];
 
   if (env.KYC_VENDOR_A_URL && env.KYC_VENDOR_A_KEY && env.KYC_VENDOR_A_WEBHOOK_SECRET) {
     const checks = list(env.KYC_VENDOR_A_CHECKS || 'DOCUMENT,LIVENESS,FACE_MATCH,AML_SCREENING');

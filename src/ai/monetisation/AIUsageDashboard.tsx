@@ -27,6 +27,7 @@ import {
   AI_INFORMATIONAL_DISCLAIMER, 
   AI_NON_ADVICE_DISCLAIMER 
 } from './aiCreditPricingConfig';
+import { formatDateTime } from '../../utils/platformTime';
 
 interface AIUsageDashboardProps {
   userId?: string;
@@ -52,6 +53,11 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
   };
 
   useEffect(() => { refresh().catch(() => undefined); }, [userId]);
+  useEffect(() => {
+    const onCreditsChanged = () => { refresh().catch(() => undefined); };
+    window.addEventListener('ai-credits-changed', onCreditsChanged);
+    return () => window.removeEventListener('ai-credits-changed', onCreditsChanged);
+  }, [userId]);
 
   const usedPercent = Math.min(100, Math.round((balance.usedThisMonth / (balance.monthlyAllowance || 1)) * 100));
 
@@ -144,7 +150,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
             <span className="text-[10px] text-slate-400">Granted automatically each cycle</span>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-[10.5px] text-slate-500">
-            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Resets: {balance.resetDate}</span>
+            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Resets: {formatDateTime(balance.resetDate)}</span>
           </div>
         </div>
 

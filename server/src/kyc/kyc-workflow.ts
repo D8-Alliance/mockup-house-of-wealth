@@ -72,3 +72,19 @@ export function maskIdNumber(value: string): string {
   if (value.length <= 4) return '*'.repeat(value.length);
   return `${'*'.repeat(value.length - 4)}${value.slice(-4)}`;
 }
+
+/**
+ * Canonical form of an identity number for duplicate detection: letters and digits only,
+ * upper case. Must stay identical to the expression in the KycApplication_approved_identity_key index.
+ */
+export function normalizeIdNumber(value: string): string {
+  return value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+}
+
+/**
+ * KYC review is a country-level compliance function: applicants rarely share the reviewer's
+ * organisation, so reviewers see their own country node only. Super Admin is global.
+ */
+export function kycReviewScope(actor: { role: string; countryNodeId: string }): { countryNodeId?: string } {
+  return actor.role === 'Super Admin' ? {} : { countryNodeId: actor.countryNodeId };
+}

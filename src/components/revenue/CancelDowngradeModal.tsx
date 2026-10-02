@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, AlertTriangle, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react';
 import { UserMembership } from '../../revenue/revenueTypes';
+import { formatDate } from './membershipFormat';
 
 interface CancelDowngradeModalProps {
   membership: UserMembership;
@@ -64,7 +65,7 @@ export const CancelDowngradeModal: React.FC<CancelDowngradeModalProps> = ({
               <p className="text-xs text-slate-500">
                 {mode === 'downgrade'
                   ? 'You will retain standard open marketplace access, but your monthly AI allowance will adjust to 20 credits and advanced risk matrices will be locked.'
-                  : `Your ${membership.tier} subscription benefits will remain active until ${membership.currentPeriodEnd}. No further automated billing will occur.`}
+                  : `Your ${membership.tier} subscription benefits will remain active until ${formatDate(membership.currentPeriodEnd)}. No further automated billing will occur.`}
               </p>
             </div>
 

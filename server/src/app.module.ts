@@ -21,6 +21,11 @@ import { FeatureModuleModule } from './modules/feature-module.module';
 import { AiModule } from './ai/ai.module';
 import { ContractIntelligenceModule } from './contract-intelligence/contract-intelligence.module';
 import { KycModule } from './kyc/kyc.module';
+import { FinancialLedgerModule } from './financial/financial-ledger.module';
+import { DistributionModule } from './distribution/distribution.module';
+import { InvestmentsModule } from './investments/investments.module';
+import { NotificationModule } from './notifications/notification.module';
+import { JobsModule } from './jobs/jobs.module';
 
 @Module({
   imports: [
@@ -43,6 +48,11 @@ import { KycModule } from './kyc/kyc.module';
     AiModule,
     ContractIntelligenceModule,
     KycModule,
+    FinancialLedgerModule,
+    DistributionModule,
+    InvestmentsModule,
+    NotificationModule,
+    JobsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: OidcGuard },

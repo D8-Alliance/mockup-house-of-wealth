@@ -1,10 +1,12 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { UserRole as PrismaUserRole } from '@prisma/client';
+import { Prisma, UserRole as PrismaUserRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { UserRole, PRIVILEGED_ROLES } from '../policy/permissions';
 import { PolicyService } from '../policy/policy.service';
+import { normalizePhone } from '../tenancy/country-phone';
+import { tenantScopeFilter } from '../tenancy/tenant-scope';
 
 @Injectable()
 export class UsersService {
@@ -17,10 +19,21 @@ export class UsersService {
   async getCurrentUser(actor: AuthenticatedUser) {
     const user = await this.prisma.user.findUnique({
       where: { id: actor.userId },
-      include: { roleAssignments: { where: { isActive: true } } },
+      include: { roleAssignments: { where: { ...tenantScopeFilter(actor), isActive: true } } },
     });
     if (!user) throw new NotFoundException('User not found');
     return this.toDirectoryUser(user);
+  }
+
+  /** Self-service profile fields. The phone is stored in E.164 using the user's country code. */
+  async updateMyProfile(actor: AuthenticatedUser, input: { phone?: string }) {
+    const user = await this.prisma.user.findUnique({ where: { id: actor.userId }, select: { profile: true } });
+    if (!user) throw new NotFoundException('User not found');
+    const current = user.profile && typeof user.profile === 'object' && !Array.isArray(user.profile) ? user.profile as Record<string, unknown> : {};
+    const phone = input.phone === undefined ? current.phone : input.phone.trim() ? normalizePhone(input.phone, actor.countryNodeId) : undefined;
+    await this.prisma.user.update({ where: { id: actor.userId }, data: { profile: { ...current, phone } as Prisma.InputJsonObject } });
+    await this.audit.recordActor(actor, { action: 'user.profile.update', resourceType: 'User', resourceId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { fields: Object.keys(input) } });
+    return this.getCurrentUser(actor);
   }
 
   async listUsers(actor: AuthenticatedUser) {
@@ -32,7 +45,7 @@ export class UsersService {
 
     const users = await this.prisma.user.findMany({
       where,
-      include: { roleAssignments: { where: { isActive: true } } },
+      include: { roleAssignments: { where: { ...tenantScopeFilter(actor), isActive: true } } },
       orderBy: { name: 'asc' },
     });
     return users.map((user) => this.toDirectoryUser(user));
@@ -118,6 +131,8 @@ export class UsersService {
 
     const countryNode = await this.prisma.countryNode.findUnique({ where: { code: countryNodeId } });
     if (!countryNode) throw new NotFoundException('Country node not found');
+    if (org.countryNodeId !== countryNodeId) throw new BadRequestException('Organisation does not belong to the requested country node');
+    if (org.status !== 'ACTIVE' || countryNode.status !== 'ACTIVE') throw new BadRequestException('Roles can only be assigned inside active tenants');
 
     // Check if assignment already exists
     const existing = await this.prisma.userRoleAssignment.findUnique({
@@ -238,9 +253,9 @@ export class UsersService {
   /**
    * List all active roles for a user.
    */
-  async getUserRoles(userId: string): Promise<Array<{ role: UserRole; organisationId: string; countryNodeId: string }>> {
+  async getUserRoles(userId: string, actor: AuthenticatedUser): Promise<Array<{ role: UserRole; organisationId: string; countryNodeId: string }>> {
     const assignments = await this.prisma.userRoleAssignment.findMany({
-      where: { userId, isActive: true },
+      where: { userId, isActive: true, ...tenantScopeFilter(actor) },
       select: { role: true, organisationId: true, countryNodeId: true },
     });
 

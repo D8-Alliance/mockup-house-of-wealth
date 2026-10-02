@@ -225,6 +225,22 @@ export const DEMO_PERSONAS: Record<string, AuthUser> = {
     mfaStatus: 'Enforced',
     avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80'
   },
+  // Dedicated KYC reviewer for the Malaysia node. KYC review is scoped to the reviewer's
+  // country, so this persona sees Malaysian applications only.
+  'KYC Officer': {
+    userId: 'USR-KYC-013',
+    name: 'Aisyah binti Kamal',
+    email: 'aisyah.kamal@sc.my',
+    organisationId: 'ORG-D8-GOV',
+    organisationName: 'D-8 Secretariat',
+    countryNodeId: 'CN-MYS',
+    countryName: 'Malaysia Node',
+    assignedRoles: ['KYC Officer'],
+    activeRole: 'KYC Officer',
+    status: 'ACTIVE',
+    mfaStatus: 'Enforced',
+    avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80'
+  },
   'Guest': {
     userId: 'GUEST-001',
     name: 'Guest Visitor',

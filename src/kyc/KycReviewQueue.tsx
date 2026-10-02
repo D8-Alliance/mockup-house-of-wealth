@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshCw, X } from 'lucide-react';
+import { AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { apiClient, apiErrorMessage, KycApplication, KycDecision, KycLevel, KycQueueItem, KycReviewableStatus } from '../services/apiClient';
 import { KYC_DOCUMENT_LABELS, KYC_ID_DOCUMENT_LABELS, KYC_LEVEL_LABELS, KYC_STATUS_LABELS, KYC_STATUS_STYLES } from './kycLabels';
 import { KycChecksPanel } from './KycChecksPanel';
+import { KycLivenessReviewPanel } from './KycLivenessReviewPanel';
+import { formatDateTime } from '../utils/platformTime';
 
 const FILTERS: KycReviewableStatus[] = ['SUBMITTED', 'RESUBMISSION_REQUIRED', 'APPROVED', 'REJECTED'];
 const DECISIONS: Array<{ value: KycDecision; label: string }> = [
@@ -11,7 +13,7 @@ const DECISIONS: Array<{ value: KycDecision; label: string }> = [
   { value: 'REJECTED', label: 'Reject' },
 ];
 
-const formatDate = (value: string | null) => (value ? new Date(value).toLocaleString() : '-');
+const formatDate = (value: string | null) => formatDateTime(value);
 
 /** KYC officer queue backed by /kyc/applications; decisions are recorded server-side with an audit trail. */
 export const KycReviewQueue: React.FC = () => {
@@ -25,6 +27,15 @@ export const KycReviewQueue: React.FC = () => {
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
   const [reviewError, setReviewError] = useState('');
+  // Approval safeguards, mirroring KycService.assertApprovable on the server.
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
+  const latestRound = (selected?.checks ?? []).reduce((max, check) => Math.max(max, check.round), 0);
+  const latestChecks = (selected?.checks ?? []).filter((check) => check.round === latestRound && !check.shadow);
+  const failedChecks = latestChecks.filter((check) => check.status === 'FAIL');
+  const needsOverride = failedChecks.length > 0 || selected?.checkRecommendation === 'ADVERSE';
+  const hasWarnings = !needsOverride && (selected?.checkRecommendation !== 'CLEAR' || latestChecks.some((check) => check.status !== 'PASS'));
+  const approvalBlocked = decision === 'APPROVED' && (needsOverride ? overrideReason.trim().length < 15 : hasWarnings && !acknowledged);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,6 +59,8 @@ export const KycReviewQueue: React.FC = () => {
     setKycLevel('LEVEL_1');
     try {
       setSelected(await apiClient.getKycApplicationForReview(id));
+      setAcknowledged(false);
+      setOverrideReason('');
     } catch (cause) {
       setError(apiErrorMessage(cause, 'Unable to open the application.'));
     }
@@ -58,7 +71,14 @@ export const KycReviewQueue: React.FC = () => {
     setSaving(true);
     setReviewError('');
     try {
-      setSelected(await apiClient.reviewKycApplication(selected.id, { decision, comment, kycLevel: decision === 'APPROVED' ? kycLevel : undefined }));
+      const approving = decision === 'APPROVED';
+      setSelected(await apiClient.reviewKycApplication(selected.id, {
+        decision,
+        comment,
+        kycLevel: approving ? kycLevel : undefined,
+        acknowledgeWarnings: approving && hasWarnings ? acknowledged : undefined,
+        overrideReason: approving && needsOverride ? overrideReason.trim() : undefined,
+      }));
       await load();
     } catch (cause) {
       setReviewError(apiErrorMessage(cause, 'The decision could not be saved.'));
@@ -109,7 +129,15 @@ export const KycReviewQueue: React.FC = () => {
               <tr key={item.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30">
                 <td className="p-3.5 font-bold font-mono text-purple-600">{item.applicationNumber}</td>
                 <td className="p-3.5">
-                  <div className="font-bold text-slate-900 dark:text-white">{item.fullName}</div>
+                  <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    {item.fullName}
+                    {(item.checkRecommendation === 'ATTENTION' || item.checkRecommendation === 'ADVERSE') && (
+                      <span title={(item.checkReasons ?? []).join(' | ') || 'Automated checks found issues'} className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-black ${item.checkRecommendation === 'ADVERSE' ? 'bg-rose-500/10 text-rose-600' : 'bg-amber-500/10 text-amber-600'}`}>
+                        <AlertTriangle className="w-3 h-3" />
+                        {item.checkRecommendation === 'ADVERSE' ? 'Failed check' : 'Check issues'}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-slate-400">{item.userEmail}</div>
                 </td>
                 <td className="p-3.5 text-slate-600 dark:text-slate-300">{item.nationality}</td>
@@ -156,6 +184,8 @@ export const KycReviewQueue: React.FC = () => {
 
             <KycChecksPanel application={selected} onUpdated={setSelected} />
 
+            <KycLivenessReviewPanel applicationId={selected.id} />
+
             <div className="space-y-2">
               <h5 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">Documents</h5>
               {selected.documents.map((document) => (
@@ -194,10 +224,22 @@ export const KycReviewQueue: React.FC = () => {
                     </select>
                   )}
                 </div>
+                {decision === 'APPROVED' && needsOverride && (
+                  <div className="p-3 rounded-xl border border-rose-300 bg-rose-50 dark:border-rose-800/60 dark:bg-rose-950/30 space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-rose-700 dark:text-rose-300"><AlertTriangle className="w-4 h-4" />Automated checks failed{failedChecks.length ? `: ${failedChecks.map((check) => check.checkType).join(', ')}` : ''}</div>
+                    <textarea rows={2} value={overrideReason} onChange={(event) => setOverrideReason(event.target.value)} placeholder="Why approve anyway? (at least 15 characters, recorded in the audit trail)" className="w-full px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-800 bg-white dark:bg-slate-900 text-xs" />
+                  </div>
+                )}
+                {decision === 'APPROVED' && hasWarnings && (
+                  <label className="flex items-start gap-2 p-3 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/30 text-xs text-amber-800 dark:text-amber-200 cursor-pointer">
+                    <input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} className="mt-0.5" />
+                    <span>I have checked the issues raised by the automated checks above and the documents support approval.</span>
+                  </label>
+                )}
                 <textarea rows={3} value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Reason for the decision (required, shown to the applicant)" className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs" />
                 {reviewError && <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">{reviewError}</div>}
                 <div className="flex justify-end">
-                  <button type="button" disabled={saving || comment.trim().length < 5} onClick={() => void submitReview()} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold cursor-pointer disabled:opacity-50">
+                  <button type="button" disabled={saving || comment.trim().length < 5 || approvalBlocked} onClick={() => void submitReview()} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold cursor-pointer disabled:opacity-50">
                     {saving ? 'Saving...' : 'Record decision'}
                   </button>
                 </div>

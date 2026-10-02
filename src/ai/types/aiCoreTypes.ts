@@ -22,6 +22,8 @@ export interface ContractAdvisorProject {
   proposedShariahContract: string;
   fundingTarget: number;
   sector: string;
+  /** Project lifecycle status; contract structuring is locked once the project is approved. */
+  status?: string;
   organisationId?: string;
   countryNodeId?: string;
   currency?: string;

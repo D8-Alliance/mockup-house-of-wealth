@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Bell, 
   CheckCircle2, 
@@ -10,6 +10,7 @@ import {
   Trash2,
   Clock
 } from 'lucide-react';
+import { apiClient } from '../services/apiClient';
 
 interface NotificationItem {
   id: string;
@@ -21,43 +22,14 @@ interface NotificationItem {
 }
 
 export const NotificationsView: React.FC = () => {
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: 'NOTIF-01',
-      title: 'Mudarabah Profit Payout Swept',
-      message: 'Your monthly yield of $28,500 from KL Logistics Sukuk Pool has been deposited into your Profit Wallet.',
-      timestamp: '10 mins ago',
-      type: 'profit',
-      read: false
-    },
-    {
-      id: 'NOTIF-02',
-      title: 'AAOIFI Shariah Compliance Audit Passed',
-      message: 'The annual Shariah audit for Kuala Lumpur Port Commercial Pool has been completed with 100% compliance rating.',
-      timestamp: '2 hours ago',
-      type: 'compliance',
-      read: false
-    },
-    {
-      id: 'NOTIF-03',
-      title: 'New Pool Opportunity Launched',
-      message: 'Nigeria Green Sukuk Solar Pool is now open for investor participation under Mudarabah rules.',
-      timestamp: '1 day ago',
-      type: 'pool',
-      read: true
-    },
-    {
-      id: 'NOTIF-04',
-      title: 'Security Alert: New Sign-in Node',
-      message: 'Authorized access recorded from Kuala Lumpur, Malaysia (IP: 210.186.42.10).',
-      timestamp: '3 days ago',
-      type: 'security',
-      read: true
-    }
-  ]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
+  useEffect(() => {
+    void apiClient.getNotifications().then((rows) => setNotifications(rows.map((row) => ({ id: row.id, title: row.title, message: row.message, timestamp: new Date(row.createdAt).toLocaleString(), type: row.type.includes('SECURITY') ? 'security' : row.type.includes('SHARIAH') ? 'compliance' : row.type.includes('PAYOUT') ? 'profit' : 'pool', read: Boolean(row.readAt) })))).catch(() => undefined);
+  }, []);
 
   const markAllRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+    void apiClient.markAllNotificationsRead().then(() => setNotifications((current) => current.map(n => ({ ...n, read: true })))).catch(() => undefined);
   };
 
   return (

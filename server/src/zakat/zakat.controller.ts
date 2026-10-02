@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { CalculateZakatDto } from './zakat.dto';
@@ -16,5 +16,10 @@ export class ZakatController {
   @Get('calculations/latest')
   latest(@CurrentUser() actor: AuthenticatedUser) {
     return this.zakatService.latest(actor);
+  }
+
+  @Post('calculations/:id/payment')
+  createPayment(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) {
+    return this.zakatService.createPaymentBill(actor, id);
   }
 }

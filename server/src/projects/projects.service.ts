@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -6,6 +6,8 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PolicyService } from '../policy/policy.service';
 import { AddProjectTeamMemberDto, CreateProjectAnnouncementDto, CreateProjectPromotionDto, CreateProjectDto, CreateProjectMilestoneDto, UpdateProjectMilestoneDto, UpdateProjectStatusDto } from './projects.controller';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
+import { assertProjectUnlocked, hasCurrentFinalApproval, isProjectLocked, REOPENABLE_PROJECT_STATUSES } from './project-lock';
+import { formatLocalDateTime } from '../tenancy/country-time';
 import { BadRequestException } from '@nestjs/common';
 import pdfParse from 'pdf-parse';
 import * as XLSX from 'xlsx';
@@ -68,12 +70,15 @@ export class ProjectsService {
     const project = await this.get(projectId, user);
     const allowed = ['DRAFT', 'DUE_DILIGENCE', 'APPROVED', 'FUNDING_OPEN', 'POOLING', 'FUNDED', 'EXECUTION', 'PROFIT_DISTRIBUTION', 'COMPLETED', 'REJECTED'];
     if (!allowed.includes(dto.status)) throw new BadRequestException('Unsupported project lifecycle status.');
+    // Approval and reopening have their own governed paths; a plain status change must not bypass them.
+    if (isProjectLocked(project.status) && ['DRAFT', 'DUE_DILIGENCE'].includes(dto.status)) throw new ConflictException('An approved or rejected project can only return to due diligence through Reopen project.');
+    if (dto.status === 'APPROVED' && project.status !== 'APPROVED' && !(await hasCurrentFinalApproval(this.prisma, project))) throw new ConflictException('A project becomes APPROVED only through the final committee decision on its current feasibility revision.');
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.project.update({ where: { projectId }, data: { status: dto.status, lifecycleVersion: { increment: 1 } } });
       await tx.projectLifecycleEvent.create({ data: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, fromStatus: project.status, toStatus: dto.status, note: dto.note, actorId: user.userId } });
+      await this.audit.recordActor(user, { action: 'project.lifecycle.status_change', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { fromStatus: project.status, toStatus: dto.status, note: dto.note } }, tx);
       return result;
     });
-    await this.audit.recordActor(user, { action: 'project.lifecycle.status_change', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { fromStatus: project.status, toStatus: dto.status, note: dto.note } });
     return updated;
   }
 
@@ -149,6 +154,7 @@ export class ProjectsService {
     const extension = file.originalname.toLowerCase().split('.').pop() || '';
     if (!allowedExtensions.includes(extension)) throw new BadRequestException(`${evidenceType.replaceAll('_', ' ')} must be uploaded as ${requirement.requiredFormat}.`);
     const project = await this.get(projectId, user);
+    assertProjectUnlocked(project, 'Evidence upload');
     const previous = await this.prisma.projectEvidenceRequirement.findUnique({ where: { projectId_evidenceType: { projectId: project.projectId, evidenceType } }, select: { uploadedDocumentId: true } });
     // The previous document is kept (not deleted) as part of the evidence audit trail.
     const document = await this.storeDocument(project, file, user);
@@ -160,6 +166,43 @@ export class ProjectsService {
       include: { uploadedDocument: { select: EVIDENCE_DOCUMENT_SELECT } },
     });
     await this.audit.recordActor(user, { action: 'project.evidence.upload', resourceType: 'ProjectEvidenceRequirement', resourceId: updated.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId: project.projectId, evidenceType, documentId: document.id, previousDocumentId: previous?.uploadedDocumentId ?? null, status: updated.status } });
+    return updated;
+  }
+
+  /**
+   * Formal route back from a final decision: the project returns to DUE_DILIGENCE, every
+   * outstanding feasibility approval is superseded (so funding and pooling stop), and
+   * evidence and AI analysis unlock again. Only allowed before investor money is committed.
+   */
+  async reopenProject(projectId: string, reason: string | undefined, user: AuthenticatedUser) {
+    if (!reason?.trim()) throw new BadRequestException('A reason is required to reopen a project.');
+    const project = await this.get(projectId, user);
+    if (!REOPENABLE_PROJECT_STATUSES.includes(project.status)) {
+      throw new ConflictException(`A ${project.status.replaceAll('_', ' ')} project cannot be reopened. Reopening is allowed only from ${REOPENABLE_PROJECT_STATUSES.join(', ')}, before funds are committed.`);
+    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Conditional on the status we checked, so a concurrent change is not overwritten.
+      const claimed = await tx.project.updateMany({ where: { projectId, status: project.status }, data: { status: 'DUE_DILIGENCE', lifecycleVersion: { increment: 1 } } });
+      if (!claimed.count) throw new ConflictException('The project status changed; reload and try again.');
+      await tx.projectApproval.updateMany({ where: { projectId, status: { in: ['PENDING', 'APPROVED', 'REJECTED', 'REQUEST_CHANGES'] } }, data: { status: 'SUPERSEDED', supersededAt: new Date() } });
+      await tx.projectLifecycleEvent.create({ data: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, fromStatus: project.status, toStatus: 'DUE_DILIGENCE', note: `Reopened: ${reason.trim()}`, actorId: user.userId } });
+      return tx.project.findUniqueOrThrow({ where: { projectId } });
+    });
+    await this.audit.recordActor(user, { action: 'project.reopened', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { fromStatus: project.status, toStatus: 'DUE_DILIGENCE', reason: reason.trim() } });
+    return updated;
+  }
+
+  async verifyEvidence(projectId: string, evidenceType: string, user: AuthenticatedUser) {
+    const reviewerRoles = ['Finance Officer', 'Risk Officer', 'Compliance Officer', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee', 'Country Admin', 'Organization Admin', 'Super Admin'];
+    if (!reviewerRoles.includes(user.role)) throw new ForbiddenException('Only an authorised human reviewer can verify evidence.');
+    const project = await this.get(projectId, user);
+    assertProjectUnlocked(project, 'Evidence verification');
+    const requirement = await this.prisma.projectEvidenceRequirement.findFirst({ where: { projectId: project.projectId, evidenceType, organisationId: project.organisationId, countryNodeId: project.countryNodeId } });
+    if (!requirement?.uploadedDocumentId) throw new BadRequestException('Evidence must be uploaded before human verification.');
+    if (!['AI_PRECHECKED', 'REQUIRES_REVIEW', 'UPLOADED'].includes(requirement.status)) throw new BadRequestException(`Evidence cannot be verified from state "${requirement.status}".`);
+    const previousResult = requirement.verificationResult && typeof requirement.verificationResult === 'object' && !Array.isArray(requirement.verificationResult) ? requirement.verificationResult as Record<string, unknown> : {};
+    const updated = await this.prisma.projectEvidenceRequirement.update({ where: { id: requirement.id }, data: { status: 'VERIFIED', verificationStatus: 'VERIFIED', verificationResult: { ...previousResult, humanVerifiedBy: user.userId, humanVerifiedAt: new Date().toISOString(), validationResult: 'Verified by an authorised human reviewer.' } }, include: { uploadedDocument: { select: { id: true, fileName: true, mimeType: true, extractionStatus: true, createdAt: true } } } });
+    await this.audit.recordActor(user, { action: 'project.evidence.human_verified', resourceType: 'ProjectEvidenceRequirement', resourceId: requirement.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId: project.projectId, evidenceType, documentId: requirement.uploadedDocumentId, reviewerId: user.userId, reviewerRole: user.role } });
     return updated;
   }
 
@@ -406,7 +449,7 @@ export class ProjectsService {
     if (!campaign?.payment || campaign.payment.userId !== user.userId) throw new NotFoundException('Promotion receipt not found');
     if (campaign.payment.status !== 'PAID') throw new BadRequestException('Receipt is available after payment confirmation.');
     const receiptNumber = `HOW-PROMO-${campaign.payment.id.slice(-10).toUpperCase()}`;
-    return { receiptNumber, content: ['WEALTH POOLING PROMOTION RECEIPT', `Receipt: ${receiptNumber}`, `Project: ${project.projectName}`, `Campaign: ${campaign.packageName}`, `Amount: MYR ${campaign.payment.amountMYR.toString()}`, `Payment method: ${campaign.payment.method}`, `Payment status: ${campaign.payment.status}`, `Provider reference: ${campaign.payment.providerRef || 'N/A'}`, `Paid at: ${campaign.payment.updatedAt.toISOString()}`, '', 'This receipt confirms payment for promotional placement. It is not an investment recommendation.'].join('\n') };
+    return { receiptNumber, content: ['WEALTH POOLING PROMOTION RECEIPT', `Receipt: ${receiptNumber}`, `Project: ${project.projectName}`, `Campaign: ${campaign.packageName}`, `Amount: MYR ${campaign.payment.amountMYR.toString()}`, `Payment method: ${campaign.payment.method}`, `Payment status: ${campaign.payment.status}`, `Provider reference: ${campaign.payment.providerRef || 'N/A'}`, `Paid at: ${formatLocalDateTime(campaign.payment.updatedAt, project.countryNodeId)}`, '', 'This receipt confirms payment for promotional placement. It is not an investment recommendation.'].join('\n') };
   }
 
   async createPromotion(projectId: string, dto: CreateProjectPromotionDto, user: AuthenticatedUser) {

@@ -6,6 +6,7 @@ import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
 import { INITIAL_COUNTRY_NODES } from '../../countryNodes/mockCountryNodes';
 import { authService } from '../../auth/services/authService';
 import { RegisterCredentials } from '../../auth/types/authTypes';
+import { apiClient, apiErrorMessage } from '../../services/apiClient';
 
 interface RegisterFormProps {
   authMode?: AuthMode;
@@ -16,13 +17,13 @@ interface RegisterFormProps {
   onLoginClick: () => void;
 }
 
+// Roles a member of the public may choose; staff roles are assigned by an administrator.
+// Mirrors SELF_REGISTRATION_ROLES in server/src/auth/demo-registration.service.ts.
 const REGISTRABLE_ROLES: UserRole[] = [
   'Retail Investor',
   'Institutional Investor',
   'Project Sponsor',
-  'Asset Owner',
-  'Pool Manager',
-  'Finance Officer'
+  'Asset Owner'
 ];
 
 export const RegisterForm: React.FC<RegisterFormProps> = ({
@@ -50,7 +51,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   const inputCls =
     'w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none';
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.organisation || !form.password) {
       onError('Please complete all required fields.');
@@ -80,19 +81,29 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     };
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      if (authMode !== 'PRODUCTION') {
+        // Demo/local mode: create the user, organisation and role in the backend first,
+        // otherwise every API call (KYC, membership, ...) rejects the new account.
+        const created = await apiClient.registerDemoUser({ name: form.name, email: form.email, organisation: form.organisation, countryNodeId: country.countryNodeId, role: selectedRole });
+        credentials.userId = created.userId;
+        credentials.organisationId = created.organisationId;
+      }
       const res = authService.register(credentials);
       if (res.success) {
         onRegistered(selectedRole, form.email);
       } else {
         onError(res.error || 'Registration failed. Please try again.');
       }
-    }, 700);
+    } catch (cause) {
+      onError(apiErrorMessage(cause, 'Registration failed. Please try again.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
       {/* Name */}
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Full Name</label>

@@ -8,6 +8,7 @@ export const ZakatCalculatorCard: React.FC = () => {
   const [debtsOwed, setDebtsOwed] = useState('20000');
   const [calculation, setCalculation] = useState<ZakatCalculation | null>(null);
   const [calculationError, setCalculationError] = useState('');
+  const [paymentLoading, setPaymentLoading] = useState(false);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -15,6 +16,7 @@ export const ZakatCalculatorCard: React.FC = () => {
         investedCapital: parseFloat(investedCapital) || 0,
         liquidCash: parseFloat(liquidCash) || 0,
         debtsOwed: parseFloat(debtsOwed) || 0,
+        currency: 'MYR',
       })
         .then(setCalculation)
         .catch((error: Error) => setCalculationError(error.message));
@@ -25,6 +27,19 @@ export const ZakatCalculatorCard: React.FC = () => {
   const totalWealth = calculation?.netWealth ?? 0;
   const nisabThreshold = calculation?.nisabThreshold ?? 6120;
   const zakatDue = calculation?.zakatDue ?? 0;
+
+  const startPayment = async () => {
+    if (!calculation || zakatDue <= 0) return;
+    setPaymentLoading(true);
+    setCalculationError('');
+    try {
+      const payment = await apiClient.createZakatPayment(calculation.id);
+      window.location.assign(payment.paymentUrl);
+    } catch (error) {
+      setCalculationError(error instanceof Error ? error.message : 'Unable to start zakat payment.');
+      setPaymentLoading(false);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -40,7 +55,7 @@ export const ZakatCalculatorCard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Invested Capital ($)
+              Invested Capital (MYR)
             </label>
             <input 
               type="number"
@@ -52,7 +67,7 @@ export const ZakatCalculatorCard: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Liquid Cash ($)
+              Liquid Cash (MYR)
             </label>
             <input 
               type="number"
@@ -64,7 +79,7 @@ export const ZakatCalculatorCard: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Short-Term Debts ($)
+              Short-Term Debts (MYR)
             </label>
             <input 
               type="number"
@@ -78,24 +93,25 @@ export const ZakatCalculatorCard: React.FC = () => {
         <div className="p-5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-500/30 space-y-3">
           <div className="flex justify-between items-center text-xs">
             <span className="font-bold text-slate-700 dark:text-slate-300">Net Zakatable Wealth:</span>
-            <span className="font-black text-slate-900 dark:text-white text-sm">${totalWealth.toLocaleString()}</span>
+            <span className="font-black text-slate-900 dark:text-white text-sm">MYR {totalWealth.toLocaleString()}</span>
           </div>
           <div className="flex justify-between items-center text-xs">
             <span className="font-bold text-slate-700 dark:text-slate-300">Gold Nisab Benchmark:</span>
-            <span className="font-bold text-slate-500">${nisabThreshold.toLocaleString()} (Exceeded ✓)</span>
+            <span className="font-bold text-slate-500">MYR {nisabThreshold.toLocaleString()} (Exceeded ✓)</span>
           </div>
           <div className="pt-2 border-t border-emerald-500/20 flex justify-between items-center">
             <span className="font-extrabold text-emerald-700 dark:text-emerald-300 text-sm">Zakat Obligation (2.5%):</span>
-            <span className="font-black text-emerald-600 text-xl">${zakatDue.toLocaleString()} USD</span>
+            <span className="font-black text-emerald-600 text-xl">MYR {zakatDue.toLocaleString()}</span>
           </div>
           {calculationError && <p className="text-xs text-rose-600">Backend calculation unavailable: {calculationError}</p>}
         </div>
 
         <button
-          onClick={() => alert(`Channeling $${zakatDue.toLocaleString()} Zakat directly to D-8 Waqf Foundation...`)}
+          onClick={startPayment}
+          disabled={paymentLoading || zakatDue <= 0}
           className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
         >
-          Pay & Channel Zakat Now
+          {paymentLoading ? 'Preparing ToyyibPay...' : 'Pay & Channel Zakat Now'}
         </button>
       </div>
 

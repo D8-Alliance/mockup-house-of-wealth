@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { AlertTriangle, FileText, Sparkles, Upload, CheckCircle2 } from 'lucide-react';
 import { AIApprovalPanel } from '../../components/AIApprovalPanel';
 import { AIRecommendationCard } from '../../components/AIRecommendationCard';
-import { apiClient, BackendEvidenceRequirement, BackendFeasibilityAssessment, BackendProject } from '../../../services/apiClient';
+import { apiClient, apiErrorMessage, BackendEvidenceRequirement, BackendFeasibilityAssessment, BackendProject } from '../../../services/apiClient';
+import { canReopenProject, isProjectLocked } from '../../../services/projectLock';
 import { AISectionContainer } from './AISectionContainer';
 
 const reviewStages = ['DRAFT', 'FINANCE_REVIEW', 'RISK_REVIEW', 'COMPLIANCE_REVIEW', 'SHARIAH_REVIEW', 'INVESTMENT_COMMITTEE_REVIEW', 'FINAL_DECISION'];
@@ -28,9 +29,31 @@ export const AIProjectAnalyzer: React.FC<{ user: any }> = ({ user }) => {
   const [evidenceRequirements, setEvidenceRequirements] = useState<BackendEvidenceRequirement[]>([]);
   const [uploadingEvidence, setUploadingEvidence] = useState('');
   const [evidenceNotice, setEvidenceNotice] = useState('');
-  const canAnalyze = ['Project Sponsor', 'Project Manager', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Country Admin', 'Organization Admin', 'AI Model Reviewer', 'Shariah Reviewer'].includes(user.role);
+  // After a final decision the analysis and evidence are locked until a Country Admin reopens the project.
+  const selectedProjectStatus = projects.find((item) => item.projectId === selectedProjectId)?.status;
+  const projectLocked = isProjectLocked(selectedProjectStatus);
+  const canAnalyze = !projectLocked && ['Project Sponsor', 'Project Manager', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Country Admin', 'Organization Admin', 'AI Model Reviewer', 'Shariah Reviewer'].includes(user.role);
   // Mirrors the @Roles guard on POST /projects/:id/evidence/:evidenceType/upload.
-  const canUploadEvidence = ['Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager'].includes(user.role);
+  const canUploadEvidence = !projectLocked && ['Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager'].includes(user.role);
+  const [reopening, setReopening] = useState(false);
+
+  const reopenProject = async () => {
+    if (!selectedProjectId) return;
+    const reason = window.prompt('Reason for reopening this project (recorded in the audit trail). Funding and pooling stop and all feasibility approvals are superseded.');
+    if (!reason?.trim()) return;
+    setReopening(true);
+    setError('');
+    try {
+      await apiClient.reopenProject(selectedProjectId, reason.trim());
+      const [items, latest] = await Promise.all([apiClient.getProjects(), apiClient.getLatestProjectFeasibility(selectedProjectId)]);
+      setProjects(items);
+      setProjectData(latest);
+    } catch (cause) {
+      setError(apiErrorMessage(cause, 'Unable to reopen the project.'));
+    } finally {
+      setReopening(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -102,6 +125,19 @@ export const AIProjectAnalyzer: React.FC<{ user: any }> = ({ user }) => {
     }
   };
 
+  const verifyEvidence = async (evidenceType: string) => {
+    if (!selectedProjectId) return;
+    try {
+      await apiClient.verifyProjectEvidence(selectedProjectId, evidenceType);
+      // Only refresh: re-running the analysis would create a new revision, reset every
+      // approval to DRAFT and cost credits. The reviewer re-runs it explicitly when needed.
+      setEvidenceRequirements(await apiClient.getProjectEvidenceRequirements(selectedProjectId));
+      setEvidenceNotice('Evidence verified. Run the analysis again to include it in the feasibility scores.');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Unable to verify evidence.');
+    }
+  };
+
   const advanceReview = async () => {
     if (!projectData) return;
     const currentStage = projectData.reviewStage;
@@ -129,6 +165,7 @@ export const AIProjectAnalyzer: React.FC<{ user: any }> = ({ user }) => {
   const feasibility = projectData?.projectFeasibility;
   const nextStage = projectData ? reviewStages[reviewStages.indexOf(projectData.reviewStage) + 1] : undefined;
   const canReviewCurrentStage = projectData ? reviewRoles[projectData.reviewStage]?.includes(user.role) : false;
+  const canVerifyEvidence = !projectLocked && ['Super Admin', 'Country Admin', 'Organization Admin', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee'].includes(user.role);
   const formatMetric = (value: unknown, suffix = '') => typeof value === 'number' && Number.isFinite(value)
     ? `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}${suffix}`
     : 'Unavailable from submitted evidence';
@@ -152,8 +189,14 @@ export const AIProjectAnalyzer: React.FC<{ user: any }> = ({ user }) => {
             <h2 className="mt-1 text-base font-black text-slate-900 dark:text-white">Project Feasibility &amp; Cashflow Evaluation</h2>
             <p className="mt-0.5 text-[11px] text-slate-500">Evaluates real tenant-scoped project data, submitted evidence, NPV, DSCR, cashflow, risk, and funding readiness.</p>
           </div>
-          <button onClick={() => void analyze()} disabled={loading || !selectedProjectId || !canAnalyze} className="flex shrink-0 cursor-pointer items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-50"><Sparkles className="h-4 w-4 text-emerald-200" />{!canAnalyze ? 'View and Governance Only' : loading ? 'Evaluating Business Plan...' : 'Analyze Project Metrics'}</button>
+          <button onClick={() => void analyze()} disabled={loading || !selectedProjectId || !canAnalyze} className="flex shrink-0 cursor-pointer items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2.5 text-xs font-extrabold text-white shadow-lg shadow-emerald-600/20 disabled:cursor-not-allowed disabled:opacity-50"><Sparkles className="h-4 w-4 text-emerald-200" />{projectLocked ? 'Locked after approval' : !canAnalyze ? 'View and Governance Only' : loading ? 'Evaluating Business Plan...' : 'Analyze Project Metrics'}</button>
         </div>
+        {projectLocked && (
+          <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:bg-slate-900/60">
+            <p className="text-[11px] text-slate-600 dark:text-slate-300"><strong>Locked after approval.</strong> This project is {selectedProjectStatus?.replaceAll('_', ' ')}, so the feasibility analysis, evidence and contract structuring can no longer change. A Country Admin can reopen it before funds are committed; reopening returns it to due diligence and stops funding.</p>
+            {canReopenProject(selectedProjectStatus, user.role) && <button onClick={() => void reopenProject()} disabled={reopening} className="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-[11px] font-bold text-white hover:bg-slate-700 disabled:opacity-50 dark:bg-slate-700">{reopening ? 'Reopening...' : 'Reopen project'}</button>}
+          </div>
+        )}
         <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">Accessible project
           <select value={selectedProjectId} onChange={(event) => { setSelectedProjectId(event.target.value); setProjectData(null); }} className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-2.5 font-semibold dark:border-slate-700 dark:bg-slate-900">
             <option value="">Select a project</option>
@@ -191,6 +234,7 @@ export const AIProjectAnalyzer: React.FC<{ user: any }> = ({ user }) => {
           <div className="grid gap-4 md:grid-cols-2"><div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800"><h3 className="text-sm font-black text-slate-900 dark:text-white">Recommended Next Actions</h3>{evidence.nextActions.length ? <ol className="mt-3 list-decimal space-y-2 pl-5 text-[11px] text-slate-700 dark:text-slate-300">{evidence.nextActions.map((action) => <li key={action}>{action}</li>)}</ol> : <p className="mt-3 text-[11px] text-emerald-700">No evidence action is currently pending.</p>}</div><div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800"><h3 className="text-sm font-black text-slate-900 dark:text-white">AI Confidence: {confidence?.scorePercent ?? evidence.scorePercent}%</h3><p className="mt-1 text-[10px] text-slate-500">Reason: evidence quality and completeness, not project viability.</p><ul className="mt-3 list-disc space-y-1 pl-5 text-[11px] text-slate-700 dark:text-slate-300">{(confidence?.reasons || evidence.confidenceReasons).map((reason: string) => <li key={reason}>{reason}</li>)}</ul></div></div>
         </>}
         <AIRecommendationCard title={`AI Recommendation: ${financial?.fundingReadiness || 'Review Required'}`} subtitle="Human Review Required · Financial Feasibility & Cashflow Health" recommendationText={`Cashflow source: ${String(financial?.cashflow?.source || 'Not available')}. No financial figure is assumed where it was not found in the project record or uploaded evidence.`} confidence={confidence} positiveFactors={risk?.keyAssumptions?.map((item) => `${item.name}: ${String(item.value)}`)} concerns={risk?.riskFlags?.map((item) => `${item.title}: ${item.description}`)} disclaimer="Assessment is based on tenant-scoped project data and extracted evidence. Human finance, risk, compliance, and Shariah review remains mandatory." />
+        {canVerifyEvidence && evidenceRequirements.some((item) => item.status === 'AI_PRECHECKED' || item.status === 'REQUIRES_REVIEW') && <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-800/50 dark:bg-amber-950/20"><h3 className="text-sm font-black text-slate-900 dark:text-white">Human Evidence Verification</h3><p className="mt-1 text-[10px] text-slate-600 dark:text-slate-300">AI pre-checks are advisory. Only an authorised human reviewer can mark evidence as verified.</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{evidenceRequirements.filter((item) => (item.status === 'AI_PRECHECKED' || item.status === 'REQUIRES_REVIEW') && item.uploadedDocumentId).map((item) => <div key={item.id} className="flex items-center justify-between gap-2 rounded-xl bg-white p-2.5 dark:bg-slate-800"><div><span className="block text-[10px] font-extrabold text-slate-800 dark:text-slate-200">{item.evidenceType.replaceAll('_', ' ')}</span><span className="text-[9px] text-slate-500">{item.uploadedDocument?.fileName || 'Uploaded evidence'}</span></div><button onClick={() => void verifyEvidence(item.evidenceType)} className="rounded-xl bg-amber-600 px-2.5 py-1.5 text-[9px] font-bold text-white hover:bg-amber-700">Verify as reviewer</button></div>)}</div></div>}
          {shariah && <div className="rounded-2xl border border-purple-200 bg-purple-50/50 p-4 dark:border-purple-800/50 dark:bg-purple-950/20"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="text-sm font-black text-slate-900 dark:text-white">Shariah Structure Assessment: {shariah.structure}</h3><p className="text-[10px] text-slate-500">Proposed Structure Detected. AI identifies the proposed contract but does not provide Shariah approval.</p></div><span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black text-amber-800">{shariah.status.replaceAll('_', ' ')}</span></div><div className="mt-3 flex flex-wrap items-center gap-1 text-[9px] font-extrabold uppercase text-slate-500">{(shariah.statusFlow || ['DETECTED', 'REQUIRES_INFORMATION', 'READY_FOR_SHARIAH_REVIEW', 'REVIEWED_BY_SHARIAH_REVIEWER']).map((stage, index, stages) => <React.Fragment key={stage}><span className={`rounded-full px-2 py-1 ${stage === shariah.status || (stage === 'REVIEWED_BY_SHARIAH_REVIEWER' && shariah.humanReviewStatus === 'REVIEWED') ? 'bg-purple-600 text-white' : 'bg-white text-slate-500 dark:bg-slate-800'}`}>{stage.replaceAll('_', ' ')}</span>{index < stages.length - 1 && <span>↓</span>}</React.Fragment>)}</div><div className="mt-3 grid gap-3 md:grid-cols-2"><div className="rounded-xl bg-white p-3 dark:bg-slate-800"><span className="text-[10px] font-extrabold uppercase text-slate-400">AI Assessment</span><ul className="mt-1 space-y-1 text-[11px] text-slate-700 dark:text-slate-300">{(shariah.assessment || shariah.checks.filter((check) => check.status === 'COMPLETE').map((check) => check.label)).map((item) => <li key={item} className="font-bold text-emerald-700">✓ {item}</li>)}</ul></div><div className="rounded-xl bg-white p-3 dark:bg-slate-800"><span className="text-[10px] font-extrabold uppercase text-slate-400">Missing information</span><ul className="mt-1 space-y-1 text-[11px] text-slate-700 dark:text-slate-300">{(shariah.missingInformation || shariah.requiredInformation).length ? (shariah.missingInformation || shariah.requiredInformation).map((item) => <li key={item} className="font-bold text-rose-700">✕ {item}</li>) : <li className="text-emerald-700">No information gaps detected.</li>}</ul></div></div><div className="mt-3 rounded-xl bg-white p-3 dark:bg-slate-800"><span className="text-[10px] font-extrabold uppercase text-slate-400">Human Shariah governance</span><p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300">Status: {shariah.humanReviewStatus?.replaceAll('_', ' ') || 'NOT REVIEWED'}. A qualified Shariah reviewer must complete the final determination.</p><p className="mt-2 text-[10px] font-bold text-purple-700 dark:text-purple-300">{shariah.disclaimer || 'AI assessment is not a Shariah ruling or approval. Final determination requires qualified Shariah review.'}</p></div></div>}
         <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800"><div className="flex items-center justify-between"><h3 className="text-sm font-black text-slate-900 dark:text-white">Sensitivity Analysis</h3><span className="text-[10px] text-slate-400">Only supplied assumptions are used</span></div><div className="mt-3 overflow-x-auto"><table className="w-full min-w-[520px] text-left text-[11px]"><thead><tr className="border-b border-slate-200 text-[10px] uppercase text-slate-400 dark:border-slate-700"><th className="p-2">Scenario</th><th className="p-2">Status</th><th className="p-2">NPV</th><th className="p-2">IRR</th><th className="p-2">ROI</th><th className="p-2">Payback</th></tr></thead><tbody>{(financial?.scenarios || []).map((scenario) => <tr key={scenario.name} className="border-b border-slate-100 last:border-0 dark:border-slate-700/60"><td className="p-2.5 font-bold">{scenario.name}</td><td className="p-2.5"><span className={`rounded-full px-2 py-1 text-[9px] font-black ${scenario.status === 'CALCULATED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{scenario.status.replaceAll('_', ' ')}</span></td><td className="p-2.5">{formatMetric(scenario.npv)}</td><td className="p-2.5">{formatMetric(scenario.irr, '%')}</td><td className="p-2.5">{formatMetric(scenario.roi, '%')}</td><td className="p-2.5">{formatMetric(scenario.paybackPeriod, ' years')}</td></tr>)}</tbody></table></div></div>
          {riskAssessment && <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800"><div className="flex items-center justify-between"><h3 className="text-sm font-black text-slate-900 dark:text-white">Project Risk Assessment</h3><span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${riskAssessment.overallLevel === 'HIGH' ? 'bg-rose-100 text-rose-800' : riskAssessment.overallLevel === 'MEDIUM' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>{riskAssessment.overallLevel} PROJECT RISK</span></div><div className="mt-3 grid gap-3 md:grid-cols-2">{riskAssessment.risks.map((riskItem) => <div key={riskItem.category} className="rounded-xl border border-slate-100 p-3 dark:border-slate-700"><div className="flex items-center justify-between"><div><span className="font-extrabold text-slate-800 dark:text-slate-200">{riskItem.category}</span><span className="ml-2 text-[9px] font-bold uppercase text-slate-400">{riskItem.type === 'INFORMATION' ? 'Information Risk' : 'Project Risk'}</span></div><span className={`text-[10px] font-black ${riskItem.level === 'HIGH' ? 'text-rose-700' : riskItem.level === 'MEDIUM' ? 'text-amber-700' : 'text-emerald-700'}`}>{riskItem.level}</span></div><p className="mt-1 text-[11px] text-slate-600 dark:text-slate-300"><strong>Reason:</strong> {riskItem.reason || riskItem.description}</p><p className="mt-1 text-[10px] text-slate-500"><strong>Impact:</strong> {riskItem.impact}</p><p className="mt-1 text-[10px] text-slate-500"><strong>Mitigation Action:</strong> {riskItem.mitigationAction || riskItem.mitigation}</p></div>)}</div></div>}

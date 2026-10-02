@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import { AICreditTopUpPackage } from './aiMonetisationTypes';
 import { aiMonetisationService } from './aiMonetisationService';
-import { apiClient } from '../../services/apiClient';
+import { apiClient, apiErrorMessage } from '../../services/apiClient';
+import { TOYYIBPAY_FPX_FEE_MYR } from '../../revenue/revenueConfig';
 
 interface BuyAICreditsModalProps {
   userId?: string;
@@ -27,26 +28,38 @@ export const BuyAICreditsModal: React.FC<BuyAICreditsModalProps> = ({
 }) => {
   const packages = aiMonetisationService.getTopUpPackages();
   const [selectedPkgId, setSelectedPkgId] = useState<string>(packages[1]?.id || packages[0].id);
-  const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'FPX' | 'CRYPTO'>('CARD');
+  const [paymentMethod, setPaymentMethod] = useState<'CARD' | 'FPX' | 'CRYPTO'>('FPX');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const [error, setError] = useState('');
 
   const selectedPkg = packages.find(p => p.id === selectedPkgId) || packages[0];
   const totalCredits = selectedPkg.credits + selectedPkg.bonusCredits;
+  const fpxFee = paymentMethod === 'FPX' ? TOYYIBPAY_FPX_FEE_MYR : 0;
+  const totalCharged = selectedPkg.priceMYR + fpxFee;
 
   const handlePurchase = async () => {
     setIsProcessing(true);
+    setError('');
     try {
-      const methodLabel = paymentMethod === 'CARD' 
-        ? 'Visa ending in 4242 (Simulated)' 
-        : paymentMethod === 'FPX' 
-        ? 'Maybank2u FPX Online Banking' 
+      // FPX is a real ToyyibPay checkout; card and USDT remain simulated.
+      const methodLabel = paymentMethod === 'FPX'
+        ? 'TOYYIBPAY'
+        : paymentMethod === 'CARD'
+        ? 'Visa ending in 4242 (Simulated)'
         : 'USDT (TRC-20 Escrow)';
-        
-      await apiClient.topUpMembershipCredits(selectedPkg.id, methodLabel);
+
+      const payment = await apiClient.topUpMembershipCredits(selectedPkg.id, methodLabel);
+      if (payment.paymentUrl) {
+        window.location.assign(payment.paymentUrl);
+        return;
+      }
       setIsDone(true);
+      // Let every balance view (not only this modal's opener) re-read the balance.
+      window.dispatchEvent(new Event('ai-credits-changed'));
       setTimeout(() => { if (onSuccess) onSuccess(); onClose(); }, 1200);
-    } catch {
+    } catch (cause) {
+      setError(apiErrorMessage(cause, 'Unable to complete the credit purchase.'));
       setIsProcessing(false);
     }
   };
@@ -163,8 +176,8 @@ export const BuyAICreditsModal: React.FC<BuyAICreditsModalProps> = ({
 
           <div className="grid grid-cols-3 gap-2">
             {[
-              { id: 'CARD', label: 'Credit Card / Visa', icon: <CreditCard className="w-3.5 h-3.5" /> },
-              { id: 'FPX', label: 'FPX Online Banking', icon: <Zap className="w-3.5 h-3.5" /> },
+              { id: 'FPX', label: 'FPX / Card (ToyyibPay)', icon: <Zap className="w-3.5 h-3.5" /> },
+              { id: 'CARD', label: 'Card (Simulated)', icon: <CreditCard className="w-3.5 h-3.5" /> },
               { id: 'CRYPTO', label: 'USDT Escrow', icon: <Coins className="w-3.5 h-3.5" /> }
             ].map(m => (
               <button
@@ -184,6 +197,12 @@ export const BuyAICreditsModal: React.FC<BuyAICreditsModalProps> = ({
           </div>
         </div>
 
+        {error && (
+          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 text-[11px] font-semibold text-rose-700 dark:text-rose-300">
+            {error}
+          </div>
+        )}
+
         {/* Total Summary */}
         <div className="flex items-center justify-between text-xs px-1">
           <div>
@@ -197,6 +216,9 @@ export const BuyAICreditsModal: React.FC<BuyAICreditsModalProps> = ({
             <strong className="text-slate-900 dark:text-white ml-1 font-mono text-sm">
               RM {selectedPkg.priceMYR} (USD ${selectedPkg.priceUSD})
             </strong>
+            {fpxFee > 0 && (
+              <span className="block text-right text-[10px] text-slate-500 dark:text-slate-400">+ RM {fpxFee.toFixed(2)} FPX fee (charged by ToyyibPay) = <strong className="text-slate-900 dark:text-white">RM {totalCharged.toFixed(2)}</strong></span>
+            )}
           </div>
         </div>
 
@@ -217,12 +239,12 @@ export const BuyAICreditsModal: React.FC<BuyAICreditsModalProps> = ({
             className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-lg shadow-purple-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
           >
             {isProcessing ? (
-              <span>Processing Payment...</span>
+              <span>{paymentMethod === 'FPX' ? 'Redirecting to ToyyibPay...' : 'Processing Payment...'}</span>
             ) : isDone ? (
               <span className="flex items-center gap-1"><Check className="w-4 h-4" /> Credits Added!</span>
             ) : (
               <>
-                <span>Confirm Purchase (RM {selectedPkg.priceMYR})</span>
+                <span>Confirm Purchase (RM {totalCharged.toFixed(2)})</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </>
             )}

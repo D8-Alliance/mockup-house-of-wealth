@@ -4,6 +4,8 @@ import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PolicyService } from '../policy/policy.service';
 import { assertTenantScope } from '../tenancy/tenant-scope';
+import { FUNDABLE_PROJECT_STATUSES, hasCurrentFinalApproval } from '../projects/project-lock';
+import { FinancialLedgerService } from '../financial/financial-ledger.service';
 
 @Injectable()
 export class FundingService {
@@ -11,6 +13,7 @@ export class FundingService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly policy: PolicyService,
+    private readonly ledger: FinancialLedgerService,
   ) {}
 
   async request(projectId: string, user: AuthenticatedUser): Promise<{ requestId: string; status: string }> {
@@ -18,6 +21,7 @@ export class FundingService {
     if (!project) throw new NotFoundException('Project not found');
     assertTenantScope(user, project, 'Project');
     this.assertProjectSponsorScope(user, project.projectSponsorId);
+    if (!FUNDABLE_PROJECT_STATUSES.includes(project.status) || !(await hasCurrentFinalApproval(this.prisma, project))) throw new BadRequestException('Funding requires an approved current feasibility revision and project status.');
     if (project.fundingRequired.lte(0)) {
       throw new BadRequestException('Project is fully funded');
     }
@@ -30,27 +34,23 @@ export class FundingService {
     if (!pool) {
       throw new BadRequestException('Project has no wealth pool; create a pool before requesting funding');
     }
+    if (!['OPEN', 'FULL'].includes(pool.status)) throw new BadRequestException('Funding requires an open or fully subscribed pool.');
 
-    const request = await this.prisma.fundingRequest.create({
-      data: {
-        projectId: project.projectId,
-        poolId: pool.poolId,
-        requestedAmount: project.fundingRequired,
-        currency: 'USD',
-        status: 'PENDING',
-        requestedBy: user.userId,
-        organisationId: project.organisationId,
-        countryNodeId: project.countryNodeId,
-      },
-    });
-
-    await this.audit.recordActor(user, {
-      action: 'funding.request',
-      resourceType: 'FundingRequest',
-      resourceId: request.fundingRequestId,
-      organisationId: project.organisationId,
-      countryNodeId: project.countryNodeId,
-      metadata: { requestedAmount: Number(request.requestedAmount) },
+    const request = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.fundingRequest.create({
+        data: {
+          projectId: project.projectId,
+          poolId: pool.poolId,
+          requestedAmount: project.fundingRequired,
+          currency: pool.currency,
+          status: 'PENDING',
+          requestedBy: user.userId,
+          organisationId: project.organisationId,
+          countryNodeId: project.countryNodeId,
+        },
+      });
+      await this.audit.recordActor(user, { action: 'funding.request', resourceType: 'FundingRequest', resourceId: created.fundingRequestId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { requestedAmount: Number(created.requestedAmount) } }, tx);
+      return created;
     });
 
     return { requestId: request.fundingRequestId, status: request.status };
@@ -70,17 +70,12 @@ export class FundingService {
       throw new ForbiddenException(this.policy.evaluate(user.role, 'approvals', 'approve').reason);
     }
 
-    const updated = await this.prisma.fundingRequest.update({
-      where: { fundingRequestId },
-      data: { status: 'APPROVED', approvedBy: user.userId, approvedAt: new Date() },
-    });
-
-    await this.audit.recordActor(user, {
-      action: 'funding.approve',
-      resourceType: 'FundingRequest',
-      resourceId: fundingRequestId,
-      organisationId: request.organisationId,
-      countryNodeId: request.countryNodeId,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.fundingRequest.updateMany({ where: { fundingRequestId, status: 'PENDING' }, data: { status: 'APPROVED', approvedBy: user.userId, approvedAt: new Date() } });
+      if (!claimed.count) throw new BadRequestException('Funding request was already approved or changed state.');
+      const result = await tx.fundingRequest.findUniqueOrThrow({ where: { fundingRequestId } });
+      await this.audit.recordActor(user, { action: 'funding.approve', resourceType: 'FundingRequest', resourceId: fundingRequestId, organisationId: request.organisationId, countryNodeId: request.countryNodeId }, tx);
+      return result;
     });
 
     return { requestId: fundingRequestId, status: updated.status };
@@ -100,17 +95,15 @@ export class FundingService {
       throw new ForbiddenException(this.policy.evaluate(user.role, 'approvals', 'disburse').reason);
     }
 
-    const updated = await this.prisma.fundingRequest.update({
-      where: { fundingRequestId },
-      data: { status: 'DISBURSED', disbursedBy: user.userId, disbursedAt: new Date() },
-    });
-
-    await this.audit.recordActor(user, {
-      action: 'funding.disburse',
-      resourceType: 'FundingRequest',
-      resourceId: fundingRequestId,
-      organisationId: request.organisationId,
-      countryNodeId: request.countryNodeId,
+    const currency = request.currency;
+    const poolAccount = await this.ledger.ensureAccount(user, { accountCode: `POOL-${request.poolId || request.projectId}-CASH-${currency}`, accountType: 'ASSET', ownerType: 'POOL', ownerId: request.poolId || request.projectId, organisationId: request.organisationId, countryNodeId: request.countryNodeId, currency });
+    const projectAccount = await this.ledger.ensureAccount(user, { accountCode: `PROJECT-${request.projectId}-CASH-${currency}`, accountType: 'ASSET', ownerType: 'PROJECT', ownerId: request.projectId, organisationId: request.organisationId, countryNodeId: request.countryNodeId, currency });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.fundingRequest.updateMany({ where: { fundingRequestId, status: 'APPROVED' }, data: { status: 'DISBURSED', disbursedBy: user.userId, disbursedAt: new Date() } });
+      if (!claimed.count) throw new BadRequestException('Funding request was already disbursed or changed state.');
+      await this.ledger.recordFundingDisbursementInTransaction(tx, user, { fundingRequestId, projectId: request.projectId, organisationId: request.organisationId, countryNodeId: request.countryNodeId, amount: Number(request.requestedAmount), currency, posting: { transactionType: 'FUNDING_DISBURSEMENT', referenceType: 'FundingRequest', referenceId: fundingRequestId, currency, description: `Funding disbursement for ${request.projectId}`, idempotencyKey: `funding-disbursement:${fundingRequestId}`, entries: [{ accountId: projectAccount.id, direction: 'DEBIT', amount: Number(request.requestedAmount), description: 'Project funding received' }, { accountId: poolAccount.id, direction: 'CREDIT', amount: Number(request.requestedAmount), description: 'Pool funding disbursed' }] } });
+      await this.audit.recordActor(user, { action: 'funding.disburse', resourceType: 'FundingRequest', resourceId: fundingRequestId, organisationId: request.organisationId, countryNodeId: request.countryNodeId }, tx);
+      return tx.fundingRequest.findUniqueOrThrow({ where: { fundingRequestId } });
     });
 
     return { requestId: fundingRequestId, status: updated.status };

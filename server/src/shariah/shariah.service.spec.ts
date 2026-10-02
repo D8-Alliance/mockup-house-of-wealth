@@ -30,12 +30,14 @@ const prisma = {
   $transaction: jest.fn(),
 };
 const audit = { recordActor: jest.fn().mockResolvedValue(undefined) };
+const notifications = { enqueue: jest.fn().mockResolvedValue(undefined) };
 
 describe('ShariahService tenant and human decision controls', () => {
   const service = new ShariahService(
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
     new PolicyService(),
+    notifications as any,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -59,6 +61,22 @@ describe('ShariahService tenant and human decision controls', () => {
       projectId: 'PROJ-A', organisationId: 'ORG-B', countryNodeId: 'CN-MYS', proposedContract: 'MUDARABAH',
     }, actor)).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.shariahReview.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a parent review from another tenant', async () => {
+    prisma.project.findUnique.mockResolvedValue({ projectId: 'PROJ-A', organisationId: 'ORG-A', countryNodeId: 'CN-MYS' });
+    prisma.organisation.findFirst.mockResolvedValue({ id: 'ORG-A' });
+    prisma.shariahReview.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+    await expect(service.create({
+      projectId: 'PROJ-A', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', proposedContract: 'MUDARABAH', parentReviewId: 'REV-OTHER-TENANT',
+    }, actor)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.shariahReview.create).not.toHaveBeenCalled();
+  });
+
+  it('restricts the Malaysia central review view to Malaysia or Super Admin actors', async () => {
+    await expect(service.centralMalaysia({ ...reviewer, countryNodeId: 'CN-IDN' })).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.shariahReview.findMany).not.toHaveBeenCalled();
   });
 
   it('requires justification for modified or overridden decisions', async () => {

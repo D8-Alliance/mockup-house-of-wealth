@@ -43,7 +43,9 @@ import { PaymentAccountModal } from './PaymentAccountModal';
 import { BeneficiaryModal } from './BeneficiaryModal';
 import { revenueService } from '../revenue/revenueService';
 import { HoWCreditBalance } from '../revenue/revenueTypes';
-import { apiClient, KycApplication } from '../services/apiClient';
+import { apiClient, apiErrorMessage, KycApplication } from '../services/apiClient';
+import { authService } from '../auth/services/authService';
+import { displayPhone, phoneFormatFor } from '../countryNodes/countryPhone';
 import { KycApplicationPanel } from '../kyc/KycApplicationPanel';
 import { kycBadgeText } from '../kyc/kycLabels';
 
@@ -122,6 +124,20 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
 
   // Form State
   const [formData, setFormData] = useState<UserProfile>({ ...user });
+
+  // Phone defaults to the dialling code of the user's own country node (e.g. +60 for Malaysia);
+  // the saved number comes from the backend profile, stored there in international (E.164) form.
+  const userCountryNodeId = authService.getAuthState().session?.user.countryNodeId;
+  const phoneFormat = phoneFormatFor(userCountryNodeId);
+  const [phoneError, setPhoneError] = useState('');
+  useEffect(() => {
+    apiClient.getCurrentUser()
+      .then((backendUser) => {
+        const saved = typeof backendUser.profile?.phone === 'string' ? backendUser.profile.phone : '';
+        setFormData((current) => ({ ...current, phone: saved ? displayPhone(saved, userCountryNodeId) : `${phoneFormat.dialCode} ` }));
+      })
+      .catch(() => setFormData((current) => ({ ...current, phone: current.phone || `${phoneFormat.dialCode} ` })));
+  }, [userCountryNodeId, phoneFormat.dialCode]);
 
   // CRUD Handlers for Bank Accounts / E-Wallets
   const handleSetDefaultAccount = (id: string) => {
@@ -227,13 +243,25 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
     }, 3500);
   };
 
-  const handleSavePersonal = (e: React.FormEvent) => {
+  const handleSavePersonal = async (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateUser({
-      ...formData,
-      twoFactorEnabled: twoFactor
-    });
-    showToast('Personal profile and settings updated successfully.');
+    setPhoneError('');
+    // Only the dialling code (or nothing) means "no phone number".
+    const typedPhone = (formData.phone || '').trim();
+    const phone = typedPhone === phoneFormat.dialCode ? '' : typedPhone;
+    try {
+      const saved = await apiClient.updateMyProfile({ phone });
+      const savedPhone = typeof saved.profile?.phone === 'string' ? displayPhone(saved.profile.phone, userCountryNodeId) : `${phoneFormat.dialCode} `;
+      setFormData((current) => ({ ...current, phone: savedPhone }));
+      onUpdateUser({
+        ...formData,
+        phone: savedPhone,
+        twoFactorEnabled: twoFactor
+      });
+      showToast('Personal profile and settings updated successfully.');
+    } catch (cause) {
+      setPhoneError(apiErrorMessage(cause, 'Unable to save your phone number.'));
+    }
   };
 
   const handlePasswordChange = (e: React.FormEvent) => {
@@ -365,7 +393,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
               <span className="font-mono font-bold text-slate-900 dark:text-white">{formData.id}</span>
             </div>
             <button 
-              onClick={handleSavePersonal}
+              onClick={(event) => void handleSavePersonal(event)}
               className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center gap-2 transition-all cursor-pointer"
             >
               <Save className="w-4 h-4" />
@@ -412,7 +440,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
 
       {/* TAB 1: PERSONAL INFORMATION */}
       {activeTab === 'personal' && (
-        <form onSubmit={handleSavePersonal} className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
+        <form onSubmit={(event) => void handleSavePersonal(event)} className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100 dark:border-slate-700">
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -486,12 +514,15 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
               <div className="relative">
                 <input 
                   type="text"
-                  value={formData.phone || '+971 50 123 4567'}
+                  value={formData.phone || ''}
+                  placeholder={phoneFormat.example}
                   onChange={e => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               </div>
+              <p className="mt-1 text-[11px] text-slate-500">Include the country code, e.g. {phoneFormat.example}. A local number (starting with 0) gets {phoneFormat.dialCode} added automatically.</p>
+              {phoneError && <p className="mt-1 text-[11px] font-semibold text-rose-600">{phoneError}</p>}
             </div>
 
             <div>

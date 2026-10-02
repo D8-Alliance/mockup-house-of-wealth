@@ -9,6 +9,7 @@ import {
   Check
 } from 'lucide-react';
 import { useRBAC } from '../../rbac/RBACContext';
+import { formatDateTime } from '../../utils/platformTime';
 
 interface ApprovalTierRule {
   tierId: string;
@@ -345,7 +346,7 @@ export const ApprovalMatrixPanel: React.FC = () => {
                         <span>•</span>
                         <span>Amount: <strong className="text-emerald-600 dark:text-emerald-400">{item.amountFormatted}</strong></span>
                         <span>•</span>
-                        <span>Submitted: <span className="font-mono">{item.submittedAt}</span></span>
+                        <span>Submitted: <span className="font-mono">{formatDateTime(item.submittedAt)}</span></span>
                       </div>
 
                       {/* Signatures List */}

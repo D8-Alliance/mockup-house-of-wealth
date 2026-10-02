@@ -23,16 +23,66 @@ function mockSessionToken(user: AuthUser): string {
   return `${base64.split('+').join('-').split('/').join('_').split('=').join('')}.demo-token`;
 }
 
+const sessionStorageKey = 'how-demo-session';
+const registeredStorageKey = 'how-demo-registered-users';
+
 export class MockAuthProvider {
   // App opens as a public Guest on the landing page. A session is only created
-  // after the user completes the identity-gateway sign-in flow.
-  private currentSession: AuthSession | null = null;
+  // after the user completes the identity-gateway sign-in flow. The session is
+  // mirrored to sessionStorage (this tab only) so a full-page round trip, such as
+  // a ToyyibPay checkout redirect, does not sign the user out.
+  private session: AuthSession | null = MockAuthProvider.readStoredSession();
+
+  private get currentSession(): AuthSession | null {
+    return this.session;
+  }
+
+  private set currentSession(value: AuthSession | null) {
+    this.session = value;
+    this.persistSession();
+  }
+
+  private persistSession(): void {
+    try {
+      if (this.session) sessionStorage.setItem(sessionStorageKey, JSON.stringify(this.session));
+      else sessionStorage.removeItem(sessionStorageKey);
+    } catch {
+      // Storage can be unavailable (private mode, blocked site data); the session then lives in memory only.
+    }
+  }
+
+  private static readStoredSession(): AuthSession | null {
+    try {
+      const stored = JSON.parse(sessionStorage.getItem(sessionStorageKey) || 'null') as AuthSession | null;
+      if (!stored || Date.parse(stored.expiresAt) <= Date.now()) return null;
+      return stored;
+    } catch {
+      return null;
+    }
+  }
 
   private mode: AuthMode = 'DEMO';
 
   // Accounts created through the public Register flow (DEMO mode). Registered
-  // users can subsequently sign in with the same email + the selected role.
-  private registered: Record<string, { credentials: RegisterCredentials; user: AuthUser }> = {};
+  // users can subsequently sign in with the same email. Kept in localStorage (user
+  // profile only, never the password) so they can sign in again after a reload.
+  private registered: Record<string, { user: AuthUser }> = MockAuthProvider.readRegistered();
+
+  private static readRegistered(): Record<string, { user: AuthUser }> {
+    try {
+      return JSON.parse(localStorage.getItem(registeredStorageKey) || '{}') as Record<string, { user: AuthUser }>;
+    } catch {
+      return {};
+    }
+  }
+
+  private persistRegistered(): void {
+    try {
+      localStorage.setItem(registeredStorageKey, JSON.stringify(this.registered));
+    } catch {
+      // Storage unavailable: the account still works for this page load.
+    }
+  }
 
   public getAuthState(): AuthState {
     const isAuth = !!this.currentSession;
@@ -173,15 +223,17 @@ export class MockAuthProvider {
       return { success: false, error: 'Please complete all required fields.' };
     }
 
-    if (this.registered[emailKey]) {
+    // When the backend has just created the account (credentials.userId set), it is the source of
+    // truth: a stale browser entry for the same email (e.g. after a database reset) is replaced.
+    if (this.registered[emailKey] && !credentials.userId) {
       return { success: false, error: 'An account with this email address already exists.' };
     }
 
     const user: AuthUser = {
-      userId: `USR-REG-${Date.now().toString(36).toUpperCase()}`,
+      userId: credentials.userId || `USR-REG-${Date.now().toString(36).toUpperCase()}`,
       name: credentials.name.trim(),
       email: credentials.email.trim(),
-      organisationId: `ORG-REG-${Date.now().toString(36).toUpperCase()}`,
+      organisationId: credentials.organisationId || `ORG-REG-${Date.now().toString(36).toUpperCase()}`,
       organisationName: credentials.organisation.trim(),
       countryNodeId: credentials.countryNodeId,
       countryName: credentials.countryName,
@@ -192,7 +244,8 @@ export class MockAuthProvider {
       avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
     };
 
-    this.registered[emailKey] = { credentials, user };
+    this.registered[emailKey] = { user };
+    this.persistRegistered();
 
     auditLogger.logEvent({
       userId: user.userId,
@@ -306,6 +359,7 @@ export class MockAuthProvider {
     const tokenHeader = this.currentSession.token.split('.')[0] || '';
     const tokenClaims = JSON.parse(atob(tokenHeader)) as Record<string, unknown>;
     this.currentSession.token = `${btoa(JSON.stringify({ ...tokenClaims, role: targetRole }))}.demo-token`;
+    this.persistSession();
 
     auditLogger.logEvent({
       userId: this.currentSession.user.userId,

@@ -11,6 +11,8 @@ import {
   Star
 } from 'lucide-react';
 import { PaymentAccount } from '../types';
+import { authService } from '../auth/services/authService';
+import { phoneFormatFor } from '../countryNodes/countryPhone';
 
 interface PaymentAccountModalProps {
   account: PaymentAccount | null; // null for Create
@@ -204,7 +206,7 @@ export const PaymentAccountModal: React.FC<PaymentAccountModalProps> = ({
               required
               value={accountNumber}
               onChange={e => setAccountNumber(e.target.value)}
-              placeholder={type === 'Bank Account' ? 'AE12 0240 0001 ...' : '+971 50 123 4567'}
+              placeholder={type === 'Bank Account' ? 'e.g. 1234 5678 9012' : phoneFormatFor(authService.getAuthState().session?.user.countryNodeId).example}
               className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { AlertCircle, CheckCircle2, FileCheck, RefreshCw, Send, ShieldCheck, Upload } from 'lucide-react';
-import { apiClient, apiErrorMessage, KycApplication, KycDocumentType, KycDraftInput, KycIdDocumentType } from '../services/apiClient';
+import { AlertCircle, CheckCircle2, FileCheck, RefreshCw, ScanFace, Send, ShieldCheck, Upload } from 'lucide-react';
+import { apiClient, apiErrorMessage, KycApplication, KycDocumentType, KycDraftInput, KycIdDocumentType, LivenessSession } from '../services/apiClient';
+import { KycLivenessCapture } from './KycLivenessCapture';
+import { formatDateTime } from '../utils/platformTime';
 import { KYC_DOCUMENT_LABELS, KYC_ID_DOCUMENT_LABELS, KYC_LEVEL_LABELS, KYC_STATUS_LABELS, KYC_STATUS_STYLES, requiredKycDocuments } from './kycLabels';
 
 interface KycApplicationPanelProps {
@@ -34,6 +36,13 @@ export const KycApplicationPanel: React.FC<KycApplicationPanelProps> = ({ applic
   const [notice, setNotice] = useState('');
 
   useEffect(() => { setForm(toForm(application)); }, [application]);
+
+  // Latest camera face verification (prototype); optional unless the server sets KYC_REQUIRE_LIVENESS.
+  const [liveness, setLiveness] = useState<LivenessSession | null>(null);
+  const [capturing, setCapturing] = useState(false);
+  useEffect(() => {
+    apiClient.getMyLiveness().then(setLiveness).catch(() => setLiveness(null));
+  }, [application?.id]);
 
   const status = application?.status;
   const editable = !application || status === 'DRAFT' || status === 'RESUBMISSION_REQUIRED';
@@ -163,6 +172,32 @@ export const KycApplicationPanel: React.FC<KycApplicationPanelProps> = ({ applic
             </div>
           );
         })}
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2"><ScanFace className="w-4 h-4 text-purple-500" />Face verification (camera)</h4>
+        {!capturing && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs">
+            <div>
+              {liveness?.status === 'PASSED'
+                ? <span className="font-bold text-emerald-600 flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" />Completed {formatDateTime(liveness.completedAt)}</span>
+                : liveness && liveness.status !== 'IN_PROGRESS'
+                  ? <span className="font-bold text-rose-600">Not completed ({liveness.status.toLowerCase()}). Please try again.</span>
+                  : <span className="text-slate-500">Confirms you are a real person and match the photo on your ID card. Takes about a minute.</span>}
+            </div>
+            {editable && application && (
+              <button type="button" onClick={() => setCapturing(true)} className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-extrabold flex items-center gap-1.5 cursor-pointer shrink-0">
+                <ScanFace className="w-3.5 h-3.5" />{liveness?.status === 'PASSED' ? 'Redo' : 'Start face verification'}
+              </button>
+            )}
+          </div>
+        )}
+        {capturing && (
+          <KycLivenessCapture
+            onFinished={(session) => { setLiveness(session); void apiClient.getMyKyc().then(onChange).catch(() => undefined); }}
+            onCancel={() => { setCapturing(false); void apiClient.getMyLiveness().then(setLiveness).catch(() => undefined); }}
+          />
+        )}
       </div>
 
       {editable && application?.missing && application.missing.length > 0 && (

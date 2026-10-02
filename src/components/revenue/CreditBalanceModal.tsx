@@ -10,13 +10,14 @@ import {
   Sparkles 
 } from 'lucide-react';
 import { HoWCreditBalance, CreditTransaction } from '../../revenue/revenueTypes';
-import { CREDIT_TOPUP_PACKAGES } from '../../revenue/revenueConfig';
+import { CREDIT_TOPUP_PACKAGES, TOYYIBPAY_FPX_FEE_MYR } from '../../revenue/revenueConfig';
+import { apiErrorMessage } from '../../services/apiClient';
 
 interface CreditBalanceModalProps {
   creditBalance: HoWCreditBalance;
   transactions: CreditTransaction[];
   onClose: () => void;
-  onTopUp: (credits: number, priceMYR: number, priceUSD: number, paymentMethod: string) => void;
+  onTopUp: (packageId: string, paymentMethod: string) => Promise<void>;
 }
 
 export const CreditBalanceModal: React.FC<CreditBalanceModalProps> = ({
@@ -27,20 +28,22 @@ export const CreditBalanceModal: React.FC<CreditBalanceModalProps> = ({
 }) => {
   const [selectedPack, setSelectedPack] = useState(CREDIT_TOPUP_PACKAGES[1]);
   const [activeTab, setActiveTab] = useState<'topup' | 'history'>('topup');
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'TOYYIBPAY' | 'D-8 Wealth Wallet'>('TOYYIBPAY');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState('');
 
-  const handlePurchase = () => {
-    setIsSuccess(true);
-    setTimeout(() => {
-      onTopUp(
-        selectedPack.credits + selectedPack.bonusCredits, 
-        selectedPack.priceMYR, 
-        selectedPack.priceUSD, 
-        'D-8 Wealth Wallet'
-      );
-      setIsSuccess(false);
-      onClose();
-    }, 1000);
+  const handlePurchase = async () => {
+    setIsProcessing(true);
+    setError('');
+    try {
+      // For ToyyibPay this redirects the browser to the payment page.
+      await onTopUp(selectedPack.id, paymentMethod);
+      if (paymentMethod !== 'TOYYIBPAY') onClose();
+    } catch (cause) {
+      setError(apiErrorMessage(cause, 'Unable to start the credit top-up.'));
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -159,18 +162,50 @@ export const CreditBalanceModal: React.FC<CreditBalanceModalProps> = ({
               ))}
             </div>
 
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: 'TOYYIBPAY', name: 'FPX / Card (ToyyibPay)', desc: 'Pay online via ToyyibPay' },
+                { id: 'D-8 Wealth Wallet', name: 'D-8 Wealth Wallet', desc: 'Simulated, no real charge' },
+              ] as const).map((method) => (
+                <button
+                  key={method.id}
+                  onClick={() => setPaymentMethod(method.id)}
+                  className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer ${
+                    paymentMethod === method.id
+                      ? 'border-amber-500 bg-amber-500/10'
+                      : 'border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <div className="text-xs font-extrabold text-slate-900 dark:text-white">{method.name}</div>
+                  <div className="text-[10px] text-slate-500">{method.desc}</div>
+                </button>
+              ))}
+            </div>
+
+            {paymentMethod === 'TOYYIBPAY' && (
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                RM {selectedPack.priceMYR.toFixed(2)} + RM {TOYYIBPAY_FPX_FEE_MYR.toFixed(2)} FPX fee (charged by ToyyibPay).
+              </p>
+            )}
+
+            {error && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                {error}
+              </div>
+            )}
+
             <button
-              onClick={handlePurchase}
-              disabled={isSuccess}
+              onClick={() => void handlePurchase()}
+              disabled={isProcessing}
               className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              {isSuccess ? (
+              {isProcessing ? (
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" /> Credits Added Successfully!
+                  <CheckCircle2 className="w-4 h-4" /> {paymentMethod === 'TOYYIBPAY' ? 'Redirecting to ToyyibPay…' : 'Adding credits…'}
                 </span>
               ) : (
                 <span className="flex items-center gap-1.5">
-                  <Plus className="w-4 h-4" /> Top Up {selectedPack.credits + selectedPack.bonusCredits} Credits for RM {selectedPack.priceMYR}
+                  <Plus className="w-4 h-4" /> Top Up {selectedPack.credits + selectedPack.bonusCredits} Credits for RM {(selectedPack.priceMYR + (paymentMethod === 'TOYYIBPAY' ? TOYYIBPAY_FPX_FEE_MYR : 0)).toFixed(2)}
                 </span>
               )}
             </button>

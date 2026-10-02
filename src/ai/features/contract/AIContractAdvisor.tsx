@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AIService } from '../../services/AIService';
 import { ContractAdvisorProject } from '../../types/aiCoreTypes';
 import { apiClient } from '../../../services/apiClient';
+import { isProjectLocked } from '../../../services/projectLock';
 import { AIRecommendationCard } from '../../components/AIRecommendationCard';
 import { AIReviewPanel } from '../../components/AIReviewPanel';
 import { AISourcePanel } from '../../components/AISourcePanel';
@@ -38,6 +39,7 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
           proposedShariahContract: item.proposedShariahContract,
           fundingTarget: Number(item.fundingRequired),
           sector: item.sector,
+          status: item.status,
           organisationId: item.organisationId,
           countryNodeId: item.countryNodeId,
           currency: item.countryNode?.currency || 'MYR',
@@ -86,11 +88,12 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
 
           <button
             onClick={handleAnalyze}
-            disabled={loading || !project}
-            className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/20 flex items-center gap-2 cursor-pointer shrink-0"
+            disabled={loading || !project || isProjectLocked(project.status)}
+            title={project && isProjectLocked(project.status) ? 'Contract structure is locked once the project is approved. A Country Admin can reopen it before funds are committed.' : undefined}
+            className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/20 flex items-center gap-2 cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className="w-4 h-4 text-emerald-200" />
-            {loading ? 'Evaluating Structure...' : 'Analyze Contract Structure'}
+            {project && isProjectLocked(project.status) ? 'Locked after approval' : loading ? 'Evaluating Structure...' : 'Analyze Contract Structure'}
           </button>
         </div>
 

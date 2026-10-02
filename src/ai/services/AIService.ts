@@ -1,6 +1,7 @@
 import { AIRequest, AIResponse, ContractAdvisorProject, ContractAdvisorRecommendation, ContractDraftParams, ContractDraftRecommendation } from '../types/aiCoreTypes';
 import { aiOrchestrator } from './AIOrchestrator';
 import { apiClient, BackendAiRun } from '../../services/apiClient';
+import { todayInPlatformZone } from '../../utils/platformTime';
 
 function mapBackendAiResponse<T>(run: BackendAiRun): AIResponse<T> | null {
   const output = run.output;
@@ -101,7 +102,7 @@ export class AIService {
       recommendation: {
         title: `DRAFT SHARIAH AGREEMENT (${params.contractType || 'MUDARABAH'})`,
         watermark: 'AI-GENERATED DRAFT • NOT FINAL LEGAL DOCUMENT • NOT FINAL SHARIAH APPROVAL',
-        draftText: `THIS MUDARABAH INVESTMENT AGREEMENT is entered into as of ${new Date().toISOString().split('T')[0]} between:
+        draftText: `THIS MUDARABAH INVESTMENT AGREEMENT is entered into as of ${todayInPlatformZone()} between:
 1. CAPITAL PROVIDERS (Rabb-ul-Mal)
 2. MANAGING PARTNER (Mudarib: ${params.sponsorName || 'UNSPECIFIED'})
 

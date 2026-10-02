@@ -11,12 +11,23 @@ import {
   Search,
   Scale,
   ArrowDownRight,
-  XCircle,
   TrendingUp
 } from 'lucide-react';
 import { UserMembership, HoWCreditBalance, MembershipPlan, FeatureUsageStats } from '../../revenue/revenueTypes';
+import { BackendMembershipStatus } from '../../services/apiClient';
+import { formatDate } from './membershipFormat';
+
+const lifecycleBadge: Record<BackendMembershipStatus['lifecycleStatus'], { label: string; className: string }> = {
+  FREE: { label: 'Free Plan', className: 'bg-slate-500/20 text-slate-200 border-slate-400/30' },
+  ACTIVE: { label: 'Active Membership', className: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+  EXPIRING_SOON: { label: 'Expiring Soon', className: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+  GRACE: { label: 'Expired · Grace Period', className: 'bg-rose-500/20 text-rose-300 border-rose-500/30' },
+};
 
 interface MembershipCardProps {
+  /** Live status from the API; null until it has loaded. */
+  membershipStatus: BackendMembershipStatus | null;
+  onRenew: () => void;
   membership: UserMembership;
   currentPlan: MembershipPlan;
   creditBalance: HoWCreditBalance;
@@ -24,18 +35,18 @@ interface MembershipCardProps {
   onOpenUpgradeModal: () => void;
   onOpenCreditModal: () => void;
   onOpenDowngradeModal: () => void;
-  onOpenCancelModal: () => void;
 }
 
 export const MembershipCard: React.FC<MembershipCardProps> = ({
+  membershipStatus,
+  onRenew,
   membership,
   currentPlan,
   creditBalance,
   featureUsage,
   onOpenUpgradeModal,
   onOpenCreditModal,
-  onOpenDowngradeModal,
-  onOpenCancelModal
+  onOpenDowngradeModal
 }) => {
   const percentCredits = Math.round((creditBalance.availableCredits / (creditBalance.totalCredits || 1)) * 100);
 
@@ -53,6 +64,8 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
   };
 
   const isFree = membership.tier === 'FREE';
+  const badge = lifecycleBadge[membershipStatus?.lifecycleStatus || (isFree ? 'FREE' : 'ACTIVE')];
+  const needsRenewal = membershipStatus?.lifecycleStatus === 'EXPIRING_SOON' || membershipStatus?.lifecycleStatus === 'GRACE';
 
   return (
     <div className={`rounded-3xl p-6 sm:p-8 bg-gradient-to-r ${getTierColor(membership.tier)} border shadow-xl text-white space-y-6`}>
@@ -60,9 +73,9 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
         <div>
           <div className="flex flex-wrap items-center gap-2 mb-2">
-            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
+            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border flex items-center gap-1.5 ${badge.className}`}>
               <ShieldCheck className="w-3.5 h-3.5" />
-              Active Membership
+              {badge.label}
             </span>
             <span className="text-xs text-slate-400 font-mono">User: {membership.userId}</span>
             {membership.status === 'Cancelled' && (
@@ -90,6 +103,15 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {!isFree && (
+            <button
+              onClick={onRenew}
+              className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer ${needsRenewal ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20' : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'}`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Renew Plan</span>
+            </button>
+          )}
           <button
             onClick={onOpenUpgradeModal}
             className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all cursor-pointer transform hover:scale-105"
@@ -114,13 +136,6 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
                 title="Downgrade to Free Tier"
               >
                 <ArrowDownRight className="w-4 h-4" />
-              </button>
-              <button
-                onClick={onOpenCancelModal}
-                className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 text-xs font-semibold transition-colors cursor-pointer"
-                title="Cancel Subscription"
-              >
-                <XCircle className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -158,13 +173,17 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
         <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
           <div className="flex items-center gap-1.5 text-xs text-slate-300 font-bold">
             <Calendar className="w-4 h-4 text-blue-400" />
-            <span>Renewal Date & Cycle</span>
+            <span>{isFree ? 'Credit Allowance Resets' : 'Plan Valid Until'}</span>
           </div>
           <div className="text-base font-extrabold text-white">
-            {membership.currentPeriodEnd}
+            {formatDate(membership.currentPeriodEnd)}
           </div>
           <p className="text-[11px] text-slate-300">
-            {membership.autoRenew ? 'Auto-renews next cycle. No lock-in.' : 'Subscription set to end on renewal date.'}
+            {isFree
+              ? 'Free plan: monthly AI credits are granted again each cycle.'
+              : membershipStatus?.lifecycleStatus === 'GRACE'
+                ? `Ended. Grace period until ${formatDate(membershipStatus.graceEndsAt)}, then Free plan.`
+                : `${membershipStatus?.daysRemaining ?? '-'} days left. Manual renewal via ToyyibPay or AI credits.`}
           </p>
         </div>
 
@@ -178,7 +197,7 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
             {membership.paymentMethodSummary}
           </div>
           <p className="text-[11px] text-slate-300">
-            {isFree ? 'Free Forever (Zero Platform Fee)' : 'Simulated Sandbox Billing Engine'}
+            {isFree ? 'Free Forever (Zero Platform Fee)' : 'Last payment method used for this plan'}
           </p>
         </div>
       </div>
@@ -190,7 +209,7 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
             Feature Usage This Month:
           </span>
           <span className="text-[11px] text-emerald-400 font-medium">
-            Reset on {membership.currentPeriodEnd}
+            Reset on {formatDate(membership.currentPeriodEnd)}
           </span>
         </div>
 

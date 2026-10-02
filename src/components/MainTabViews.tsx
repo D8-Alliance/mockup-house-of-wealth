@@ -21,6 +21,7 @@ import { ProjectSponsorView } from './sponsor/ProjectSponsorView';
 import { MembershipView } from './revenue/MembershipView';
 import { BeneficiariesView } from './BeneficiariesView';
 import { BillingTransactionsView } from './revenue/BillingTransactionsView';
+import { BackendFinancialAccount } from '../services/apiClient';
 
 interface MainTabViewsProps {
   currentTab: NavTab;
@@ -31,6 +32,8 @@ interface MainTabViewsProps {
   contracts: ContractItem[];
   marketplace: MarketplaceItem[];
   ledger: LedgerTransaction[];
+  financialAccounts: BackendFinancialAccount[];
+  onFinancialRefresh: () => Promise<void>;
   paymentAccounts: PaymentAccount[];
   setPaymentAccounts: React.Dispatch<React.SetStateAction<PaymentAccount[]>>;
   beneficiaries: BeneficiaryItem[];
@@ -51,6 +54,8 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
   contracts,
   marketplace,
   ledger,
+  financialAccounts,
+  onFinancialRefresh,
   paymentAccounts,
   setPaymentAccounts,
   beneficiaries,
@@ -168,7 +173,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'wallet' && (
         <RoleGuard tab="wallet">
-          <WalletView />
+          <WalletView accounts={financialAccounts} onRefresh={onFinancialRefresh} />
         </RoleGuard>
       )}
 

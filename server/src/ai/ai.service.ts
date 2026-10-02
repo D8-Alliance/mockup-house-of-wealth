@@ -5,6 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
+import { assertProjectUnlocked } from '../projects/project-lock';
 import pdfParse from 'pdf-parse';
 import * as XLSX from 'xlsx';
 import { AiProvider } from './ai.provider';
@@ -145,6 +146,7 @@ export class AiService {
     if (!project) throw new NotFoundException('Project not found in the current tenant');
     assertTenantScope(actor, project, 'Project');
     this.assertProjectSponsorScope(actor, project.projectSponsorId);
+    assertProjectUnlocked(project, 'Contract structure advisory');
 
     const ragResults = await this.searchDocuments(actor, { projectId: project.projectId, query: project.proposedShariahContract, limit: 5 });
     const contractKnowledge = await this.contractRetriever.retrieveClauses(actor, { contractType: project.proposedShariahContract, industry: project.sector, purpose: input.context || project.description });
@@ -192,6 +194,7 @@ export class AiService {
     if (!project) throw new NotFoundException('Project not found in the current tenant');
     assertTenantScope(actor, project, 'Project');
     this.assertProjectSponsorScope(actor, project.projectSponsorId);
+    assertProjectUnlocked(project, 'Contract drafting');
 
     const contractType = input.contractType || project.proposedShariahContract;
     return this.run(actor, 'contract_draft', 'GENERATE_DRAFT_TERMS', project.description, {
@@ -282,10 +285,13 @@ export class AiService {
     if (!document) throw new NotFoundException('Project document not found');
     assertTenantScope(actor, document.project, 'Project document');
     this.assertProjectSponsorScope(actor, document.project.projectSponsorId);
+    const requirement = await this.prisma.projectEvidenceRequirement.findFirst({ where: { projectId, uploadedDocumentId: documentId, organisationId: document.organisationId, countryNodeId: document.countryNodeId } });
+    // Analysing evidence rewrites its verification status, so it is locked after approval;
+    // other project documents can still be analysed as a report.
+    if (requirement) assertProjectUnlocked(document.project, 'Re-analysing project evidence');
     // Charge credits before any state change so an insufficient balance cannot
     // leave the requirement in AI_PROCESSING or the AiRun in RUNNING.
     await this.membership.consumeCredits(actor, 'PROJECT_SUMMARY', documentId);
-    const requirement = await this.prisma.projectEvidenceRequirement.findFirst({ where: { projectId, uploadedDocumentId: documentId, organisationId: document.organisationId, countryNodeId: document.countryNodeId } });
     if (requirement) await this.prisma.projectEvidenceRequirement.update({ where: { id: requirement.id }, data: { status: 'AI_PROCESSING', verificationStatus: 'AI_PROCESSING' } });
     const aiRun = await this.prisma.aiRun.create({ data: { requestId: randomUUID(), featureKey: 'project_evidence_verification', action: 'ANALYZE_PROJECT_EVIDENCE', userId: actor.userId, organisationId: document.organisationId, countryNodeId: document.countryNodeId, input: { projectId, documentId, evidenceType: requirement?.evidenceType || null, fileName: document.fileName }, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });
     await this.audit.recordActor(actor, { action: 'ai.request', resourceType: 'AiRun', resourceId: aiRun.id, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { featureKey: aiRun.featureKey, documentId } });
@@ -362,17 +368,16 @@ export class AiService {
     };
     const containsTerm = (term: string) => new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(lowerContent);
     const missingFields = requirement ? (evidenceChecks[requirement.evidenceType] || []).filter((check) => 'terms' in check ? !check.terms.some(containsTerm) : !check.test()).map((check) => check.field) : [];
-    const finalStatus = requirement && confidenceScore >= 70 && missingFields.length === 0 ? 'VERIFIED' : 'REQUIRES_REVIEW';
+     const finalStatus = requirement && confidenceScore >= 70 && missingFields.length === 0 ? 'AI_PRECHECKED' : 'REQUIRES_REVIEW';
     const enrichedResult = { ...result, financialEvidence };
     const analysis = await this.prisma.projectDocumentAnalysis.create({ data: { documentId, projectId, organisationId: document.organisationId, countryNodeId: document.countryNodeId, analysedBy: actor.userId, confidenceScore, result: enrichedResult } });
     await this.prisma.aiRun.update({ where: { id: aiRun.id }, data: { status: 'COMPLETED', output: { analysisId: analysis.id, evidenceType: requirement?.evidenceType || null, extractedInformation: enrichedResult, missingFields, verificationStatus: finalStatus }, completedAt: new Date() } });
     await this.audit.recordActor(actor, { action: 'ai.response', resourceType: 'AiRun', resourceId: aiRun.id, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { featureKey: aiRun.featureKey, confidenceScore, verificationStatus: finalStatus, requiresHumanReview: true } });
     if (requirement) {
-      await this.prisma.projectEvidenceRequirement.update({ where: { id: requirement.id }, data: { status: finalStatus, verificationStatus: finalStatus, confidenceScore, verificationResult: { analysisId: analysis.id, extractedInformation: enrichedResult, validationResult: finalStatus === 'VERIFIED' ? 'Required evidence terms detected.' : 'Human verification required.', missingFields } } });
-      if (finalStatus === 'VERIFIED') await this.audit.recordActor(actor, { action: 'project.evidence.verified', resourceType: 'ProjectEvidenceRequirement', resourceId: requirement.id, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { projectId, documentId, evidenceType: requirement.evidenceType, confidenceScore } });
+       await this.prisma.projectEvidenceRequirement.update({ where: { id: requirement.id }, data: { status: finalStatus, verificationStatus: finalStatus, confidenceScore, verificationResult: { analysisId: analysis.id, extractedInformation: enrichedResult, validationResult: finalStatus === 'AI_PRECHECKED' ? 'AI pre-check completed. Human verification is required.' : 'Human verification required.', missingFields } } });
     }
     await this.audit.recordActor(actor, { action: 'project.document.analyze', resourceType: 'ProjectDocument', resourceId: documentId, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { analysisId: analysis.id, confidenceScore } });
-    return { ...analysis, ...enrichedResult, missingFields, validationResult: finalStatus === 'VERIFIED' ? 'Required evidence terms detected.' : 'Human verification required.', verificationStatus: finalStatus, confidence: { level: confidenceScore >= 70 ? 'MEDIUM' : 'LOW', scorePercent: confidenceScore, disclaimer: 'Text extraction is advisory and requires legal, financial, compliance, and Shariah verification.' } };
+     return { ...analysis, ...enrichedResult, missingFields, validationResult: finalStatus === 'AI_PRECHECKED' ? 'AI pre-check completed. Human verification is required.' : 'Human verification required.', verificationStatus: finalStatus, confidence: { level: confidenceScore >= 70 ? 'MEDIUM' : 'LOW', scorePercent: confidenceScore, disclaimer: 'Text extraction is advisory and requires legal, financial, compliance, and Shariah verification.' } };
   }
 
   analyzeProjectFeasibility(actor: AuthenticatedUser, input: { projectId: string; project: Record<string, unknown>; documents: Array<Record<string, unknown>>; financialAnalysis: Record<string, unknown>; riskAnalysis: Record<string, unknown> }) {
@@ -380,10 +385,11 @@ export class AiService {
   }
 
   async runProjectFeasibility(actor: AuthenticatedUser, projectId: string) {
-    const project = await this.prisma.project.findUnique({ where: { projectId }, include: { documents: { select: { id: true, fileName: true, extractedText: true, extractionStatus: true, createdAt: true } }, evidenceRequirements: true, milestones: { select: { title: true, completionPct: true, status: true } } } });
+    const project = await this.prisma.project.findUnique({ where: { projectId }, include: { documents: { select: { id: true, fileName: true, extractedText: true, extractionStatus: true, createdAt: true } }, evidenceRequirements: true, milestones: { select: { title: true, completionPct: true, status: true } }, feasibilityRevisions: { orderBy: { revisionNumber: 'desc' }, take: 1, select: { id: true, revisionNumber: true } } } });
     if (!project) throw new NotFoundException('Project not found in the current tenant');
     assertTenantScope(actor, project, 'Project');
     this.assertProjectSponsorScope(actor, project.projectSponsorId);
+    assertProjectUnlocked(project, 'Re-running the feasibility analysis');
     const financialAnalysis = this.buildFinancialAnalysis(project, project.documents.map((document) => document.extractedText).join('\n'));
     const evidenceIntelligence = this.buildEvidenceIntelligence(project, project.documents, financialAnalysis, project.evidenceRequirements);
     const projectRiskAssessment = this.buildProjectRiskAssessment(financialAnalysis, evidenceIntelligence, project.milestones);
@@ -396,9 +402,15 @@ export class AiService {
     const output = { ...(aiRun.output || {}), evidenceIntelligence, projectFeasibility, confidence, investmentReadiness, shariahAssessment, humanReviewRequired: true, recommendation: { ...((aiRun.output?.recommendation || {}) as Record<string, unknown>), financialAnalysis, riskAnalysis, evidenceIntelligence, projectFeasibility, confidence, investmentReadiness, shariahAssessment, humanReviewRequired: true, requiresHumanReview: true, disclaimer: 'Assessment uses tenant-scoped project fields and extracted document evidence. It is not legal, financial, investment, or Shariah approval.' } } as Prisma.InputJsonValue;
     const history = [{ stage: 'DRAFT', reviewerId: actor.userId, reviewerRole: 'AI System', date: new Date().toISOString(), decision: 'AI_RECOMMENDATION', comment: 'AI analysis generated. Human review required; no funding approval was granted.' }];
     const updated = await this.prisma.aiRun.update({ where: { id: aiRun.id }, data: { output, reviewStage: 'DRAFT', reviewHistory: history } });
+    const previousRevision = project.feasibilityRevisions[0];
+    const revision = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.projectFeasibilityRevision.create({ data: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, aiRunId: updated.id, revisionNumber: (previousRevision?.revisionNumber || 0) + 1, supersedesRevisionId: previousRevision?.id, createdBy: actor.userId } });
+      await tx.projectApproval.updateMany({ where: { projectId, status: { in: ['PENDING', 'APPROVED', 'REJECTED', 'REQUEST_CHANGES'] } }, data: { status: 'SUPERSEDED', supersededAt: new Date() } });
+      return created;
+    });
     await this.audit.recordActor(actor, { action: 'project.feasibility.analyze', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { aiRunId: updated.id, documentCount: project.documents.length, reviewStage: 'DRAFT' } });
     await this.audit.recordActor(actor, { action: 'project.feasibility.analysis_refreshed', resourceType: 'AiRun', resourceId: updated.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId, source: 'LATEST_PROJECT_DOCUMENTS', evidenceRequirementCount: project.evidenceRequirements.length, evidenceReadinessScore: evidenceIntelligence.scorePercent } });
-    return { ...updated, project: { projectId, projectCode: project.projectCode, projectName: project.projectName, sector: project.sector, fundingRequired: project.fundingRequired, status: project.status }, financialAnalysis, riskAnalysis, evidenceIntelligence, projectFeasibility, confidence, investmentReadiness, shariahAssessment, humanReviewRequired: true, reviewStage: 'DRAFT', roleResponsibility: this.reviewResponsibility('DRAFT') };
+    return { ...updated, revisionId: revision.id, revisionNumber: revision.revisionNumber, project: { projectId, projectCode: project.projectCode, projectName: project.projectName, sector: project.sector, fundingRequired: project.fundingRequired, status: project.status }, financialAnalysis, riskAnalysis, evidenceIntelligence, projectFeasibility, confidence, investmentReadiness, shariahAssessment, humanReviewRequired: true, reviewStage: 'DRAFT', roleResponsibility: this.reviewResponsibility('DRAFT') };
   }
 
   async latestProjectFeasibility(actor: AuthenticatedUser, projectId: string) { const project = await this.prisma.project.findUnique({ where: { projectId }, include: { documents: { select: { fileName: true, extractedText: true, extractionStatus: true } }, evidenceRequirements: true } }); if (!project) throw new NotFoundException('Project not found in the current tenant'); assertTenantScope(actor, project, 'Project'); const runs = await this.prisma.aiRun.findMany({ where: { featureKey: 'project_feasibility', organisationId: project.organisationId, countryNodeId: project.countryNodeId }, orderBy: { createdAt: 'desc' }, take: 25 }); const run = runs.find((item) => (item.input as { projectId?: string }).projectId === projectId); if (!run) return null; const storedOutput = run.output as { recommendation?: { financialAnalysis?: Record<string, unknown>; riskAnalysis?: Record<string, unknown>; evidenceIntelligence?: Record<string, unknown>; confidence?: Record<string, unknown>; investmentReadiness?: Record<string, unknown>; shariahAssessment?: Record<string, unknown> }; evidenceIntelligence?: Record<string, unknown>; confidence?: Record<string, unknown>; investmentReadiness?: Record<string, unknown>; shariahAssessment?: Record<string, unknown>; humanReviewRequired?: boolean } | null; const recommendation = storedOutput?.recommendation; const financialAnalysis = recommendation?.financialAnalysis || {}; const evidenceIntelligence = recommendation?.evidenceIntelligence || storedOutput?.evidenceIntelligence || this.buildEvidenceIntelligence(project, project.documents, financialAnalysis, project.evidenceRequirements); const confidence = recommendation?.confidence || storedOutput?.confidence || { level: Number(evidenceIntelligence.scorePercent || 0) >= 70 ? 'MEDIUM' : 'LOW', scorePercent: evidenceIntelligence.scorePercent || 0, disclaimer: 'Confidence reflects evidence quality and completeness, not project viability.', reasons: evidenceIntelligence.confidenceReasons || [] }; const riskAnalysis = recommendation?.riskAnalysis || {}; const investmentReadiness = recommendation?.investmentReadiness || storedOutput?.investmentReadiness || this.buildInvestmentReadiness(evidenceIntelligence, financialAnalysis, (riskAnalysis as { projectRiskAssessment?: unknown }).projectRiskAssessment || []); const shariahAssessment = recommendation?.shariahAssessment || storedOutput?.shariahAssessment || this.buildShariahStructureAssessment(project.proposedShariahContract, project, project.documents); return { ...run, project: { projectId: project.projectId, projectCode: project.projectCode, projectName: project.projectName, sector: project.sector, fundingRequired: project.fundingRequired, status: project.status }, financialAnalysis, riskAnalysis, evidenceIntelligence, confidence, investmentReadiness, shariahAssessment, humanReviewRequired: storedOutput?.humanReviewRequired !== false, reviewStage: run.reviewStage, roleResponsibility: this.reviewResponsibility(run.reviewStage) }; }
@@ -429,7 +441,18 @@ export class AiService {
     const history = Array.isArray(run.reviewHistory) ? run.reviewHistory : [];
     const reviewStatus = input.decision === 'REJECTED' ? 'REJECTED' : input.decision === 'REQUEST_CHANGES' ? 'REQUEST_CHANGES' : 'APPROVED';
     const reviewEntry = { stage: run.reviewStage, reviewerId: actor.userId, reviewer: actor.userId, reviewerRole: actor.role, date: new Date().toISOString(), status: reviewStatus, decision: input.decision, comment: input.comment.trim(), supportingEvidence: input.supportingEvidence || [] };
-    const updated = await this.prisma.aiRun.update({ where: { id: run.id }, data: { reviewStage: targetStage, reviewHistory: [...history, reviewEntry] } });
+    const revision = await this.prisma.projectFeasibilityRevision.findUnique({ where: { aiRunId: run.id } });
+    if (!revision) throw new ConflictException('Feasibility analysis revision is missing; review cannot be recorded.');
+    const currentRevision = await this.prisma.projectFeasibilityRevision.findFirst({ where: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId }, orderBy: { revisionNumber: 'desc' }, select: { id: true } });
+    if (currentRevision?.id !== revision.id) throw new ConflictException('This analysis revision is superseded; review the latest revision instead.');
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedRun = await tx.aiRun.update({ where: { id: run.id }, data: { reviewStage: targetStage, reviewHistory: [...history, reviewEntry] } });
+      await tx.projectApproval.create({ data: { projectId, revisionId: revision.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, stage: run.reviewStage, status: reviewStatus, decision: input.decision, reviewerId: actor.userId, reviewerRole: actor.role, comment: input.comment.trim(), supportingEvidence: input.supportingEvidence || [] } });
+      if (run.reviewStage === 'FINAL_DECISION') {
+        await tx.project.update({ where: { projectId }, data: { status: input.decision === 'REJECTED' ? 'REJECTED' : input.decision === 'REQUEST_CHANGES' ? 'DUE_DILIGENCE' : 'APPROVED' } });
+      }
+      return updatedRun;
+    });
     await this.audit.recordActor(actor, { action: 'project.feasibility.review_decision', resourceType: 'AiRun', resourceId: run.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId, reviewStage: run.reviewStage, targetStage, reviewerId: actor.userId, reviewerRole: actor.role, status: reviewStatus, decision: input.decision, comment: input.comment, supportingEvidence: input.supportingEvidence || [], aiRecommendationIsNotApproval: true } });
     return { ...updated, humanReviewRequired: true, finalHumanDecisionRecorded: isFinalCommitteeReview, reviewStatus, aiRecommendationIsNotApproval: true, roleResponsibility: this.reviewResponsibility(targetStage) };
   }

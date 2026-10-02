@@ -149,11 +149,15 @@ model CountryNode {
   documentAnalyses     ProjectDocumentAnalysis[]
   projectMilestones    ProjectMilestone[]
   lifecycleEvents      ProjectLifecycleEvent[]
+  feasibilityRevisions ProjectFeasibilityRevision[]
+  approvals            ProjectApproval[]
   contractTemplates    ContractTemplate[]
   contractClauses      ContractClause[]
   contractInputSchemas ContractInputSchema[]
   shariahRules         ShariahRule[]
   documentVersions     DocumentVersion[]
+  financialAccounts    FinancialAccount[]
+  ledgerTransactions   LedgerTransaction[]
 }
 
 model Organisation {
@@ -186,6 +190,10 @@ model Organisation {
   contractInputSchemas ContractInputSchema[]
   shariahRules         ShariahRule[]
   documentVersions     DocumentVersion[]
+  feasibilityRevisions ProjectFeasibilityRevision[]
+  approvals            ProjectApproval[]
+  financialAccounts    FinancialAccount[]
+  ledgerTransactions   LedgerTransaction[]
 
   @@unique([id, countryNodeId])
   @@index([countryNodeId])
@@ -230,6 +238,8 @@ model Project {
   documentAnalyses     ProjectDocumentAnalysis[]
   dueDiligenceScans    ProjectDueDiligenceScan[]
   evidenceRequirements ProjectEvidenceRequirement[]
+  feasibilityRevisions ProjectFeasibilityRevision[]
+  approvals            ProjectApproval[]
 
   @@index([countryNodeId])
   @@index([organisationId])
@@ -398,21 +408,22 @@ model ProjectDocument {
 }
 
 model ProjectEvidenceRequirement {
-  id                 String   @id @default(cuid())
-  projectId          String
-  organisationId     String
-  countryNodeId      String
-  evidenceType       String
-  description        String
-  requiredFormat     String
-  priority           String
-  status             String   @default("MISSING")
-  uploadedDocumentId String?
-  verificationStatus String   @default("NOT_STARTED")
-  verificationResult Json?
-  confidenceScore    Int      @default(0)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  projectId            String
+  organisationId       String
+  countryNodeId        String
+  evidenceType         String
+  description          String
+  requiredFormat       String
+  priority             String
+  status               String   @default("MISSING")
+  uploadedDocumentId   String?
+  verificationStatus   String   @default("NOT_STARTED")
+  verificationResult   Json?
+  confidenceScore      Int      @default(0)
+  aiVerificationStatus String   @default("NOT_STARTED")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 
   project          Project          @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
   organisation     Organisation     @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
@@ -463,6 +474,57 @@ model ProjectDocumentAnalysis {
   @@index([projectId, createdAt])
 }
 
+model ProjectFeasibilityRevision {
+  id                   String   @id @default(cuid())
+  projectId            String
+  organisationId       String
+  countryNodeId        String
+  aiRunId              String   @unique
+  revisionNumber       Int
+  supersedesRevisionId String?
+  status               String   @default("PENDING_HUMAN_REVIEW")
+  createdBy            String
+  createdAt            DateTime @default(now())
+
+  project            Project                      @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  organisation       Organisation                 @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode        CountryNode                  @relation(fields: [countryNodeId], references: [code])
+  aiRun              AiRun                        @relation(fields: [aiRunId], references: [id], onDelete: Cascade)
+  supersedesRevision ProjectFeasibilityRevision?  @relation("RevisionChain", fields: [supersedesRevisionId], references: [id])
+  nextRevisions      ProjectFeasibilityRevision[] @relation("RevisionChain")
+  approvals          ProjectApproval[]
+
+  @@unique([projectId, revisionNumber])
+  @@index([projectId, createdAt])
+  @@index([organisationId, countryNodeId])
+}
+
+model ProjectApproval {
+  id                 String    @id @default(cuid())
+  projectId          String
+  revisionId         String
+  organisationId     String
+  countryNodeId      String
+  stage              String
+  status             String    @default("PENDING")
+  decision           String
+  reviewerId         String
+  reviewerRole       String
+  comment            String
+  supportingEvidence Json?
+  decidedAt          DateTime  @default(now())
+  supersededAt       DateTime?
+
+  project      Project                    @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  revision     ProjectFeasibilityRevision @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  organisation Organisation               @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode  CountryNode                @relation(fields: [countryNodeId], references: [code])
+
+  @@index([projectId, status])
+  @@index([revisionId, stage])
+  @@index([organisationId, countryNodeId])
+}
+
 model WealthPool {
   poolId                   String   @id @default(cuid())
   poolName                 String
@@ -480,6 +542,7 @@ model WealthPool {
   organisation    Organisation     @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
   countryNode     CountryNode      @relation(fields: [countryNodeId], references: [code])
   fundingRequests FundingRequest[]
+  investmentOrders InvestmentOrder[]
 
   @@index([countryNodeId])
   @@index([projectId])
@@ -504,10 +567,11 @@ model FundingRequest {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  project      Project      @relation(fields: [projectId], references: [projectId])
-  pool         WealthPool?  @relation(fields: [poolId], references: [poolId])
-  organisation Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode  CountryNode  @relation(fields: [countryNodeId], references: [code])
+  project       Project               @relation(fields: [projectId], references: [projectId])
+  pool          WealthPool?           @relation(fields: [poolId], references: [poolId])
+  organisation  Organisation          @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode   CountryNode           @relation(fields: [countryNodeId], references: [code])
+  disbursements FundingDisbursement[]
 
   @@index([countryNodeId])
   @@index([projectId])
@@ -625,25 +689,26 @@ model AiCitation {
 }
 
 model AiRun {
-  id             String          @id @default(cuid())
-  requestId      String          @unique
-  featureKey     String
-  action         String
-  userId         String
-  organisationId String
-  countryNodeId  String
-  conversationId String?
-  input          Json
-  output         Json?
-  status         String          @default("PENDING")
-  provider       String
-  model          String
-  createdAt      DateTime        @default(now())
-  completedAt    DateTime?
-  reviewStage    String          @default("DRAFT")
-  reviewHistory  Json?
-  conversation   AiConversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
-  decision       AiDecision?
+  id                  String                      @id @default(cuid())
+  requestId           String                      @unique
+  featureKey          String
+  action              String
+  userId              String
+  organisationId      String
+  countryNodeId       String
+  conversationId      String?
+  input               Json
+  output              Json?
+  status              String                      @default("PENDING")
+  provider            String
+  model               String
+  createdAt           DateTime                    @default(now())
+  completedAt         DateTime?
+  reviewStage         String                      @default("DRAFT")
+  reviewHistory       Json?
+  conversation        AiConversation?             @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  decision            AiDecision?
+  feasibilityRevision ProjectFeasibilityRevision?
 
   @@index([organisationId, countryNodeId, createdAt])
   @@index([userId, createdAt])
@@ -728,17 +793,18 @@ model RagChunk {
 
 // Server-owned zakat calculation snapshots.
 model ZakatCalculation {
-  id              String   @id @default(cuid())
+  id              String         @id @default(cuid())
   userId          String
-  currency        String   @default("USD")
-  investedCapital Decimal  @db.Decimal(18, 2)
-  liquidCash      Decimal  @db.Decimal(18, 2)
-  debtsOwed       Decimal  @db.Decimal(18, 2)
-  nisabThreshold  Decimal  @db.Decimal(18, 2)
-  zakatRate       Decimal  @db.Decimal(5, 4)
-  netWealth       Decimal  @db.Decimal(18, 2)
-  zakatDue        Decimal  @db.Decimal(18, 2)
-  createdAt       DateTime @default(now())
+  currency        String         @default("USD")
+  investedCapital Decimal        @db.Decimal(18, 2)
+  liquidCash      Decimal        @db.Decimal(18, 2)
+  debtsOwed       Decimal        @db.Decimal(18, 2)
+  nisabThreshold  Decimal        @db.Decimal(18, 2)
+  zakatRate       Decimal        @db.Decimal(5, 4)
+  netWealth       Decimal        @db.Decimal(18, 2)
+  zakatDue        Decimal        @db.Decimal(18, 2)
+  createdAt       DateTime       @default(now())
+  payments        ZakatPayment[]
 
   @@index([userId, createdAt])
 }
@@ -845,6 +911,339 @@ model MembershipBillingRecord {
   @@index([userId, createdAt])
 }
 
+model PaymentTransaction {
+  id                    String    @id @default(cuid())
+  userId                String
+  organisationId        String
+  countryNodeId         String
+  productType           String
+  productId             String
+  amountMYR             Decimal   @db.Decimal(18, 2)
+  currency              String    @default("MYR")
+  provider              String    @default("TOYYIBPAY")
+  providerBillCode      String?   @unique
+  providerTransactionId String?
+  status                String    @default("INITIATED")
+  metadata              Json?
+  paidAt                DateTime?
+  failureReason         String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  refunds               Refund[]
+
+  @@index([userId, createdAt])
+  @@index([organisationId, countryNodeId, createdAt])
+  @@index([productType, productId])
+  @@index([status, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Financial ledger
+// ---------------------------------------------------------------------------
+
+model FinancialAccount {
+  id             String   @id @default(cuid())
+  accountCode    String   @unique
+  accountType    String
+  ownerType      String
+  ownerId        String
+  organisationId String
+  countryNodeId  String
+  currency       String   @default("MYR")
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation  @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode  CountryNode   @relation(fields: [countryNodeId], references: [code])
+  entries      LedgerEntry[]
+
+  @@index([ownerType, ownerId])
+  @@index([organisationId, countryNodeId])
+  @@index([status])
+}
+
+model LedgerTransaction {
+  id                String   @id @default(cuid())
+  transactionNumber String   @unique
+  transactionType   String
+  referenceType     String
+  referenceId       String
+  organisationId    String
+  countryNodeId     String
+  currency          String   @default("MYR")
+  description       String
+  idempotencyKey    String   @unique
+  status            String   @default("POSTED")
+  createdBy         String
+  createdAt         DateTime @default(now())
+
+  organisation Organisation            @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode  CountryNode             @relation(fields: [countryNodeId], references: [code])
+  entries      LedgerEntry[]
+  investment   InvestmentContribution?
+  funding      FundingDisbursement?
+  refund       Refund?
+  zakatPayment ZakatPayment?
+  distribution DistributionAllocation?
+
+  @@index([referenceType, referenceId])
+  @@index([organisationId, countryNodeId, createdAt])
+  @@index([transactionType, createdAt])
+}
+
+model LedgerEntry {
+  id            String   @id @default(cuid())
+  transactionId String
+  accountId     String
+  direction     String
+  amount        Decimal  @db.Decimal(18, 2)
+  currency      String   @default("MYR")
+  description   String?
+  createdAt     DateTime @default(now())
+
+  transaction LedgerTransaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+  account     FinancialAccount  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([accountId, createdAt])
+  @@index([transactionId])
+}
+
+model InvestmentContribution {
+  id                  String   @id @default(cuid())
+  projectId           String
+  poolId              String?
+  investorUserId      String
+  orderId             String?  @unique
+  organisationId      String
+  countryNodeId       String
+  amount              Decimal  @db.Decimal(18, 2)
+  currency            String   @default("MYR")
+  status              String   @default("POSTED")
+  ledgerTransactionId String   @unique
+  createdAt           DateTime @default(now())
+
+  ledgerTransaction LedgerTransaction @relation(fields: [ledgerTransactionId], references: [id], onDelete: Restrict)
+  order             InvestmentOrder?  @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([projectId, createdAt])
+  @@index([investorUserId, createdAt])
+  @@index([organisationId, countryNodeId])
+}
+
+model InvestmentOrder {
+  id                 String   @id @default(cuid())
+  orderNumber        String   @unique
+  poolId             String
+  projectId          String
+  investorUserId     String
+  organisationId     String
+  countryNodeId      String
+  amount             Decimal  @db.Decimal(18, 2)
+  currency           String   @default("MYR")
+  status             String   @default("PENDING")
+  idempotencyKey     String   @unique
+  createdAt          DateTime @default(now())
+  settledAt          DateTime?
+  cancelledAt        DateTime?
+
+  pool               WealthPool @relation(fields: [poolId], references: [poolId], onDelete: Restrict)
+  contribution       InvestmentContribution?
+
+  @@index([investorUserId, createdAt])
+  @@index([organisationId, countryNodeId, createdAt])
+  @@index([poolId, status])
+}
+
+model FundingDisbursement {
+  id                  String   @id @default(cuid())
+  fundingRequestId    String   @unique
+  projectId           String
+  organisationId      String
+  countryNodeId       String
+  amount              Decimal  @db.Decimal(18, 2)
+  currency            String   @default("MYR")
+  status              String   @default("POSTED")
+  ledgerTransactionId String   @unique
+  createdAt           DateTime @default(now())
+
+  fundingRequest    FundingRequest    @relation(fields: [fundingRequestId], references: [fundingRequestId], onDelete: Restrict)
+  ledgerTransaction LedgerTransaction @relation(fields: [ledgerTransactionId], references: [id], onDelete: Restrict)
+
+  @@index([projectId, createdAt])
+  @@index([organisationId, countryNodeId])
+}
+
+model Refund {
+  id                   String   @id @default(cuid())
+  paymentTransactionId String
+  userId               String
+  organisationId       String
+  countryNodeId        String
+  amount               Decimal  @db.Decimal(18, 2)
+  currency             String   @default("MYR")
+  reason               String
+  status               String   @default("POSTED")
+  ledgerTransactionId  String   @unique
+  createdAt            DateTime @default(now())
+
+  paymentTransaction PaymentTransaction @relation(fields: [paymentTransactionId], references: [id], onDelete: Restrict)
+  ledgerTransaction  LedgerTransaction  @relation(fields: [ledgerTransactionId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([organisationId, countryNodeId])
+}
+
+model ZakatPayment {
+  id                  String   @id @default(cuid())
+  calculationId       String
+  payerUserId         String
+  organisationId      String
+  countryNodeId       String
+  amount              Decimal  @db.Decimal(18, 2)
+  currency            String   @default("MYR")
+  status              String   @default("POSTED")
+  ledgerTransactionId String   @unique
+  createdAt           DateTime @default(now())
+
+  calculation       ZakatCalculation  @relation(fields: [calculationId], references: [id], onDelete: Restrict)
+  ledgerTransaction LedgerTransaction @relation(fields: [ledgerTransactionId], references: [id], onDelete: Restrict)
+
+  @@index([payerUserId, createdAt])
+  @@index([organisationId, countryNodeId])
+}
+
+model Distribution {
+  id             String   @id @default(cuid())
+  projectId      String
+  poolId         String?
+  organisationId String
+  countryNodeId  String
+  totalAmount    Decimal  @db.Decimal(18, 2)
+  currency       String   @default("MYR")
+  status         String   @default("POSTED")
+  periodName     String   @default("Unspecified")
+  grossRevenue   Decimal? @db.Decimal(18, 2)
+  eligibleCosts  Decimal? @db.Decimal(18, 2)
+  netProfit      Decimal? @db.Decimal(18, 2)
+  investorProfit Decimal? @db.Decimal(18, 2)
+  createdBy      String
+  approvedBy     String?
+  approvedAt     DateTime?
+  rejectedBy     String?
+  rejectedAt     DateTime?
+  processedAt    DateTime?
+  settledAt      DateTime?
+  version        Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  allocations DistributionAllocation[]
+  approvals   DistributionApproval[]
+
+  @@index([projectId, createdAt])
+  @@index([organisationId, countryNodeId])
+}
+
+model DistributionAllocation {
+  id                  String   @id @default(cuid())
+  distributionId      String
+  beneficiaryUserId   String
+  destinationId       String?
+  organisationId      String
+  countryNodeId       String
+  amount              Decimal  @db.Decimal(18, 2)
+  currency            String   @default("MYR")
+  status              String   @default("POSTED")
+  ledgerTransactionId String?  @unique
+  createdAt           DateTime @default(now())
+
+  distribution      Distribution      @relation(fields: [distributionId], references: [id], onDelete: Restrict)
+  ledgerTransaction LedgerTransaction? @relation(fields: [ledgerTransactionId], references: [id], onDelete: Restrict)
+  payoutInstruction PayoutInstruction?
+  destination       PayoutDestination? @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+
+  @@index([beneficiaryUserId, createdAt])
+  @@index([organisationId, countryNodeId])
+}
+
+model PayoutDestination {
+  id                 String   @id @default(cuid())
+  ownerUserId        String
+  organisationId     String
+  countryNodeId      String
+  provider           String
+  destinationType    String
+  encryptedReference String
+  destinationHash    String
+  status             String   @default("PENDING_VERIFICATION")
+  verifiedBy         String?
+  verifiedAt         DateTime?
+  cooldownUntil      DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  allocations DistributionAllocation[]
+  payoutInstructions PayoutInstruction[]
+
+  @@index([ownerUserId, status])
+  @@index([organisationId, countryNodeId])
+}
+
+model DistributionApproval {
+  id             String   @id @default(cuid())
+  distributionId String
+  reviewerId     String
+  decision       String
+  comment        String?
+  createdAt      DateTime @default(now())
+
+  distribution Distribution @relation(fields: [distributionId], references: [id], onDelete: Restrict)
+
+  @@index([distributionId, createdAt])
+}
+
+model PayoutInstruction {
+  id                     String   @id @default(cuid())
+  allocationId           String   @unique
+  beneficiaryUserId      String
+  destinationId          String?
+  provider               String   @default("MANUAL_BANK_FILE")
+  providerReference      String?  @unique
+  amount                 Decimal  @db.Decimal(18, 2)
+  currency               String   @default("MYR")
+  destinationHash        String?
+  status                 String   @default("QUEUED")
+  idempotencyKey         String   @unique
+  failureReason          String?
+  submittedAt            DateTime?
+  settledAt              DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  allocation DistributionAllocation @relation(fields: [allocationId], references: [id], onDelete: Restrict)
+  destination PayoutDestination? @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+  providerEvents PayoutProviderEvent[]
+
+  @@index([beneficiaryUserId, status])
+  @@index([status, createdAt])
+}
+
+model PayoutProviderEvent {
+  id                String   @id @default(cuid())
+  provider          String
+  providerEventId   String
+  payoutInstructionId String
+  eventType         String
+  payload           Json
+  receivedAt        DateTime @default(now())
+  processedAt       DateTime?
+
+  payoutInstruction PayoutInstruction @relation(fields: [payoutInstructionId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, providerEventId])
+  @@index([payoutInstructionId, receivedAt])
+}
+
 model PdpApplication {
   id                String    @id @default(cuid())
   applicationNumber String    @unique
@@ -898,12 +1297,51 @@ model KycApplication {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  documents KycDocument[]
-  reviews   KycReview[]
-  checks    KycCheckResult[]
+  documents        KycDocument[]
+  reviews          KycReview[]
+  checks           KycCheckResult[]
+  livenessSessions KycLivenessSession[]
 
   @@index([userId, createdAt])
   @@index([countryNodeId, status, submittedAt])
+}
+
+// Face verification (liveness prototype, src/kyc/liveness). The server issues a random
+// sequence of head movements, checks every captured frame itself, and keeps the accepted frames
+// for the officer. It has no anti-spoofing model; see FaceEngine.
+model KycLivenessSession {
+  id            String             @id @default(cuid())
+  applicationId String
+  application   KycApplication     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  userId        String
+  // Ordered steps issued by the server, e.g. ["ALIGN","TURN_LEFT","LOOK_UP","TURN_RIGHT","ID_CARD","FACE_WITH_ID"].
+  steps         Json
+  // Index of the next step to complete.
+  currentStep   Int                @default(0)
+  // When the current step became active; each step must be done within the step time limit.
+  stepStartedAt DateTime           @default(now())
+  status        String             @default("IN_PROGRESS") // IN_PROGRESS | PASSED | FAILED | EXPIRED
+  expiresAt     DateTime
+  completedAt   DateTime?
+  // Per-step measurements, face match scores and what was read from the ID card.
+  result        Json?
+  createdAt     DateTime           @default(now())
+  frames        KycLivenessFrame[]
+
+  @@index([applicationId, createdAt])
+}
+
+model KycLivenessFrame {
+  id         String             @id @default(cuid())
+  sessionId  String
+  session    KycLivenessSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  step       String
+  mimeType   String
+  content    Bytes
+  metrics    Json
+  capturedAt DateTime           @default(now())
+
+  @@unique([sessionId, step])
 }
 
 model KycDocument {
@@ -1031,10 +1469,50 @@ model Notification {
   resourceType    String?
   resourceId      String?
   readAt          DateTime?
+  dedupeKey       String?   @unique
   createdAt       DateTime  @default(now())
 
   @@index([recipientUserId, readAt, createdAt])
   @@index([organisationId, countryNodeId, createdAt])
+}
+
+model NotificationOutbox {
+  id              String   @id @default(cuid())
+  dedupeKey       String   @unique
+  recipientUserId String
+  organisationId  String
+  countryNodeId   String
+  type            String
+  title           String
+  message         String
+  resourceType    String?
+  resourceId      String?
+  channels        String   @default("IN_APP")
+  status          String   @default("PENDING")
+  attempts        Int      @default(0)
+  nextAttemptAt   DateTime @default(now())
+  lastError       String?
+  processedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([recipientUserId, createdAt])
+}
+
+model JobRun {
+  id             String   @id @default(cuid())
+  jobName        String
+  idempotencyKey String   @unique
+  status         String   @default("RUNNING")
+  attempts       Int      @default(0)
+  startedAt      DateTime @default(now())
+  finishedAt     DateTime?
+  lastError      String?
+  metadata       Json?
+
+  @@index([jobName, startedAt])
+  @@index([status, startedAt])
 }
 
 // ---------------------------------------------------------------------------

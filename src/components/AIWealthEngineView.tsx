@@ -103,7 +103,9 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
     };
     update();
     const unsubscribe = aiMonetisationService.subscribe(update);
-    return () => unsubscribe();
+    // BuyAICreditsModal announces completed top-ups so the balance pill and tab badge refresh.
+    window.addEventListener('ai-credits-changed', update);
+    return () => { unsubscribe(); window.removeEventListener('ai-credits-changed', update); };
   }, [activeUser.id, isAuthenticated]);
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -30,6 +30,13 @@ export class PoolsController {
   create(@Body() body: CreatePoolDto, @CurrentUser() user: AuthenticatedUser) {
     return this.poolsService.create(body, user);
   }
+
+  @Patch(':id/status')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Pool Manager')
+  @RequirePermission('pooling', 'update')
+  transitionStatus(@Param('id') id: string, @Body() body: UpdatePoolStatusDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.poolsService.transitionStatus(id, body.status, user, body.note);
+  }
 }
 
 export interface CreatePoolDto {
@@ -40,4 +47,9 @@ export interface CreatePoolDto {
   indicativeExpectedReturn: number;
   organisationId: string;
   countryNodeId: string;
+}
+
+export interface UpdatePoolStatusDto {
+  status: 'OPEN' | 'PAUSED' | 'FULL' | 'CLOSED';
+  note?: string;
 }

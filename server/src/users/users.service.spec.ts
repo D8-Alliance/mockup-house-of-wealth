@@ -71,8 +71,8 @@ describe('UsersService role assignment', () => {
 
   it('lets a Country Admin assign a non-privileged role inside their own country node', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: 'USR-TARGET', email: 't@example.test' });
-    prismaMock.organisation.findUnique.mockResolvedValue({ id: 'ORG-A' });
-    prismaMock.countryNode.findUnique.mockResolvedValue({ code: 'CN-MYS' });
+    prismaMock.organisation.findUnique.mockResolvedValue({ id: 'ORG-A', countryNodeId: 'CN-MYS', status: 'ACTIVE' });
+    prismaMock.countryNode.findUnique.mockResolvedValue({ code: 'CN-MYS', status: 'ACTIVE' });
     prismaMock.userRoleAssignment.findUnique.mockResolvedValue(null);
     prismaMock.userRoleAssignment.create.mockResolvedValue({ id: 'assignment-1' });
 
@@ -95,8 +95,8 @@ describe('UsersService role assignment', () => {
 
   it('lets a Super Admin assign a privileged role', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: 'USR-TARGET', email: 't@example.test' });
-    prismaMock.organisation.findUnique.mockResolvedValue({ id: 'ORG-A' });
-    prismaMock.countryNode.findUnique.mockResolvedValue({ code: 'CN-MYS' });
+    prismaMock.organisation.findUnique.mockResolvedValue({ id: 'ORG-A', countryNodeId: 'CN-MYS', status: 'ACTIVE' });
+    prismaMock.countryNode.findUnique.mockResolvedValue({ code: 'CN-MYS', status: 'ACTIVE' });
     prismaMock.userRoleAssignment.findUnique.mockResolvedValue(null);
     prismaMock.userRoleAssignment.create.mockResolvedValue({ id: 'assignment-2' });
 

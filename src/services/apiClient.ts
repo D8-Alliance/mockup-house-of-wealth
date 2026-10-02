@@ -44,8 +44,67 @@ export interface ZakatCalculation {
   createdAt: string;
 }
 
+export interface BackendFinancialAccount {
+  id: string;
+  accountCode: string;
+  accountType: string;
+  ownerType: string;
+  ownerId: string;
+  currency: string;
+  status: string;
+}
+
+export interface BackendLedgerTransaction {
+  id: string;
+  transactionNumber: string;
+  transactionType: string;
+  referenceType: string;
+  referenceId: string;
+  currency: string;
+  description: string;
+  status: string;
+  createdAt: string;
+  entries: Array<{ id: string; accountId: string; direction: 'DEBIT' | 'CREDIT'; amount: string | number; currency: string; description?: string | null; account?: { accountCode: string; ownerType: string; ownerId: string } }>;
+}
+
+export interface BackendInvestmentOrder {
+  id: string;
+  orderNumber: string;
+  poolId: string;
+  projectId: string;
+  investorUserId: string;
+  amount: string | number;
+  currency: string;
+  status: string;
+  createdAt: string;
+  settledAt?: string | null;
+}
+
+export interface BackendNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  resourceType?: string | null;
+  resourceId?: string | null;
+  readAt?: string | null;
+  createdAt: string;
+}
+
 export const apiClient = {
   getDashboardSummary: () => request<DashboardSummary>('/dashboard/summary'),
+  getFinancialAccounts: () => request<BackendFinancialAccount[]>('/financial/accounts'),
+  getFinancialAccountBalance: (accountId: string) => request<{ accountId: string; accountCode: string; currency: string; balance: number; debit: number; credit: number }>(`/financial/accounts/${encodeURIComponent(accountId)}/balance`),
+  getFinancialLedger: () => request<BackendLedgerTransaction[]>('/financial/ledger'),
+  transferFinancialAccounts: (input: { sourceAccountId: string; destinationAccountId: string; amount: number; description: string; idempotencyKey: string }) => request<BackendLedgerTransaction>('/financial/transfers', { method: 'POST', body: JSON.stringify(input) }),
+  getInvestmentOrders: () => request<BackendInvestmentOrder[]>('/investments/orders'),
+  createInvestmentOrder: (input: { poolId: string; amount: number; currency: string; idempotencyKey: string }) => request<BackendInvestmentOrder>('/investments/orders', { method: 'POST', body: JSON.stringify(input) }),
+  settleInvestmentOrder: (id: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/settle`, { method: 'POST' }),
+  cancelInvestmentOrder: (id: string, reason?: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/cancel`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
+  getNotifications: () => request<BackendNotification[]>('/notifications'),
+  getUnreadNotificationCount: () => request<{ count: number }>('/notifications/unread-count'),
+  markNotificationRead: (id: string) => request<BackendNotification>(`/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }),
+  markAllNotificationsRead: () => request<{ count: number }>('/notifications/read-all', { method: 'POST' }),
   getMembershipCreditSummary: () => request<BackendCreditSummary>('/membership/me/credits'),
   getMembershipCreditUsage: () => request<BackendCreditTransaction[]>('/membership/me/credits/usage'),
   getMembershipTransactions: () => request<BackendTransaction[]>('/membership/me/transactions'),
@@ -54,8 +113,9 @@ export const apiClient = {
     if (!response.ok) throw new Error(await response.text() || 'Receipt is unavailable.'); const blobUrl = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = blobUrl; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || 'receipt.txt'; link.click(); URL.revokeObjectURL(blobUrl);
   },
   consumeMembershipCredits: (operationKey: string, targetEntity?: string) => request<BackendCreditTransaction>('/membership/me/credits/consume', { method: 'POST', body: JSON.stringify({ operationKey, targetEntity }) }),
-  topUpMembershipCredits: (packageId: string, paymentMethod: string) => request<{ transaction: BackendCreditTransaction; balance: BackendCreditSummary }>('/membership/me/credits/top-up', { method: 'POST', body: JSON.stringify({ packageId, paymentMethod }) }),
-  getAdminCreditAnalytics: () => request<{ summary: AdminAIAnalyticsSummary; transactions: BackendCreditTransaction[] }>('/membership/admin/credits/analytics'),
+  topUpMembershipCredits: (packageId: string, paymentMethod: string) => request<{ transaction?: BackendCreditTransaction; balance?: BackendCreditSummary; paymentUrl?: string; paymentId?: string; status?: string }>('/membership/me/credits/top-up', { method: 'POST', body: JSON.stringify({ packageId, paymentMethod }) }),
+  verifyMembershipPayment: (paymentId: string) => request<{ status: 'PAID' | 'FAILED' | 'PENDING'; paymentId: string; productType: string }>(`/membership/me/payments/${encodeURIComponent(paymentId)}/verify`, { method: 'POST' }),
+  getAdminCreditAnalytics: () =>request<{ summary: AdminAIAnalyticsSummary; transactions: BackendCreditTransaction[] }>('/membership/admin/credits/analytics'),
   getProjects: () => request<BackendProject[]>('/projects'),
   analyzeProjectFeasibility: (projectId: string) => request<BackendFeasibilityAssessment>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/analyze`, { method: 'POST' }),
   getLatestProjectFeasibility: (projectId: string) => request<BackendFeasibilityAssessment | null>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/latest`),
@@ -77,6 +137,9 @@ export const apiClient = {
     formData.append('file', file);
     return request<BackendEvidenceRequirement>(`/projects/${encodeURIComponent(projectId)}/evidence/${encodeURIComponent(evidenceType)}/upload`, { method: 'POST', body: formData });
   },
+  verifyProjectEvidence: (projectId: string, evidenceType: string) => request<BackendEvidenceRequirement>(`/projects/${encodeURIComponent(projectId)}/evidence/${encodeURIComponent(evidenceType)}/verify`, { method: 'POST' }),
+  reopenProject: (projectId: string, reason: string) => request<BackendProject>(`/projects/${encodeURIComponent(projectId)}/reopen`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  registerDemoUser: (input: { name: string; email: string; organisation: string; countryNodeId: string; role: string }) => request<{ userId: string; organisationId: string; organisationName: string; countryNodeId: string; role: string; email: string; name: string }>('/auth/demo-register', { method: 'POST', body: JSON.stringify(input) }),
   getProjectTeam: (projectId: string) => request<BackendProjectTeamMember[]>(`/projects/${encodeURIComponent(projectId)}/team`),
   getProjectTeamCandidates: (projectId: string) => request<ProjectTeamCandidate[]>(`/projects/${encodeURIComponent(projectId)}/team/candidates`),
   addProjectTeamMember: (projectId: string, input: { userId: string; projectRole: string }) => request<BackendProjectTeamMember>(`/projects/${encodeURIComponent(projectId)}/team`, {
@@ -122,6 +185,7 @@ export const apiClient = {
   },
   getCurrentUser: () => request<BackendUser>('/users/me'),
   getCurrentAccess: () => request<BackendAccess>('/users/me/access'),
+  updateMyProfile: (input: { phone?: string }) => request<BackendUser>('/users/me/profile', { method: 'PATCH', body: JSON.stringify(input) }),
   getUsers: () => request<BackendUser[]>('/users'),
   updateUserStatus: (userId: string, status: string) => request<BackendUser>(`/users/${userId}/status`, {
     method: 'PATCH',
@@ -136,16 +200,19 @@ export const apiClient = {
     request(`/users/${userId}/roles/${encodeURIComponent(role)}/orgs/${organisationId}/countries/${countryNodeId}`, {
       method: 'DELETE',
     }),
-  calculateZakat: (input: { investedCapital: number; liquidCash: number; debtsOwed: number }) =>
+  calculateZakat: (input: { investedCapital: number; liquidCash: number; debtsOwed: number; currency?: string }) =>
     request<ZakatCalculation>('/zakat/calculations', {
       method: 'POST',
       body: JSON.stringify(input),
     }),
-  upgradeMembership: (input: { planId: string; billingInterval: 'monthly' | 'annual'; paymentMethod: string }) =>
+  createZakatPayment: (calculationId: string) => request<{ paymentUrl: string; paymentId: string; status: string }>(`/zakat/calculations/${encodeURIComponent(calculationId)}/payment`, { method: 'POST' }),
+  upgradeMembership: (input: { planId: string; billingInterval: 'monthly' | 'annual'; paymentMethod: string; creditsToApply?: number }) =>
     request('/membership/me/upgrade', {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+  getMembershipStatus: () => request<BackendMembershipStatus>('/membership/me'),
+  cancelMembershipPayment: (paymentId: string) => request<{ status: string; paymentId: string }>(`/membership/me/payments/${encodeURIComponent(paymentId)}/cancel`, { method: 'POST' }),
   savePdpDraft: async (payload: Partial<PDPApplication>, id?: string) => {
     const response = await request<BackendPdpApplication>(id ? `/pdp/applications/${id}` : '/pdp/applications', {
       method: id ? 'PATCH' : 'POST',
@@ -271,8 +338,24 @@ export const apiClient = {
   getKycQueue: (status: KycReviewableStatus = 'SUBMITTED') => request<KycQueueItem[]>(`/kyc/applications?status=${status}`),
   getKycApplicationForReview: (id: string) => request<KycApplication>(`/kyc/applications/${encodeURIComponent(id)}`),
   downloadKycDocumentForReview: (applicationId: string, documentId: string) => openAuthenticatedFile(`/kyc/applications/${encodeURIComponent(applicationId)}/documents/${encodeURIComponent(documentId)}/download`),
-  reviewKycApplication: (id: string, input: { decision: KycDecision; comment: string; kycLevel?: KycLevel }) => request<KycApplication>(`/kyc/applications/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  reviewKycApplication: (id: string, input: { decision: KycDecision; comment: string; kycLevel?: KycLevel; acknowledgeWarnings?: boolean; overrideReason?: string }) => request<KycApplication>(`/kyc/applications/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   rerunKycChecks: (id: string) => request<KycApplication>(`/kyc/applications/${encodeURIComponent(id)}/checks/run`, { method: 'POST' }),
+  // Face verification (camera liveness prototype).
+  getMyLiveness: () => request<LivenessSession | null>('/kyc/me/liveness'),
+  startLiveness: () => request<LivenessSession>('/kyc/me/liveness/sessions', { method: 'POST' }),
+  submitLivenessFrame: (sessionId: string, step: LivenessStep, frame: Blob) => {
+    const body = new FormData();
+    body.append('frame', frame, 'frame.jpg');
+    return request<LivenessFrameResult>(`/kyc/me/liveness/sessions/${encodeURIComponent(sessionId)}/steps/${step}`, { method: 'POST', body });
+  },
+  getKycLivenessForReview: (applicationId: string) => request<LivenessReview | null>(`/kyc/applications/${encodeURIComponent(applicationId)}/liveness`),
+  /** Object URL of a captured liveness frame (the caller revokes it). */
+  getKycLivenessFrameUrl: async (applicationId: string, frameId: string) => {
+    const token = authService.getAuthState().session?.token;
+    const response = await fetch(`${API_BASE_URL}/kyc/applications/${encodeURIComponent(applicationId)}/liveness/frames/${encodeURIComponent(frameId)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!response.ok) throw new Error(await response.text() || 'Frame is unavailable.');
+    return URL.createObjectURL(await response.blob());
+  },
 };
 
 /** Fetches a protected file with the bearer token and opens it in a new tab. */
@@ -382,6 +465,39 @@ export interface KycCheckResult {
   completedAt: string | null;
 }
 
+export type LivenessStep = 'ALIGN' | 'TURN_LEFT' | 'TURN_RIGHT' | 'LOOK_UP' | 'ID_CARD' | 'FACE_WITH_ID';
+
+export interface LivenessResult {
+  livenessPassed: boolean;
+  failureReason?: string;
+  /** Officer view only. */
+  cardFaceSimilarity?: number | null;
+  uploadedIdFaceSimilarity?: number | null;
+  idNumberOnCard?: 'MATCH' | 'MISMATCH' | 'NOT_FOUND';
+}
+
+export interface LivenessSession {
+  id: string;
+  status: 'IN_PROGRESS' | 'PASSED' | 'FAILED' | 'EXPIRED';
+  steps: LivenessStep[];
+  currentStep: number;
+  expiresAt: string;
+  stepTimeLimitSeconds: number;
+  completedAt: string | null;
+  result: LivenessResult | null;
+}
+
+export interface LivenessFrameResult {
+  accepted: boolean;
+  message: string;
+  metrics: Record<string, number | string | boolean>;
+  session: LivenessSession;
+}
+
+export interface LivenessReview extends LivenessSession {
+  frames: Array<{ id: string; step: LivenessStep; capturedAt: string; metrics: Record<string, unknown> }>;
+}
+
 export interface KycQueueItem {
   id: string;
   applicationNumber: string;
@@ -396,6 +512,8 @@ export interface KycQueueItem {
   submittedAt: string | null;
   reviewedAt: string | null;
   documentCount: number;
+  checkRecommendation?: KycCheckRecommendation | null;
+  checkReasons?: string[];
 }
 
 export interface DashboardSummary {
@@ -802,7 +920,33 @@ export interface BackendCreditTransaction {
   createdAt: string;
 }
 
-export interface BackendTransaction { id: string; type: string; description: string; status: string; amountMYR: number; amountUSD: number; credits: number; method: string; invoiceNumber?: string | null; createdAt: string; receiptAvailable: boolean; }
+export interface BackendMembershipStatus {
+  userId: string;
+  planId: string;
+  planName: string;
+  tier: string;
+  billingInterval: 'monthly' | 'annual';
+  status: string;
+  /** FREE, ACTIVE, EXPIRING_SOON (within 7 days of the end) or GRACE (ended, still usable). */
+  lifecycleStatus: 'FREE' | 'ACTIVE' | 'EXPIRING_SOON' | 'GRACE';
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  daysRemaining: number;
+  graceEndsAt: string | null;
+  graceDays: number;
+  renewalMode: 'MANUAL' | 'NONE';
+  autoRenew: boolean;
+  paymentMethodSummary: string;
+  aiCreditsRemaining: number;
+  aiCreditsTotal: number;
+  redeemableCredits: number;
+  creditValueMYR: number;
+  fpxFeeMYR: number;
+  toyyibPayMinimumMYR: number;
+  pendingMembershipPayments: number;
+}
+
+export interface BackendTransaction { id: string; type: string; description: string; status: string; amountMYR: number; amountUSD: number; credits: number; method: string; invoiceNumber?: string | null; createdAt: string; receiptAvailable: boolean; paymentId?: string; gatewayBillCode?: string | null; gatewayTransactionId?: string | null; failureReason?: string | null; fpxFeeMYR?: number; }
 
 export interface BackendDocumentAnalysis {
   id: string;
@@ -851,7 +995,7 @@ export interface BackendEvidenceRequirement {
   description: string;
   requiredFormat: string;
   priority: string;
-  status: 'MISSING' | 'UPLOADED' | 'AI_PROCESSING' | 'VERIFIED' | 'REQUIRES_REVIEW';
+  status: 'MISSING' | 'UPLOADED' | 'AI_PROCESSING' | 'AI_PRECHECKED' | 'VERIFIED' | 'REQUIRES_REVIEW';
   uploadedDocumentId?: string | null;
   verificationStatus: string;
   confidenceScore: number;

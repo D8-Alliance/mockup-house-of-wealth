@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { apiClient, apiErrorMessage, KycApplication, KycCheckRecommendation, KycCheckStatus } from '../services/apiClient';
 
 const RECOMMENDATION_STYLES: Record<KycCheckRecommendation, { label: string; className: string }> = {
@@ -18,6 +18,18 @@ const STATUS_STYLES: Record<KycCheckStatus, string> = {
   SKIPPED: 'text-slate-400',
 };
 
+// Plain-language names for the officer; unknown types fall back to the raw code.
+export const CHECK_LABELS: Record<string, string> = {
+  DOCUMENT_CONTENT: 'Documents vs entered details',
+  DOCUMENT_CONSISTENCY: 'Entered details consistency',
+  DUPLICATE_IDENTITY: 'Duplicate identity',
+  DOCUMENT: 'Document authenticity',
+  LIVENESS: 'Liveness',
+  FACE_MATCH: 'Face match',
+  REGISTRY: 'Government registry',
+  AML_SCREENING: 'Sanctions / PEP screening',
+};
+
 interface KycChecksPanelProps {
   application: KycApplication;
   onUpdated: (application: KycApplication) => void;
@@ -34,6 +46,11 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
   const shadows = current.filter((check) => check.shadow);
   const recommendation = application.checkRecommendation ? RECOMMENDATION_STYLES[application.checkRecommendation] : null;
   const canRerun = application.status === 'SUBMITTED' || application.status === 'APPROVED';
+  // Every finding that needs the officer's attention, one line each (e.g. a name on the ID that does not match).
+  const issues = primary
+    .filter((check) => check.status === 'FAIL' || check.status === 'REVIEW' || check.status === 'ERROR')
+    .flatMap((check) => (check.reasons.length ? check.reasons : [`${check.status === 'ERROR' ? 'could not be run' : 'needs review'}`])
+      .map((reason, index) => ({ key: `${check.id}-${index}`, label: CHECK_LABELS[check.checkType] ?? check.checkType, reason, failed: check.status === 'FAIL' })));
 
   const rerun = async () => {
     setRunning(true);
@@ -63,6 +80,22 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
       </div>
       {error && <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs">{error}</div>}
       {!primary.length && <p className="text-xs text-slate-400">No automated checks have run for this application yet.</p>}
+      {issues.length > 0 && (
+        <div className="p-3 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/30 space-y-1.5" role="alert">
+          <div className="flex items-center gap-1.5 text-xs font-black text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="w-4 h-4" />
+            {issues.length} issue{issues.length === 1 ? '' : 's'} to check before deciding
+          </div>
+          <ul className="space-y-1">
+            {issues.map(({ key, label, reason, failed }) => (
+              <li key={key} className={`flex items-start gap-1.5 text-xs ${failed ? 'text-rose-700 dark:text-rose-300' : 'text-amber-800 dark:text-amber-200'}`}>
+                <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                <span><strong>{label}:</strong> {reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {(application.checkReasons ?? []).length > 0 && (
         <ul className="list-disc pl-5 text-xs text-slate-600 dark:text-slate-300 space-y-0.5">
           {application.checkReasons!.map((reason) => <li key={reason}>{reason}</li>)}
@@ -78,7 +111,7 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
           <tbody>
             {primary.map((check) => (
               <tr key={check.id} className="border-t border-slate-100 dark:border-slate-700 align-top">
-                <td className="py-1 font-mono">{check.checkType}</td>
+                <td className="py-1">{CHECK_LABELS[check.checkType] ?? check.checkType}</td>
                 <td>{check.provider}</td>
                 <td className={`font-bold ${STATUS_STYLES[check.status]}`}>
                   {check.status}

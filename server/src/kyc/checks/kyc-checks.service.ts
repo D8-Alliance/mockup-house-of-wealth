@@ -62,6 +62,7 @@ export class KycChecksService {
       idDocumentType: application.idDocumentType,
       idDocumentNumber: application.idDocumentNumber,
       idDocumentExpiry: application.idDocumentExpiry,
+      residentialAddress: application.residentialAddress,
       documentTypes: application.documents.map((document) => document.documentType),
       loadDocument: async (documentType) => {
         const document = await this.prisma.kycDocument.findUnique({ where: { applicationId_documentType: { applicationId, documentType } }, select: { mimeType: true, fileContent: true } });

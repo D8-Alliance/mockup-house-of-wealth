@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -48,11 +49,16 @@ describe('KycService', () => {
   const prisma = {
     kycApplication: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), update: jest.fn(), count: jest.fn().mockResolvedValue(0) },
     kycDocument: { findMany: jest.fn(), upsert: jest.fn() },
+    kycCheckResult: { aggregate: jest.fn().mockResolvedValue({ _max: { round: 1 } }), findMany: jest.fn().mockResolvedValue([{ checkType: 'DOCUMENT_CONSISTENCY', status: 'PASS' }]) },
+    // assertApprovable: no other account is already verified with the same ID number.
+    $queryRaw: jest.fn().mockResolvedValue([]),
     $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
   };
   const checks = { run: jest.fn().mockResolvedValue(undefined), assertCanRerun: jest.fn() };
   const service = new KycService(prisma as unknown as PrismaService, audit as unknown as AuditService, checks as unknown as KycChecksService);
-  const submitted = { id: 'KYC-1', applicationNumber: 'KYC-2026-AAAA', userId: 'USR-APPLICANT', organisationId: 'ORG-PUBLIC', countryNodeId: 'CN-MYS', status: 'SUBMITTED', ...completeDetails };
+  const submitted = { id: 'KYC-1', applicationNumber: 'KYC-2026-AAAA', userId: 'USR-APPLICANT', organisationId: 'ORG-PUBLIC', countryNodeId: 'CN-MYS', status: 'SUBMITTED', checkRecommendation: 'CLEAR', ...completeDetails };
+  // A real PNG signature; uploads are checked against the file's actual bytes.
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00]);
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -120,7 +126,7 @@ describe('KycService', () => {
 
   it('blocks document changes once the application is submitted', async () => {
     prisma.kycApplication.findFirst.mockResolvedValueOnce(submitted);
-    const file = { originalname: 'selfie.png', mimetype: 'image/png', size: 10, buffer: Buffer.from('x') } as Express.Multer.File;
+    const file = { originalname: 'selfie.png', mimetype: 'image/png', size: 9, buffer: png } as Express.Multer.File;
     await expect(service.uploadDocument(actor('Retail Investor', 'USR-APPLICANT'), 'SELFIE', file)).rejects.toThrow(/under review/);
     expect(prisma.kycDocument.upsert).not.toHaveBeenCalled();
   });
@@ -128,9 +134,9 @@ describe('KycService', () => {
   it('stores a SHA-256 of each uploaded document', async () => {
     prisma.kycApplication.findFirst.mockResolvedValueOnce({ ...submitted, status: 'DRAFT' });
     prisma.kycDocument.upsert.mockResolvedValueOnce({ id: 'DOC-1', sha256: 'h', fileSize: 1 });
-    const file = { originalname: 'selfie.png', mimetype: 'image/png', size: 1, buffer: Buffer.from('x') } as Express.Multer.File;
+    const file = { originalname: 'selfie.png', mimetype: 'image/png', size: 9, buffer: png } as Express.Multer.File;
     await service.uploadDocument(actor('Retail Investor', 'USR-APPLICANT'), 'SELFIE', file);
-    expect(prisma.kycDocument.upsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ sha256: '2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881' }) }));
+    expect(prisma.kycDocument.upsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ sha256: createHash('sha256').update(png).digest('hex') }) }));
   });
 
   it('does not open a second application once verified', async () => {
@@ -164,5 +170,44 @@ describe('KycService', () => {
     const mine = await service.getMine(actor('Retail Investor', 'USR-APPLICANT'));
     expect(mine).not.toHaveProperty('checkRecommendation');
     expect(mine).not.toHaveProperty('checkReasons');
+  });
+
+  it('rejects a file whose bytes are not really a JPG, PNG or PDF', async () => {
+    const file = { originalname: 'selfie.png', mimetype: 'image/png', size: 11, buffer: Buffer.from('<html></html>') } as Express.Multer.File;
+    await expect(service.uploadDocument(actor('Retail Investor', 'USR-APPLICANT'), 'SELFIE', file)).rejects.toThrow(/not a valid JPG, PNG or PDF/);
+    expect(prisma.kycDocument.upsert).not.toHaveBeenCalled();
+  });
+
+  it('never approves an identity already verified for another account', async () => {
+    prisma.kycApplication.findFirst.mockResolvedValueOnce(submitted);
+    prisma.$queryRaw.mockResolvedValueOnce([{ id: 'KYC-OTHER' }]);
+    await expect(service.review(actor('KYC Officer'), 'KYC-1', { decision: 'APPROVED', kycLevel: 'LEVEL_1', comment: 'Documents match', overrideReason: 'Officer insists on approving this' })).rejects.toThrow(/already verified for another account/);
+    expect(tx.kycApplication.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('requires an override reason to approve past a failed check, and records it', async () => {
+    prisma.kycApplication.findFirst.mockResolvedValueOnce({ ...submitted, checkRecommendation: 'ADVERSE' });
+    prisma.kycCheckResult.findMany.mockResolvedValueOnce([{ checkType: 'DUPLICATE_IDENTITY', status: 'FAIL' }]);
+    await expect(service.review(actor('KYC Officer'), 'KYC-1', { decision: 'APPROVED', kycLevel: 'LEVEL_1', comment: 'Documents match' })).rejects.toBeInstanceOf(ConflictException);
+
+    prisma.kycApplication.findFirst.mockResolvedValueOnce({ ...submitted, checkRecommendation: 'ADVERSE' }).mockResolvedValueOnce({ ...submitted, status: 'APPROVED', documents: [], reviews: [] });
+    prisma.kycCheckResult.findMany.mockResolvedValueOnce([{ checkType: 'DUPLICATE_IDENTITY', status: 'FAIL' }]);
+    tx.kycApplication.updateMany.mockResolvedValueOnce({ count: 1 });
+    await service.review(actor('KYC Officer'), 'KYC-1', { decision: 'APPROVED', kycLevel: 'LEVEL_1', comment: 'Documents match', overrideReason: 'Verified in person at the branch' });
+    expect(tx.kycApplication.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ reviewComment: expect.stringContaining('Override of failed automated checks (DUPLICATE_IDENTITY): Verified in person at the branch') }) }));
+  });
+
+  it('requires an explicit acknowledgement to approve while checks show warnings', async () => {
+    prisma.kycApplication.findFirst.mockResolvedValueOnce({ ...submitted, checkRecommendation: 'ATTENTION' });
+    prisma.kycCheckResult.findMany.mockResolvedValueOnce([{ checkType: 'DOCUMENT_CONTENT', status: 'REVIEW' }]);
+    await expect(service.review(actor('KYC Officer'), 'KYC-1', { decision: 'APPROVED', kycLevel: 'LEVEL_1', comment: 'Documents match' })).rejects.toThrow(/warnings/);
+    expect(tx.kycApplication.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('lets a reviewer reject or request changes regardless of check warnings', async () => {
+    prisma.kycApplication.findFirst.mockResolvedValueOnce({ ...submitted, checkRecommendation: 'ADVERSE' }).mockResolvedValueOnce({ ...submitted, documents: [], reviews: [] });
+    tx.kycApplication.updateMany.mockResolvedValueOnce({ count: 1 });
+    await service.review(actor('KYC Officer'), 'KYC-1', { decision: 'REJECTED', comment: 'Name on ID does not match' });
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
 });

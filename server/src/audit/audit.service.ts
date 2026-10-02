@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AuthenticatedUser } from '../auth/identity.service';
+import { tenantScopeFilter } from '../tenancy/tenant-scope';
+import { AuditQueryDto } from './audit.dto';
 
 export interface AuditEntry {
   userId: string;
@@ -29,9 +32,9 @@ export class AuditService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  public async record(entry: AuditEntry): Promise<void> {
+  public async record(entry: AuditEntry, client: PrismaService | Prisma.TransactionClient = this.prisma): Promise<void> {
     try {
-      await this.prisma.auditEvent.create({
+      await client.auditEvent.create({
         data: {
           userId: entry.userId,
           userEmail: entry.userEmail,
@@ -54,7 +57,39 @@ export class AuditService {
     }
   }
 
-  public recordActor(actor: AuthenticatedUser, entry: Omit<AuditEntry, 'userId' | 'userEmail'>): Promise<void> {
-    return this.record({ ...entry, userId: actor.userId, userEmail: actor.email });
+  public recordActor(actor: AuthenticatedUser, entry: Omit<AuditEntry, 'userId' | 'userEmail'>, client?: PrismaService | Prisma.TransactionClient): Promise<void> {
+    return this.record({ ...entry, userId: actor.userId, userEmail: actor.email }, client);
+  }
+
+  public async list(actor: AuthenticatedUser, query: AuditQueryDto) {
+    const where = this.buildWhere(actor, query);
+    const [events, total] = await Promise.all([
+      this.prisma.auditEvent.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (query.page - 1) * query.limit, take: query.limit }),
+      this.prisma.auditEvent.count({ where }),
+    ]);
+    return { data: events, page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) };
+  }
+
+  public async exportCsv(actor: AuthenticatedUser, query: AuditQueryDto) {
+    const where = this.buildWhere(actor, query);
+    const events = await this.prisma.auditEvent.findMany({ where, orderBy: { createdAt: 'desc' }, take: 10000 });
+    const header = ['id', 'createdAt', 'userId', 'userEmail', 'action', 'resourceType', 'resourceId', 'organisationId', 'countryNodeId', 'result', 'metadata'];
+    const rows = events.map((event) => [event.id, event.createdAt.toISOString(), event.userId, event.userEmail, event.action, event.resourceType, event.resourceId, event.organisationId, event.countryNodeId, event.result, JSON.stringify(event.metadata)]);
+    return { fileName: `house-of-wealth-audit-${new Date().toISOString().slice(0, 10)}.csv`, content: [header, ...rows].map((row) => row.map((value) => this.csvCell(value)).join(',')).join('\r\n') + '\r\n' };
+  }
+
+  private buildWhere(actor: AuthenticatedUser, query: AuditQueryDto): Prisma.AuditEventWhereInput {
+    return {
+      ...tenantScopeFilter(actor),
+      ...(query.action ? { action: { contains: query.action, mode: 'insensitive' } } : {}),
+      ...(query.resourceType ? { resourceType: { equals: query.resourceType } } : {}),
+      ...(query.userId ? { userId: query.userId } : {}),
+      ...((query.from || query.to) ? { createdAt: { ...(query.from ? { gte: new Date(query.from) } : {}), ...(query.to ? { lt: new Date(query.to) } : {}) } } : {}),
+    };
+  }
+
+  private csvCell(value: unknown) {
+    const text = value === null || value === undefined ? '' : String(value);
+    return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 }

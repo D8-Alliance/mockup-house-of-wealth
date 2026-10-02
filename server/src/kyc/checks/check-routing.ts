@@ -32,6 +32,11 @@ export const DEFAULT_CHECK_ROUTING: CheckRouting = {
   defaults: {
     DOCUMENT_CONSISTENCY: { primary: 'internal', required: true },
     DUPLICATE_IDENTITY: { primary: 'internal', required: true },
+    // Reads the documents locally (PDF text / OCR); advisory, so a mismatch is ATTENTION, never ADVERSE.
+    DOCUMENT_CONTENT: { primary: 'local-ocr', required: false, timeoutMs: 90_000 },
+    // Camera face verification prototype (src/kyc/liveness). Not required: a missing session is ATTENTION.
+    LIVENESS: { primary: 'local-face', required: false },
+    FACE_MATCH: { primary: 'local-face', required: false },
   },
   countries: {},
 };

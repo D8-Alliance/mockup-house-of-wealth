@@ -97,6 +97,10 @@ export class IdentityService {
             countryNodeId: claims.countryNodeId,
             organisationId: claims.organisationId,
           },
+          include: {
+            organisation: { select: { id: true, countryNodeId: true, status: true } },
+            countryNode: { select: { code: true, status: true } },
+          },
           orderBy: { assignedAt: 'asc' },
         },
       },
@@ -105,7 +109,11 @@ export class IdentityService {
       throw new UnauthorizedException('User is not provisioned or is inactive');
     }
 
-    const assignedRoles = user.roleAssignments.map((assignment) => this.fromPrismaRole(assignment.role));
+    const validAssignments = user.roleAssignments.filter((assignment) => assignment.organisation.status === 'ACTIVE' && assignment.countryNode.status === 'ACTIVE' && assignment.organisation.countryNodeId === assignment.countryNode.code);
+    if (validAssignments.length !== user.roleAssignments.length) {
+      throw new UnauthorizedException('Organisation or country node is inactive or mismatched');
+    }
+    const assignedRoles = validAssignments.map((assignment) => this.fromPrismaRole(assignment.role));
     if (assignedRoles.length === 0) {
       throw new UnauthorizedException('User has no active role in this organisation and country');
     }

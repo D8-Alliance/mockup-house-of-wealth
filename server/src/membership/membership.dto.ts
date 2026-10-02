@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class UpgradeMembershipDto {
   @IsString()
@@ -9,6 +9,12 @@ export class UpgradeMembershipDto {
 
   @IsString()
   paymentMethod!: string;
+
+  // Purchased AI credits to put towards the plan price.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  creditsToApply?: number;
 }
 
 export class ConsumeCreditsDto {
@@ -26,4 +32,12 @@ export class TopUpCreditsDto {
 
   @IsString()
   paymentMethod!: string;
+}
+
+export class ReconcilePaymentsDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  limit?: number;
 }

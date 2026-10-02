@@ -1,4 +1,4 @@
-import { IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
+import { IsBoolean, IsDateString, IsIn, IsOptional, IsString, MaxLength, MinLength, ValidateIf } from 'class-validator';
 import { KYC_DECISIONS, KYC_ID_DOCUMENT_TYPES, KYC_LEVELS, KYC_STATUSES, KycDecision, KycIdDocumentType, KycLevel, KycStatus } from './kyc-workflow';
 
 // Draft saves are partial; completeness is checked on submit (kycSubmissionGaps).
@@ -24,6 +24,14 @@ export class KycReviewDto {
   @ValidateIf((input: KycReviewDto) => input.decision === 'APPROVED')
   @IsIn(KYC_LEVELS)
   kycLevel?: KycLevel;
+
+  // Approving while automated checks show warnings (ATTENTION/PENDING) needs this set to true.
+  @IsOptional() @IsBoolean()
+  acknowledgeWarnings?: boolean;
+
+  // Approving despite a FAILED automated check needs a recorded justification.
+  @IsOptional() @IsString() @MaxLength(1000)
+  overrideReason?: string;
 }
 
 export class KycQueueQueryDto {

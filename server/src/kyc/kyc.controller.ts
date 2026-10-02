@@ -9,6 +9,7 @@ import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { KycQueueQueryDto, KycReviewDto, SaveKycDraftDto } from './kyc.dto';
 import { KycService } from './kyc.service';
 import { KycChecksService } from './checks/kyc-checks.service';
+import { KycLivenessService } from './liveness/kyc-liveness.service';
 
 const KYC_UPLOAD_EXTENSIONS = ['jpg', 'jpeg', 'png', 'pdf'];
 
@@ -23,7 +24,7 @@ function sendDocument(response: Response, document: { fileName: string; mimeType
 @UseGuards(FeatureModuleGuard)
 @RequireFeatureModule('KYC_VERIFICATION')
 export class KycController {
-  constructor(private readonly kyc: KycService) {}
+  constructor(private readonly kyc: KycService, private readonly liveness: KycLivenessService) {}
 
   // Applicant endpoints: any authenticated user may verify their own identity.
 
@@ -53,6 +54,25 @@ export class KycController {
   @Post('me/submit')
   submit(@CurrentUser() actor: AuthenticatedUser) {
     return this.kyc.submit(actor);
+  }
+
+  // Face verification (camera liveness prototype). The server issues the steps and checks every frame.
+
+  @Get('me/liveness')
+  latestLiveness(@CurrentUser() actor: AuthenticatedUser) {
+    return this.liveness.latestMine(actor);
+  }
+
+  @Post('me/liveness/sessions')
+  startLiveness(@CurrentUser() actor: AuthenticatedUser) {
+    return this.liveness.start(actor);
+  }
+
+  @Post('me/liveness/sessions/:sessionId/steps/:step')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('frame', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  livenessFrame(@CurrentUser() actor: AuthenticatedUser, @Param('sessionId') sessionId: string, @Param('step') step: string, @UploadedFile() file?: Express.Multer.File) {
+    return this.liveness.submitFrame(actor, sessionId, step.toUpperCase(), file);
   }
 
   @Get('me/documents/:documentId/download')
@@ -88,6 +108,20 @@ export class KycController {
   @RequirePermission('users', 'approve')
   review(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: KycReviewDto) {
     return this.kyc.review(actor, id, input);
+  }
+
+  @Get('applications/:id/liveness')
+  @Roles('Super Admin', 'Country Admin', 'KYC Officer', 'Compliance Officer')
+  @RequirePermission('users', 'read')
+  livenessForReview(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) {
+    return this.liveness.latestForReview(actor, id);
+  }
+
+  @Get('applications/:id/liveness/frames/:frameId')
+  @Roles('Super Admin', 'Country Admin', 'KYC Officer', 'Compliance Officer')
+  @RequirePermission('users', 'read')
+  async livenessFrameForReview(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Param('frameId') frameId: string, @Res() response: Response) {
+    sendDocument(response, await this.liveness.frameForReview(actor, id, frameId));
   }
 
   @Post('applications/:id/checks/run')

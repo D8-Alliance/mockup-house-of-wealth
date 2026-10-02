@@ -11,7 +11,7 @@ function context(overrides: Record<string, unknown> = {}, documents: Record<stri
   return {
     subject: {
       applicationId: 'KYC-1', userId: 'U1', countryNodeId: 'CN-MYS', fullName: 'Ali Bin Abu', dateOfBirth: new Date('1990-05-01'), nationality: 'Malaysian',
-      idDocumentType: 'NATIONAL_ID', idDocumentNumber: '900501-14-5678', idDocumentExpiry: null, documentTypes: Object.keys(documents),
+      idDocumentType: 'NATIONAL_ID', idDocumentNumber: '900501-14-5678', idDocumentExpiry: null, residentialAddress: '', documentTypes: Object.keys(documents),
       loadDocument: async (type: string) => documents[type] ?? null,
       ...overrides,
     },

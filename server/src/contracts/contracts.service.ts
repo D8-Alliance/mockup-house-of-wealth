@@ -53,15 +53,19 @@ export class ContractsService {
     this.require(actor, 'contracts', 'update');
     const contract = await this.get(id, actor);
     const version = (contract.versions[0]?.version ?? 0) + 1;
-    return this.prisma.contractVersion.create({
+    const versionRecord = await this.prisma.contractVersion.create({
       data: { contractId: id, version, content: input.content as Prisma.InputJsonValue, createdBy: actor.userId },
     });
+    await this.audit.recordActor(actor, { action: 'contract.version_created', resourceType: 'ContractVersion', resourceId: versionRecord.id, countryNodeId: actor.countryNodeId, organisationId: actor.organisationId, metadata: { contractId: id, version } });
+    return versionRecord;
   }
 
   async addParty(id: string, input: CreatePartyDto, actor: AuthenticatedUser) {
     this.require(actor, 'contracts', 'update');
     await this.get(id, actor);
-    return this.prisma.contractParty.create({ data: { contractId: id, ...input } });
+    const party = await this.prisma.contractParty.create({ data: { contractId: id, ...input } });
+    await this.audit.recordActor(actor, { action: 'contract.party_added', resourceType: 'ContractParty', resourceId: party.id, countryNodeId: actor.countryNodeId, organisationId: actor.organisationId, metadata: { contractId: id, partyType: input.partyType } });
+    return party;
   }
 
   async decideApproval(id: string, approvalId: string, input: DecideApprovalDto, actor: AuthenticatedUser) {
@@ -79,7 +83,9 @@ export class ContractsService {
     await this.get(id, actor);
     const version = await this.prisma.contractVersion.findFirst({ where: { id: input.versionId, contractId: id } });
     if (!version) throw new NotFoundException('Contract version not found');
-    return this.prisma.contractApproval.create({ data: { contractId: id, versionId: input.versionId, approverId: input.approverId } });
+    const approval = await this.prisma.contractApproval.create({ data: { contractId: id, versionId: input.versionId, approverId: input.approverId } });
+    await this.audit.recordActor(actor, { action: 'contract.approval_created', resourceType: 'ContractApproval', resourceId: approval.id, countryNodeId: actor.countryNodeId, organisationId: actor.organisationId, metadata: { contractId: id, versionId: input.versionId, approverId: input.approverId } });
+    return approval;
   }
 
   async transition(id: string, input: TransitionContractDto, actor: AuthenticatedUser) {

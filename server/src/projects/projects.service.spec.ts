@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { PolicyService } from '../policy/policy.service';
 import { AuditService } from '../audit/audit.service';
@@ -135,5 +135,36 @@ describe('ProjectsService list tenant scoping (country admin sees only its own c
         projectSponsorId: 'USR-A',
       }),
     }));
+  });
+});
+
+describe('ProjectsService approval lock and reopen', () => {
+  const service = new ProjectsService(prismaMock as unknown as PrismaService, auditMock as unknown as AuditService, policy);
+  const project = (status: string) => ({ projectId: 'PRJ-1', projectSponsorId: 'USR-A', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', status });
+  const admin = actor('Country Admin', 'CN-MYS');
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('blocks evidence uploads once the project is approved', async () => {
+    prismaMock.project.findUnique.mockResolvedValue(project('POOLING'));
+    const file = { originalname: 'cashflow.pdf' } as Express.Multer.File;
+
+    await expect(service.uploadEvidence('PRJ-1', 'CASHFLOW_FORECAST', file, admin)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('does not let a plain status change move an approved project back to due diligence', async () => {
+    prismaMock.project.findUnique.mockResolvedValue(project('APPROVED'));
+
+    await expect(service.updateStatus('PRJ-1', { status: 'DUE_DILIGENCE' }, admin)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('refuses to reopen a project once funds are committed', async () => {
+    prismaMock.project.findUnique.mockResolvedValue(project('FUNDED'));
+
+    await expect(service.reopenProject('PRJ-1', 'Valuation report replaced', admin)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('requires a reason to reopen', async () => {
+    await expect(service.reopenProject('PRJ-1', '  ', admin)).rejects.toBeInstanceOf(BadRequestException);
   });
 });

@@ -30,8 +30,8 @@ describe('IdentityService role extraction', () => {
        name: 'Ahmad bin Razak',
       isActive: true,
       roleAssignments: [
-        { role: 'Country_Admin', assignedAt: new Date() },
-        { role: 'Institutional_Investor', assignedAt: new Date() },
+         { role: 'Country_Admin', assignedAt: new Date(), organisation: { id: 'ORG-PUBLIC', countryNodeId: 'CN-MYS', status: 'ACTIVE' }, countryNode: { code: 'CN-MYS', status: 'ACTIVE' } },
+         { role: 'Institutional_Investor', assignedAt: new Date(), organisation: { id: 'ORG-PUBLIC', countryNodeId: 'CN-MYS', status: 'ACTIVE' }, countryNode: { code: 'CN-MYS', status: 'ACTIVE' } },
       ],
     });
 
@@ -65,12 +65,21 @@ describe('IdentityService role extraction', () => {
       email: 'y@example.test',
       name: 'Y',
       isActive: false,
-      roleAssignments: [{ role: 'Guest', assignedAt: new Date() }],
+       roleAssignments: [{ role: 'Guest', assignedAt: new Date(), organisation: { id: 'ORG-PUBLIC', countryNodeId: 'CN-MYS', status: 'ACTIVE' }, countryNode: { code: 'CN-MYS', status: 'ACTIVE' } }],
     });
 
     await expect(service.verifyToken(tokenForMockHeader({ mock: 'Y' }))).rejects.toBeInstanceOf(
       UnauthorizedException,
     );
+  });
+
+  it('rejects an inactive organisation or country node', async () => {
+    prismaMock.user.findFirst.mockResolvedValue({
+      id: 'USR-Z', idpSubjectId: 'USR-Z', email: 'z@example.test', name: 'Z', isActive: true,
+      roleAssignments: [{ role: 'Guest', assignedAt: new Date(), organisation: { id: 'ORG-PUBLIC', countryNodeId: 'CN-MYS', status: 'SUSPENDED' }, countryNode: { code: 'CN-MYS', status: 'ACTIVE' } }],
+    });
+
+    await expect(service.verifyToken(tokenForMockHeader({ mock: 'Z' }))).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('throws when no bearer token is supplied', async () => {

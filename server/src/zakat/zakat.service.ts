@@ -4,6 +4,9 @@ import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { CalculateZakatDto } from './zakat.dto';
+import { ToyyibPayService } from '../membership/toyyibpay.service';
+import { FinancialLedgerService } from '../financial/financial-ledger.service';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 const DEFAULT_NISAB_THRESHOLD = 6120;
 const ZAKAT_RATE = 0.025;
@@ -13,6 +16,8 @@ export class ZakatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly toyyibPay: ToyyibPayService,
+    private readonly ledger: FinancialLedgerService,
   ) {}
 
   async calculate(actor: AuthenticatedUser, input: CalculateZakatDto) {
@@ -53,6 +58,17 @@ export class ZakatService {
       orderBy: { createdAt: 'desc' },
     });
     return calculation ? this.toResponse(calculation) : null;
+  }
+
+  async createPaymentBill(actor: AuthenticatedUser, calculationId: string) {
+    const calculation = await this.prisma.zakatCalculation.findFirst({ where: { id: calculationId, userId: actor.userId } });
+    if (!calculation) throw new NotFoundException('Zakat calculation not found.');
+    const amount = Number(calculation.zakatDue);
+    if (amount <= 0) throw new BadRequestException('There is no zakat amount due for this calculation.');
+    if (calculation.currency !== 'MYR') throw new BadRequestException('ToyyibPay zakat payment requires a MYR calculation.');
+    const gateway = await this.ledger.ensureAccount(actor, { accountCode: 'SYSTEM-TOYYIBPAY-CASH-MYR', accountType: 'ASSET', ownerType: 'SYSTEM', ownerId: 'TOYYIBPAY', organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, currency: 'MYR' });
+    const zakatAccount = await this.ledger.ensureAccount(actor, { accountCode: `ORG-${actor.organisationId}-ZAKAT-PAYABLE-MYR`, accountType: 'LIABILITY', ownerType: 'ORGANISATION', ownerId: actor.organisationId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, currency: 'MYR' });
+    return this.toyyibPay.createBill(actor, { productType: 'ZAKAT_PAYMENT', productId: calculation.id, description: `Zakat payment ${calculation.id}`, amountMYR: amount, metadata: { calculationId: calculation.id, amount, currency: 'MYR', gatewayAccountId: gateway.id, zakatAccountId: zakatAccount.id } });
   }
 
   private toResponse(calculation: any) {

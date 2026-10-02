@@ -13,41 +13,86 @@ import {
   Check
 } from 'lucide-react';
 import { MembershipPlan, BillingInterval } from '../../revenue/revenueTypes';
+import { apiErrorMessage, BackendMembershipStatus } from '../../services/apiClient';
 
 interface UpgradeModalProps {
   plan: MembershipPlan;
   interval: BillingInterval;
+  /** Supplies redeemable credits, credit value and the ToyyibPay fee; null while loading. */
+  membershipStatus: BackendMembershipStatus | null;
   onClose: () => void;
-  onConfirm: (planId: string, interval: BillingInterval, paymentMethod: string) => void;
+  onConfirm: (planId: string, interval: BillingInterval, paymentMethod: string, creditsToApply?: number) => Promise<void>;
+}
+
+// Mirrors the backend split (splitMembershipPayment) so the summary matches what is charged.
+function splitPayment(priceMYR: number, requested: number, available: number, rate: number, minimumCash: number) {
+  let credits = Math.max(0, Math.min(Math.floor(requested || 0), available, Math.ceil(priceMYR / rate - 1e-9)));
+  let cash = Math.round(Math.max(0, priceMYR - credits * rate) * 100) / 100;
+  if (cash > 0 && cash < minimumCash) {
+    credits = Math.max(0, Math.floor((priceMYR - minimumCash) / rate + 1e-9));
+    cash = Math.round((priceMYR - credits * rate) * 100) / 100;
+  }
+  return { credits, creditValue: Math.round((priceMYR - cash) * 100) / 100, cash };
 }
 
 export const UpgradeModal: React.FC<UpgradeModalProps> = ({
   plan,
   interval: initialInterval,
+  membershipStatus,
   onClose,
   onConfirm
 }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1); // 1: Summary & Features, 2: Interval & Pricing, 3: Mock Checkout & Confirm
   const [billingInterval, setBillingInterval] = useState<BillingInterval>(initialInterval);
-  const [selectedMethod, setSelectedMethod] = useState<'card' | 'wallet' | 'fpx' | 'isdb'>('card');
+  const [selectedMethod, setSelectedMethod] = useState<'card' | 'wallet' | 'fpx' | 'isdb'>('fpx');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState('');
 
   const priceMYR = billingInterval === 'monthly' ? plan.monthlyPriceMYR : plan.annualPriceMYR;
   const priceUSD = billingInterval === 'monthly' ? plan.monthlyPriceUSD : plan.annualPriceUSD;
   const isCustom = plan.isCustomPricing;
 
-  const handleCheckout = () => {
+  const availableCredits = membershipStatus?.redeemableCredits ?? 0;
+  const creditRate = membershipStatus?.creditValueMYR ?? 0.2;
+  const fpxFee = membershipStatus?.fpxFeeMYR ?? 1;
+  const [useCredits, setUseCredits] = useState(false);
+  const [creditsRequested, setCreditsRequested] = useState(0);
+  const maxUsefulCredits = Math.min(availableCredits, Math.ceil(priceMYR / creditRate - 1e-9));
+  const split = splitPayment(priceMYR, useCredits ? creditsRequested : 0, availableCredits, creditRate, membershipStatus?.toyyibPayMinimumMYR ?? 1);
+  const fullyCoveredByCredits = useCredits && split.credits > 0 && split.cash === 0;
+  const feeApplies = selectedMethod === 'fpx' && !fullyCoveredByCredits && split.cash > 0;
+  const totalCharged = Math.round((split.cash + (feeApplies ? fpxFee : 0)) * 100) / 100;
+  const toggleCredits = (enabled: boolean) => {
+    setUseCredits(enabled);
+    if (enabled && !creditsRequested) setCreditsRequested(maxUsefulCredits);
+  };
+
+  const handleCheckout = async () => {
     setIsProcessing(true);
+    setError('');
+    if (fullyCoveredByCredits || selectedMethod === 'fpx') {
+      // ToyyibPay redirects the browser to the bill page; a credits-only payment activates immediately.
+      try {
+        await onConfirm(plan.id, billingInterval, fullyCoveredByCredits ? 'AI_CREDITS' : 'TOYYIBPAY', split.credits);
+      } catch (cause) {
+        setError(apiErrorMessage(cause, 'Unable to start ToyyibPay checkout.'));
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
     setTimeout(() => {
       setIsProcessing(false);
       setIsSuccess(true);
       setTimeout(() => {
         let methodTitle = 'Simulated Card (•••• 4242)';
         if (selectedMethod === 'wallet') methodTitle = 'D-8 Wealth E-Wallet';
-        if (selectedMethod === 'fpx') methodTitle = 'Islamic Direct Debit (FPX/Bank Transfer)';
         if (selectedMethod === 'isdb') methodTitle = 'IsDB Interbank Clearing Protocol';
-        onConfirm(plan.id, billingInterval, methodTitle);
+        onConfirm(plan.id, billingInterval, methodTitle, split.credits).catch((cause) => {
+          setIsSuccess(false);
+          setError(apiErrorMessage(cause, 'Unable to activate the plan.'));
+        });
       }, 900);
     }, 1200);
   };
@@ -216,12 +261,41 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
               </div>
             </div>
 
+            {!isCustom && availableCredits > 0 && (
+              <div className="p-4 rounded-2xl border border-purple-200 dark:border-purple-800/50 bg-purple-50/60 dark:bg-purple-950/20 space-y-3">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input type="checkbox" checked={useCredits} onChange={(event) => toggleCredits(event.target.checked)} className="mt-0.5 accent-purple-600" />
+                  <span>
+                    <span className="block text-xs font-black text-slate-900 dark:text-white">Use my purchased AI credits</span>
+                    <span className="block text-[11px] text-slate-500">{availableCredits.toLocaleString()} credits available · 1 credit = RM {creditRate.toFixed(2)}. Monthly allowance credits cannot be used.</span>
+                  </span>
+                </label>
+                {useCredits && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      max={maxUsefulCredits}
+                      value={creditsRequested}
+                      onChange={(event) => setCreditsRequested(Math.max(0, Math.min(maxUsefulCredits, Math.floor(Number(event.target.value) || 0))))}
+                      className="w-28 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono"
+                    />
+                    <button type="button" onClick={() => setCreditsRequested(maxUsefulCredits)} className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-bold cursor-pointer">Max</button>
+                    <span className="text-[11px] text-purple-700 dark:text-purple-300 font-bold">−RM {split.creditValue.toFixed(2)} ({split.credits} credits)</span>
+                  </div>
+                )}
+                {useCredits && split.credits < Math.min(creditsRequested, maxUsefulCredits) && (
+                  <p className="text-[10px] text-slate-500">Adjusted to {split.credits} credits so the remaining RM {split.cash.toFixed(2)} meets ToyyibPay's RM 1 minimum.</p>
+                )}
+              </div>
+            )}
+
             {/* Payment Instruments */}
-            <div className="grid grid-cols-2 gap-2.5">
+            {!fullyCoveredByCredits && <div className="grid grid-cols-2 gap-2.5">
               {[
                 { id: 'card', name: 'Credit / Debit Card', desc: 'Visa / Mastercard Mock', icon: <CreditCard className="w-4 h-4 text-emerald-500" /> },
                 { id: 'wallet', name: 'D-8 Wealth Wallet', desc: 'Internal Token Balance', icon: <Wallet className="w-4 h-4 text-amber-500" /> },
-                { id: 'fpx', name: 'Islamic Bank FPX', desc: 'Maybank, BIMB, Muamalat', icon: <Building2 className="w-4 h-4 text-blue-500" /> },
+                { id: 'fpx', name: 'FPX / Card (ToyyibPay)', desc: 'Real payment via ToyyibPay', icon: <Building2 className="w-4 h-4 text-blue-500" /> },
                 { id: 'isdb', name: 'IsDB Protocol', desc: 'Sovereign Clearing Desk', icon: <ShieldCheck className="w-4 h-4 text-purple-500" /> }
               ].map(method => (
                 <button
@@ -241,12 +315,31 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                   <div className="text-[10px] text-slate-400">{method.desc}</div>
                 </button>
               ))}
-            </div>
+            </div>}
+
+            {!isCustom && (
+              <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 text-xs space-y-1.5">
+                <div className="flex justify-between text-slate-600 dark:text-slate-300"><span>Plan price</span><span className="font-mono">RM {priceMYR.toFixed(2)}</span></div>
+                {split.credits > 0 && <div className="flex justify-between text-purple-700 dark:text-purple-300"><span>AI credits applied ({split.credits})</span><span className="font-mono">−RM {split.creditValue.toFixed(2)}</span></div>}
+                {feeApplies && <div className="flex justify-between text-slate-600 dark:text-slate-300"><span>FPX fee (charged by ToyyibPay)</span><span className="font-mono">RM {fpxFee.toFixed(2)}</span></div>}
+                <div className="flex justify-between pt-1.5 border-t border-slate-200 dark:border-slate-700 font-black text-slate-900 dark:text-white"><span>{fullyCoveredByCredits ? 'Paid with AI credits' : 'Total to pay'}</span><span className="font-mono">RM {totalCharged.toFixed(2)}</span></div>
+              </div>
+            )}
 
             <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-2">
               <Lock className="w-4 h-4 shrink-0 mt-0.5" />
-              <span><strong>Sandbox Mock Payment:</strong> No real bank card will be charged. Instantly activates the selected plan.</span>
+              {fullyCoveredByCredits
+                ? <span><strong>AI credits:</strong> The plan activates immediately and {split.credits} purchased credits are deducted.</span>
+                : selectedMethod === 'fpx'
+                  ? <span><strong>ToyyibPay:</strong> You will be redirected to ToyyibPay. The plan activates after the payment is confirmed.{split.credits > 0 ? ' Your credits are held now and returned if the payment fails or is cancelled.' : ''}</span>
+                  : <span><strong>Sandbox Mock Payment:</strong> No real bank card will be charged. Instantly activates the selected plan.</span>}
             </div>
+
+            {error && (
+              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 text-[11px] font-semibold text-rose-700 dark:text-rose-300">
+                {error}
+              </div>
+            )}
 
             <div className="flex items-center justify-between pt-2">
               <button
@@ -256,16 +349,16 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 Back
               </button>
               <button
-                onClick={handleCheckout}
+                onClick={() => void handleCheckout()}
                 disabled={isProcessing || isSuccess}
                 className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isProcessing ? (
-                  <span>Authorizing Sandbox...</span>
+                  <span>{fullyCoveredByCredits ? 'Activating...' : selectedMethod === 'fpx' ? 'Redirecting to ToyyibPay...' : 'Authorizing Sandbox...'}</span>
                 ) : isSuccess ? (
                   <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Activated!</span>
                 ) : (
-                  <span>Confirm & Activate</span>
+                  <span>{fullyCoveredByCredits ? `Pay with ${split.credits} AI credits` : selectedMethod === 'fpx' ? `Pay RM ${totalCharged.toFixed(2)} with ToyyibPay` : 'Confirm & Activate'}</span>
                 )}
               </button>
             </div>

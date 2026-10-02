@@ -4,7 +4,15 @@ import { Response } from 'express';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
+import { IsString, MaxLength } from 'class-validator';
 import { ProjectsService } from './projects.service';
+
+// Declared before the controller: its decorators reference this class at load time.
+export class ReopenProjectDto {
+  @IsString()
+  @MaxLength(1000)
+  reason!: string;
+}
 
 // Reject unsupported files with a clear 400 instead of silently dropping them
 // (which surfaced as a misleading 'file is required' error).
@@ -49,6 +57,12 @@ export class ProjectsController {
   @RequirePermission('assets', 'update')
   updateStatus(@Param('id') id: string, @Body() body: UpdateProjectStatusDto, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.updateStatus(id, body, user);
+  }
+
+  @Post(':id/reopen')
+  @Roles('Super Admin', 'Country Admin')
+  reopen(@Param('id') id: string, @Body() body: ReopenProjectDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.reopenProject(id, body.reason, user);
   }
 
   @Post(':id/milestones')
@@ -214,6 +228,12 @@ export class ProjectsController {
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 }, fileFilter: uploadFilter(['pdf', 'xlsx', 'csv']) }))
   uploadEvidence(@Param('id') id: string, @Param('evidenceType') evidenceType: string, @UploadedFile() file: Express.Multer.File | undefined, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.uploadEvidence(id, evidenceType.toUpperCase(), file, user);
+  }
+
+  @Post(':id/evidence/:evidenceType/verify')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee')
+  verifyEvidence(@Param('id') id: string, @Param('evidenceType') evidenceType: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.verifyEvidence(id, evidenceType.toUpperCase(), user);
   }
 
   @Get(':id/documents/:documentId/download')

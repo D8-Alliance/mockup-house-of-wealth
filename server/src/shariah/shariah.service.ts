@@ -5,6 +5,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PolicyService } from '../policy/policy.service';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { CreateShariahDecisionDto, CreateShariahReviewDto } from './shariah.dto';
+import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
 export class ShariahService {
@@ -12,6 +13,7 @@ export class ShariahService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly policy: PolicyService,
+    private readonly notificationsService: NotificationService,
   ) {}
 
   async list(user: AuthenticatedUser) {
@@ -35,6 +37,9 @@ export class ShariahService {
   }
 
   async centralMalaysia(user: AuthenticatedUser) {
+    if (user.role !== 'Super Admin' && user.countryNodeId !== 'CN-MYS') {
+      throw new ForbiddenException('Central Malaysia Shariah reviews are restricted to the Malaysia Country Node');
+    }
     return this.prisma.shariahReview.findMany({ where: { countryNodeId: 'CN-MYS' }, include: { decisions: { orderBy: { createdAt: 'desc' } }, project: { include: { countryNode: { select: { currency: true } }, projectSponsor: { select: { name: true } }, milestones: { orderBy: { createdAt: 'asc' } }, documents: { select: { id: true, projectId: true, fileName: true, mimeType: true, fileSize: true, extractionStatus: true, extractionError: true, extractedText: true, uploadedBy: true, createdAt: true, updatedAt: true }, orderBy: { createdAt: 'desc' } } } } }, orderBy: { createdAt: 'desc' }, take: 100 });
   }
 
@@ -64,7 +69,8 @@ export class ShariahService {
       where: { projectId: input.projectId, status: { in: ['PROPOSED', 'UNDER_REVIEW', 'CHANGES_REQUESTED'] } },
     });
     if (activeReview) throw new BadRequestException(`Project already has an active Shariah submission (${activeReview.id})`);
-    const parentReview = input.parentReviewId ? await this.prisma.shariahReview.findUnique({ where: { id: input.parentReviewId }, select: { revision: true } }) : null;
+    const parentReview = input.parentReviewId ? await this.prisma.shariahReview.findFirst({ where: { id: input.parentReviewId, organisationId: input.organisationId, countryNodeId: input.countryNodeId }, select: { revision: true } }) : null;
+    if (input.parentReviewId && !parentReview) throw new ForbiddenException('Parent Shariah review is outside the requested tenant scope');
 
     const review = await this.prisma.shariahReview.create({
       data: {
@@ -150,10 +156,10 @@ export class ShariahService {
 
   private async notifyReviewers(review: { organisationId: string; countryNodeId: string; id: string }, title: string, message: string) {
     const recipients = await this.prisma.userRoleAssignment.findMany({ where: { organisationId: review.organisationId, countryNodeId: review.countryNodeId, isActive: true, role: { in: ['Shariah_Advisor', 'Shariah_Reviewer', 'Shariah_Committee'] } }, select: { userId: true } });
-    await this.prisma.notification.createMany({ data: [...new Set(recipients.map((item) => item.userId))].map((userId) => ({ recipientUserId: userId, organisationId: review.organisationId, countryNodeId: review.countryNodeId, type: 'SHARIAH_REVIEW', title, message, resourceType: 'ShariahReview', resourceId: review.id })) });
+    await Promise.all([...new Set(recipients.map((item) => item.userId))].map((userId) => this.notificationsService.enqueue({ recipientUserId: userId, organisationId: review.organisationId, countryNodeId: review.countryNodeId, type: 'SHARIAH_REVIEW', title, message, resourceType: 'ShariahReview', resourceId: review.id, dedupeKey: `shariah-review:${review.id}:${userId}:${title}` })));
   }
 
   private async notifyUser(userId: string, organisationId: string, countryNodeId: string, title: string, message: string) {
-    await this.prisma.notification.create({ data: { recipientUserId: userId, organisationId, countryNodeId, type: 'SHARIAH_REVIEW', title, message, resourceType: 'ShariahReview' } });
+    await this.notificationsService.enqueue({ recipientUserId: userId, organisationId, countryNodeId, type: 'SHARIAH_REVIEW', title, message, resourceType: 'ShariahReview', dedupeKey: `shariah-review:${userId}:${title}:${message}` });
   }
 }
