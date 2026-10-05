@@ -132,7 +132,9 @@ export class DistributionService {
     const payout = await this.getPayout(actor, payoutId);
     if (payout.status !== 'SUBMITTED') throw new BadRequestException('Only submitted payouts can be settled.');
     return this.prisma.$transaction(async (tx) => {
-      await tx.payoutInstruction.update({ where: { id: payoutId }, data: { status: 'SETTLED', settledAt: new Date() } });
+      // Conditional on SUBMITTED so a provider webhook handled at the same moment cannot also change it.
+      const claimed = await tx.payoutInstruction.updateMany({ where: { id: payoutId, status: 'SUBMITTED' }, data: { status: 'SETTLED', settledAt: new Date() } });
+      if (!claimed.count) throw new BadRequestException('Payout changed concurrently.');
       await tx.distributionAllocation.update({ where: { id: payout.allocationId }, data: { status: 'SETTLED' } });
       const pending = await tx.payoutInstruction.count({ where: { allocation: { distributionId: payout.allocation.distributionId }, status: { not: 'SETTLED' } } });
       const distribution = pending === 0 ? await tx.distribution.update({ where: { id: payout.allocation.distributionId }, data: { status: 'SETTLED', settledAt: new Date(), version: { increment: 1 } } }) : await tx.distribution.findUniqueOrThrow({ where: { id: payout.allocation.distributionId } });
@@ -146,23 +148,59 @@ export class DistributionService {
     if (!reason.trim()) throw new BadRequestException('Payout failure reason is required.');
     if (!['QUEUED', 'SUBMITTED'].includes(payout.status)) throw new BadRequestException('Only queued or submitted payouts can fail.');
     return this.prisma.$transaction(async (tx) => {
-      if (payout.allocation.ledgerTransactionId) await this.ledger.reverseInTransaction(tx, actor, payout.allocation.ledgerTransactionId, `payout-failure-reversal:${payoutId}`, `Payout failure reversal for ${payoutId}`);
-      await tx.payoutInstruction.update({ where: { id: payoutId }, data: { status: 'FAILED', failureReason: reason } });
-      await tx.distributionAllocation.update({ where: { id: payout.allocationId }, data: { status: 'FAILED' } });
+      if (!(await this.markFailedInTransaction(tx, actor, payout, reason))) throw new BadRequestException('Payout changed concurrently.');
       const distribution = await tx.distribution.update({ where: { id: payout.allocation.distributionId }, data: { status: 'FAILED', version: { increment: 1 } } });
       await this.audit.recordActor(actor, { action: 'payout.fail', resourceType: 'PayoutInstruction', resourceId: payoutId, organisationId: distribution.organisationId, countryNodeId: distribution.countryNodeId, metadata: { reason } }, tx);
       return distribution;
     });
   }
 
+  /**
+   * The one way a payout becomes FAILED (manual action or provider webhook). The status claim
+   * (only from QUEUED or SUBMITTED) decides who reverses the ledger posting, so a payout is never
+   * reversed twice and a settled payout is never reversed here. Returns false when nothing was claimed.
+   */
+  private async markFailedInTransaction(tx: Prisma.TransactionClient, actor: AuthenticatedUser, payout: { id: string; allocationId: string }, reason: string): Promise<boolean> {
+    const claimed = await tx.payoutInstruction.updateMany({ where: { id: payout.id, status: { in: ['QUEUED', 'SUBMITTED'] } }, data: { status: 'FAILED', failureReason: reason } });
+    if (!claimed.count) return false;
+    // Read inside the transaction: a retry may have replaced the posting since the payout was loaded.
+    const allocation = await tx.distributionAllocation.findUniqueOrThrow({ where: { id: payout.allocationId } });
+    if (allocation.ledgerTransactionId) await this.ledger.reverseInTransaction(tx, actor, allocation.ledgerTransactionId, `payout-failure:${payout.id}:${allocation.ledgerTransactionId}`, `Payout failure reversal for ${payout.id}`);
+    await tx.distributionAllocation.update({ where: { id: payout.allocationId }, data: { status: 'FAILED' } });
+    return true;
+  }
+
   async retryPayout(actor: AuthenticatedUser, payoutId: string) {
     const payout = await this.getPayout(actor, payoutId);
     if (payout.status !== 'FAILED') throw new BadRequestException('Only failed payouts can be retried.');
+    const reversedId = payout.allocation.ledgerTransactionId;
+    // The failure reversed the pool-to-beneficiary posting; a retry must post it again before paying out.
+    const original = reversedId ? await this.prisma.ledgerTransaction.findUnique({ where: { id: reversedId }, include: { entries: true } }) : null;
+    const sourceEntry = original?.entries.find((entry) => entry.direction === 'CREDIT');
+    if (sourceEntry) {
+      const balance = await this.ledger.getBalance(actor, sourceEntry.accountId);
+      if (balance.balance + 0.005 < Number(payout.amount)) throw new BadRequestException('The pool no longer has enough balance to retry this payout.');
+    }
     return this.prisma.$transaction(async (tx) => {
-      await tx.payoutInstruction.update({ where: { id: payoutId }, data: { status: 'QUEUED', providerReference: null, failureReason: null, submittedAt: null } });
-      await tx.distributionAllocation.update({ where: { id: payout.allocationId }, data: { status: 'QUEUED' } });
+      const claimed = await tx.payoutInstruction.updateMany({ where: { id: payoutId, status: 'FAILED' }, data: { status: 'QUEUED', providerReference: null, failureReason: null, submittedAt: null } });
+      if (!claimed.count) throw new BadRequestException('Payout changed concurrently.');
+      let ledgerTransactionId = reversedId;
+      if (original) {
+        const reposted = await this.ledger.postInTransaction(tx, actor, {
+          transactionType: 'DISTRIBUTION',
+          referenceType: 'DistributionAllocation',
+          referenceId: payout.allocationId,
+          currency: original.currency,
+          description: `Payout retry for ${payoutId}`,
+          // Chained to the reversed posting, so every fail/retry cycle gets its own key.
+          idempotencyKey: `payout-retry:${payoutId}:${original.id}`,
+          entries: original.entries.map((entry) => ({ accountId: entry.accountId, direction: entry.direction as 'DEBIT' | 'CREDIT', amount: Number(entry.amount), description: entry.description ?? 'Payout retry' })),
+        });
+        ledgerTransactionId = reposted.id;
+      }
+      await tx.distributionAllocation.update({ where: { id: payout.allocationId }, data: { status: 'QUEUED', ledgerTransactionId } });
       const distribution = await tx.distribution.update({ where: { id: payout.allocation.distributionId }, data: { status: 'PROCESSING', version: { increment: 1 } } });
-      await this.audit.recordActor(actor, { action: 'payout.retry', resourceType: 'PayoutInstruction', resourceId: payoutId, organisationId: distribution.organisationId, countryNodeId: distribution.countryNodeId }, tx);
+      await this.audit.recordActor(actor, { action: 'payout.retry', resourceType: 'PayoutInstruction', resourceId: payoutId, organisationId: distribution.organisationId, countryNodeId: distribution.countryNodeId, metadata: { reversedLedgerTransactionId: reversedId, ledgerTransactionId } }, tx);
       return tx.payoutInstruction.findUniqueOrThrow({ where: { id: payoutId } });
     });
   }
@@ -172,8 +210,10 @@ export class DistributionService {
     if (payout.status !== 'SETTLED') throw new BadRequestException('Only settled payouts can be reversed.');
     if (!reason.trim()) throw new BadRequestException('Payout reversal reason is required.');
     return this.prisma.$transaction(async (tx) => {
-      if (payout.allocation.ledgerTransactionId) await this.ledger.reverseInTransaction(tx, actor, payout.allocation.ledgerTransactionId, `payout-reversal:${payoutId}`, `Payout reversal for ${payoutId}`);
-      await tx.payoutInstruction.update({ where: { id: payoutId }, data: { status: 'REVERSED', failureReason: reason } });
+      const claimed = await tx.payoutInstruction.updateMany({ where: { id: payoutId, status: 'SETTLED' }, data: { status: 'REVERSED', failureReason: reason } });
+      if (!claimed.count) throw new BadRequestException('Payout changed concurrently.');
+      const allocation = await tx.distributionAllocation.findUniqueOrThrow({ where: { id: payout.allocationId } });
+      if (allocation.ledgerTransactionId) await this.ledger.reverseInTransaction(tx, actor, allocation.ledgerTransactionId, `payout-reversal:${payoutId}:${allocation.ledgerTransactionId}`, `Payout reversal for ${payoutId}`);
       await tx.distributionAllocation.update({ where: { id: payout.allocationId }, data: { status: 'REVERSED' } });
       const distribution = await tx.distribution.update({ where: { id: payout.allocation.distributionId }, data: { status: 'PARTIALLY_SETTLED', version: { increment: 1 } } });
       await this.audit.recordActor(actor, { action: 'payout.reverse', resourceType: 'PayoutInstruction', resourceId: payoutId, organisationId: distribution.organisationId, countryNodeId: distribution.countryNodeId, metadata: { reason } }, tx);
@@ -196,20 +236,22 @@ export class DistributionService {
       if (existing) return { idempotent: true, status: payout.status, payoutId };
       await tx.payoutProviderEvent.create({ data: { provider, providerEventId: eventId, payoutInstructionId: payoutId, eventType, payload: payload as Prisma.InputJsonObject } });
       if (providerReference && payout.providerReference && providerReference !== payout.providerReference) throw new BadRequestException('Provider payout reference does not match the stored reference.');
+      // Every change is a conditional claim on the current status. Anything that does not fit the
+      // payout's state (e.g. FAILED after it was settled, SETTLED after it failed and was reversed)
+      // is recorded and audited for an operator, but never moves money automatically.
+      let applied = false;
       if (status === 'FAILED') {
-        if (payout.allocation.ledgerTransactionId) await this.ledger.reverseInTransaction(tx, systemActor, payout.allocation.ledgerTransactionId, `payout-webhook-failure:${payoutId}`, `Provider payout failure reversal for ${payoutId}`);
-        await tx.payoutInstruction.update({ where: { id: payoutId }, data: { status: 'FAILED', failureReason: String(payload.reason || 'Provider reported payout failure.') } });
-        await tx.distributionAllocation.update({ where: { id: payout.allocationId }, data: { status: 'FAILED' } });
+        applied = await this.markFailedInTransaction(tx, systemActor, payout, String(payload.reason || 'Provider reported payout failure.'));
       } else if (status === 'SETTLED') {
-        await tx.payoutInstruction.update({ where: { id: payoutId }, data: { status: 'SETTLED', providerReference: providerReference || payout.providerReference, settledAt: new Date() } });
-        await tx.distributionAllocation.update({ where: { id: payout.allocationId }, data: { status: 'SETTLED' } });
+        applied = (await tx.payoutInstruction.updateMany({ where: { id: payoutId, status: { in: ['QUEUED', 'SUBMITTED'] } }, data: { status: 'SETTLED', providerReference: providerReference || payout.providerReference, settledAt: new Date() } })).count === 1;
+        if (applied) await tx.distributionAllocation.update({ where: { id: payout.allocationId }, data: { status: 'SETTLED' } });
       } else if (status === 'SUBMITTED') {
-        await tx.payoutInstruction.update({ where: { id: payoutId }, data: { status: 'SUBMITTED', providerReference: providerReference || payout.providerReference, submittedAt: new Date() } });
-        await tx.distributionAllocation.update({ where: { id: payout.allocationId }, data: { status: 'SUBMITTED' } });
+        applied = (await tx.payoutInstruction.updateMany({ where: { id: payoutId, status: 'QUEUED' }, data: { status: 'SUBMITTED', providerReference: providerReference || payout.providerReference, submittedAt: new Date() } })).count === 1;
+        if (applied) await tx.distributionAllocation.update({ where: { id: payout.allocationId }, data: { status: 'SUBMITTED' } });
       }
       await tx.payoutProviderEvent.update({ where: { provider_providerEventId: { provider, providerEventId: eventId } }, data: { processedAt: new Date() } });
-      await this.audit.recordActor(systemActor, { action: `payout.webhook.${status.toLowerCase()}`, resourceType: 'PayoutInstruction', resourceId: payoutId, organisationId: payout.allocation.distribution.organisationId, countryNodeId: payout.allocation.distribution.countryNodeId, metadata: { provider, eventId, eventType, providerReference: providerReference || null } }, tx);
-      return { idempotent: false, status, payoutId };
+      await this.audit.recordActor(systemActor, { action: `payout.webhook.${status.toLowerCase()}`, resourceType: 'PayoutInstruction', resourceId: payoutId, organisationId: payout.allocation.distribution.organisationId, countryNodeId: payout.allocation.distribution.countryNodeId, metadata: { provider, eventId, eventType, providerReference: providerReference || null, applied, payoutStatusBefore: payout.status } }, tx);
+      return { idempotent: false, status: applied ? status : payout.status, applied, payoutId };
     });
   }
 
