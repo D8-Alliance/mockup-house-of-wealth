@@ -4,20 +4,17 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
-- **Status:** Ditangguhkan (dicatat 2026-10-01)
-- **Kawasan:** `analyzeProjectDocument` dalam `server/src/ai/ai.service.ts`, `uploadEvidence` dalam `server/src/projects/`
+- **Status:** Langkah 1 hingga 3 siap (2026-10-05, commit `dc263b1`). Baki langkah 4 hingga 6 ditangguhkan.
+- **Kawasan:** `server/src/projects/document-integrity.ts`, `analyzeProjectDocument` dalam `server/src/ai/ai.service.ts`, `uploadEvidence` dalam `server/src/projects/`
 
-**Keadaan sekarang:** Pengesahan bukti projek hanya memadankan kata kunci (regex) pada teks yang diekstrak. Tiada model AI dan tiada pemeriksaan integriti. PDF palsu yang mengandungi kata kunci yang betul akan lulus semakan AI (status itu hanya bermaksud "sedia untuk semakan manusia"). Satu-satunya perlindungan ialah semakan manusia dalam aliran feasibility.
+**Sudah ada:** hash SHA-256 semasa muat naik (dan disemak semula semasa analisis), metadata PDF (tarikh dicipta/diubah, perisian penyunting, tarikh masa depan), kesan suntingan bertambah (penanda `%%EOF` berulang, mengambil kira PDF linearized), dan amaran jika fail sama dimuat naik ke projek lain. Sebarang amaran mengekalkan status REQUIRES_REVIEW dan dipaparkan kepada penyemak. Ini hanya petunjuk, bukan bukti pemalsuan.
 
-**Cadangan, mengikut keutamaan:**
-1. Simpan hash SHA-256 fail semasa muat naik, supaya perubahan selepas muat naik dapat dikesan.
-2. Periksa metadata PDF: tarikh dicipta berbanding tarikh diubah, dan perisian yang menghasilkan fail.
-3. Kesan suntingan bertambah (incremental update), iaitu lebih daripada satu penanda `%%EOF`.
-4. Sahkan tandatangan digital PDF (PAdES) jika ada.
-5. Bandingkan lapisan teks dengan OCR imej halaman untuk mengesan teks tersembunyi atau ditindih.
-6. Semak silang dengan sumber pengeluar dokumen (contohnya SSM atau pejabat tanah).
+**Baki cadangan:**
+1. Sahkan tandatangan digital PDF (PAdES) jika ada.
+2. Bandingkan lapisan teks dengan OCR imej halaman untuk mengesan teks tersembunyi atau ditindih.
+3. Semak silang dengan sumber pengeluar dokumen (contohnya SSM atau pejabat tanah).
 
-Langkah 1 hingga 3 murah dan tidak memerlukan pakej baharu.
+**Nota:** metadata PDF dalam object stream termampat (PDF 1.5+) tidak dibaca; hanya Info dictionary biasa dan XMP. PDF yang disimpan semula oleh Word boleh mempunyai dua penanda `%%EOF` dan ditanda INCREMENTAL_UPDATE.
 
 ## 2. Keputusan: penyedia eKYC luar (untuk production)
 
@@ -73,23 +70,7 @@ Bingkai kamera dan dokumen KYC disimpan dalam database tanpa had masa. Perlu dip
 
 **Kerja teknikal selepas itu:** servis emel, job berjadual harian (`@nestjs/schedule`) yang mencari langganan berbayar menghampiri `currentPeriodEnd`, dan rekod peringatan yang sudah dihantar supaya emel tidak berulang.
 
-## 6. Butang Downgrade ke Free masih mock
-
-- **Status:** Menunggu keputusan (dicatat 2026-10-01). Butang Cancel sudah dibuang.
-- **Kawasan:** `MembershipCard.tsx`, `CancelDowngradeModal`, `revenueService.downgradeMembership` (data mock)
-
-Butang Downgrade tidak mengubah apa-apa di backend. Pilihan: buang butang itu, atau jadikan "Downgrade ke Free sekarang" yang sebenar (baki hari plan hangus, tiada refund).
-
-## 7. Baki pembetulan code review: feasibility governance
-
-- **Status:** Belum dimulakan (dicatat 2026-10-01). Tiga pembetulan lain sudah siap.
-- **Kawasan:** `server/src/ai/ai.service.ts`, migration `20260930120000_add_feasibility_governance`
-
-1. Run feasibility lama tiada rekod revision, jadi semakan gagal dengan "revision is missing". Perlu migration backfill baru.
-2. Nombor revision dikira di luar transaction; dua analisis serentak boleh berlanggar.
-3. Satu revision boleh menerima lebih daripada satu keputusan akhir; kelulusan lama kekal aktif.
-
-## 8. Contract Advisory dan Agreement Generation mengikut projek
+## 6. Contract Advisory dan Agreement Generation mengikut projek
 
 - **Status:** Cadangan (dicatat 2026-10-01)
 - **Kawasan:** `server/src/ai/ai.service.ts` (`contractAdvisor`), `server/src/contract-intelligence/`, `src/ai/features/contract/`
@@ -106,25 +87,17 @@ Butang Downgrade tidak mengubah apa-apa di backend. Pilihan: buang butang itu, a
 - Selepas APPROVED, perubahan hanya melalui proses pindaan.
 - Wizard memilih projek dari senarai, dan mengisi jenis kontrak dari Advisory.
 
-## 9. Pembayaran simulasi (Card / USDT Escrow)
-
-- **Status:** Menunggu keputusan (dicatat 2026-10-01). Di production ia sudah ditolak kecuali `ALLOW_SIMULATED_PAYMENTS=true`.
-- **Kawasan:** `BuyAICreditsModal.tsx`, `UpgradeModal.tsx`, `BillingTransactionsView.tsx`
-
-Cadangan: sembunyikan pilihan simulasi apabila tidak dibenarkan; label "USDT Escrow" sebagai Demo (tiada escrow atau crypto sebenar); alihkan lencana "Simulated Gateway" ke pilihan simulasi sahaja; tanda transaksi simulasi sebagai DEMO dan keluarkan daripada kiraan hasil.
-
-**Data local:** baki kredit pengguna ujian termasuk kredit simulasi tanpa bayaran sebenar (contohnya 3600, 1150 dan beberapa 275). Bersihkan sebelum ujian yang memerlukan baki tepat.
-
-## 10. Perkara kecil berkaitan pembayaran
+## 7. Perkara kecil berkaitan pembayaran
 
 - **Status:** Dicatat 2026-10-01.
 - **Kredit bonus:** dianggap sama seperti kredit dibeli (tidak tamat, boleh ditebus untuk membership). Sahkan sama ada bonus patut dikira sebagai kredit percuma.
 - **Project Promotion:** `promotionPayment` masih guna aliran bayaran sendiri, bukan ToyyibPay.
 - **ToyyibPay go-live:** akaun live, kunci dan kategori dari akaun live, `TOYYIBPAY_BASE_URL=https://toyyibpay.com/`, `NODE_ENV=production`, dan sign-in melalui Keycloak (bukan `AUTH_MODE=mock`). Buat satu bayaran kecil dahulu sebelum dibuka kepada pengguna.
 - **Deploy:** `TOYYIBPAY_RETURN_URL` dan `TOYYIBPAY_CALLBACK_URL` mesti menggunakan domain sebenar. Return URL mesti sama origin dengan URL app, jika tidak sesi log masuk tidak dijumpai selepas kembali dari ToyyibPay.
+- **Data local (kredit simulasi):** baki kredit pengguna ujian termasuk kredit simulasi tanpa bayaran sebenar (contohnya 3600, 1150 dan beberapa 275). Bersihkan sebelum ujian yang memerlukan baki tepat. Transaksi lama ini kini dilabel DEMO dalam senarai transaksi.
 - **Akaun lejar ToyyibPay lama:** jika database sudah ada akaun `SYSTEM-TOYYIBPAY-CASH-MYR` (sebelum commit `5e2d898`), entri lama kekal di situ dan refund untuk bayaran lama direkod ke akaun baru organisasi. Baca kedua-dua akaun bersama untuk bayaran sebelum perubahan itu, atau pindahkan baki lama dengan entri pelarasan.
 
-## 11. Payout provider production dan reconciliation
+## 8. Payout provider production dan reconciliation
 
 - **Status:** Payout state machine, encrypted destination, signed webhook dan compensating reversal siap (2026-10-02). Provider payout sebenar masih pending.
 - **Kawasan:** `server/src/distribution/`, model `PayoutInstruction`, `PayoutDestination`, `PayoutProviderEvent`, `DistributionApproval`
@@ -137,15 +110,14 @@ Cadangan: sembunyikan pilihan simulasi apabila tidak dibenarkan; label "USDT Esc
 - Payout destination disimpan encrypted dan hanya hash dipulangkan kepada client; verification dan cooling-off policy tersedia.
 - Webhook HMAC signature, provider event idempotency dan event audit tersedia.
 - Failure, retry, reversal dan compensating ledger transaction tersedia.
-- Manual payout reconciliation endpoint tersedia.
+- Manual payout reconciliation endpoint, dan job reconciliation berjadual (BullMQ, setiap 15 minit).
 
 **Masih pending:**
 1. Pilih provider payout sebenar untuk bank transfer/DuitNow dan lengkapkan adapter `PayoutProvider`.
-2. Tambah scheduled durable reconciliation job dan retry/backoff menggunakan Redis/BullMQ.
-3. Lengkapkan provider-side validation untuk amount, currency, provider reference dan beneficiary sebelum `SETTLED`.
-4. Tambah dual approval berdasarkan amount threshold dan approval-group separation untuk production.
+2. Lengkapkan provider-side validation untuk amount, currency, provider reference dan beneficiary sebelum `SETTLED`.
+3. Tambah dual approval berdasarkan amount threshold dan approval-group separation untuk production. Perlu nilai had amaun daripada pemilik projek.
 
-## 12. Background jobs, notifications dan provider delivery
+## 9. Background jobs, notifications dan provider delivery
 
 - **Status:** Queue topology, job persistence, ToyyibPay reconciliation worker, generic in-app notifications, notification outbox dan provider adapters siap (2026-10-02). Local Redis authentication dan integration smoke test sudah lulus; production secret/TLS provisioning dan provider activation masih pending.
 - **Kawasan:** `server/src/jobs/`, `server/src/notifications/`, migration `20261002160000_add_jobs_and_notification_outbox`
