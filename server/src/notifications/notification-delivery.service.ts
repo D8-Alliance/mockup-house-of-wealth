@@ -1,4 +1,5 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { FcmClient, loadServiceAccount } from './fcm-client';
 
 @Injectable()
 export class NotificationDeliveryService {
@@ -25,8 +26,16 @@ export class NotificationDeliveryService {
   }
 
   private async push(input: { title: string; message: string; pushToken?: string }) {
-    if (process.env.NOTIFICATION_PUSH_PROVIDER !== 'fcm' || !process.env.FCM_SERVER_KEY || !input.pushToken) throw new ServiceUnavailableException('Firebase push notification is not configured.');
-    const response = await fetch('https://fcm.googleapis.com/fcm/send', { method: 'POST', headers: { Authorization: `key=${process.env.FCM_SERVER_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ to: input.pushToken, notification: { title: input.title, body: input.message } }) });
-    if (!response.ok) throw new Error(`Push provider returned ${response.status}`);
+    const credentialFile = process.env.FCM_SERVICE_ACCOUNT_FILE || process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    if (process.env.NOTIFICATION_PUSH_PROVIDER !== 'fcm' || !credentialFile || !input.pushToken) throw new ServiceUnavailableException('Firebase push notification is not configured.');
+    await this.fcm(credentialFile).send({ token: input.pushToken, title: input.title, body: input.message });
+  }
+
+  // One client per credential file, so the OAuth access token is reused between sends.
+  private fcmClient: { file: string; client: FcmClient } | null = null;
+
+  private fcm(file: string): FcmClient {
+    if (this.fcmClient?.file !== file) this.fcmClient = { file, client: new FcmClient(loadServiceAccount(file)) };
+    return this.fcmClient.client;
   }
 }

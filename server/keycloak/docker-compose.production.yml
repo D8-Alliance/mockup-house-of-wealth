@@ -29,6 +29,7 @@ services:
         condition: service_healthy
     secrets:
       - redis_password
+      - firebase_service_account
     volumes:
       - ../ops/redis/certs:/run/redis-certs:ro
 
@@ -45,6 +46,7 @@ services:
         condition: service_healthy
     secrets:
       - redis_password
+      - firebase_service_account
     volumes:
       - ../ops/redis/certs:/run/redis-certs:ro
 
@@ -54,3 +56,6 @@ volumes:
 secrets:
   redis_password:
     file: ../ops/secrets/redis_password
+  # FCM HTTP v1 service account key (FCM_SERVICE_ACCOUNT_FILE=/run/secrets/firebase_service_account).
+  firebase_service_account:
+    file: ../ops/secrets/firebase-service-account.json
