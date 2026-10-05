@@ -138,7 +138,7 @@ Bingkai kamera dan dokumen KYC disimpan dalam database tanpa had masa. Perlu dip
 
 **Sudah ada:**
 - BullMQ queue `house-of-wealth-background` dan worker entrypoint `npm run start:worker`.
-- Scheduled jobs untuk ToyyibPay reconciliation, payout reconciliation dan notification outbox.
+- Scheduled jobs untuk ToyyibPay reconciliation (10 minit), payout reconciliation (15 minit), notification outbox (30 saat) dan seal rantai hash audit/lejar (5 minit, lihat item 10).
 - `JobRun` idempotency/status persistence dan retry/backoff queue configuration.
 - Generic notification list, unread count, mark-read dan mark-all-read API.
 - Notification outbox dengan deduplication, retry delay dan dead-letter status.
