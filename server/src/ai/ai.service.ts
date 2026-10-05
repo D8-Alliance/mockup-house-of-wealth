@@ -385,7 +385,7 @@ export class AiService {
   }
 
   async runProjectFeasibility(actor: AuthenticatedUser, projectId: string) {
-    const project = await this.prisma.project.findUnique({ where: { projectId }, include: { documents: { select: { id: true, fileName: true, extractedText: true, extractionStatus: true, createdAt: true } }, evidenceRequirements: true, milestones: { select: { title: true, completionPct: true, status: true } }, feasibilityRevisions: { orderBy: { revisionNumber: 'desc' }, take: 1, select: { id: true, revisionNumber: true } } } });
+    const project = await this.prisma.project.findUnique({ where: { projectId }, include: { documents: { select: { id: true, fileName: true, extractedText: true, extractionStatus: true, createdAt: true } }, evidenceRequirements: true, milestones: { select: { title: true, completionPct: true, status: true } } } });
     if (!project) throw new NotFoundException('Project not found in the current tenant');
     assertTenantScope(actor, project, 'Project');
     this.assertProjectSponsorScope(actor, project.projectSponsorId);
@@ -402,8 +402,10 @@ export class AiService {
     const output = { ...(aiRun.output || {}), evidenceIntelligence, projectFeasibility, confidence, investmentReadiness, shariahAssessment, humanReviewRequired: true, recommendation: { ...((aiRun.output?.recommendation || {}) as Record<string, unknown>), financialAnalysis, riskAnalysis, evidenceIntelligence, projectFeasibility, confidence, investmentReadiness, shariahAssessment, humanReviewRequired: true, requiresHumanReview: true, disclaimer: 'Assessment uses tenant-scoped project fields and extracted document evidence. It is not legal, financial, investment, or Shariah approval.' } } as Prisma.InputJsonValue;
     const history = [{ stage: 'DRAFT', reviewerId: actor.userId, reviewerRole: 'AI System', date: new Date().toISOString(), decision: 'AI_RECOMMENDATION', comment: 'AI analysis generated. Human review required; no funding approval was granted.' }];
     const updated = await this.prisma.aiRun.update({ where: { id: aiRun.id }, data: { output, reviewStage: 'DRAFT', reviewHistory: history } });
-    const previousRevision = project.feasibilityRevisions[0];
     const revision = await this.prisma.$transaction(async (tx) => {
+      // The project row lock serialises concurrent analyses, so each reads the true latest revision number.
+      await this.lockProject(tx, projectId);
+      const previousRevision = await tx.projectFeasibilityRevision.findFirst({ where: { projectId }, orderBy: { revisionNumber: 'desc' }, select: { id: true, revisionNumber: true } });
       const created = await tx.projectFeasibilityRevision.create({ data: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, aiRunId: updated.id, revisionNumber: (previousRevision?.revisionNumber || 0) + 1, supersedesRevisionId: previousRevision?.id, createdBy: actor.userId } });
       await tx.projectApproval.updateMany({ where: { projectId, status: { in: ['PENDING', 'APPROVED', 'REJECTED', 'REQUEST_CHANGES'] } }, data: { status: 'SUPERSEDED', supersededAt: new Date() } });
       return created;
@@ -438,15 +440,26 @@ export class AiService {
     const accepted = ['ACCEPTED', 'ACCEPTED_WITH_CONDITIONS'].includes(input.decision);
     const targetStage = isFinalCommitteeReview || !accepted ? run.reviewStage : nextStage[run.reviewStage];
     if (!targetStage || (accepted && !isFinalCommitteeReview && ![run.reviewStage, targetStage].includes(input.reviewStage)) || (!accepted && input.reviewStage !== run.reviewStage) || (isFinalCommitteeReview && input.reviewStage !== run.reviewStage)) throw new BadRequestException(`Invalid feasibility review transition from ${run.reviewStage} to ${input.reviewStage}`);
-    const history = Array.isArray(run.reviewHistory) ? run.reviewHistory : [];
     const reviewStatus = input.decision === 'REJECTED' ? 'REJECTED' : input.decision === 'REQUEST_CHANGES' ? 'REQUEST_CHANGES' : 'APPROVED';
     const reviewEntry = { stage: run.reviewStage, reviewerId: actor.userId, reviewer: actor.userId, reviewerRole: actor.role, date: new Date().toISOString(), status: reviewStatus, decision: input.decision, comment: input.comment.trim(), supportingEvidence: input.supportingEvidence || [] };
-    const revision = await this.prisma.projectFeasibilityRevision.findUnique({ where: { aiRunId: run.id } });
-    if (!revision) throw new ConflictException('Feasibility analysis revision is missing; review cannot be recorded.');
-    const currentRevision = await this.prisma.projectFeasibilityRevision.findFirst({ where: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId }, orderBy: { revisionNumber: 'desc' }, select: { id: true } });
-    if (currentRevision?.id !== revision.id) throw new ConflictException('This analysis revision is superseded; review the latest revision instead.');
     const updated = await this.prisma.$transaction(async (tx) => {
+      // Checks run under the project lock, so a concurrent re-analysis or review cannot slip in between.
+      await this.lockProject(tx, projectId);
+      const revision = await tx.projectFeasibilityRevision.findUnique({ where: { aiRunId: run.id } });
+      if (!revision) throw new ConflictException('Feasibility analysis revision is missing; review cannot be recorded.');
+      const currentRevision = await tx.projectFeasibilityRevision.findFirst({ where: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId }, orderBy: { revisionNumber: 'desc' }, select: { id: true } });
+      if (currentRevision?.id !== revision.id) throw new ConflictException('This analysis revision is superseded; review the latest revision instead.');
+      if (isFinalCommitteeReview && await tx.projectApproval.findFirst({ where: { revisionId: revision.id, stage: 'FINAL_DECISION', status: { not: 'SUPERSEDED' } }, select: { id: true } })) {
+        throw new ConflictException('A final decision is already recorded for this revision. Run a new feasibility analysis to decide again.');
+      }
+      // Re-read under the lock: the stage must still be the one this review was validated against,
+      // and the history must include any decision recorded meanwhile.
+      const fresh = await tx.aiRun.findUniqueOrThrow({ where: { id: run.id }, select: { reviewStage: true, reviewHistory: true } });
+      if (fresh.reviewStage !== run.reviewStage) throw new ConflictException('This review stage was just decided by someone else. Reload and try again.');
+      const history = Array.isArray(fresh.reviewHistory) ? fresh.reviewHistory : [];
       const updatedRun = await tx.aiRun.update({ where: { id: run.id }, data: { reviewStage: targetStage, reviewHistory: [...history, reviewEntry] } });
+      // One active decision per stage: a new decision replaces an earlier one (e.g. after REQUEST_CHANGES).
+      await tx.projectApproval.updateMany({ where: { revisionId: revision.id, stage: run.reviewStage, status: { not: 'SUPERSEDED' } }, data: { status: 'SUPERSEDED', supersededAt: new Date() } });
       await tx.projectApproval.create({ data: { projectId, revisionId: revision.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, stage: run.reviewStage, status: reviewStatus, decision: input.decision, reviewerId: actor.userId, reviewerRole: actor.role, comment: input.comment.trim(), supportingEvidence: input.supportingEvidence || [] } });
       if (run.reviewStage === 'FINAL_DECISION') {
         await tx.project.update({ where: { projectId }, data: { status: input.decision === 'REJECTED' ? 'REJECTED' : input.decision === 'REQUEST_CHANGES' ? 'DUE_DILIGENCE' : 'APPROVED' } });
@@ -455,6 +468,10 @@ export class AiService {
     });
     await this.audit.recordActor(actor, { action: 'project.feasibility.review_decision', resourceType: 'AiRun', resourceId: run.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId, reviewStage: run.reviewStage, targetStage, reviewerId: actor.userId, reviewerRole: actor.role, status: reviewStatus, decision: input.decision, comment: input.comment, supportingEvidence: input.supportingEvidence || [], aiRecommendationIsNotApproval: true } });
     return { ...updated, humanReviewRequired: true, finalHumanDecisionRecorded: isFinalCommitteeReview, reviewStatus, aiRecommendationIsNotApproval: true, roleResponsibility: this.reviewResponsibility(targetStage) };
+  }
+
+  private async lockProject(tx: Prisma.TransactionClient, projectId: string) {
+    await tx.$queryRaw(Prisma.sql`SELECT "projectId" FROM "Project" WHERE "projectId" = ${projectId} FOR UPDATE`);
   }
 
   private reviewResponsibility(stage: string) {
