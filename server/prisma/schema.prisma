@@ -1756,3 +1756,18 @@ model Session {
   @@index([userId, revokedAt])
   @@index([expiresAt])
 }
+
+/// Tamper-evident hash chain over AuditEvent (chain AUDIT) and LedgerTransaction with its entries (chain LEDGER).
+/// Append-only (database trigger). See src/audit/hash-chain.service.ts.
+model HashChainLink {
+  id           String   @id @default(cuid())
+  chain        String
+  sequence     Int
+  recordId     String
+  previousHash String
+  hash         String
+  sealedAt     DateTime @default(now())
+
+  @@unique([chain, sequence])
+  @@unique([chain, recordId])
+}

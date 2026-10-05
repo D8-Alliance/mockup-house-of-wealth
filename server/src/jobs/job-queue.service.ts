@@ -6,6 +6,7 @@ import { MembershipService } from '../membership/membership.service';
 import { PrismaService } from '../prisma.service';
 import { NotificationService } from '../notifications/notification.service';
 import { AuthenticatedUser } from '../auth/identity.service';
+import { HashChainService } from '../audit/hash-chain.service';
 
 export const HOUSE_OF_WEALTH_QUEUE = 'house-of-wealth-background';
 
@@ -16,7 +17,7 @@ export class JobQueueService implements OnModuleInit, OnModuleDestroy {
   private queue?: Queue;
   private worker?: Worker;
 
-  constructor(private readonly prisma: PrismaService, private readonly membership: MembershipService, private readonly distributions: DistributionService, private readonly notifications: NotificationService) {}
+  constructor(private readonly prisma: PrismaService, private readonly membership: MembershipService, private readonly distributions: DistributionService, private readonly notifications: NotificationService, private readonly hashChain: HashChainService) {}
 
   async onModuleInit() {
     if (process.env.WORKER_ENABLED !== 'true') return;
@@ -24,6 +25,7 @@ export class JobQueueService implements OnModuleInit, OnModuleDestroy {
     await queue.add('payment-reconciliation', {}, { repeat: { every: 10 * 60 * 1000 }, jobId: 'payment-reconciliation-schedule' } as any);
     await queue.add('payout-reconciliation', {}, { repeat: { every: 15 * 60 * 1000 }, jobId: 'payout-reconciliation-schedule' } as any);
     await queue.add('notification-outbox', {}, { repeat: { every: 30 * 1000 }, jobId: 'notification-outbox-schedule' } as any);
+    await queue.add('hash-chain-seal', {}, { repeat: { every: 5 * 60 * 1000 }, jobId: 'hash-chain-seal-schedule' } as any);
     this.worker = new Worker(HOUSE_OF_WEALTH_QUEUE, (job) => this.process(job), { connection: this.connection, concurrency: Number(process.env.WORKER_CONCURRENCY || 2) });
     this.worker.on('failed', (job, error) => this.logger.error(`Background job ${job?.name} failed: ${error.message}`));
     this.logger.log('Background worker enabled.');
@@ -54,6 +56,7 @@ export class JobQueueService implements OnModuleInit, OnModuleDestroy {
       if (job.name === 'payment-reconciliation') metadata = await this.membership.reconcileOpenPayments(actor);
       else if (job.name === 'payout-reconciliation') metadata = await this.distributions.reconcilePayouts(actor);
       else if (job.name === 'notification-outbox') metadata = await this.notifications.processOutbox();
+      else if (job.name === 'hash-chain-seal') metadata = await this.hashChain.sealAll();
       else throw new Error(`Unknown background job: ${job.name}`);
       return this.prisma.jobRun.update({ where: { id: run.id }, data: { status: 'SUCCEEDED', finishedAt: new Date(), metadata: metadata as any, lastError: null } });
     } catch (error) {

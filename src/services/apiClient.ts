@@ -213,6 +213,8 @@ export const apiClient = {
     }),
   getMembershipStatus: () => request<BackendMembershipStatus>('/membership/me'),
   getPaymentOptions: () => request<{ simulatedPaymentsAllowed: boolean }>('/membership/payment-options'),
+  getHashChainIntegrity: () => request<HashChainReport>('/admin/audit/integrity'),
+  sealHashChains: () => request<HashChainReport>('/admin/audit/integrity/seal', { method: 'POST' }),
   cancelMembershipPayment: (paymentId: string) => request<{ status: string; paymentId: string }>(`/membership/me/payments/${encodeURIComponent(paymentId)}/cancel`, { method: 'POST' }),
   savePdpDraft: async (payload: Partial<PDPApplication>, id?: string) => {
     const response = await request<BackendPdpApplication>(id ? `/pdp/applications/${id}` : '/pdp/applications', {
@@ -1003,6 +1005,9 @@ export interface BackendEvidenceRequirement {
   verificationResult?: { analysisId?: string; extractedInformation?: Record<string, unknown>; validationResult?: string; missingFields?: string[]; integrityFlags?: DocumentIntegrityFlag[] } | null;
   uploadedDocument?: (Pick<BackendProjectDocument, 'id' | 'fileName' | 'mimeType' | 'extractionStatus' | 'createdAt'> & { sha256?: string | null; integrity?: { flags?: DocumentIntegrityFlag[] } | null }) | null;
 }
+
+export interface HashChainStatus { chain: string; valid: boolean; sealedCount: number; unsealedCount: number; headSequence: number; headHash: string; firstBreak: { sequence: number; recordId: string; reason: string } | null }
+export interface HashChainReport { checkedAt: string; chains: HashChainStatus[] }
 
 /** Advisory tamper signal on uploaded evidence (server/src/projects/document-integrity.ts). */
 export interface DocumentIntegrityFlag { code: string; message: string }

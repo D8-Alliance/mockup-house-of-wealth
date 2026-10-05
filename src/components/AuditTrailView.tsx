@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ShieldCheck, Search, Download, Filter, Building2, Globe, UserCheck, Shield } from 'lucide-react';
 import { auditLogger } from '../audit/auditLogger';
 import { useTenancy } from '../tenancy/TenancyContext';
+import { LedgerIntegrityPanel } from './admin/LedgerIntegrityPanel';
 
 export const AuditTrailView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,11 +41,11 @@ export const AuditTrailView: React.FC = () => {
         <div>
           <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 mb-2 border border-purple-500/20">
             <Shield className="w-3.5 h-3.5" />
-            Central Cryptographic Audit Event Ledger
+            Append-only, hash-chained audit log
           </span>
           <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Audit Trail & Compliance Ledger</h1>
           <p className="text-sm text-slate-500">
-            Tenant-aware audit log trail enforcing immutable tracking for logins, role switches, project approvals, and contracts.
+            Tenant-aware audit trail for logins, role switches, project approvals, and contracts. Records cannot be edited or deleted, and the hash chain shows if one was.
           </p>
         </div>
 
@@ -56,6 +57,8 @@ export const AuditTrailView: React.FC = () => {
           <span>Export Audit Package</span>
         </button>
       </div>
+
+      {(tenantContext.role === 'Super Admin' || tenantContext.role === 'Auditor') && <LedgerIntegrityPanel canSeal={tenantContext.role === 'Super Admin'} />}
 
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm p-6 space-y-4">
         
