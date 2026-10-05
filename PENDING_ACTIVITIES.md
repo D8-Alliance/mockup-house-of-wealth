@@ -15,6 +15,7 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 7 | Perkara kecil pembayaran | Kredit bonus, Project Promotion ke ToyyibPay, go-live ToyyibPay, akaun lejar lama | Keputusan kredit bonus; akaun ToyyibPay live dan domain |
 | 8 | Payout provider | Adapter bank/DuitNow, validation sebelum SETTLED, dual approval ikut had amaun | Pilihan provider; nilai had amaun |
 | 9 | Background jobs dan notifikasi | Kata laluan dan sijil TLS Redis, kunci Resend/Twilio, tetapan push FCM dalam `server/.env` | Akaun Resend/Twilio; penyediaan secret production |
+| 10 | Blockchain dan smart contract | Fasa 2: anchoring hash ke blockchain awam dan halaman Ketelusan Zakat. Fasa 3: tokenisasi dan smart contract escrow. Baki teks "tokenization" dalam skrin mock | Fasa 2: pilihan rangkaian dan dompet operasi. Fasa 3: nasihat undang-undang SC dan resolusi Shariah |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -159,3 +160,27 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 - **`server/ops/secrets/redis_password` wujud tetapi kosong** (0 bait), dan folder `server/ops/redis/certs/` kosong (belum ada `ca.crt`, `redis.crt` dan `redis.key`).
 - Container Redis local (`redis`, `keycloak-redis-1`) sedang berhenti; hidupkan sebelum menjalankan worker atau integration test.
 - **Pembolehubah notifikasi belum diset dalam `server/.env`:** `NOTIFICATION_EMAIL_PROVIDER`, `NOTIFICATION_EMAIL_FROM`, `RESEND_API_KEY`, `NOTIFICATION_SMS_PROVIDER`, `TWILIO_*`, `NOTIFICATION_PUSH_PROVIDER`, `FCM_SERVICE_ACCOUNT_FILE` dan `NOTIFICATION_DEFAULT_CHANNELS`. Tanpanya hanya notifikasi dalam app yang berfungsi. Fail service account Firebase sudah ada dan telah disahkan boleh mendapatkan token Google.
+
+## 10. Blockchain dan smart contract
+
+- **Status:** Fasa 0 dan 1 siap (2026-10-05). Fasa 2 dan 3 ditangguhkan.
+- **Kawasan:** `server/src/audit/hash-chain.service.ts`, jadual `HashChainLink`, `src/components/admin/LedgerIntegrityPanel.tsx`, `server/src/zakat/`
+
+**Sudah ada:**
+- **Fasa 0 (commit `cddb011`):** dakwaan "on the blockchain", "smart contract execution", "immutable ledger" dan alamat dompet palsu dibuang dari halaman yang dilihat pengguna (landing, About, kontrak, pelaburan pool, lejar, profil).
+- **Fasa 1 (commit `ce2641c`):** rantai hash SHA-256 ke atas audit log (AUDIT) dan lejar kewangan berserta entrinya (LEDGER), dalam jadual append-only `HashChainLink`. Worker men-seal rekod baharu setiap 5 minit. Super Admin boleh seal segera, dan Super Admin atau Auditor boleh sahkan melalui `GET /admin/audit/integrity` atau panel dalam skrin Audit Trail. Pengesahan menunjukkan rekod pertama yang diubah, dipadam atau dipautkan semula, serta hash kepala rantai (chain head).
+
+**Had Fasa 1:** sesiapa yang boleh menulis terus ke database (contohnya DBA superuser) boleh membina semula keseluruhan rantai. Ini hanya dapat dikesan jika hash kepala rantai disimpan di luar sistem, iaitu tujuan Fasa 2. Secara local, worker tidak berjalan (`WORKER_ENABLED=false`), jadi rekod hanya di-seal bila Super Admin menekan "Seal new records".
+
+**Fasa 2: anchoring dan Ketelusan Zakat (belum dimulakan):**
+1. Secara berkala (cadangan: harian), rekod hash kepala rantai AUDIT dan LEDGER, atau Merkle root bagi rekod zakat dan agihan hari itu, ke blockchain awam yang murah (contohnya Ethereum Layer 2). Simpan rujukan transaksi blockchain bersama tarikh.
+2. Halaman awam **Ketelusan Zakat**: jumlah zakat dikutip dan diagih, tanpa data peribadi.
+3. Butang "Sahkan bayaran saya" untuk pembayar zakat: bukti Merkle bahawa resit mereka termasuk dalam hash yang direkodkan.
+4. **Perlu daripada pemilik projek:** pilihan rangkaian blockchain, dompet operasi dan cara penyimpanan kuncinya, dan bajet yuran transaksi. Agihan zakat sebenar kepada asnaf tetap perlu laporan amil (Majlis Agama Islam negeri); blockchain tidak membuktikan wang sampai kepada penerima.
+
+**Fasa 3: tokenisasi dan smart contract (menunggu keputusan undang-undang dan Shariah):**
+1. Token bagi bahagian pool pelaburan hampir pasti dianggap sekuriti oleh Suruhanjaya Sekuriti Malaysia. Dapatkan nasihat undang-undang dan resolusi Shariah sebelum sebarang kerja teknikal.
+2. Jika diluluskan: pertimbangkan blockchain berizin (contohnya Hyperledger Besu, satu nod bagi setiap negara D-8), audit keselamatan kontrak, dan kelulusan manusia sebelum sebarang agihan automatik. Keuntungan Mudarabah/Musharakah tetap ditentukan melalui akaun dan audit.
+3. Tiada data peribadi di blockchain (PDPA: data perlu boleh dibetulkan, rekod blockchain tidak boleh dipadam).
+
+**Baki teks:** perkataan "tokenization/tokenized" masih ada dalam skrin admin mock, dashboard, data mock dan penerangan peranan (contohnya `WorkflowEnginePanel`, `AdminGovernanceDashboards` dengan hash "Immutable Hash Certified" palsu, `rbac/roles/*`, `revenueConfig`). Kemas kini atau buang selepas keputusan Fasa 3. Kandungan halaman info yang pernah diedit dan diterbitkan oleh admin dalam mod DEMO disimpan dalam localStorage pelayar dan tidak menerima teks baharu.
