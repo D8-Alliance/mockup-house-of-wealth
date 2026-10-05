@@ -2,6 +2,20 @@
 
 Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila kerja dimulakan, dan buang item apabila selesai.
 
+## Ringkasan: apa yang belum siap (disemak 2026-10-05)
+
+| # | Item | Yang belum siap | Menunggu |
+|---|---|---|---|
+| 1 | Tamper detection | Tandatangan PAdES, OCR lawan lapisan teks, semakan dengan pengeluar dokumen | Boleh dibuat bila diminta |
+| 2 | Penyedia eKYC luar | Anti-spoofing, pemalsuan dokumen, REGISTRY, AML/PEP | Keputusan penyedia dan compliance (BNM e-KYC) |
+| 3 | Liveness | Penalaan dengan kamera sebenar, kelip mata/senyum, semakan kad fizikal, ujian telefon, jalan alternatif | Ujian kamera oleh pemilik projek |
+| 4 | Data biometrik (PDPA) | Tempoh simpanan, pemadaman automatik, rekod persetujuan formal | Keputusan tempoh simpanan |
+| 5 | Emel peringatan membership | Job peringatan harian dan rekod emel dihantar | Akaun Resend dan alamat penghantar |
+| 6 | Contract Advisory/Agreement ikut projek | `projectId` pada kontrak, versi v2/v3, wizard pilih projek | Boleh dibuat bila diminta (kerja besar) |
+| 7 | Perkara kecil pembayaran | Kredit bonus, Project Promotion ke ToyyibPay, go-live ToyyibPay, akaun lejar lama | Keputusan kredit bonus; akaun ToyyibPay live dan domain |
+| 8 | Payout provider | Adapter bank/DuitNow, validation sebelum SETTLED, dual approval ikut had amaun | Pilihan provider; nilai had amaun |
+| 9 | Background jobs dan notifikasi | Kata laluan dan sijil TLS Redis, kunci Resend/Twilio, tetapan push FCM dalam `server/.env` | Akaun Resend/Twilio; penyediaan secret production |
+
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
 - **Status:** Langkah 1 hingga 3 siap (2026-10-05, commit `dc263b1`). Baki langkah 4 hingga 6 ditangguhkan.
@@ -60,15 +74,14 @@ Bingkai kamera dan dokumen KYC disimpan dalam database tanpa had masa. Perlu dip
 - **Status:** Ditangguhkan (dicatat 2026-10-01). Menunggu pembekal emel.
 - **Kawasan:** `server/src/membership/membership.service.ts` (`getMembershipStatus`, `applyLifecycle`)
 
-**Keadaan sekarang:** Pembaharuan membership adalah manual, kerana bill ToyyibPay ialah bayaran sekali. Peringatan hanya dipaparkan dalam app: banner di dashboard (`MembershipExpiryBanner`) dan di halaman Membership, 7 hari sebelum tamat dan semasa grace 7 hari. Projek ini belum ada servis emel.
+**Keadaan sekarang:** Pembaharuan membership adalah manual, kerana bill ToyyibPay ialah bayaran sekali. Peringatan hanya dipaparkan dalam app: banner di dashboard (`MembershipExpiryBanner`) dan di halaman Membership, 7 hari sebelum tamat dan semasa grace 7 hari. Adapter emel Resend dan notification outbox (item 9) sudah ada, tetapi belum ada job yang menghantar peringatan tamat membership.
 
 **Diperlukan daripada pemilik projek:**
-1. Pembekal emel (contohnya SMTP Google Workspace, Amazon SES, Brevo atau Mailgun).
-2. Kelayakan akses, diletakkan sendiri dalam `server/.env`.
-3. Alamat penghantar (contohnya `no-reply@domain`).
-4. Jadual peringatan (cadangan: 7 hari dan 1 hari sebelum tamat, dan pada hari tamat).
+1. Akaun Resend dan `RESEND_API_KEY`, diletakkan sendiri dalam `server/.env` (atau pilih pembekal lain, yang memerlukan adapter baharu).
+2. Alamat penghantar yang disahkan dalam Resend (contohnya `no-reply@domain`) untuk `NOTIFICATION_EMAIL_FROM`.
+3. Jadual peringatan (cadangan: 7 hari dan 1 hari sebelum tamat, dan pada hari tamat).
 
-**Kerja teknikal selepas itu:** servis emel, job berjadual harian (`@nestjs/schedule`) yang mencari langganan berbayar menghampiri `currentPeriodEnd`, dan rekod peringatan yang sudah dihantar supaya emel tidak berulang.
+**Kerja teknikal selepas itu:** job harian dalam queue BullMQ sedia ada yang mencari langganan berbayar menghampiri `currentPeriodEnd` dan memasukkan emel ke notification outbox, dengan kunci deduplication supaya setiap peringatan dihantar sekali sahaja.
 
 ## 6. Contract Advisory dan Agreement Generation mengikut projek
 
@@ -138,11 +151,11 @@ Bingkai kamera dan dokumen KYC disimpan dalam database tanpa had masa. Perlu dip
 **Masih pending:**
 1. Provision secret files `server/ops/secrets/redis_password` dan certificate files berdasarkan `server/ops/redis/README.md`; jangan commit values.
 2. Set provider credentials, sender identity, delivery consent dan notification templates dalam secret manager/deployment environment. Twilio SMS credentials (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`) masih pending/optional; push perlukan `NOTIFICATION_PUSH_PROVIDER=fcm` dan `FCM_SERVICE_ACCOUNT_FILE`; in-app notifications tidak memerlukan kedua-duanya.
-3. Jalankan integration suite dengan `RUN_INTEGRATION_TESTS=true` dalam CI yang menyediakan PostgreSQL dan Redis. Local smoke test lulus selepas local `.env` diselaraskan dengan Redis authentication.
-4. Pilih provider bank/DuitNow, dapatkan API/webhook contract dan credentials, kemudian implement adapter serta provider-side polling.
+3. Jalankan integration suite dengan `RUN_INTEGRATION_TESTS=true` dalam CI yang menyediakan PostgreSQL dan Redis. Local smoke test pernah lulus (2026-10-02) selepas local `.env` diselaraskan dengan Redis authentication.
 
-**Current local status:** Redis container aktif dan integration test lulus. Untuk production, pindahkan password ke secret manager/file mount dan jangan simpan nilai password dalam Git.
+Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan password Redis ke secret manager/file mount dan jangan simpan nilainya dalam Git.
 
 **Semakan 2026-10-05:**
-- **`server/ops/secrets/redis_password` wujud tetapi kosong** (0 bait), dan folder `server/ops/redis/certs/` belum ada `ca.crt`, `redis.crt` dan `redis.key`.
+- **`server/ops/secrets/redis_password` wujud tetapi kosong** (0 bait), dan folder `server/ops/redis/certs/` kosong (belum ada `ca.crt`, `redis.crt` dan `redis.key`).
+- Container Redis local (`redis`, `keycloak-redis-1`) sedang berhenti; hidupkan sebelum menjalankan worker atau integration test.
 - **Pembolehubah notifikasi belum diset dalam `server/.env`:** `NOTIFICATION_EMAIL_PROVIDER`, `NOTIFICATION_EMAIL_FROM`, `RESEND_API_KEY`, `NOTIFICATION_SMS_PROVIDER`, `TWILIO_*`, `NOTIFICATION_PUSH_PROVIDER`, `FCM_SERVICE_ACCOUNT_FILE` dan `NOTIFICATION_DEFAULT_CHANNELS`. Tanpanya hanya notifikasi dalam app yang berfungsi. Fail service account Firebase sudah ada dan telah disahkan boleh mendapatkan token Google.
