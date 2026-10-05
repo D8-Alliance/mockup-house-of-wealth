@@ -16,6 +16,11 @@ export class MembershipController {
     return this.membershipService.getPlans();
   }
 
+  @Get('payment-options')
+  paymentOptions() {
+    return this.membershipService.getPaymentOptions();
+  }
+
   @Get('me')
   current(@CurrentUser() actor: AuthenticatedUser) {
     return this.membershipService.getMembershipStatus(actor);

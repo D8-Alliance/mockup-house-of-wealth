@@ -29,7 +29,6 @@ import { PlanComparisonTable } from './PlanComparisonTable';
 import { FeatureMatrixTable } from './FeatureMatrixTable';
 import { PDPMembershipView } from './PDPMembershipView';
 import { UpgradeModal } from './UpgradeModal';
-import { CancelDowngradeModal } from './CancelDowngradeModal';
 import { CreditBalanceModal } from './CreditBalanceModal';
 import { PremiumReportsCatalog } from './PremiumReportsCatalog';
 import { FutureRevenueSection } from './FutureRevenueSection';
@@ -62,7 +61,6 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
   );
 
   const [selectedPlanForUpgrade, setSelectedPlanForUpgrade] = useState<{ plan: MembershipPlan; interval: BillingInterval } | null>(null);
-  const [cancelDowngradeState, setCancelDowngradeState] = useState<'downgrade' | 'cancel' | null>(null);
   const [showCreditModal, setShowCreditModal] = useState(false);
 
   useEffect(() => {
@@ -178,15 +176,6 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
     setSelectedPlanForUpgrade({ plan: currentPlan, interval: membership.billingInterval });
   };
 
-  const handleConfirmCancelDowngrade = () => {
-    if (cancelDowngradeState === 'downgrade') {
-      revenueService.downgradeMembership(userId);
-    } else if (cancelDowngradeState === 'cancel') {
-      revenueService.cancelMembership(userId);
-    }
-    setCancelDowngradeState(null);
-  };
-
   const handleUnlockReport = (reportId: string) => {
     revenueService.unlockPremiumReport(reportId, userId);
   };
@@ -245,7 +234,6 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
         featureUsage={featureUsage}
         onOpenUpgradeModal={() => setSelectedPlanForUpgrade({ plan: currentPlan.tier === 'FREE' ? plans[1] : plans[2], interval: 'monthly' })}
         onOpenCreditModal={() => setShowCreditModal(true)}
-        onOpenDowngradeModal={() => setCancelDowngradeState('downgrade')}
       />
 
       {/* Sub-Navigation Tabs */}
@@ -367,16 +355,6 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
           membershipStatus={membershipStatus}
           onClose={() => setSelectedPlanForUpgrade(null)}
           onConfirm={handleConfirmUpgrade}
-        />
-      )}
-
-      {/* Cancel / Downgrade Modal */}
-      {cancelDowngradeState && (
-        <CancelDowngradeModal
-          membership={membership}
-          mode={cancelDowngradeState}
-          onClose={() => setCancelDowngradeState(null)}
-          onConfirm={handleConfirmCancelDowngrade}
         />
       )}
 

@@ -166,47 +166,6 @@ class RevenueService {
     return true;
   }
 
-  public downgradeMembership(userId: string): boolean {
-    const freePlan = this.plans.find(p => p.tier === 'FREE') || this.plans[0];
-    const current = this.getUserMembership(userId);
-    
-    const updated: UserMembership = {
-      ...current,
-      planId: freePlan.id,
-      tier: 'FREE',
-      billingInterval: 'monthly',
-      status: 'Active',
-      autoRenew: false,
-      paymentMethodSummary: 'None (Free Plan)',
-      aiCreditsTotal: freePlan.aiCreditsMonthly,
-      aiCreditsRemaining: Math.min(current.aiCreditsRemaining, freePlan.aiCreditsMonthly)
-    };
-    this.userMemberships.set(userId, updated);
-    
-    const cb = this.getCreditBalance(userId);
-    this.creditBalances.set(userId, {
-      ...cb,
-      monthlyAllowance: freePlan.aiCreditsMonthly,
-      totalCredits: freePlan.aiCreditsMonthly,
-      availableCredits: Math.min(cb.availableCredits, freePlan.aiCreditsMonthly)
-    });
-    
-    this.notify();
-    return true;
-  }
-
-  public cancelMembership(userId: string): boolean {
-    const current = this.getUserMembership(userId);
-    const updated: UserMembership = {
-      ...current,
-      autoRenew: false,
-      status: 'Cancelled'
-    };
-    this.userMemberships.set(userId, updated);
-    this.notify();
-    return true;
-  }
-
   public getFeatureUsage(userId: string): FeatureUsageStats {
     const membership = this.getUserMembership(userId);
     const plan = this.plans.find(p => p.id === membership.planId) || this.plans[0];

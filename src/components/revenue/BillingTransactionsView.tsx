@@ -60,7 +60,7 @@ export const BillingTransactionsView: React.FC = () => {
       const awaitingGateway = Boolean(item.paymentId) && (item.status === 'PENDING' || item.status === 'INITIATED');
       return <div key={`${item.type}-${item.id}`} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0"><div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600"><Receipt className="w-4 h-4" /></div><div className="min-w-0">
-          <div className="font-bold text-sm text-slate-900 dark:text-white">{item.description}</div>
+          <div className="font-bold text-sm text-slate-900 dark:text-white">{item.description}{item.simulated && <span className="ml-2 align-middle px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 text-[9px] font-black" title="Simulated payment: nothing was charged">DEMO</span>}</div>
           <div className="text-[10px] text-slate-500 mt-1">{new Date(item.createdAt).toLocaleString()} • {item.method}</div>
           {item.invoiceNumber && <div className="text-[10px] font-mono text-purple-600 mt-1 break-all">{item.invoiceNumber}</div>}
           {(item.gatewayBillCode || item.gatewayTransactionId) && <div className="text-[10px] font-mono text-slate-500 mt-1 break-all">ToyyibPay bill {item.gatewayBillCode || '-'}{item.gatewayTransactionId ? ` • ref ${item.gatewayTransactionId}` : ''}</div>}

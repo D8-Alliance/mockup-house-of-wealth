@@ -169,7 +169,12 @@ export const PlanComparisonTable: React.FC<PlanComparisonTableProps> = ({
 
               {/* Action Button */}
               <div className="pt-6">
-                {isCurrent ? (
+                {/* Paid plans are not auto-renewed, so they return to Free on their own when the period ends. */}
+                {plan.tier === 'FREE' && !isCurrent ? (
+                  <div className="w-full py-3 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-semibold text-[11px] text-center">
+                    Your plan returns to Free when it ends without renewal
+                  </div>
+                ) : isCurrent ? (
                   <button
                     disabled
                     className="w-full py-3 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-400 font-bold text-xs cursor-default flex items-center justify-center gap-1.5"

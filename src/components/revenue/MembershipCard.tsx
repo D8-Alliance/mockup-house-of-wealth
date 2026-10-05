@@ -10,7 +10,6 @@ import {
   FileText,
   Search,
   Scale,
-  ArrowDownRight,
   TrendingUp
 } from 'lucide-react';
 import { UserMembership, HoWCreditBalance, MembershipPlan, FeatureUsageStats } from '../../revenue/revenueTypes';
@@ -34,7 +33,6 @@ interface MembershipCardProps {
   featureUsage: FeatureUsageStats;
   onOpenUpgradeModal: () => void;
   onOpenCreditModal: () => void;
-  onOpenDowngradeModal: () => void;
 }
 
 export const MembershipCard: React.FC<MembershipCardProps> = ({
@@ -45,8 +43,7 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
   creditBalance,
   featureUsage,
   onOpenUpgradeModal,
-  onOpenCreditModal,
-  onOpenDowngradeModal
+  onOpenCreditModal
 }) => {
   const percentCredits = Math.round((creditBalance.availableCredits / (creditBalance.totalCredits || 1)) * 100);
 
@@ -127,18 +124,6 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
             <Coins className="w-4 h-4 text-amber-400" />
             <span>Top Up Credits</span>
           </button>
-
-          {!isFree && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={onOpenDowngradeModal}
-                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
-                title="Downgrade to Free Tier"
-              >
-                <ArrowDownRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
         </div>
       </div>
 

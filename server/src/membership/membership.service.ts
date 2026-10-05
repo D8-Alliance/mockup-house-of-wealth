@@ -91,6 +91,21 @@ export function splitMembershipPayment(priceMYR: number, requestedCredits: numbe
   return { credits, creditValueMYR: roundMYR(priceMYR - cashMYR), cashMYR };
 }
 
+/** Simulated payments are refused in production unless ALLOW_SIMULATED_PAYMENTS=true. */
+export function simulatedPaymentsAllowed() {
+  return process.env.NODE_ENV !== 'production' || process.env.ALLOW_SIMULATED_PAYMENTS === 'true';
+}
+
+/** A credit top-up not settled through ToyyibPay came from a simulated checkout. */
+export function isSimulatedTopUp(item: { type: string; reference: string | null }) {
+  return item.type === 'TOP_UP' && !item.reference?.startsWith('TOYYIBPAY-');
+}
+
+/** Billing rows without a gateway payment are simulated, unless paid entirely with AI credits (or free). */
+export function isSimulatedBillingMethod(paymentMethod: string) {
+  return !/^\d+ AI credits$/.test(paymentMethod) && paymentMethod !== 'None (Free Plan)';
+}
+
 @Injectable()
 export class MembershipService {
   constructor(
@@ -375,8 +390,13 @@ export class MembershipService {
     return this.prisma.aiCreditTransaction.findMany({ where: { userId: actor.userId }, orderBy: { createdAt: 'desc' }, take: 100 });
   }
 
+  /** Payment choices the checkout UI may offer; simulated (demo) methods only where the backend accepts them. */
+  getPaymentOptions() {
+    return { simulatedPaymentsAllowed: simulatedPaymentsAllowed() };
+  }
+
   private assertSimulatedPaymentAllowed() {
-    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SIMULATED_PAYMENTS !== 'true') {
+    if (!simulatedPaymentsAllowed()) {
       throw new BadRequestException('Simulated payments are disabled. Pay with ToyyibPay (paymentMethod "TOYYIBPAY").');
     }
   }
@@ -395,11 +415,11 @@ export class MembershipService {
     const paymentById = new Map(payments.map((payment) => [payment.id, payment]));
     const paymentByInvoice = new Map(payments.flatMap((payment) => { const invoice = (payment.metadata as Record<string, unknown> | null)?.invoiceNumber; return typeof invoice === 'string' ? [[invoice, payment] as const] : []; }));
     return [
-      ...billing.map((item) => { const payment = paymentByInvoice.get(item.invoiceNumber); return { id: item.id, type: 'MEMBERSHIP', description: `${item.planId} membership`, status: item.status, amountMYR: Number(item.amountMYR), amountUSD: Number(item.amountUSD), credits: 0, method: item.paymentMethod, invoiceNumber: item.invoiceNumber, createdAt: item.createdAt, receiptAvailable: true, ...(payment ? gateway(payment) : {}) }; }),
-      ...credits.map((item) => { const payment = item.reference?.startsWith('TOYYIBPAY-') ? paymentById.get(item.reference.slice('TOYYIBPAY-'.length)) : undefined; const description = item.type === 'TOP_UP' ? 'AI credit top-up' : item.type === 'REDEMPTION' ? `AI credits applied to ${planOf(item.targetEntity || '').name} (worth RM ${Number(item.amountMYR || 0).toFixed(2)})` : item.type === 'REFUND' ? 'AI credits returned (membership payment not completed)' : item.type === 'EXPIRY' ? 'Unused free monthly AI credits expired' : `AI usage: ${item.operationKey || 'AI operation'}`; return { id: item.id, type: item.type === 'TOP_UP' ? 'AI_CREDIT_TOP_UP' : 'AI_CREDIT_USAGE', description, status: item.type === 'REFUND' ? 'REFUNDED' : item.type === 'EXPIRY' ? 'EXPIRED' : 'PAID', amountMYR: item.type === 'TOP_UP' ? Number(item.amountMYR || 0) : 0, amountUSD: 0, credits: item.credits, method: item.paymentMethod || 'Platform credits', invoiceNumber: item.reference, createdAt: item.createdAt, receiptAvailable: item.type === 'TOP_UP', ...(payment ? gateway(payment) : {}) }; }),
+      ...billing.map((item) => { const payment = paymentByInvoice.get(item.invoiceNumber); return { id: item.id, type: 'MEMBERSHIP', description: `${item.planId} membership`, status: item.status, amountMYR: Number(item.amountMYR), amountUSD: Number(item.amountUSD), credits: 0, method: item.paymentMethod, invoiceNumber: item.invoiceNumber, createdAt: item.createdAt, receiptAvailable: true, simulated: !payment && isSimulatedBillingMethod(item.paymentMethod), ...(payment ? gateway(payment) : {}) }; }),
+      ...credits.map((item) => { const payment = item.reference?.startsWith('TOYYIBPAY-') ? paymentById.get(item.reference.slice('TOYYIBPAY-'.length)) : undefined; const description = item.type === 'TOP_UP' ? 'AI credit top-up' : item.type === 'REDEMPTION' ? `AI credits applied to ${planOf(item.targetEntity || '').name} (worth RM ${Number(item.amountMYR || 0).toFixed(2)})` : item.type === 'REFUND' ? 'AI credits returned (membership payment not completed)' : item.type === 'EXPIRY' ? 'Unused free monthly AI credits expired' : `AI usage: ${item.operationKey || 'AI operation'}`; return { id: item.id, type: item.type === 'TOP_UP' ? 'AI_CREDIT_TOP_UP' : 'AI_CREDIT_USAGE', description, status: item.type === 'REFUND' ? 'REFUNDED' : item.type === 'EXPIRY' ? 'EXPIRED' : 'PAID', amountMYR: item.type === 'TOP_UP' ? Number(item.amountMYR || 0) : 0, amountUSD: 0, credits: item.credits, method: item.paymentMethod || 'Platform credits', invoiceNumber: item.reference, createdAt: item.createdAt, receiptAvailable: item.type === 'TOP_UP', simulated: isSimulatedTopUp(item), ...(payment ? gateway(payment) : {}) }; }),
       // Settled payments (PAID, PARTIALLY_REFUNDED, REFUNDED) already appear as their billing or top-up row.
-      ...payments.filter((payment) => !['PAID', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(payment.status)).map((payment) => { const metadata = (payment.metadata || {}) as Record<string, unknown>; const isMembership = payment.productType === 'MEMBERSHIP'; return { id: payment.id, type: isMembership ? 'MEMBERSHIP' : 'AI_CREDIT_TOP_UP', description: isMembership ? `${planOf(payment.productId).name} (${String(metadata.billingInterval || 'monthly')})${Number(metadata.creditsApplied || 0) ? ` • ${Number(metadata.creditsApplied)} AI credits applied` : ''}` : 'AI credit top-up', fpxFeeMYR: Number(metadata.fpxFeeMYR || 0) || undefined, status: payment.status, amountMYR: Number(payment.amountMYR), amountUSD: 0, credits: isMembership ? 0 : Number(metadata.credits || 0) + Number(metadata.bonusCredits || 0), method: 'ToyyibPay', invoiceNumber: payment.providerBillCode, createdAt: payment.createdAt, receiptAvailable: false, ...gateway(payment) }; }),
-      ...promotions.map((item) => ({ id: item.id, type: 'PROJECT_PROMOTION', description: `${item.campaign.packageName} • ${item.campaign.project.projectName}`, status: item.status, amountMYR: Number(item.amountMYR), amountUSD: 0, credits: item.creditsCost ? -item.creditsCost : 0, method: item.method, invoiceNumber: `HOW-PROMO-${item.id.slice(-10).toUpperCase()}`, createdAt: item.createdAt, receiptAvailable: item.status === 'PAID', projectId: item.campaign.projectId, campaignId: item.campaignId })),
+      ...payments.filter((payment) => !['PAID', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(payment.status)).map((payment) => { const metadata = (payment.metadata || {}) as Record<string, unknown>; const isMembership = payment.productType === 'MEMBERSHIP'; return { id: payment.id, type: isMembership ? 'MEMBERSHIP' : 'AI_CREDIT_TOP_UP', description: isMembership ? `${planOf(payment.productId).name} (${String(metadata.billingInterval || 'monthly')})${Number(metadata.creditsApplied || 0) ? ` • ${Number(metadata.creditsApplied)} AI credits applied` : ''}` : 'AI credit top-up', fpxFeeMYR: Number(metadata.fpxFeeMYR || 0) || undefined, status: payment.status, amountMYR: Number(payment.amountMYR), amountUSD: 0, credits: isMembership ? 0 : Number(metadata.credits || 0) + Number(metadata.bonusCredits || 0), method: 'ToyyibPay', invoiceNumber: payment.providerBillCode, createdAt: payment.createdAt, receiptAvailable: false, simulated: false, ...gateway(payment) }; }),
+      ...promotions.map((item) => ({ id: item.id, type: 'PROJECT_PROMOTION', description: `${item.campaign.packageName} • ${item.campaign.project.projectName}`, status: item.status, amountMYR: Number(item.amountMYR), amountUSD: 0, credits: item.creditsCost ? -item.creditsCost : 0, method: item.method, invoiceNumber: `HOW-PROMO-${item.id.slice(-10).toUpperCase()}`, createdAt: item.createdAt, receiptAvailable: item.status === 'PAID', simulated: false, projectId: item.campaign.projectId, campaignId: item.campaignId })),
     ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
@@ -573,7 +593,8 @@ export class MembershipService {
     const transactionScope = scopedUserIds ? { userId: { in: scopedUserIds } } : {};
     const transactions = await this.prisma.aiCreditTransaction.findMany({ where: transactionScope, orderBy: { createdAt: 'desc' }, take: 500 });
     const consumption = transactions.filter((item) => item.type === 'CONSUMPTION');
-    const topUps = transactions.filter((item) => item.type === 'TOP_UP');
+    // Simulated (demo) top-ups granted credits without charging anyone, so they are not revenue.
+    const topUps = transactions.filter((item) => item.type === 'TOP_UP' && !isSimulatedTopUp(item));
     const operationNames: Record<string, string> = { SIMPLE_QUERY: 'Simple AI Query', PROJECT_SUMMARY: 'Project Summary', INVESTMENT_ANALYSIS: 'Investment Analysis', RISK_ANALYSIS: 'Risk Analysis', CONTRACT_ANALYSIS: 'Contract Analysis', DUE_DILIGENCE: 'Due Diligence', FULL_PROJECT_INTELLIGENCE: 'Full Project Intelligence', PROJECT_PROMOTION: 'Project Promotion' };
     const grouped = consumption.reduce<Record<string, { count: number; credits: number }>>((acc, item) => { const key = item.operationKey || 'SIMPLE_QUERY'; acc[key] ||= { count: 0, credits: 0 }; acc[key].count += 1; acc[key].credits += Math.abs(item.credits); return acc; }, {});
     const totalBurned = consumption.reduce((sum, item) => sum + Math.abs(item.credits), 0);

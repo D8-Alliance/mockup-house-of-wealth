@@ -14,6 +14,7 @@ import { AICreditTopUpPackage } from './aiMonetisationTypes';
 import { aiMonetisationService } from './aiMonetisationService';
 import { apiClient, apiErrorMessage } from '../../services/apiClient';
 import { TOYYIBPAY_FPX_FEE_MYR } from '../../revenue/revenueConfig';
+import { useSimulatedPaymentsAllowed } from '../../revenue/usePaymentOptions';
 
 interface BuyAICreditsModalProps {
   userId?: string;
@@ -32,22 +33,25 @@ export const BuyAICreditsModal: React.FC<BuyAICreditsModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [error, setError] = useState('');
+  const simulatedAllowed = useSimulatedPaymentsAllowed();
+  // Demo methods grant credits without charging anyone; they are hidden where the backend refuses them.
+  const method = simulatedAllowed ? paymentMethod : 'FPX';
 
   const selectedPkg = packages.find(p => p.id === selectedPkgId) || packages[0];
   const totalCredits = selectedPkg.credits + selectedPkg.bonusCredits;
-  const fpxFee = paymentMethod === 'FPX' ? TOYYIBPAY_FPX_FEE_MYR : 0;
+  const fpxFee = method === 'FPX' ? TOYYIBPAY_FPX_FEE_MYR : 0;
   const totalCharged = selectedPkg.priceMYR + fpxFee;
 
   const handlePurchase = async () => {
     setIsProcessing(true);
     setError('');
     try {
-      // FPX is a real ToyyibPay checkout; card and USDT remain simulated.
-      const methodLabel = paymentMethod === 'FPX'
+      // FPX is a real ToyyibPay checkout; Card and USDT are demos (no card, escrow or crypto involved).
+      const methodLabel = method === 'FPX'
         ? 'TOYYIBPAY'
-        : paymentMethod === 'CARD'
-        ? 'Visa ending in 4242 (Simulated)'
-        : 'USDT (TRC-20 Escrow)';
+        : method === 'CARD'
+        ? 'Demo card (no charge)'
+        : 'Demo USDT (no charge)';
 
       const payment = await apiClient.topUpMembershipCredits(selectedPkg.id, methodLabel);
       if (payment.paymentUrl) {
@@ -169,23 +173,31 @@ export const BuyAICreditsModal: React.FC<BuyAICreditsModalProps> = ({
         <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-3">
           <div className="flex items-center justify-between text-xs">
             <span className="font-bold text-slate-700 dark:text-slate-300">Select Payment Method</span>
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3" /> Simulated Gateway
-            </span>
+            {method === 'FPX' ? (
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" /> Real payment via ToyyibPay
+              </span>
+            ) : (
+              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" /> Demo, no real charge
+              </span>
+            )}
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className={`grid gap-2 ${simulatedAllowed ? 'grid-cols-3' : 'grid-cols-1'}`}>
             {[
               { id: 'FPX', label: 'FPX / Card (ToyyibPay)', icon: <Zap className="w-3.5 h-3.5" /> },
-              { id: 'CARD', label: 'Card (Simulated)', icon: <CreditCard className="w-3.5 h-3.5" /> },
-              { id: 'CRYPTO', label: 'USDT Escrow', icon: <Coins className="w-3.5 h-3.5" /> }
+              ...(simulatedAllowed ? [
+                { id: 'CARD', label: 'Card (Demo)', icon: <CreditCard className="w-3.5 h-3.5" /> },
+                { id: 'CRYPTO', label: 'USDT (Demo)', icon: <Coins className="w-3.5 h-3.5" /> }
+              ] : [])
             ].map(m => (
               <button
                 key={m.id}
                 type="button"
                 onClick={() => setPaymentMethod(m.id as any)}
                 className={`p-2 rounded-xl text-center text-[10px] font-bold border transition-all cursor-pointer flex flex-col items-center gap-1 ${
-                  paymentMethod === m.id
+                  method === m.id
                     ? 'border-purple-600 bg-purple-100/50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
                     : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400'
                 }`}
@@ -239,7 +251,7 @@ export const BuyAICreditsModal: React.FC<BuyAICreditsModalProps> = ({
             className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-lg shadow-purple-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
           >
             {isProcessing ? (
-              <span>{paymentMethod === 'FPX' ? 'Redirecting to ToyyibPay...' : 'Processing Payment...'}</span>
+              <span>{method === 'FPX' ? 'Redirecting to ToyyibPay...' : 'Processing Payment...'}</span>
             ) : isDone ? (
               <span className="flex items-center gap-1"><Check className="w-4 h-4" /> Credits Added!</span>
             ) : (

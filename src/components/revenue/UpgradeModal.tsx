@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { MembershipPlan, BillingInterval } from '../../revenue/revenueTypes';
 import { apiErrorMessage, BackendMembershipStatus } from '../../services/apiClient';
+import { useSimulatedPaymentsAllowed } from '../../revenue/usePaymentOptions';
 
 interface UpgradeModalProps {
   plan: MembershipPlan;
@@ -44,7 +45,10 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
 }) => {
   const [step, setStep] = useState<1 | 2 | 3>(1); // 1: Summary & Features, 2: Interval & Pricing, 3: Mock Checkout & Confirm
   const [billingInterval, setBillingInterval] = useState<BillingInterval>(initialInterval);
-  const [selectedMethod, setSelectedMethod] = useState<'card' | 'wallet' | 'fpx' | 'isdb'>('fpx');
+  const [pickedMethod, setSelectedMethod] = useState<'card' | 'wallet' | 'fpx' | 'isdb'>('fpx');
+  const simulatedAllowed = useSimulatedPaymentsAllowed();
+  // Card, wallet and IsDB are demos that activate the plan without charging; hidden where the backend refuses them.
+  const selectedMethod = simulatedAllowed ? pickedMethod : 'fpx';
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -86,9 +90,9 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
       setIsProcessing(false);
       setIsSuccess(true);
       setTimeout(() => {
-        let methodTitle = 'Simulated Card (•••• 4242)';
-        if (selectedMethod === 'wallet') methodTitle = 'D-8 Wealth E-Wallet';
-        if (selectedMethod === 'isdb') methodTitle = 'IsDB Interbank Clearing Protocol';
+        let methodTitle = 'Demo card (no charge)';
+        if (selectedMethod === 'wallet') methodTitle = 'Demo wallet (no charge)';
+        if (selectedMethod === 'isdb') methodTitle = 'Demo IsDB clearing (no charge)';
         onConfirm(plan.id, billingInterval, methodTitle, split.credits).catch((cause) => {
           setIsSuccess(false);
           setError(apiErrorMessage(cause, 'Unable to activate the plan.'));
@@ -241,10 +245,10 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
           <div className="space-y-5">
             <div className="space-y-1">
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-                Simulated Settlement
+                Checkout
               </h2>
               <p className="text-xs text-slate-500">
-                Review subscription terms and select mock payment method.
+                Review subscription terms and choose how to pay.
               </p>
             </div>
 
@@ -291,12 +295,14 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
             )}
 
             {/* Payment Instruments */}
-            {!fullyCoveredByCredits && <div className="grid grid-cols-2 gap-2.5">
+            {!fullyCoveredByCredits && <div className={`grid gap-2.5 ${simulatedAllowed ? 'grid-cols-2' : 'grid-cols-1'}`}>
               {[
-                { id: 'card', name: 'Credit / Debit Card', desc: 'Visa / Mastercard Mock', icon: <CreditCard className="w-4 h-4 text-emerald-500" /> },
-                { id: 'wallet', name: 'D-8 Wealth Wallet', desc: 'Internal Token Balance', icon: <Wallet className="w-4 h-4 text-amber-500" /> },
                 { id: 'fpx', name: 'FPX / Card (ToyyibPay)', desc: 'Real payment via ToyyibPay', icon: <Building2 className="w-4 h-4 text-blue-500" /> },
-                { id: 'isdb', name: 'IsDB Protocol', desc: 'Sovereign Clearing Desk', icon: <ShieldCheck className="w-4 h-4 text-purple-500" /> }
+                ...(simulatedAllowed ? [
+                  { id: 'card', name: 'Card (Demo)', desc: 'No real charge', icon: <CreditCard className="w-4 h-4 text-emerald-500" /> },
+                  { id: 'wallet', name: 'D-8 Wallet (Demo)', desc: 'No real charge', icon: <Wallet className="w-4 h-4 text-amber-500" /> },
+                  { id: 'isdb', name: 'IsDB Clearing (Demo)', desc: 'No real charge', icon: <ShieldCheck className="w-4 h-4 text-purple-500" /> }
+                ] : [])
               ].map(method => (
                 <button
                   key={method.id}
@@ -332,7 +338,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 ? <span><strong>AI credits:</strong> The plan activates immediately and {split.credits} purchased credits are deducted.</span>
                 : selectedMethod === 'fpx'
                   ? <span><strong>ToyyibPay:</strong> You will be redirected to ToyyibPay. The plan activates after the payment is confirmed.{split.credits > 0 ? ' Your credits are held now and returned if the payment fails or is cancelled.' : ''}</span>
-                  : <span><strong>Sandbox Mock Payment:</strong> No real bank card will be charged. Instantly activates the selected plan.</span>}
+                  : <span><strong>Demo payment:</strong> Nothing is charged. The plan activates immediately and the transaction is marked DEMO.</span>}
             </div>
 
             {error && (
@@ -354,7 +360,7 @@ export const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
               >
                 {isProcessing ? (
-                  <span>{fullyCoveredByCredits ? 'Activating...' : selectedMethod === 'fpx' ? 'Redirecting to ToyyibPay...' : 'Authorizing Sandbox...'}</span>
+                  <span>{fullyCoveredByCredits ? 'Activating...' : selectedMethod === 'fpx' ? 'Redirecting to ToyyibPay...' : 'Activating demo...'}</span>
                 ) : isSuccess ? (
                   <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4" /> Activated!</span>
                 ) : (

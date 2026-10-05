@@ -212,6 +212,7 @@ export const apiClient = {
       body: JSON.stringify(input),
     }),
   getMembershipStatus: () => request<BackendMembershipStatus>('/membership/me'),
+  getPaymentOptions: () => request<{ simulatedPaymentsAllowed: boolean }>('/membership/payment-options'),
   cancelMembershipPayment: (paymentId: string) => request<{ status: string; paymentId: string }>(`/membership/me/payments/${encodeURIComponent(paymentId)}/cancel`, { method: 'POST' }),
   savePdpDraft: async (payload: Partial<PDPApplication>, id?: string) => {
     const response = await request<BackendPdpApplication>(id ? `/pdp/applications/${id}` : '/pdp/applications', {
@@ -946,7 +947,7 @@ export interface BackendMembershipStatus {
   pendingMembershipPayments: number;
 }
 
-export interface BackendTransaction { id: string; type: string; description: string; status: string; amountMYR: number; amountUSD: number; credits: number; method: string; invoiceNumber?: string | null; createdAt: string; receiptAvailable: boolean; paymentId?: string; gatewayBillCode?: string | null; gatewayTransactionId?: string | null; failureReason?: string | null; fpxFeeMYR?: number; }
+export interface BackendTransaction { id: string; type: string; description: string; status: string; amountMYR: number; amountUSD: number; credits: number; method: string; invoiceNumber?: string | null; createdAt: string; receiptAvailable: boolean; paymentId?: string; gatewayBillCode?: string | null; gatewayTransactionId?: string | null; failureReason?: string | null; fpxFeeMYR?: number; simulated?: boolean; }
 
 export interface BackendDocumentAnalysis {
   id: string;
