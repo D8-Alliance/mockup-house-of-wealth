@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { FinancialLedgerService } from './financial-ledger.service';
+import { FinancialLedgerService, toyyibPayCashAccount } from './financial-ledger.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -37,5 +37,14 @@ describe('FinancialLedgerService', () => {
     expect(result.id).toBe('LT-1');
     expect(tx.ledgerTransaction.create).toHaveBeenCalled();
     expect(audit.recordActor).toHaveBeenCalledWith(actor, expect.objectContaining({ action: 'financial.ledger.post' }), tx);
+  });
+});
+
+describe('toyyibPayCashAccount', () => {
+  it('gives every organisation and country its own ToyyibPay cash account', () => {
+    const a = toyyibPayCashAccount('ORG-A', 'CN-MYS', 'MYR');
+    const b = toyyibPayCashAccount('ORG-B', 'CN-MYS', 'MYR');
+    expect(a.accountCode).not.toBe(b.accountCode);
+    expect(a).toMatchObject({ organisationId: 'ORG-A', countryNodeId: 'CN-MYS', currency: 'MYR', accountType: 'ASSET' });
   });
 });

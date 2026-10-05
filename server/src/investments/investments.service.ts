@@ -45,8 +45,14 @@ export class InvestmentsService {
     return order;
   }
 
+  /**
+   * Settlement confirms the investor's money was actually received, and posts pool cash and a
+   * contribution that drive distributions. So only settlement staff may settle, and never their own order.
+   */
   async settle(actor: AuthenticatedUser, id: string) {
+    if (!SETTLEMENT_ROLES.has(actor.role)) throw new ForbiddenException('Only settlement staff can settle an investment order.');
     const order = await this.getOrder(actor, id);
+    if (order.investorUserId === actor.userId) throw new ForbiddenException('You cannot settle your own investment order.');
     if (order.status !== 'PENDING') throw new BadRequestException(`Cannot settle an order in state ${order.status}.`);
     const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: order.poolId }, include: { project: { select: { fundingRequired: true } } } });
     if (!pool || pool.status !== 'OPEN') throw new BadRequestException('Only OPEN pools can receive settlement.');

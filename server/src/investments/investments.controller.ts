@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
-import { RequirePermission } from '../auth/roles.decorator';
+import { RequirePermission, Roles } from '../auth/roles.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { InvestmentsService } from './investments.service';
 import { CancelInvestmentOrderDto, CreateInvestmentOrderDto } from './investments.dto';
@@ -19,7 +19,9 @@ export class InvestmentsController {
   @Get('orders/:id')
   get(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.investments.getOrder(actor, id); }
 
+  // Mirrors SETTLEMENT_ROLES in InvestmentsService; investors cannot settle (confirm payment of) orders.
   @Post('orders/:id/settle')
+  @Roles('Super Admin', 'Settlement Officer', 'Portfolio Manager')
   settle(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.investments.settle(actor, id); }
 
   @Patch('orders/:id/cancel')

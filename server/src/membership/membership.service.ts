@@ -7,7 +7,7 @@ import { UpgradeMembershipDto } from './membership.dto';
 import { ToyyibPayService } from './toyyibpay.service';
 import { formatLocalDateTime } from '../tenancy/country-time';
 import { tenantScopeFilter } from '../tenancy/tenant-scope';
-import { FinancialLedgerService } from '../financial/financial-ledger.service';
+import { FinancialLedgerService, toyyibPayCashAccount } from '../financial/financial-ledger.service';
 
 const AI_CAPABILITIES = ['SIMPLE_QUERY', 'PROJECT_SUMMARY', 'FULL_FEASIBILITY_ANALYSIS', 'INVESTMENT_ANALYSIS', 'RISK_ANALYSIS', 'CONTRACT_ANALYSIS', 'DUE_DILIGENCE', 'FULL_PROJECT_INTELLIGENCE'] as const;
 const PLANS = [
@@ -502,7 +502,7 @@ export class MembershipService {
     if (payment.status !== 'PAID') throw new BadRequestException('Only a PAID payment can be refunded.');
     const refunded = await this.prisma.refund.aggregate({ _sum: { amount: true }, where: { paymentTransactionId: payment.id, status: 'POSTED' } });
     if (Number(refunded._sum.amount || 0) + amount > Number(payment.amountMYR)) throw new BadRequestException('Refund amount exceeds the paid amount.');
-    const gateway = await this.ledger.ensureAccount(actor, { accountCode: `SYSTEM-TOYYIBPAY-CASH-${payment.currency}`, accountType: 'ASSET', ownerType: 'SYSTEM', ownerId: 'TOYYIBPAY', organisationId: payment.organisationId, countryNodeId: payment.countryNodeId, currency: payment.currency });
+    const gateway = await this.ledger.ensureAccount(actor, toyyibPayCashAccount(payment.organisationId, payment.countryNodeId, payment.currency));
     const refundExpense = await this.ledger.ensureAccount(actor, { accountCode: `ORG-${payment.organisationId}-REFUND-EXPENSE-${payment.currency}`, accountType: 'EXPENSE', ownerType: 'ORGANISATION', ownerId: payment.organisationId, organisationId: payment.organisationId, countryNodeId: payment.countryNodeId, currency: payment.currency });
     return this.prisma.$transaction(async (tx) => {
       const refund = await this.ledger.recordRefundInTransaction(tx, actor, { paymentTransactionId: payment.id, userId: payment.userId, organisationId: payment.organisationId, countryNodeId: payment.countryNodeId, amount, currency: payment.currency, reason, posting: { transactionType: 'REFUND', referenceType: 'PaymentTransaction', referenceId: payment.id, currency: payment.currency, description: `Verified ToyyibPay refund for ${payment.id}`, idempotencyKey: `refund:${payment.id}:${amount.toFixed(2)}`, entries: [{ accountId: refundExpense.id, direction: 'DEBIT', amount, description: 'Refund expense' }, { accountId: gateway.id, direction: 'CREDIT', amount, description: 'Cash returned through ToyyibPay' }] } });
@@ -516,7 +516,7 @@ export class MembershipService {
     const metadata = (payment.metadata || {}) as Record<string, unknown>;
     const settlementActor: AuthenticatedUser = { userId: payment.userId, idpSubjectId: payment.userId, email: `${payment.userId}@internal`, name: 'Payment Settlement', role: 'Guest', countryNodeId: payment.countryNodeId, organisationId: payment.organisationId, assignedRoles: ['Guest'] };
     if (payment.productType !== 'ZAKAT_PAYMENT') {
-      const gateway = await this.ledger.ensureAccountInTransaction(tx, settlementActor, { accountCode: `SYSTEM-TOYYIBPAY-CASH-${payment.currency}`, accountType: 'ASSET', ownerType: 'SYSTEM', ownerId: 'TOYYIBPAY', organisationId: payment.organisationId, countryNodeId: payment.countryNodeId, currency: payment.currency });
+      const gateway = await this.ledger.ensureAccountInTransaction(tx, settlementActor, toyyibPayCashAccount(payment.organisationId, payment.countryNodeId, payment.currency));
       const revenue = await this.ledger.ensureAccountInTransaction(tx, settlementActor, { accountCode: `ORG-${payment.organisationId}-PAYMENT-REVENUE-${payment.currency}`, accountType: 'REVENUE', ownerType: 'ORGANISATION', ownerId: payment.organisationId, organisationId: payment.organisationId, countryNodeId: payment.countryNodeId, currency: payment.currency });
       await this.ledger.postInTransaction(tx, settlementActor, { transactionType: 'PAYMENT_RECEIPT', referenceType: 'PaymentTransaction', referenceId: payment.id, currency: payment.currency, description: `ToyyibPay receipt for ${payment.productType}`, idempotencyKey: `payment-receipt:${payment.id}`, entries: [{ accountId: gateway.id, direction: 'DEBIT', amount: Number(payment.amountMYR), description: 'ToyyibPay cash received' }, { accountId: revenue.id, direction: 'CREDIT', amount: Number(payment.amountMYR), description: 'Platform payment revenue' }] });
     }

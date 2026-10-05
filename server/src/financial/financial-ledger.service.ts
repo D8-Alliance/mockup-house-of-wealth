@@ -15,6 +15,16 @@ export type LedgerPosting = {
   entries: Array<{ accountId: string; direction: 'DEBIT' | 'CREDIT'; amount: number; description?: string }>;
 };
 
+/**
+ * ToyyibPay clearing account for one tenant. Account codes are globally unique and
+ * accounts are tenant-scoped, so each organisation and country node needs its own
+ * gateway account: a single shared code would belong to whichever tenant paid first
+ * and fail the tenant check for everyone else.
+ */
+export function toyyibPayCashAccount(organisationId: string, countryNodeId: string, currency: string) {
+  return { accountCode: `SYSTEM-TOYYIBPAY-CASH-${organisationId}-${countryNodeId}-${currency}`, accountType: 'ASSET', ownerType: 'SYSTEM', ownerId: 'TOYYIBPAY', organisationId, countryNodeId, currency };
+}
+
 @Injectable()
 export class FinancialLedgerService {
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}

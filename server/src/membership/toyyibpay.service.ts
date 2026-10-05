@@ -17,6 +17,10 @@ type BillInput = {
 
 type PaymentHook = (payment: PaymentTransaction) => Promise<void>;
 
+// A verified-paid bill may still be fulfilled from these statuses (a bill paid after it failed or
+// was cancelled is real money). PAID and REFUNDED are final and are never fulfilled again.
+const FULFILLABLE_STATUSES = ['INITIATED', 'PENDING', 'FAILED', 'CANCELLED'];
+
 @Injectable()
 export class ToyyibPayService {
   private readonly baseUrl = (process.env.TOYYIBPAY_BASE_URL || '').replace(/\/$/, '');
@@ -85,8 +89,14 @@ export class ToyyibPayService {
     if (!paymentId && !billCode) throw new BadRequestException('ToyyibPay callback is missing payment identifiers.');
     const payment = await this.prisma.paymentTransaction.findFirst({ where: paymentId ? { id: paymentId } : { providerBillCode: billCode } });
     if (!payment) throw new BadRequestException('Payment transaction not found.');
-    if (payment.status === 'PAID') return { status: 'PAID', paymentId: payment.id, idempotent: true };
-    const verification = await this.verifyBill(payment.providerBillCode || billCode);
+    // PAID and REFUNDED are final: a refunded bill still verifies as paid at ToyyibPay, so it must never be fulfilled again.
+    if (!FULFILLABLE_STATUSES.includes(payment.status)) return { status: payment.status, paymentId: payment.id, idempotent: true };
+    // Only verify the bill this payment created. A bill code from the (public) callback is untrusted:
+    // accepting it would let one real payment be used to fulfil a different payment.
+    if (!payment.providerBillCode) throw new BadRequestException('This payment has no ToyyibPay bill to verify.');
+    if (billCode && billCode !== payment.providerBillCode) throw new BadRequestException('The ToyyibPay bill does not belong to this payment.');
+    const verification = await this.verifyBill(payment.providerBillCode);
+    if (verification.externalReference && verification.externalReference !== payment.id) throw new BadRequestException('The ToyyibPay bill reference does not match this payment.');
     const verifiedStatus = verification.status;
     // ToyyibPay billpaymentStatus: 1 = successful, 3 = unsuccessful, anything else (2, 4, empty) is still pending.
     const status = verifiedStatus === '1' ? 'PAID' : verifiedStatus === '3' ? 'FAILED' : 'PENDING';
@@ -105,7 +115,7 @@ export class ToyyibPayService {
     }
     const claimed = await this.prisma.$transaction(async (tx) => {
       // Conditional update is the claim: concurrent callbacks see count 0 and skip fulfilment.
-      const result = await tx.paymentTransaction.updateMany({ where: { id: payment.id, status: { not: 'PAID' } }, data: { status: 'PAID', providerTransactionId, paidAt: new Date(), failureReason: null } });
+      const result = await tx.paymentTransaction.updateMany({ where: { id: payment.id, status: { in: FULFILLABLE_STATUSES } }, data: { status: 'PAID', providerTransactionId, paidAt: new Date(), failureReason: null } });
       if (result.count) await fulfil(tx, payment);
       return result.count === 1;
     });
@@ -143,7 +153,7 @@ export class ToyyibPayService {
     return payment;
   }
 
-  private async verifyBill(billCode: string): Promise<{ status: string; transactionId?: string; amountMYR?: number; currency?: string }> {
+  private async verifyBill(billCode: string): Promise<{ status: string; transactionId?: string; amountMYR?: number; currency?: string; externalReference?: string }> {
     if (!this.secretKey || !billCode) throw new ServiceUnavailableException('ToyyibPay verification is not configured.');
     const response = await fetch(`${this.baseUrl}/index.php/api/getBillTransactions`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ userSecretKey: this.secretKey, billCode }) });
     if (!response.ok) throw new ServiceUnavailableException('ToyyibPay verification failed.');
@@ -153,6 +163,8 @@ export class ToyyibPayService {
     const parsedAmount = amountValue === undefined || amountValue === null || amountValue === '' ? undefined : Number(String(amountValue).replace(/[^0-9.-]/g, ''));
     const transactionId = String(latest?.billpaymentTransactionId || latest?.transaction_id || latest?.refno || latest?.billpaymentInvoiceNo || '') || undefined;
     const currency = String(latest?.currency || latest?.billpaymentCurrency || '') || undefined;
-    return { status: String(latest?.billpaymentStatus || latest?.status || ''), transactionId, amountMYR: Number.isFinite(parsedAmount) ? parsedAmount : undefined, currency };
+    // The payment id we sent as billExternalReferenceNo when creating the bill, if ToyyibPay echoes it.
+    const externalReference = String(latest?.billExternalReferenceNo || '') || undefined;
+    return { status: String(latest?.billpaymentStatus || latest?.status || ''), transactionId, amountMYR: Number.isFinite(parsedAmount) ? parsedAmount : undefined, currency, externalReference };
   }
 }

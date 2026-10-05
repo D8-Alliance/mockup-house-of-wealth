@@ -25,6 +25,7 @@ describe('AuditService admin access', () => {
     const result = await service.exportCsv(actor, { page: 1, limit: 50 });
 
     expect(result.content).toContain('"{""note"":""a, b""}"');
-    expect(result.fileName).toMatch(/^house-of-wealth-audit-2026-10-02\.csv$/);
+    // The file name carries the export date (today), not the events' dates.
+    expect(result.fileName).toMatch(/^house-of-wealth-audit-\d{4}-\d{2}-\d{2}\.csv$/);
   });
 });
