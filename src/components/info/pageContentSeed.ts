@@ -17,9 +17,9 @@ export const INITIAL_PAGE_CONTENT: Record<string, PageContent> = {
     meta: {
       title: 'About D-8 & Wealth Pooling',
       subtitle:
-        'Wealth Pooling is the flagship digital marketplace of the D-8 Organization for Economic Cooperation — connecting institutional capital and sustainable real-economy projects across nine Muslim-majority developing nations through Shariah-compliant tokenization.',
+        'Wealth Pooling is the flagship digital marketplace of the D-8 Organization for Economic Cooperation — connecting institutional capital and sustainable real-economy projects across nine Muslim-majority developing nations through Shariah-compliant investment structures.',
       intro:
-        'Wealth Pooling is the flagship digital marketplace of the D-8 Organization for Economic Cooperation. It unites institutional capital, asset owners, and sustainable projects across the nine member states through Shariah-compliant tokenization, smart contracts, and transparent wealth pooling.'
+        'Wealth Pooling is the flagship digital marketplace of the D-8 Organization for Economic Cooperation. It unites institutional capital, asset owners, and sustainable projects across the nine member states through Shariah-compliant contracts and transparent wealth pooling.'
     },
     sections: {
       pillars: [
@@ -31,17 +31,17 @@ export const INITIAL_PAGE_CONTENT: Record<string, PageContent> = {
         item('p2', {
           title: 'Islamic Circular Economy',
           detail:
-            'Tokenized real-economy assets — energy, agriculture, logistics, and infrastructure — structured as Mudarabah, Musharakah, Ijarah, and Murabaha.'
+            'Real-economy assets — energy, agriculture, logistics, and infrastructure — structured as Mudarabah, Musharakah, Ijarah, and Murabaha.'
         }),
         item('p3', {
           title: 'Trust & Transparency',
           detail:
-            'Immutable audit ledger, autonomous zakat purification, and role-scoped access enforce accountability from origination to maturity.'
+            'Append-only, hash-chained audit ledger, zakat calculation, and role-scoped access enforce accountability from origination to maturity.'
         }),
         item('p4', {
           title: 'Shariah-Compliant by Design',
           detail:
-            'Every instrument and smart contract is reviewed by independent Shariah supervisory councils aligned to AAOIFI standards.'
+            'Every instrument and contract is reviewed by independent Shariah supervisory councils aligned to AAOIFI standards.'
         })
       ],
       milestones: [
@@ -55,7 +55,7 @@ export const INITIAL_PAGE_CONTENT: Record<string, PageContent> = {
           year: '2023',
           title: 'Wealth Pooling Concept',
           detail:
-            'Member states endorse a shared digital infrastructure for cross-border Islamic finance, tokenized assets, and transparent wealth pooling.'
+            'Member states endorse a shared digital infrastructure for cross-border Islamic finance and transparent wealth pooling.'
         }),
         item('m3', {
           year: '2024',
@@ -102,7 +102,7 @@ export const INITIAL_PAGE_CONTENT: Record<string, PageContent> = {
           countryCode: 'CN-MYS',
           title: 'Malaysia',
           detail:
-            'Regional hub for AAOIFI-standard tokenization, palm-oil smart agritech, and wealth pooling.'
+            'Regional hub for AAOIFI-standard Islamic finance, palm-oil smart agritech, and wealth pooling.'
         }),
         item('c3', {
           countryCode: 'CN-IDN',
@@ -196,7 +196,7 @@ export const INITIAL_PAGE_CONTENT: Record<string, PageContent> = {
           date: 'May 2026',
           title: 'Central Banks Endorse Digital Token Registry',
           excerpt:
-            'Nine national regulators align on the network\u2019s immutable audit ledger and tokenised-asset registry standards.'
+            'Nine national regulators align on the network\u2019s audit ledger and asset registry standards.'
         }),
         item('n5', {
           tag: 'Education',

@@ -72,7 +72,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
             {t.ledger}
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Auditable, immutable ledger of all smart contract disbursals, profit distributions, and Zakat deductions.
+            Append-only, hash-chained ledger of disbursals, profit distributions, and Zakat deductions.
           </p>
         </div>
 

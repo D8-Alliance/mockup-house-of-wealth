@@ -34,7 +34,7 @@ export const SecondaryMarketplaceView: React.FC<SecondaryMarketplaceViewProps> =
           </span>
           <h3 className="text-xl font-black mt-1">Secondary Liquidity Marketplace</h3>
           <p className="text-xs text-slate-300">
-            Trade tokenized pool shares & Sukuk tokens with instant atomic settlement and zero interest discounting.
+            Trade pool shares and Sukuk units with zero interest discounting.
           </p>
         </div>
 

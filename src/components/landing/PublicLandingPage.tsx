@@ -193,7 +193,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed">
                 Wealth Pooling connects institutional capital, asset owners, and sustainable projects
                 across the <strong>{countries.length} member states</strong> of the D-8 Organization for
-                Economic Cooperation — powered by Shariah-compliant tokenization, smart contracts, and
+                Economic Cooperation — through Shariah-compliant contracts, a tamper-evident ledger, and
                 transparent wealth pooling.
               </p>
 
@@ -280,7 +280,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
                 <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                    <span>AAOIFI-compliant tokenization & smart contracts (Mudarabah, Musharakah, Ijarah, Murabaha, Wakalah)</span>
+                    <span>AAOIFI-aligned Shariah contracts (Mudarabah, Musharakah, Ijarah, Murabaha, Wakalah)</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
@@ -288,7 +288,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                    <span>End-to-end immutable audit ledger & autonomous zakat purification</span>
+                    <span>Append-only, hash-chained audit and financial ledger, with zakat calculation and payment</span>
                   </li>
                 </ul>
               </div>
@@ -394,7 +394,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
         <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-8 sm:p-10 text-center border border-slate-700/60">
           <h2 className="text-2xl sm:text-3xl font-black mb-3">Ready to Participate in the D-8 Circular Economy?</h2>
           <p className="text-sm text-slate-300 max-w-2xl mx-auto mb-6">
-            Sign in to access your secure, role-based workspace — manage tokenized assets, originate
+            Sign in to access your secure, role-based workspace — manage assets, originate
             wealth pools, review Shariah governance, and collaborate across all {countries.length} member states.
           </p>
           <div className="flex flex-wrap justify-center gap-3">

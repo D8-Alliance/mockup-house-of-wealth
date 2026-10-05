@@ -75,7 +75,7 @@ export const ContractWizardModal: React.FC<ContractWizardModalProps> = ({
               <span className="text-xs font-bold text-slate-400">• {step * 25}% Complete</span>
             </div>
             <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-              Shariah Smart Contract Wizard
+              Shariah Contract Wizard
             </h2>
           </div>
 

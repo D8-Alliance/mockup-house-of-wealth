@@ -44,7 +44,7 @@ export const MyContractsView: React.FC<MyContractsViewProps> = ({
             {t.myContracts}
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Manage your active Mudarabah, Musharakah, and Wakalah agreements on the blockchain.
+            Manage your active Mudarabah, Musharakah, and Wakalah agreements.
           </p>
         </div>
 
@@ -53,14 +53,14 @@ export const MyContractsView: React.FC<MyContractsViewProps> = ({
           className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-600/20 transition-all cursor-pointer shrink-0"
         >
           <PenTool className="w-4 h-4" />
-          <span>New Smart Contract</span>
+          <span>New Contract</span>
         </button>
       </div>
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Active Smart Contracts</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Active Contracts</span>
           <div className="flex items-baseline gap-2">
             <span className="text-2xl font-black text-slate-900 dark:text-white">{contracts.length} Agreements</span>
             <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full">Active</span>

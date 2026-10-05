@@ -160,7 +160,7 @@ export const PoolInvestmentWizardModal: React.FC<PoolInvestmentWizardModalProps>
                 className="w-4 h-4 mt-0.5 text-emerald-600 rounded focus:ring-emerald-500"
               />
               <span className="font-bold text-slate-800 dark:text-slate-200">
-                I accept the AAOIFI {pool.contractType} Smart Contract terms and authorize capital locking into Pool {pool.id}.
+                I accept the AAOIFI {pool.contractType} contract terms and authorize capital locking into Pool {pool.id}.
               </span>
             </label>
 
@@ -192,7 +192,7 @@ export const PoolInvestmentWizardModal: React.FC<PoolInvestmentWizardModalProps>
 
             <div>
               <h4 className="text-base font-black text-slate-900 dark:text-white">
-                Confirm Smart Contract Execution
+                Confirm Investment
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Your investment of <strong>${amount.toLocaleString()} USD</strong> will be cryptographically bound to Pool #{pool.id}.

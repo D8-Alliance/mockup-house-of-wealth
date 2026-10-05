@@ -487,7 +487,7 @@ export function ShariahGovernancePage() {
   const reassurance = [
     { step: '01', icon: <CheckCircle2 className="w-6 h-6" />, title: 'Instrument Screening', detail: 'Every structure is screened at origination by the issuer and validated against AAOIFI standards before listing.' },
     { step: '02', icon: <ShieldCheck className="w-6 h-6" />, title: 'Independent Supervisory Council', detail: 'Each country node maintains an independent Shariah Supervisory Council that reviews contracts, structures, and fatwa conformity.' },
-    { step: '03', icon: <ScrollText className="w-6 h-6" />, title: 'Automated Purification & Audit', detail: 'The platform auto-deducts Zakat and any impermissible income for purification, with every step logged on an immutable audit ledger.' }
+    { step: '03', icon: <ScrollText className="w-6 h-6" />, title: 'Automated Purification & Audit', detail: 'The platform auto-deducts Zakat and any impermissible income for purification, with every step logged on an append-only, hash-chained audit ledger.' }
   ];
 
   return (

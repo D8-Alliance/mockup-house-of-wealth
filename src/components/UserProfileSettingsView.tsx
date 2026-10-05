@@ -1251,32 +1251,11 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
           <div>
             <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
               <Key className="w-5 h-5 text-emerald-500" />
-              <span>Smart Contract Wallet & Developer API Keys</span>
+              <span>Developer API Keys</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Connect external apps, D-8 SuperApp nodes, or automated accounting systems to your Wealth Pooling account.
             </p>
-          </div>
-
-          {/* Smart Wallet Address */}
-          <div className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-              Shariah Blockchain Smart Wallet Address
-            </span>
-            <div className="flex items-center justify-between gap-3 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 truncate">
-                0x71C8821B9A2F8E04D12C9901456A21BF091C89A2
-              </span>
-              <button 
-                onClick={() => {
-                  navigator.clipboard.writeText('0x71C8821B9A2F8E04D12C9901456A21BF091C89A2');
-                  showToast('Wallet address copied.');
-                }}
-                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-600 dark:text-slate-300 cursor-pointer shrink-0"
-              >
-                <Copy className="w-4 h-4" />
-              </button>
-            </div>
           </div>
 
           {/* API Key */}
