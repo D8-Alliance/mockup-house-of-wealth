@@ -168,3 +168,19 @@ Cadangan: sembunyikan pilihan simulasi apabila tidak dibenarkan; label "USDT Esc
 4. Pilih provider bank/DuitNow, dapatkan API/webhook contract dan credentials, kemudian implement adapter serta provider-side polling.
 
 **Current local status:** Redis container aktif dan integration test lulus. Untuk production, pindahkan password ke secret manager/file mount dan jangan simpan nilai password dalam Git.
+
+**Semakan 2026-10-05:**
+- **FCM push perlu ditukar ke API HTTP v1.** Adapter sekarang memanggil API lama `https://fcm.googleapis.com/fcm/send` dengan `FCM_SERVER_KEY`. Google sudah menutup API lama itu, jadi push notification tidak akan berfungsi walaupun kunci diset. Fail service account (`server/ops/secrets/firebase-service-account.json`) sudah disediakan, tetapi adapter belum boleh menggunakannya. Kerja: tukar ke `https://fcm.googleapis.com/v1/projects/<project_id>/messages:send` dengan token OAuth2 yang dijana daripada service account, dan baca laluan fail melalui pembolehubah env (bukan `FCM_SERVER_KEY`). Fail service account mengandungi private key: kekal di luar Git (sudah diabaikan oleh `server/.gitignore`).
+- **`server/ops/secrets/redis_password` wujud tetapi kosong** (0 bait), dan folder `server/ops/redis/certs/` belum ada `ca.crt`, `redis.crt` dan `redis.key`.
+- **Pembolehubah notifikasi belum diset dalam `server/.env`:** `NOTIFICATION_EMAIL_PROVIDER`, `NOTIFICATION_EMAIL_FROM`, `RESEND_API_KEY`, `NOTIFICATION_SMS_PROVIDER`, `TWILIO_*`, `NOTIFICATION_PUSH_PROVIDER` dan `NOTIFICATION_DEFAULT_CHANNELS`. Tanpanya hanya notifikasi dalam app yang berfungsi.
+
+## 13. Baki isu code review: refund dan payout
+
+- **Status:** Belum dimulakan (dicatat 2026-10-05). Empat isu lain dari semakan yang sama sudah dibetulkan dalam commit `5e2d898` (akaun tunai ToyyibPay setiap tenant, refund tidak diserahkan semula, bill code dari callback tidak dipercayai, pelabur tidak boleh menyelesaikan pesanan sendiri).
+- **Kawasan:** `server/src/membership/membership.service.ts` (`settleVerifiedRefund`), `server/src/distribution/distribution.service.ts`
+
+1. **Refund separa menyekat refund seterusnya.** Sebarang refund menukar status bayaran kepada REFUNDED, jadi refund separa kedua ditolak. Semakan amaun juga berlaku di luar transaction, jadi dua refund serentak boleh melebihi amaun yang dibayar.
+2. **Payout yang dicuba semula menyebabkan lejar salah.** Bila payout gagal, entri lejarnya diterbalikkan, tetapi cubaan semula tidak merekod entri baru. Selepas cubaan semula diselesaikan, penerima sudah dapat wang tetapi lejar masih menunjukkan wang itu dalam pool.
+3. **Payout yang gagal boleh diterbalikkan dua kali.** Webhook penyedia dan tindakan manual "fail payout" melabel pembalikan dengan cara berbeza, dan webhook tidak menyemak status semasa payout. Fail manual diikuti webhook FAILED mengkreditkan pool dua kali, dan webhook FAILED selepas payout diselesaikan menterbalikkan payout yang sudah selesai.
+
+**Nota data lejar:** jika database sudah ada akaun lama `SYSTEM-TOYYIBPAY-CASH-MYR` (sebelum commit `5e2d898`), entri lama kekal di situ dan refund untuk bayaran lama direkod ke akaun baru organisasi. Baca kedua-dua akaun bersama untuk bayaran sebelum perubahan itu, atau pindahkan baki lama dengan entri pelarasan.
