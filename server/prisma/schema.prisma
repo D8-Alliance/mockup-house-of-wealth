@@ -393,6 +393,10 @@ model ProjectDocument {
   extractedText    String   @db.Text
   extractionStatus String   @default("EXTRACTED")
   extractionError  String?
+  /// SHA-256 of fileContent recorded at upload; a later mismatch means the stored file changed.
+  sha256           String?
+  /// Advisory tamper signals (see src/projects/document-integrity.ts).
+  integrity        Json?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -405,6 +409,7 @@ model ProjectDocument {
   @@index([projectId])
   @@index([organisationId, countryNodeId])
   @@index([extractionStatus])
+  @@index([sha256])
 }
 
 model ProjectEvidenceRequirement {

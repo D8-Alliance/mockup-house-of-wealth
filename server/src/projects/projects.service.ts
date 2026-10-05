@@ -8,6 +8,7 @@ import { AddProjectTeamMemberDto, CreateProjectAnnouncementDto, CreateProjectPro
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { assertProjectUnlocked, hasCurrentFinalApproval, isProjectLocked, REOPENABLE_PROJECT_STATUSES } from './project-lock';
 import { formatLocalDateTime } from '../tenancy/country-time';
+import { inspectDocument, sha256Hex, withStoredChecks } from './document-integrity';
 import { BadRequestException } from '@nestjs/common';
 import pdfParse from 'pdf-parse';
 import * as XLSX from 'xlsx';
@@ -26,7 +27,7 @@ const EVIDENCE_REQUIREMENTS = [
   { evidenceType: 'LEGAL_OWNERSHIP', description: 'Title, ownership, registration, permit, or other legal documents proving control of the relevant assets.', requiredFormat: 'PDF', priority: 'HIGH' },
 ] as const;
 
-const EVIDENCE_DOCUMENT_SELECT = { id: true, fileName: true, mimeType: true, extractionStatus: true, createdAt: true } as const;
+const EVIDENCE_DOCUMENT_SELECT = { id: true, fileName: true, mimeType: true, extractionStatus: true, createdAt: true, sha256: true, integrity: true } as const;
 
 @Injectable()
 export class ProjectsService {
@@ -247,6 +248,9 @@ export class ProjectsService {
       }
     }
 
+    const sha256 = sha256Hex(file.buffer);
+    const otherProjectCount = (await this.prisma.projectDocument.findMany({ where: { sha256, projectId: { not: project.projectId } }, select: { projectId: true }, distinct: ['projectId'] })).length;
+    const integrity = withStoredChecks(inspectDocument(file.buffer), { otherProjectCount });
     const document = await this.prisma.projectDocument.create({
       data: {
         projectId: project.projectId,
@@ -260,8 +264,10 @@ export class ProjectsService {
         extractedText,
         extractionStatus,
         extractionError,
+        sha256,
+        integrity: integrity as unknown as Prisma.InputJsonValue,
       },
-      select: { id: true, projectId: true, fileName: true, mimeType: true, fileSize: true, extractionStatus: true, extractionError: true, extractedText: true, uploadedBy: true, createdAt: true, updatedAt: true },
+      select: { id: true, projectId: true, fileName: true, mimeType: true, fileSize: true, extractionStatus: true, extractionError: true, extractedText: true, uploadedBy: true, createdAt: true, updatedAt: true, sha256: true, integrity: true },
     });
     await this.audit.recordActor(user, {
       action: 'project.document.upload',
@@ -269,7 +275,7 @@ export class ProjectsService {
       resourceId: document.id,
       organisationId: project.organisationId,
       countryNodeId: project.countryNodeId,
-      metadata: { projectId: project.projectId, fileName: document.fileName, extractionStatus },
+      metadata: { projectId: project.projectId, fileName: document.fileName, extractionStatus, sha256, integrityFlags: integrity.flags.map((flag) => flag.code) },
     });
     return document;
   }

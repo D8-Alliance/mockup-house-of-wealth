@@ -1000,9 +1000,12 @@ export interface BackendEvidenceRequirement {
   uploadedDocumentId?: string | null;
   verificationStatus: string;
   confidenceScore: number;
-  verificationResult?: { analysisId?: string; extractedInformation?: Record<string, unknown>; validationResult?: string; missingFields?: string[] } | null;
-  uploadedDocument?: Pick<BackendProjectDocument, 'id' | 'fileName' | 'mimeType' | 'extractionStatus' | 'createdAt'> | null;
+  verificationResult?: { analysisId?: string; extractedInformation?: Record<string, unknown>; validationResult?: string; missingFields?: string[]; integrityFlags?: DocumentIntegrityFlag[] } | null;
+  uploadedDocument?: (Pick<BackendProjectDocument, 'id' | 'fileName' | 'mimeType' | 'extractionStatus' | 'createdAt'> & { sha256?: string | null; integrity?: { flags?: DocumentIntegrityFlag[] } | null }) | null;
 }
+
+/** Advisory tamper signal on uploaded evidence (server/src/projects/document-integrity.ts). */
+export interface DocumentIntegrityFlag { code: string; message: string }
 
 export interface BackendProjectTeamMember {
   id: string;

@@ -6,6 +6,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { assertProjectUnlocked } from '../projects/project-lock';
+import { inspectDocument, withStoredChecks } from '../projects/document-integrity';
 import pdfParse from 'pdf-parse';
 import * as XLSX from 'xlsx';
 import { AiProvider } from './ai.provider';
@@ -368,16 +369,21 @@ export class AiService {
     };
     const containsTerm = (term: string) => new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i').test(lowerContent);
     const missingFields = requirement ? (evidenceChecks[requirement.evidenceType] || []).filter((check) => 'terms' in check ? !check.terms.some(containsTerm) : !check.test()).map((check) => check.field) : [];
-     const finalStatus = requirement && confidenceScore >= 70 && missingFields.length === 0 ? 'AI_PRECHECKED' : 'REQUIRES_REVIEW';
-    const enrichedResult = { ...result, financialEvidence };
+    // Re-check the stored bytes against the upload hash, and re-inspect the PDF (older uploads were never inspected).
+    const otherProjectCount = document.sha256 ? (await this.prisma.projectDocument.findMany({ where: { sha256: document.sha256, projectId: { not: projectId } }, select: { projectId: true }, distinct: ['projectId'] })).length : 0;
+    const integrity = withStoredChecks(inspectDocument(document.fileContent), { storedSha256: document.sha256, otherProjectCount });
+    await this.prisma.projectDocument.update({ where: { id: documentId }, data: { integrity: integrity as unknown as Prisma.InputJsonValue, ...(document.sha256 ? {} : { sha256: integrity.sha256 }) } });
+    const integrityFlags = integrity.flags;
+     const finalStatus = requirement && confidenceScore >= 70 && missingFields.length === 0 && integrityFlags.length === 0 ? 'AI_PRECHECKED' : 'REQUIRES_REVIEW';
+    const enrichedResult = { ...result, financialEvidence, integrity };
     const analysis = await this.prisma.projectDocumentAnalysis.create({ data: { documentId, projectId, organisationId: document.organisationId, countryNodeId: document.countryNodeId, analysedBy: actor.userId, confidenceScore, result: enrichedResult } });
-    await this.prisma.aiRun.update({ where: { id: aiRun.id }, data: { status: 'COMPLETED', output: { analysisId: analysis.id, evidenceType: requirement?.evidenceType || null, extractedInformation: enrichedResult, missingFields, verificationStatus: finalStatus }, completedAt: new Date() } });
-    await this.audit.recordActor(actor, { action: 'ai.response', resourceType: 'AiRun', resourceId: aiRun.id, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { featureKey: aiRun.featureKey, confidenceScore, verificationStatus: finalStatus, requiresHumanReview: true } });
+    await this.prisma.aiRun.update({ where: { id: aiRun.id }, data: { status: 'COMPLETED', output: { analysisId: analysis.id, evidenceType: requirement?.evidenceType || null, extractedInformation: enrichedResult, missingFields, integrityFlags, verificationStatus: finalStatus }, completedAt: new Date() } });
+    await this.audit.recordActor(actor, { action: 'ai.response', resourceType: 'AiRun', resourceId: aiRun.id, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { featureKey: aiRun.featureKey, confidenceScore, verificationStatus: finalStatus, integrityFlags: integrityFlags.map((flag) => flag.code), requiresHumanReview: true } });
     if (requirement) {
-       await this.prisma.projectEvidenceRequirement.update({ where: { id: requirement.id }, data: { status: finalStatus, verificationStatus: finalStatus, confidenceScore, verificationResult: { analysisId: analysis.id, extractedInformation: enrichedResult, validationResult: finalStatus === 'AI_PRECHECKED' ? 'AI pre-check completed. Human verification is required.' : 'Human verification required.', missingFields } } });
+       await this.prisma.projectEvidenceRequirement.update({ where: { id: requirement.id }, data: { status: finalStatus, verificationStatus: finalStatus, confidenceScore, verificationResult: { analysisId: analysis.id, extractedInformation: enrichedResult, validationResult: finalStatus === 'AI_PRECHECKED' ? 'AI pre-check completed. Human verification is required.' : 'Human verification required.', missingFields, integrityFlags } } });
     }
     await this.audit.recordActor(actor, { action: 'project.document.analyze', resourceType: 'ProjectDocument', resourceId: documentId, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { analysisId: analysis.id, confidenceScore } });
-     return { ...analysis, ...enrichedResult, missingFields, validationResult: finalStatus === 'AI_PRECHECKED' ? 'AI pre-check completed. Human verification is required.' : 'Human verification required.', verificationStatus: finalStatus, confidence: { level: confidenceScore >= 70 ? 'MEDIUM' : 'LOW', scorePercent: confidenceScore, disclaimer: 'Text extraction is advisory and requires legal, financial, compliance, and Shariah verification.' } };
+     return { ...analysis, ...enrichedResult, missingFields, integrityFlags, validationResult: finalStatus === 'AI_PRECHECKED' ? 'AI pre-check completed. Human verification is required.' : 'Human verification required.', verificationStatus: finalStatus, confidence: { level: confidenceScore >= 70 ? 'MEDIUM' : 'LOW', scorePercent: confidenceScore, disclaimer: 'Text extraction is advisory and requires legal, financial, compliance, and Shariah verification.' } };
   }
 
   analyzeProjectFeasibility(actor: AuthenticatedUser, input: { projectId: string; project: Record<string, unknown>; documents: Array<Record<string, unknown>>; financialAnalysis: Record<string, unknown>; riskAnalysis: Record<string, unknown> }) {
