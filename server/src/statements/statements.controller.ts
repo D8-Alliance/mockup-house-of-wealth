@@ -6,6 +6,11 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { renderStatementCsv, renderStatementPdf } from './statement-render';
 import { Statement, StatementsService } from './statements.service';
 
+export class TaxStatementQueryDto {
+  @IsOptional() @IsString() year?: string;
+  @IsOptional() @IsIn(['json', 'csv', 'pdf']) format?: 'json' | 'csv' | 'pdf';
+}
+
 export class StatementQueryDto {
   @IsOptional() @IsString() from?: string;
   @IsOptional() @IsString() to?: string;
@@ -19,6 +24,11 @@ export class StatementsController {
   @Get('investor')
   async investor(@CurrentUser() actor: AuthenticatedUser, @Query() query: StatementQueryDto, @Res() response: Response) {
     return this.send(response, await this.statements.investorStatement(actor, query), query.format);
+  }
+
+  @Get('investor/tax')
+  async investorTax(@CurrentUser() actor: AuthenticatedUser, @Query() query: TaxStatementQueryDto, @Res() response: Response) {
+    return this.send(response, await this.statements.investorTaxStatement(actor, query), query.format);
   }
 
   @Get('projects/:projectId')

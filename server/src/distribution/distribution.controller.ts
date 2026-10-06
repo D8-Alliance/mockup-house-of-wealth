@@ -6,7 +6,7 @@ import { Public, RequirePermission, Roles } from '../auth/roles.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
-import { CreateDistributionDto, DistributionDecisionDto, DistributionRejectionDto, PayoutFailureDto, SubmitPayoutDto } from './distribution.dto';
+import { CreateDistributionDto, DistributionDecisionDto, DistributionRejectionDto, PayoutFailureDto, RecordPeriodResultDto, SubmitPayoutDto } from './distribution.dto';
 import { DistributionService } from './distribution.service';
 import { PayoutDestinationService } from './payout-destination.service';
 import { CreatePayoutDestinationDto } from './payout-destination.dto';
@@ -41,6 +41,13 @@ export class DistributionController {
   @RequirePermission('ledger', 'update')
   create(@CurrentUser() actor: AuthenticatedUser, @Body() input: CreateDistributionDto) {
     return this.distributions.create(actor, input);
+  }
+
+  /** Records a loss, or profit absorbed by earlier losses, without a payout. */
+  @Post('period-results')
+  @Roles('Super Admin', 'Settlement Officer')
+  recordPeriodResult(@CurrentUser() actor: AuthenticatedUser, @Body() input: RecordPeriodResultDto) {
+    return this.distributions.recordPeriodResult(actor, input);
   }
 
   @Post(':id/submit')

@@ -36,3 +36,15 @@ export class SubmitPayoutDto {
 export class PayoutFailureDto {
   @IsString() @MaxLength(500) reason!: string;
 }
+
+/** A period whose result is recorded without a payout: a loss, or profit absorbed by earlier losses. */
+export class RecordPeriodResultDto {
+  @IsString() projectId!: string;
+  @IsString() poolId!: string;
+  @IsString() organisationId!: string;
+  @IsString() countryNodeId!: string;
+  @IsString() @MaxLength(3) currency!: string;
+  @IsString() @MaxLength(120) periodName!: string;
+  @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) grossRevenue!: number;
+  @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) eligibleCosts!: number;
+}

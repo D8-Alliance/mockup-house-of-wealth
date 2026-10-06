@@ -14,6 +14,7 @@ import { UsersModule } from './users/users.module';
 import { HealthModule } from './health/health.module';
 import { ZakatModule } from './zakat/zakat.module';
 import { StatementsModule } from './statements/statements.module';
+import { TaxModule } from './tax/tax.module';
 import { MembershipModule } from './membership/membership.module';
 import { PdpModule } from './pdp/pdp.module';
 import { ContractsModule } from './contracts/contracts.module';
@@ -42,6 +43,7 @@ import { JobsModule } from './jobs/jobs.module';
     HealthModule,
     ZakatModule,
     StatementsModule,
+    TaxModule,
     MembershipModule,
     PdpModule,
     ContractsModule,

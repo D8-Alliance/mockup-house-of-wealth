@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
@@ -6,6 +6,14 @@ import { formatLocalDateTime } from '../tenancy/country-time';
 import { assertTenantScope } from '../tenancy/tenant-scope';
 import { AKAD_RULES, isPoolAkadType } from '../pools/akad-terms';
 import { resolvePeriod, StatementPeriod } from './statement-period';
+import { maskTaxId, TaxProfileService } from '../tax/tax-profile.service';
+
+/** How a distribution's income is labelled for tax, from the pool's akad. */
+export function incomeTypeOf(akadType: string | null | undefined) {
+  if (akadType === 'IJARAH') return 'Rental income share (Ijarah)';
+  if (akadType && isPoolAkadType(akadType)) return `Profit share (${AKAD_RULES[akadType].label})`;
+  return 'Unclassified (pool without akad terms)';
+}
 
 /** Staff who may read any project statement inside their tenant. */
 const PROJECT_STATEMENT_STAFF = new Set(['Super Admin', 'Country Admin', 'Organization Admin', 'Finance Officer', 'Auditor', 'Compliance Officer', 'Pool Manager', 'Settlement Officer', 'Portfolio Manager']);
@@ -24,7 +32,7 @@ export interface StatementSection {
 }
 
 export interface Statement {
-  kind: 'INVESTOR' | 'PROJECT';
+  kind: 'INVESTOR' | 'PROJECT' | 'INVESTOR_TAX';
   title: string;
   reference: string;
   generatedAt: string;
@@ -37,7 +45,66 @@ export interface Statement {
 
 @Injectable()
 export class StatementsService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly taxProfiles: TaxProfileService) {}
+
+  /**
+   * Annual income statement for the investor's tax return: profit distributions actually paid
+   * out in the calendar year, grouped by income type, and capital invested (not income). It
+   * reports facts; it does not compute tax, and the platform has withheld none.
+   */
+  async investorTaxStatement(actor: AuthenticatedUser, input: { year?: string }): Promise<Statement> {
+    const year = input.year || resolvePeriod({}, actor.countryNodeId).to.slice(0, 4);
+    if (!/^\d{4}$/.test(year) || Number(year) < 2000 || Number(year) > 2100) throw new BadRequestException('year must be a four-digit year.');
+    const period = resolvePeriod({ from: `${year}-01-01`, to: `${year}-12-31` }, actor.countryNodeId);
+    const [profile, allocations, contributions] = await Promise.all([
+      this.taxProfiles.get(actor.userId),
+      this.prisma.distributionAllocation.findMany({ where: { beneficiaryUserId: actor.userId, status: 'SETTLED', payoutInstruction: { settledAt: { gte: period.start, lt: period.end } } }, include: { payoutInstruction: { select: { settledAt: true } }, distribution: { select: { periodName: true, poolId: true, projectId: true, akadTerms: { select: { akadType: true } } } } }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.investmentContribution.findMany({ where: { investorUserId: actor.userId, status: 'POSTED', createdAt: { gte: period.start, lt: period.end } }, include: { order: { include: { pool: { select: { poolName: true } }, akadTerms: { select: { akadType: true } } } } }, orderBy: { createdAt: 'asc' } }),
+    ]);
+    const poolNames = new Map((await this.prisma.wealthPool.findMany({ where: { poolId: { in: [...new Set(allocations.map((item) => item.distribution.poolId).filter((id): id is string => Boolean(id)))] } }, select: { poolId: true, poolName: true } })).map((pool) => [pool.poolId, pool.poolName]));
+    const when = (date: Date) => formatLocalDateTime(date, actor.countryNodeId);
+    const byType = new Map<string, { currency: string; gross: number }>();
+    for (const item of allocations) {
+      const key = `${incomeTypeOf(item.distribution.akadTerms?.akadType)}|${item.currency}`;
+      const row = byType.get(key) || { currency: item.currency, gross: 0 };
+      row.gross = money(row.gross + Number(item.amount));
+      byType.set(key, row);
+    }
+    const totalIncome = money(allocations.reduce((sum, item) => sum + Number(item.amount), 0));
+    const statement: Statement = {
+      kind: 'INVESTOR_TAX',
+      title: `Annual Investment Income Statement ${year}`,
+      reference: `HOW-STMT-TAX-${actor.userId.replace(/[^A-Za-z0-9]/g, '').slice(-10).toUpperCase()}-${year}`,
+      generatedAt: when(new Date()),
+      period: { from: period.from, to: period.to, timezone: period.timezone },
+      subject: [
+        ['Investor', actor.name || actor.userId],
+        ['Investor ID', actor.userId],
+        ['Tax residence (declared)', profile ? `${profile.residenceCountry}${profile.malaysianTaxResident ? ', Malaysian tax resident' : ', not a Malaysian tax resident'}` : 'Not provided'],
+        ['Entity type', profile?.entityType ?? 'Not provided'],
+        ['Tax identification number', maskTaxId(profile?.taxIdNumber) ?? 'Not provided'],
+      ],
+      summary: [
+        ['Investment income paid out in the year', totalIncome.toFixed(2)],
+        ['Tax withheld by the platform', '0.00'],
+        ['Capital invested in the year (not income)', money(contributions.reduce((sum, item) => sum + Number(item.amount), 0)).toFixed(2)],
+      ],
+      sections: [
+        { title: 'Income by type', columns: ['Income type', 'Currency', 'Gross amount', 'Tax withheld', 'Net received'], rows: [...byType.entries()].map(([key, row]) => [key.split('|')[0], row.currency, row.gross.toFixed(2), '0.00', row.gross.toFixed(2)]), note: byType.size ? undefined : 'No investment income was paid out in this year.' },
+        { title: 'Income received', columns: ['Date paid', 'Pool', 'Distribution period', 'Income type', 'Currency', 'Gross', 'Tax withheld', 'Net'], rows: allocations.map((item) => [item.payoutInstruction?.settledAt ? when(item.payoutInstruction.settledAt) : '-', poolNames.get(item.distribution.poolId || '') || item.distribution.projectId, item.distribution.periodName, incomeTypeOf(item.distribution.akadTerms?.akadType), item.currency, money(item.amount).toFixed(2), '0.00', money(item.amount).toFixed(2)]) },
+        { title: 'Capital invested in the year (not income)', columns: ['Date', 'Pool', 'Akad', 'Currency', 'Amount'], rows: contributions.map((item) => [when(item.createdAt), item.order?.pool.poolName || item.poolId || item.projectId, akadLabel(item.order?.akadTerms?.akadType), item.currency, money(item.amount).toFixed(2)]), note: contributions.length ? undefined : 'No capital invested in this year.' },
+      ],
+      notes: [
+        'Income is counted when it was paid out to you (payout settled), in your country\'s time zone.',
+        'The platform has not withheld tax. How this income is taxed (for example as profit from a financing arrangement or as dividends) depends on the legal structure of each pool and on your residency; non-residents may be subject to withholding tax. Confirm with a tax adviser.',
+        'Tax incentives for equity crowdfunding apply only to investments made through an offering registered with the Securities Commission Malaysia.',
+        'Zakat paid to a state zakat authority can be claimed as a tax rebate (individuals) with the authority\'s official receipt; the platform does not collect zakat.',
+        DISCLAIMER,
+      ],
+    };
+    await this.audit.recordActor(actor, { action: 'statement.tax.generate', resourceType: 'User', resourceId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { year } });
+    return statement;
+  }
 
   /** The signed-in investor's own statement: orders, holdings and distributions. */
   async investorStatement(actor: AuthenticatedUser, input: { from?: string; to?: string }): Promise<Statement> {
@@ -125,15 +192,15 @@ export class StatementsService {
         ['Capital raised at period end', money([...raisedByPool.values()].reduce((total, value) => total + value, 0)).toFixed(2)],
         ['Gross revenue reported in period', sum((item) => item.grossRevenue).toFixed(2)],
         ['Eligible costs in period', sum((item) => item.eligibleCosts).toFixed(2)],
-        ['Net profit in period', sum((item) => item.netProfit).toFixed(2)],
+        ['Net result in period (profit less losses)', sum((item) => item.netProfit).toFixed(2)],
         ['Investor profit in period', sum((item) => item.investorProfit).toFixed(2)],
       ],
       sections: [
         { title: 'Pools and akad terms', columns: ['Pool', 'Status', 'Akad (version)', 'Investor profit share', 'Indicative return (not guaranteed)', 'Investors', 'Capital raised'], rows: pools.map((pool) => { const terms = pool.akadTerms[0]; return [pool.poolName, pool.status, terms ? `${akadLabel(terms.akadType)} (v${terms.version})` : `${pool.investmentStructure} (terms not recorded)`, terms ? `${Number(terms.investorProfitSharePct)}%` : '-', `${Number(pool.indicativeExpectedReturn)}% p.a.`, investorsByPool.get(pool.poolId) || 0, (raisedByPool.get(pool.poolId) || 0).toFixed(2)]; }), note: pools.length ? undefined : 'No pools for this project.' },
-        { title: 'Profit distributions in period', columns: ['Date', 'Period', 'Status', 'Gross revenue', 'Eligible costs', 'Net profit', 'Investor share', 'Investor profit', 'Manager share', 'Payouts done'], rows: distributions.map((item) => { const net = money(item.netProfit); const investor = money(item.investorProfit); const done = item.allocations.filter((allocation) => allocation.status === 'SETTLED').length; return [when(item.createdAt), item.periodName, item.status, money(item.grossRevenue).toFixed(2), money(item.eligibleCosts).toFixed(2), net.toFixed(2), item.investorProfitSharePct ? `${Number(item.investorProfitSharePct)}%` : '-', investor.toFixed(2), money(net - investor).toFixed(2), `${done}/${item.allocations.length}`]; }), note: distributions.length ? undefined : 'No distributions in this period.' },
+        { title: 'Period results and distributions', columns: ['Date', 'Period', 'Type', 'Status', 'Gross revenue', 'Eligible costs', 'Net result', 'Loss offset', 'Investor share', 'Investor profit', 'Manager share', 'Payouts done'], rows: distributions.map((item) => { const investor = money(item.investorProfit); const shared = item.distributableNet === null ? money(item.netProfit) : money(item.distributableNet); const done = item.allocations.filter((allocation) => allocation.status === 'SETTLED').length; return [when(item.createdAt), item.periodName, item.kind, item.status, money(item.grossRevenue).toFixed(2), money(item.eligibleCosts).toFixed(2), money(item.netProfit).toFixed(2), item.lossOffset === null ? '-' : money(item.lossOffset).toFixed(2), item.investorProfitSharePct ? `${Number(item.investorProfitSharePct)}%` : '-', investor.toFixed(2), item.kind === 'PROFIT' ? money(shared - investor).toFixed(2) : '-', item.kind === 'PROFIT' ? `${done}/${item.allocations.length}` : 'No payout']; }), note: distributions.length ? undefined : 'No period results in this period.' },
       ],
       notes: [
-        'Totals exclude cancelled and rejected distributions. Manager share is net profit less investor profit.',
+        'Totals exclude cancelled and rejected results. Earlier losses are recovered from later profit before anything is shared (loss offset); manager share is the shared profit less investor profit.',
         'Losses, if any, are borne according to each pool\'s akad terms.',
         DISCLAIMER,
       ],

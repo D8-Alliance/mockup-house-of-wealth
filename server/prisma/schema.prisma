@@ -1159,6 +1159,11 @@ model Distribution {
   /// The akad terms and profit-sharing ratio this distribution used.
   akadTermsId            String?
   investorProfitSharePct Decimal? @db.Decimal(5, 2)
+  /// PROFIT (paid out), LOSS or ABSORBED (period result recorded, nothing paid).
+  kind                   String   @default("PROFIT")
+  /// Net result shared after offsetting earlier unrecovered losses, and the offset applied.
+  distributableNet       Decimal? @db.Decimal(18, 2)
+  lossOffset             Decimal? @db.Decimal(18, 2)
 
   akadTerms   PoolAkadTerms?           @relation(fields: [akadTermsId], references: [id], onDelete: Restrict)
   allocations DistributionAllocation[]

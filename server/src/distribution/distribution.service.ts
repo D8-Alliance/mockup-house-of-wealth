@@ -1,11 +1,15 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { FinancialLedgerService } from '../financial/financial-ledger.service';
 import { PrismaService } from '../prisma.service';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
-import { CreateDistributionDto } from './distribution.dto';
+import { CreateDistributionDto, RecordPeriodResultDto } from './distribution.dto';
+import { periodOutcome, PriorResult } from './period-result';
+
+/** Earlier period results of a pool that count towards loss offsetting. */
+const COUNTED_RESULT = { status: { notIn: ['REJECTED', 'CANCELLED'] } };
 
 const OPERATORS = new Set(['Super Admin', 'Settlement Officer']);
 
@@ -40,8 +44,11 @@ export class DistributionService {
     if (terms && input.grossRevenue === undefined) throw new BadRequestException('A pool with akad terms must report gross revenue and eligible costs, so the agreed profit ratio can be applied.');
     const grossRevenue = input.grossRevenue ?? input.totalAmount;
     const eligibleCosts = input.eligibleCosts ?? 0;
-    const netProfit = Math.max(0, grossRevenue - eligibleCosts);
-    const investorProfit = input.grossRevenue === undefined ? input.totalAmount : netProfit * (investorSharePct / 100);
+    const outcome = terms ? periodOutcome(await this.priorResults(this.prisma, input.poolId!), grossRevenue - eligibleCosts) : null;
+    if (outcome && outcome.distributableNet <= 0) throw new BadRequestException(`Nothing to distribute: this period's result is offset by ${outcome.unrecoveredLoss.toFixed(2)} of unrecovered losses. Record it as a period result instead.`);
+    const netProfit = terms ? grossRevenue - eligibleCosts : Math.max(0, grossRevenue - eligibleCosts);
+    const sharedNet = outcome ? outcome.distributableNet : netProfit;
+    const investorProfit = input.grossRevenue === undefined ? input.totalAmount : sharedNet * (investorSharePct / 100);
     const capitalTotal = [...capitalByInvestor.values()].reduce((sum, amount) => sum + amount, 0);
     const allocations = input.allocations.map((allocation) => {
       if (input.poolId && !capitalByInvestor.has(allocation.beneficiaryUserId)) throw new BadRequestException(`Beneficiary ${allocation.beneficiaryUserId} has no settled investment in this pool.`);
@@ -61,11 +68,49 @@ export class DistributionService {
       if (!destination || destination.ownerUserId !== allocation.beneficiaryUserId || (destination.cooldownUntil && destination.cooldownUntil > new Date())) throw new BadRequestException(`Payout destination for ${allocation.beneficiaryUserId} is not verified or is still in its cooling-off period.`);
     }
     return this.prisma.$transaction(async (tx) => {
-      const created = await tx.distribution.create({ data: { projectId: input.projectId, poolId: input.poolId, organisationId: input.organisationId, countryNodeId: input.countryNodeId, totalAmount: new Prisma.Decimal(input.totalAmount), currency: input.currency, periodName: input.periodName, grossRevenue: new Prisma.Decimal(grossRevenue), eligibleCosts: new Prisma.Decimal(eligibleCosts), netProfit: new Prisma.Decimal(netProfit), investorProfit: new Prisma.Decimal(investorProfit), akadTermsId: terms?.id, investorProfitSharePct: input.grossRevenue === undefined ? null : new Prisma.Decimal(investorSharePct), status: 'CALCULATED', createdBy: actor.userId } });
+      if (outcome) await this.assertOutcomeUnchanged(tx, input.poolId!, grossRevenue - eligibleCosts, outcome.distributableNet);
+      const created = await tx.distribution.create({ data: { kind: 'PROFIT', distributableNet: outcome ? new Prisma.Decimal(outcome.distributableNet) : null, lossOffset: outcome ? new Prisma.Decimal(outcome.lossOffset) : null, projectId: input.projectId, poolId: input.poolId, organisationId: input.organisationId, countryNodeId: input.countryNodeId, totalAmount: new Prisma.Decimal(input.totalAmount), currency: input.currency, periodName: input.periodName, grossRevenue: new Prisma.Decimal(grossRevenue), eligibleCosts: new Prisma.Decimal(eligibleCosts), netProfit: new Prisma.Decimal(netProfit), investorProfit: new Prisma.Decimal(investorProfit), akadTermsId: terms?.id, investorProfitSharePct: input.grossRevenue === undefined ? null : new Prisma.Decimal(investorSharePct), status: 'CALCULATED', createdBy: actor.userId } });
       for (const allocation of allocations) await tx.distributionAllocation.create({ data: { distributionId: created.id, beneficiaryUserId: allocation.beneficiaryUserId, destinationId: input.allocations.find((item) => item.beneficiaryUserId === allocation.beneficiaryUserId)!.destinationId, organisationId: input.organisationId, countryNodeId: input.countryNodeId, amount: new Prisma.Decimal(allocation.amount), currency: input.currency, status: 'PENDING' } });
-      await this.audit.recordActor(actor, { action: 'distribution.calculated', resourceType: 'Distribution', resourceId: created.id, organisationId: created.organisationId, countryNodeId: created.countryNodeId, metadata: { projectId: input.projectId, poolId: input.poolId, totalAmount: input.totalAmount, allocationCount: allocations.length, periodName: input.periodName, grossRevenue, eligibleCosts, netProfit, investorProfit, investorProfitSharePct: input.grossRevenue === undefined ? null : investorSharePct, akadTermsId: terms?.id ?? null } }, tx);
+      await this.audit.recordActor(actor, { action: 'distribution.calculated', resourceType: 'Distribution', resourceId: created.id, organisationId: created.organisationId, countryNodeId: created.countryNodeId, metadata: { projectId: input.projectId, poolId: input.poolId, totalAmount: input.totalAmount, allocationCount: allocations.length, periodName: input.periodName, grossRevenue, eligibleCosts, netProfit, investorProfit, investorProfitSharePct: input.grossRevenue === undefined ? null : investorSharePct, akadTermsId: terms?.id ?? null, lossOffset: outcome?.lossOffset ?? null, distributableNet: outcome?.distributableNet ?? null } }, tx);
       return tx.distribution.findUniqueOrThrow({ where: { id: created.id }, include: { allocations: true } });
     });
+  }
+
+  /**
+   * Records a period of a pool under akad terms whose result is not paid out: a loss, or a
+   * profit fully absorbed by earlier losses. It goes through the same submit and approval
+   * steps, and later profit is offset against it.
+   */
+  async recordPeriodResult(actor: AuthenticatedUser, input: RecordPeriodResultDto) {
+    assertTenantScope(actor, input, 'Distribution');
+    const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: input.poolId }, select: { poolId: true, projectId: true, status: true, currency: true, organisationId: true, countryNodeId: true } });
+    if (!pool || pool.projectId !== input.projectId) throw new NotFoundException('Pool not found for this project.');
+    assertTenantScope(actor, pool, 'Pool');
+    if (pool.currency !== input.currency) throw new BadRequestException('Currency does not match the pool.');
+    const terms = await this.prisma.poolAkadTerms.findFirst({ where: { poolId: input.poolId }, orderBy: { version: 'desc' } });
+    if (!terms) throw new BadRequestException('Period results are recorded for pools with akad terms.');
+    if (await this.prisma.distribution.findFirst({ where: { poolId: input.poolId, periodName: input.periodName, status: { not: 'CANCELLED' } } })) throw new BadRequestException('A result already exists for this period.');
+    const net = Math.round((input.grossRevenue - input.eligibleCosts) * 100) / 100;
+    const outcome = periodOutcome(await this.priorResults(this.prisma, input.poolId), net);
+    if (outcome.distributableNet > 0) throw new BadRequestException(`This period has ${outcome.distributableNet.toFixed(2)} of profit to share. Create a distribution instead.`);
+    const kind = net < 0 ? 'LOSS' : 'ABSORBED';
+    return this.prisma.$transaction(async (tx) => {
+      await this.assertOutcomeUnchanged(tx, input.poolId, net, 0);
+      const created = await tx.distribution.create({ data: { kind, projectId: input.projectId, poolId: input.poolId, organisationId: input.organisationId, countryNodeId: input.countryNodeId, totalAmount: new Prisma.Decimal(0), currency: input.currency, periodName: input.periodName, grossRevenue: new Prisma.Decimal(input.grossRevenue), eligibleCosts: new Prisma.Decimal(input.eligibleCosts), netProfit: new Prisma.Decimal(net), investorProfit: new Prisma.Decimal(0), distributableNet: new Prisma.Decimal(0), lossOffset: new Prisma.Decimal(outcome.lossOffset), akadTermsId: terms.id, investorProfitSharePct: terms.investorProfitSharePct, status: 'CALCULATED', createdBy: actor.userId } });
+      await this.audit.recordActor(actor, { action: 'distribution.period_result', resourceType: 'Distribution', resourceId: created.id, organisationId: created.organisationId, countryNodeId: created.countryNodeId, metadata: { kind, poolId: input.poolId, periodName: input.periodName, grossRevenue: input.grossRevenue, eligibleCosts: input.eligibleCosts, netResult: net, unrecoveredLossBefore: outcome.unrecoveredLoss, lossOffset: outcome.lossOffset, akadTermsId: terms.id } }, tx);
+      return tx.distribution.findUniqueOrThrow({ where: { id: created.id }, include: { allocations: true } });
+    });
+  }
+
+  private async priorResults(client: Prisma.TransactionClient | PrismaService, poolId: string): Promise<PriorResult[]> {
+    const rows = await client.distribution.findMany({ where: { poolId, ...COUNTED_RESULT }, select: { kind: true, netProfit: true, distributableNet: true } });
+    return rows.map((row) => ({ kind: row.kind, netProfit: Number(row.netProfit ?? 0), distributableNet: row.distributableNet === null ? null : Number(row.distributableNet) }));
+  }
+
+  /** Re-checks the offset under a pool lock, so two results recorded at once cannot both use the same history. */
+  private async assertOutcomeUnchanged(tx: Prisma.TransactionClient, poolId: string, net: number, expectedDistributable: number) {
+    await tx.$queryRaw`SELECT "poolId" FROM "WealthPool" WHERE "poolId" = ${poolId} FOR UPDATE`;
+    if (periodOutcome(await this.priorResults(tx, poolId), net).distributableNet !== expectedDistributable) throw new ConflictException('Another period result was recorded for this pool meanwhile. Recalculate and try again.');
   }
 
   async submit(actor: AuthenticatedUser, id: string) {
@@ -103,6 +148,7 @@ export class DistributionService {
   async process(actor: AuthenticatedUser, id: string) {
     const distribution = await this.get(actor, id);
     if (distribution.status !== 'APPROVED') throw new BadRequestException('Only approved distributions can be processed.');
+    if (distribution.kind !== 'PROFIT') throw new BadRequestException(`A recorded ${distribution.kind} result has nothing to pay out.`);
     const source = await this.ledger.ensureAccount(actor, { accountCode: `POOL-${distribution.poolId || distribution.projectId}-CASH-${distribution.currency}`, accountType: 'ASSET', ownerType: distribution.poolId ? 'POOL' : 'PROJECT', ownerId: distribution.poolId || distribution.projectId, organisationId: distribution.organisationId, countryNodeId: distribution.countryNodeId, currency: distribution.currency });
     const sourceBalance = await this.ledger.getBalance(actor, source.id);
     if (sourceBalance.balance + 0.005 < Number(distribution.totalAmount)) throw new BadRequestException('Distribution exceeds the available pool balance.');

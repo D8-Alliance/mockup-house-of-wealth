@@ -19,6 +19,7 @@ import { LanguageCode } from '../types';
 import { TRANSLATIONS } from '../data/translations';
 import { ZakatCalculatorCard } from './financials/ZakatCalculatorCard';
 import { StatementsPanel } from './financials/StatementsPanel';
+import { TaxStatementPanel } from './financials/TaxStatementPanel';
 
 interface FinancialTransaction {
   id: string;
@@ -246,7 +247,7 @@ export const FinancialsView: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'statements' && <StatementsPanel />}
+      {activeTab === 'statements' && <div className="space-y-6"><StatementsPanel /><TaxStatementPanel /></div>}
 
     </div>
   );
