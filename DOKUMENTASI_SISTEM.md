@@ -67,17 +67,55 @@ curl.exe http://localhost:3001/health             # semak backend
 
 ---
 
-## 4. Pengesahan, peranan dan tenant
+## 4. Pengesahan, peranan (RBAC) dan tenant
 
-**Mod pengesahan** (`AUTH_MODE`):
-- `mock`: token demo (base64 JSON `{mock, role, countryNode, org}` + `.demo-token`). Pengguna mesti wujud dan aktif dalam database.
-- `oidc`: token JWT dari Keycloak.
+### 4.1 Pengesahan
+- **`AUTH_MODE=mock`** (pembangunan): token demo ialah base64 JSON `{mock, role, countryNode, org}` diikuti `.demo-token`. Pengguna mesti wujud dan aktif dalam database.
+- **`AUTH_MODE=oidc`**: token JWT dari Keycloak; pengguna dipadankan melalui `idpSubjectId`.
+- Frontend: `VITE_AUTH_MODE`, `VITE_OIDC_*`; `VITE_SINGLE_ROLE_MODE` mengehadkan log masuk demo kepada satu peranan ujian.
 
-**Tenant:** setiap rekod milik satu **negara (country node)**, contohnya `CN-MYS`, dan satu **organisasi**. Pengguna hanya melihat data dalam tenant mereka kecuali Super Admin.
+### 4.2 Peranan dan tugasan
+- **36 peranan** (`server/src/policy/permissions.ts`), dikumpulkan dalam frontend mengikut kumpulan (`src/rbac/roles/`): sistem, tadbir urus, operasi, pelabur, Shariah, pematuhan, kewangan, sokongan.
 
-**36 peranan**, antaranya: Super Admin, Country Admin, Organization Admin, Project Sponsor, Project Manager, Pool Manager, pelabur (Retail, HNWI, Institutional, Corporate, Family Office), Portfolio Manager, Shariah Advisor/Reviewer/Committee, Compliance Officer, KYC/KYB/AML Officer, Risk Officer, Finance Officer, Treasury Officer, Settlement Officer, Auditor, AI Administrator dan Guest. Senarai penuh dan kebenaran: `server/src/policy/permissions.ts`.
+| Kumpulan | Peranan |
+|---|---|
+| Pentadbiran sistem | Super Admin, System Administrator, Security Administrator, Data Administrator, AI Administrator, AI Model Reviewer |
+| Tadbir urus tenant | Country Admin, Organization Admin |
+| Projek dan aset | Project Sponsor, Project Manager, Asset Owner, Asset Manager, Pool Manager |
+| Pelabur | Retail Investor, HNWI Investor, Institutional Investor, Corporate Investor, Family Office, Portfolio Manager |
+| Shariah | Shariah Advisor, Shariah Reviewer, Shariah Committee |
+| Pematuhan dan risiko | Compliance Officer, KYC Officer, KYB Officer, AML Officer, Risk Officer, Fraud Analyst, Legal Officer |
+| Kewangan | Finance Officer, Treasury Officer, Settlement Officer, Reconciliation Officer, Auditor |
+| Lain-lain | Customer Support, Guest |
 
-**Modul ciri** (boleh dihidupkan atau dimatikan oleh admin, `GET/PATCH /admin/modules`): `ASSET_REGISTRATION`, `WEALTH_POOLING`, `SHARIAH_GOVERNANCE`, `AI_INTELLIGENCE`, `CONTRACTS`, `DOCUMENT_VAULT`, `FINANCIAL_LEDGER`, `SECONDARY_MARKET`, `KYC_VERIFICATION`, `KYB_VERIFICATION`. Mod: `ACTIVE`, `MANUAL_REVIEW` atau `DISABLED`.
+- Peranan diberi melalui **`UserRoleAssignment`**: setiap tugasan mengikat satu peranan kepada satu organisasi dan satu negara, dan boleh dinyahaktifkan. Seorang pengguna boleh memegang beberapa peranan (`POST /users/:userId/roles`, `DELETE /users/:userId/roles/...`).
+- **Peranan aktif:** peranan dalam token hanya diterima jika pengguna memang memegangnya dalam database; jika tidak, peranan pertama yang ditugaskan digunakan. Jadi menukar peranan dalam token tidak memberi akses tambahan.
+- **Peranan istimewa** (`PRIVILEGED_ROLES`): Super Admin, System, Security, Data dan AI Administrator.
+
+### 4.3 Kebenaran (permission)
+- **Model:** setiap peranan mempunyai senarai **tindakan** (`create`, `read`, `update`, `delete`, `approve`, `disburse`, `audit`, `export`) bagi setiap **modul sumber** (`dashboard`, `assets`, `contracts`, `marketplace`, `pooling`, `ledger`, `profile`, `governance`, `approvals`, `users`, `audit_logs`, `reports`). Dinilai oleh `PolicyEngine` di server.
+- **Penguatkuasaan di server:** `@RequirePermission(modul, tindakan)` (70 penggunaan) dan `@Roles(...)` (89 penggunaan) pada controller, melalui guard global `OidcGuard` dan `RolesGuard`. Semakan tambahan dalam servis, contohnya: pegawai tidak boleh menyelesaikan pesanan sendiri, pencipta agihan tidak boleh meluluskannya, dan hanya Super Admin boleh mengurus pusat zakat.
+- **Frontend** (`src/rbac/`): `RoleGuard` menyembunyikan tab yang tidak dibenarkan dan `RoleSwitcherBar` menukar peranan aktif. Ini untuk pengalaman pengguna sahaja; keputusan sebenar dibuat di server.
+
+Contoh kebenaran:
+
+| Peranan | Kebenaran utama |
+|---|---|
+| Super Admin | Semua modul dan tindakan |
+| Country Admin | Cipta, baca, kemas kini dan lulus dalam negaranya (aset, kontrak, pool); baca dan audit lejar |
+| Project Sponsor | Cipta dan baca aset; cipta permohonan kelulusan; baca pool |
+| Pool Manager | Cipta, baca, kemas kini dan lulus pool (termasuk terma akad) |
+| Retail Investor | Baca dashboard, pasaran, pool dan lejar sendiri |
+| Shariah Committee | Cipta, baca, kemas kini dan lulus tadbir urus (keputusan akhir feasibility) |
+| Settlement Officer | Baca dan kemas kini lejar; selesaikan pesanan, proses agihan dan payout |
+| Auditor | Baca, audit dan eksport log audit, lejar dan laporan; sahkan rantai hash |
+
+### 4.4 Tenant
+- Setiap rekod milik satu **negara (country node)**, contohnya `CN-MYS`, dan satu **organisasi**. Pengguna hanya membaca dan menulis dalam tenant mereka (`assertTenantScope`, `tenantScopeFilter`); Super Admin merentas tenant.
+- Zon masa dan format telefon mengikut negara (GMT+8 dan +60 bagi Malaysia).
+
+### 4.5 Modul ciri
+Admin boleh menghidupkan atau mematikan modul (`GET/PATCH /admin/modules`): `ASSET_REGISTRATION`, `WEALTH_POOLING`, `SHARIAH_GOVERNANCE`, `AI_INTELLIGENCE`, `CONTRACTS`, `DOCUMENT_VAULT`, `FINANCIAL_LEDGER`, `SECONDARY_MARKET`, `KYC_VERIFICATION`, `KYB_VERIFICATION`. Mod: `ACTIVE`, `MANUAL_REVIEW` atau `DISABLED`. Endpoint modul yang dimatikan ditolak oleh `FeatureModuleGuard`.
 
 ---
 
@@ -104,6 +142,15 @@ curl.exe http://localhost:3001/health             # semak backend
 - **Terma akad** setiap pool: jenis akad, **nisbah perkongsian untung (PSR)**, teks terma dan hash. Terma ber-versi, append-only (trigger database), dan **dikunci selepas pelabur menerimanya**. Mudarabah dan Musharakah memerlukan kedua-dua pihak berkongsi untung (1–99%).
 - Teks terma menyatakan pembahagian untung, siapa menanggung rugi, dan bahawa **pulangan serta modal tidak dijamin**.
 - **Ijab dan qabul:** pesanan pelaburan mesti menerima versi terma semasa; sistem menyimpan id terma, hash dan masa penerimaan.
+- Peraturan setiap akad (`server/src/pools/akad-terms.ts`):
+
+| Akad | Pelabur sebagai | Pengurus sebagai | Bahagian untung pelabur | Kerugian |
+|---|---|---|---|---|
+| Mudarabah | Pemodal (rabb al-mal) | Mudarib | 1–99% | Ditanggung pelabur ikut modal; mudarib menanggung hanya jika cuai atau melanggar terma |
+| Musharakah | Rakan kongsi | Rakan kongsi pengurus | 1–99% | Ikut nisbah modal, tanpa mengira nisbah untung |
+| Wakalah bil Istithmar | Prinsipal (muwakkil) | Wakil pelaburan | 1–100% (baki sebagai insentif wakil) | Ditanggung pelabur; wakil menanggung hanya jika cuai |
+| Ijarah | Pemilik bersama aset sewaan | Pengurus aset | 1–100% daripada sewa bersih | Risiko aset ditanggung pemilik ikut bahagian milikan |
+
 - Pesanan berstatus PENDING sehingga pegawai penyelesaian (Settlement Officer, Portfolio Manager, Super Admin) mengesahkan bayaran; pegawai tidak boleh menyelesaikan pesanan sendiri.
 
 ### 5.5 Agihan keuntungan, kerugian dan payout (`/distributions`)
@@ -137,6 +184,17 @@ curl.exe http://localhost:3001/health             # semak backend
 - **14 pusat zakat Malaysia** dengan laman rasmi: Selangor (LZS), WP (PPZ-MAIWP), Pahang, Kedah (LZNK), Perak, Sarawak (TBS), Johor (MAIJ), Melaka (MAIM), Negeri Sembilan (MAINS), Pulau Pinang (MAINPP), Kelantan (MAIK), Terengganu (MAIDAM), Perlis (MAIPs), Sabah (MUIS).
 - **Nisab bertarikh dengan sumber** yang direkod oleh admin atau pegawai Shariah. Setakat ini: Selangor 2026 (RM42,047 Jan–Jun; RM38,748 Jul–Dis), WP 2026 (RM33,996), Sarawak September 2026 (RM46,294.89). Jika tiada nisab, sistem tidak meneka; pengguna memasukkan nisab dari laman pusat zakat.
 - **Pengiraan:** haul ikut kategori (simpanan, modal pelaburan, perniagaan memerlukan haul; pendapatan dan pendapatan pelaburan tidak), kadar 2.5% (Hijrah) atau 2.577% (Masihi), tolak hutang. Pelaburan dalam platform dikira sama ada sebagai **keuntungan diterima (al-mustaghallat)** atau **modal yang cukup haul + keuntungan** (kaedah zakat saham).
+- Peraturan pengiraan (`server/src/zakat/zakat-rules.ts`):
+
+| Kategori | Haul diperlukan | Catatan |
+|---|---|---|
+| Simpanan dan tunai | Ya | Dimiliki setahun penuh |
+| Pendapatan (gaji dan lain-lain) | Tidak | Dinilai semasa diterima |
+| Pendapatan pelaburan (al-mustaghallat: untung, dividen, sewa) | Tidak | Kaedah yang diluluskan bagi ASB pada 2025 |
+| Modal pelaburan | Ya | Kaedah zakat saham; modal kurang setahun dikecualikan |
+| Aset perniagaan (urud al-tijarah) | Ya | Stok dan penghutang |
+
+  Kadar: 2.5% (tahun Hijrah, 354 hari) atau 2.577% (tahun Masihi, 365 hari). Nisab dibandingkan dengan jumlah bersih selepas hutang.
 - **Platform tidak memungut zakat.** Butang bayar membuka portal rasmi pusat zakat. Memungut zakat tanpa pelantikan Majlis Agama Islam Negeri ialah kesalahan; kutipan melalui ToyyibPay hanya berjalan jika `ZAKAT_COLLECTION_APPOINTMENT_REF` diset selepas pelantikan rasmi.
 
 ### 5.9 Cukai dan penyata (`/tax`, `/statements`)
@@ -148,11 +206,36 @@ curl.exe http://localhost:3001/health             # semak backend
 - **Platform belum mengira atau memotong cukai.** Kadar bergantung pada struktur undang-undang pool (lihat item 11 dalam fail pending).
 
 ### 5.10 AI dan RAG (`/ai`)
-- Pembantu AI berasaskan dokumen rujukan (RAG) dengan sitasi dan semakan sitasi; skop GLOBAL, negara dan projek.
-- Analisis feasibility, due diligence, ringkasan dokumen projek, nasihat struktur kontrak Shariah, draf kontrak, analisis Shariah.
-- Setiap operasi menggunakan kredit AI (contoh: soalan 1 kredit, ringkasan projek 5, feasibility penuh 20, due diligence 30, risikan projek penuh 100).
-- Ciri AI dikunci mengikut peringkat projek (contohnya selepas kelulusan).
-- Keputusan AI ialah cadangan; semakan manusia sentiasa diperlukan.
+
+**Penyedia dan model**
+- Penyedia serasi OpenAI (`OPENAI_API_URL`, `OPENAI_MODEL`, `OPENAI_API_KEY`). Secara local, ia menunjuk kepada **Ollama** (container `gemma2`, model contohnya `gemma2:2b`), jadi data tidak keluar dari pelayan.
+- Tanpa kunci API, **penyedia sandbox** digunakan: output sintetik yang ditanda jelas sebagai bukan nasihat.
+- Had dan masa: `AI_CHAT_MAX_SOURCES` (lalai 4), `AI_CHAT_MAX_TOKENS`, `AI_CHAT_TIMEOUT_MS` (model CPU tempatan perlahan).
+
+**Ciri**
+
+| Ciri | Endpoint | Kredit |
+|---|---|---|
+| Pembantu AI (chat) dengan sumber RAG | `POST /ai/chat` | 1 |
+| Ringkasan dan analisis dokumen projek/bukti | `POST /ai/projects/:id/documents/:docId/analyze` | 5 |
+| Analisis feasibility projek (dengan revision dan semakan berperingkat) | `POST /ai/projects/:id/feasibility/analyze` | 100 |
+| Analisis risiko / Shariah | `POST /ai/shariah/analyze` | 15 |
+| Nasihat struktur kontrak Shariah, draf kontrak, semakan klausa dan peraturan | `/ai/contract-advisor/...`, `/ai/contract-drafts/...`, `/ai/contracts/...` | 20 |
+| Due diligence projek | `POST /ai/projects/due-diligence/scan`, `POST /ai/due-diligence/analyze` | 30 |
+
+**RAG (Retrieval-Augmented Generation)**
+- Dokumen rujukan dimuat naik dan dipecah kepada bahagian (`RagDocument`, `RagChunk`), dengan **skop**: GLOBAL (semua negara D-8), COUNTRY atau PROJECT. GLOBAL hanya diurus oleh Super Admin atau AI Administrator.
+- Carian kata kunci, ditambah carian vektor jika model embedding diset (`RAG_EMBEDDING_MODEL`, 768 dimensi, pgvector; ambang `RAG_MIN_VECTOR_SIMILARITY`, lalai 0.55).
+- Jawapan mesti merujuk sumber (`[S1]`, `[S2]`); sitasi disimpan (`AiCitation`) dan boleh disemak serta dieksport (`/ai/citations`).
+- Dokumen RAG melalui kitaran semakan: menunggu semakan, diluluskan, ditolak, perlu pindaan, atau diganti oleh versi baharu.
+
+Jadual harga (`AiCapabilityPricing`) juga mengandungi "Investment Analysis" (30) dan "Full Feasibility Analysis" (20), tetapi tiada ciri AI yang menggunakannya sekarang.
+
+**Kawalan**
+- Kredit ditolak hanya selepas operasi AI berjaya; kredit percuma digunakan dahulu.
+- Setiap permintaan dan jawapan direkod (`AiRun`, log audit); keputusan AI ialah **cadangan**, dan semakan manusia sentiasa diperlukan (`/ai/decisions/:id/review`).
+- Ciri AI dikunci mengikut peringkat projek: selepas kelulusan akhir, analisis semula ditolak sehingga projek dibuka semula.
+- Modul `AI_INTELLIGENCE` boleh dimatikan oleh admin; skrin membership kemudian menyembunyikan pelan AI.
 
 ### 5.11 Kontrak (`/contracts`, `/contract-intelligence`)
 - Kontrak dengan versi, pihak, kelulusan dan peralihan status.
@@ -166,6 +249,28 @@ curl.exe http://localhost:3001/health             # semak backend
 
 ### 5.13 Audit (`/admin/audit`)
 - Setiap tindakan penting direkod dalam `AuditEvent` (append-only; trigger menolak UPDATE dan DELETE). Eksport CSV tersedia.
+
+### 5.14 Smart contract dan blockchain
+
+**Keadaan sekarang: sistem tidak menggunakan blockchain dan tidak menjalankan smart contract.**
+- **"Kontrak" dalam sistem** ialah kontrak Shariah digital: dokumen akad, terma pool yang ber-versi dan ijab qabul yang direkod di database, serta perjanjian yang dijana (bahagian 5.4 dan 5.11). Ia bukan kod yang berjalan di blockchain.
+- **Wang sebenar** bergerak melalui ToyyibPay (FPX/kad) dan bank; sistem merekodnya dalam lejar kewangan.
+- **Teks UI yang dahulu mendakwa** "on the blockchain", "smart contract execution", "immutable ledger" dan memaparkan alamat dompet palsu telah dibetulkan pada 5 Okt 2026 (commit `cddb011`). Perkataan "tokenization" masih ada dalam beberapa skrin admin dan data mock.
+
+**Yang sudah ada sebagai asas (Fasa 1):** rantai hash SHA-256 ke atas log audit dan lejar kewangan (bahagian 5.6). Ia memberi kesan "tamper-evident" tanpa blockchain: perubahan, pemadaman atau penyusunan semula rekod yang telah dimeterai dikesan semasa pengesahan.
+
+**Had Fasa 1:** sesiapa yang boleh menulis terus ke database boleh membina semula seluruh rantai. Ini hanya dapat dikesan jika hash kepala rantai (chain head) disimpan di luar sistem.
+
+**Rancangan (item 10 dalam fail pending):**
+
+| Fasa | Kandungan | Status |
+|---|---|---|
+| 0 | Betulkan dakwaan blockchain dalam UI | Siap |
+| 1 | Rantai hash audit dan lejar | Siap |
+| 2 | **Anchoring:** rekod hash kepala rantai atau Merkle root secara berkala ke blockchain awam yang murah (contohnya Ethereum Layer 2); halaman awam **Ketelusan Zakat**; butang "Sahkan bayaran saya" dengan bukti Merkle. Tiada data peribadi di blockchain | Menunggu pilihan rangkaian, dompet operasi dan bajet |
+| 3 | **Tokenisasi** bahagian pool dan **smart contract escrow** | Menunggu nasihat undang-undang Suruhanjaya Sekuriti dan resolusi Shariah; token pelaburan berkemungkinan dianggap sekuriti |
+
+**Sebab blockchain tidak digunakan untuk aliran wang sekarang:** ringgit tetap bergerak melalui FPX dan bank; data peribadi tidak boleh diletakkan di blockchain kerana PDPA (rekod blockchain tidak boleh dipadam atau dibetulkan); keuntungan Mudarabah/Musharakah perlu ditentukan melalui akaun dan audit manusia; dan kod smart contract yang tersilap tidak boleh diterbalikkan.
 
 ---
 
