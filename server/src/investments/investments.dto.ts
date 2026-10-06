@@ -1,4 +1,4 @@
-import { IsIn, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { Equals, IsBoolean, IsIn, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class CreateInvestmentOrderDto {
   @IsString()
@@ -15,6 +15,15 @@ export class CreateInvestmentOrderDto {
   @IsString()
   @MaxLength(100)
   idempotencyKey!: string;
+
+  /** The akad terms version the investor read (GET /pools/:id/akad-terms). */
+  @IsString()
+  akadTermsId!: string;
+
+  /** Qabul: explicit acceptance of those terms. */
+  @IsBoolean()
+  @Equals(true, { message: 'The akad terms must be accepted to invest.' })
+  acceptAkad!: boolean;
 }
 
 export class CancelInvestmentOrderDto {

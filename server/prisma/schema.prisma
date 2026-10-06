@@ -548,6 +548,7 @@ model WealthPool {
   countryNode     CountryNode      @relation(fields: [countryNodeId], references: [code])
   fundingRequests FundingRequest[]
   investmentOrders InvestmentOrder[]
+  akadTerms       PoolAkadTerms[]
 
   @@index([countryNodeId])
   @@index([projectId])
@@ -1051,13 +1052,19 @@ model InvestmentOrder {
   createdAt          DateTime @default(now())
   settledAt          DateTime?
   cancelledAt        DateTime?
+  /// Ijab and qabul: the akad terms the investor accepted, their hash, and when (null for older orders).
+  akadTermsId        String?
+  akadTermsHash      String?
+  akadAcceptedAt     DateTime?
 
   pool               WealthPool @relation(fields: [poolId], references: [poolId], onDelete: Restrict)
+  akadTerms          PoolAkadTerms? @relation(fields: [akadTermsId], references: [id], onDelete: Restrict)
   contribution       InvestmentContribution?
 
   @@index([investorUserId, createdAt])
   @@index([organisationId, countryNodeId, createdAt])
   @@index([poolId, status])
+  @@index([akadTermsId])
 }
 
 model FundingDisbursement {
@@ -1141,7 +1148,11 @@ model Distribution {
   settledAt      DateTime?
   version        Int      @default(0)
   createdAt      DateTime @default(now())
+  /// The akad terms and profit-sharing ratio this distribution used.
+  akadTermsId            String?
+  investorProfitSharePct Decimal? @db.Decimal(5, 2)
 
+  akadTerms   PoolAkadTerms?           @relation(fields: [akadTermsId], references: [id], onDelete: Restrict)
   allocations DistributionAllocation[]
   approvals   DistributionApproval[]
 
@@ -1770,4 +1781,24 @@ model HashChainLink {
 
   @@unique([chain, sequence])
   @@unique([chain, recordId])
+}
+
+/// Akad (Shariah contract) terms of a pool. Append-only (database trigger): a change is a new version,
+/// and terms cannot change once an investor has accepted them. See src/pools/akad-terms.ts.
+model PoolAkadTerms {
+  id                     String   @id @default(cuid())
+  poolId                 String
+  version                Int
+  akadType               String
+  investorProfitSharePct Decimal  @db.Decimal(5, 2)
+  termsText              String   @db.Text
+  termsHash              String
+  createdBy              String
+  createdAt              DateTime @default(now())
+
+  pool          WealthPool        @relation(fields: [poolId], references: [poolId], onDelete: Restrict)
+  orders        InvestmentOrder[]
+  distributions Distribution[]
+
+  @@unique([poolId, version])
 }

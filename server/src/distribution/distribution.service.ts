@@ -32,10 +32,16 @@ export class DistributionService {
     const capitalByInvestor = new Map<string, number>();
     contributions.forEach((item) => capitalByInvestor.set(item.investorUserId, (capitalByInvestor.get(item.investorUserId) || 0) + Number(item.amount)));
     if (input.poolId && !capitalByInvestor.size) throw new BadRequestException('No settled investments are eligible for this distribution.');
+    // The profit-sharing ratio comes from the pool's akad, agreed before anyone invested,
+    // not from the request. Older pools without akad terms keep the request's ratio.
+    const terms = input.poolId ? await this.prisma.poolAkadTerms.findFirst({ where: { poolId: input.poolId }, orderBy: { version: 'desc' } }) : null;
+    const investorSharePct = terms ? Number(terms.investorProfitSharePct) : input.investorProfitSharePercent ?? 80;
+    if (terms && input.investorProfitSharePercent !== undefined && input.investorProfitSharePercent !== investorSharePct) throw new BadRequestException(`This pool's akad fixes the investor profit share at ${investorSharePct}%.`);
+    if (terms && input.grossRevenue === undefined) throw new BadRequestException('A pool with akad terms must report gross revenue and eligible costs, so the agreed profit ratio can be applied.');
     const grossRevenue = input.grossRevenue ?? input.totalAmount;
     const eligibleCosts = input.eligibleCosts ?? 0;
     const netProfit = Math.max(0, grossRevenue - eligibleCosts);
-    const investorProfit = input.grossRevenue === undefined ? input.totalAmount : netProfit * ((input.investorProfitSharePercent ?? 80) / 100);
+    const investorProfit = input.grossRevenue === undefined ? input.totalAmount : netProfit * (investorSharePct / 100);
     const capitalTotal = [...capitalByInvestor.values()].reduce((sum, amount) => sum + amount, 0);
     const allocations = input.allocations.map((allocation) => {
       if (input.poolId && !capitalByInvestor.has(allocation.beneficiaryUserId)) throw new BadRequestException(`Beneficiary ${allocation.beneficiaryUserId} has no settled investment in this pool.`);
@@ -55,9 +61,9 @@ export class DistributionService {
       if (!destination || destination.ownerUserId !== allocation.beneficiaryUserId || (destination.cooldownUntil && destination.cooldownUntil > new Date())) throw new BadRequestException(`Payout destination for ${allocation.beneficiaryUserId} is not verified or is still in its cooling-off period.`);
     }
     return this.prisma.$transaction(async (tx) => {
-      const created = await tx.distribution.create({ data: { projectId: input.projectId, poolId: input.poolId, organisationId: input.organisationId, countryNodeId: input.countryNodeId, totalAmount: new Prisma.Decimal(input.totalAmount), currency: input.currency, periodName: input.periodName, grossRevenue: new Prisma.Decimal(grossRevenue), eligibleCosts: new Prisma.Decimal(eligibleCosts), netProfit: new Prisma.Decimal(netProfit), investorProfit: new Prisma.Decimal(investorProfit), status: 'CALCULATED', createdBy: actor.userId } });
+      const created = await tx.distribution.create({ data: { projectId: input.projectId, poolId: input.poolId, organisationId: input.organisationId, countryNodeId: input.countryNodeId, totalAmount: new Prisma.Decimal(input.totalAmount), currency: input.currency, periodName: input.periodName, grossRevenue: new Prisma.Decimal(grossRevenue), eligibleCosts: new Prisma.Decimal(eligibleCosts), netProfit: new Prisma.Decimal(netProfit), investorProfit: new Prisma.Decimal(investorProfit), akadTermsId: terms?.id, investorProfitSharePct: input.grossRevenue === undefined ? null : new Prisma.Decimal(investorSharePct), status: 'CALCULATED', createdBy: actor.userId } });
       for (const allocation of allocations) await tx.distributionAllocation.create({ data: { distributionId: created.id, beneficiaryUserId: allocation.beneficiaryUserId, destinationId: input.allocations.find((item) => item.beneficiaryUserId === allocation.beneficiaryUserId)!.destinationId, organisationId: input.organisationId, countryNodeId: input.countryNodeId, amount: new Prisma.Decimal(allocation.amount), currency: input.currency, status: 'PENDING' } });
-      await this.audit.recordActor(actor, { action: 'distribution.calculated', resourceType: 'Distribution', resourceId: created.id, organisationId: created.organisationId, countryNodeId: created.countryNodeId, metadata: { projectId: input.projectId, poolId: input.poolId, totalAmount: input.totalAmount, allocationCount: allocations.length, periodName: input.periodName, grossRevenue, eligibleCosts, netProfit, investorProfit } }, tx);
+      await this.audit.recordActor(actor, { action: 'distribution.calculated', resourceType: 'Distribution', resourceId: created.id, organisationId: created.organisationId, countryNodeId: created.countryNodeId, metadata: { projectId: input.projectId, poolId: input.poolId, totalAmount: input.totalAmount, allocationCount: allocations.length, periodName: input.periodName, grossRevenue, eligibleCosts, netProfit, investorProfit, investorProfitSharePct: input.grossRevenue === undefined ? null : investorSharePct, akadTermsId: terms?.id ?? null } }, tx);
       return tx.distribution.findUniqueOrThrow({ where: { id: created.id }, include: { allocations: true } });
     });
   }

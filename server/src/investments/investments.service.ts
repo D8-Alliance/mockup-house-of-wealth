@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -26,8 +26,15 @@ export class InvestmentsService {
       return existing;
     }
     const order = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.investmentOrder.create({ data: { orderNumber: `HOW-INV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, poolId: pool.poolId, projectId: pool.projectId, investorUserId: actor.userId, organisationId: pool.organisationId, countryNodeId: pool.countryNodeId, amount: new Prisma.Decimal(input.amount), currency: input.currency.toUpperCase(), status: 'PENDING', idempotencyKey: input.idempotencyKey } });
-      await this.audit.recordActor(actor, { action: 'investment.order.create', resourceType: 'InvestmentOrder', resourceId: created.id, organisationId: created.organisationId, countryNodeId: created.countryNodeId, metadata: { poolId: created.poolId, amount: input.amount, currency: created.currency } }, tx);
+      // Ijab and qabul: the order must accept the pool's current akad terms, read inside the
+      // transaction so a terms change cannot slip between reading and accepting.
+      // FOR SHARE conflicts with the FOR UPDATE taken when terms are republished.
+      await tx.$queryRaw`SELECT "poolId" FROM "WealthPool" WHERE "poolId" = ${pool.poolId} FOR SHARE`;
+      const terms = await tx.poolAkadTerms.findFirst({ where: { poolId: pool.poolId }, orderBy: { version: 'desc' } });
+      if (!terms) throw new BadRequestException('This pool has no akad terms yet, so it cannot accept investments.');
+      if (terms.id !== input.akadTermsId) throw new ConflictException('The akad terms for this pool have changed. Review and accept the latest version.');
+      const created = await tx.investmentOrder.create({ data: { akadTermsId: terms.id, akadTermsHash: terms.termsHash, akadAcceptedAt: new Date(), orderNumber: `HOW-INV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, poolId: pool.poolId, projectId: pool.projectId, investorUserId: actor.userId, organisationId: pool.organisationId, countryNodeId: pool.countryNodeId, amount: new Prisma.Decimal(input.amount), currency: input.currency.toUpperCase(), status: 'PENDING', idempotencyKey: input.idempotencyKey } });
+      await this.audit.recordActor(actor, { action: 'investment.order.create', resourceType: 'InvestmentOrder', resourceId: created.id, organisationId: created.organisationId, countryNodeId: created.countryNodeId, metadata: { poolId: created.poolId, amount: input.amount, currency: created.currency, akadTermsId: terms.id, akadTermsVersion: terms.version, akadType: terms.akadType, akadTermsHash: terms.termsHash } }, tx);
       return created;
     });
     return order;
