@@ -44,6 +44,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 const newIdempotencyKey = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
 export const akadApi = {
+  /** Creates the pool on the server with version 1 of its akad terms (fixed before any investment). */
+  createPool: (input: { projectId: string; poolName: string; currency: string; indicativeExpectedReturn: number; organisationId: string; countryNodeId: string; akadType: AkadType; investorProfitSharePct: number }) => request<{ poolId: string; status: string; akadTerms: PoolAkadTerms }>('/pools', { method: 'POST', body: JSON.stringify(input) }),
   getTerms: (poolId: string) => request<{ current: PoolAkadTerms | null; versions: PoolAkadTerms[] }>(`/pools/${encodeURIComponent(poolId)}/akad-terms`),
   publishTerms: (poolId: string, input: { akadType: AkadType; investorProfitSharePct: number }) => request<PoolAkadTerms>(`/pools/${encodeURIComponent(poolId)}/akad-terms`, { method: 'PUT', body: JSON.stringify(input) }),
   /** Places a real order that accepts the given terms version (ijab and qabul); settlement staff confirm payment later. */

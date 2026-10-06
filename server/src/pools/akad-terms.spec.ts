@@ -68,3 +68,38 @@ describe('PoolsService.setAkadTerms', () => {
     expect(created).toHaveLength(0);
   });
 });
+
+describe('PoolsService.create', () => {
+  const lock = jest.requireMock('../projects/project-lock') as { FUNDABLE_PROJECT_STATUSES: string[]; hasCurrentFinalApproval: jest.Mock };
+  const dto = { projectId: 'P1', poolName: 'Solar Pool', currency: 'MYR', indicativeExpectedReturn: 8, organisationId: 'ORG-A', countryNodeId: 'CN-MYS', akadType: 'MUSHARAKAH' as const, investorProfitSharePct: 60 };
+
+  function setup() {
+    lock.FUNDABLE_PROJECT_STATUSES.splice(0, lock.FUNDABLE_PROJECT_STATUSES.length, 'APPROVED');
+    lock.hasCurrentFinalApproval.mockResolvedValue(true);
+    const terms: Array<Record<string, unknown>> = [];
+    const tx = {
+      wealthPool: { create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ poolId: 'POOL-NEW', ...data })) },
+      poolAkadTerms: { create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => { terms.push(data); return { id: 'TERMS-1', ...data }; }) },
+    };
+    const prisma = {
+      organisation: { findFirst: jest.fn(async () => ({ id: 'ORG-A' })) },
+      project: { findUnique: jest.fn(async () => ({ projectId: 'P1', projectName: 'Solar Farm', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', status: 'APPROVED' })) },
+      $transaction: jest.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
+    };
+    return { service: new PoolsService(prisma as never, { recordActor: jest.fn() } as never, {} as never), terms, tx };
+  }
+
+  it('creates the pool with version 1 of its akad terms', async () => {
+    const { service, terms, tx } = setup();
+    const pool = await service.create(dto, { ...manager, role: 'Super Admin' });
+    expect(pool).toMatchObject({ poolId: 'POOL-NEW', akadTerms: { version: 1, akadType: 'MUSHARAKAH' } });
+    expect(String(terms[0].termsText)).toContain('60% to investors and 40% to the managing partner');
+    expect(tx.wealthPool.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ investmentStructure: 'Musharakah' }) }));
+  });
+
+  it('rejects a ratio the akad does not allow before touching the database', async () => {
+    const { service, tx } = setup();
+    await expect(service.create({ ...dto, investorProfitSharePct: 100 }, { ...manager, role: 'Super Admin' })).rejects.toThrow(/between 1% and 99%/);
+    expect(tx.wealthPool.create).not.toHaveBeenCalled();
+  });
+});

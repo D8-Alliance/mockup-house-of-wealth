@@ -3,6 +3,9 @@ import { X, Save } from 'lucide-react';
 import { poolService } from './poolService';
 import { Project } from '../projects/projectTypes';
 import { useRBAC } from '../rbac/RBACContext';
+import { AKAD_LABELS, AKAD_MAX_INVESTOR_PCT, akadApi, AkadType } from '../services/akadApi';
+
+const akadFromContract = (contract: string): AkadType => (['Musharakah', 'Wakalah', 'Ijarah'].includes(contract) ? contract.toUpperCase() : 'MUDARABAH') as AkadType;
 
 interface PoolCreationModalProps {
   isOpen: boolean;
@@ -21,11 +24,30 @@ export const PoolCreationModal: React.FC<PoolCreationModalProps> = ({ isOpen, pr
   const [durationMonths, setDurationMonths] = useState(60);
   const [indicativeExpectedReturn, setIndicativeExpectedReturn] = useState(8.5);
   const [distributionFrequency, setDistributionFrequency] = useState<'Quarterly' | 'Semi-Annually' | 'Annually'>('Quarterly');
+  const [akadType, setAkadType] = useState<AkadType | null>(null);
+  const [investorProfitSharePct, setInvestorProfitSharePct] = useState(70);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   if (!isOpen || !project) return null;
+  const akad = akadType || akadFromContract(project.proposedShariahContract);
 
-  const handleCreatePool = () => {
+  // The server creates the pool with version 1 of its akad terms; the local list mirrors it.
+  const handleCreatePool = async () => {
+    setBusy(true);
+    setError('');
+    let created: { poolId: string; status: string };
+    try {
+      created = await akadApi.createPool({ projectId: project.projectId, poolName: poolName || `${project.projectName} Sukuk Pool`, currency: project.currency, indicativeExpectedReturn, organisationId: project.organisationId, countryNodeId: project.countryNodeId, akadType: akad, investorProfitSharePct });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The pool could not be created.');
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
     poolService.createPool({
+      poolId: created.poolId,
+      status: created.status as any,
       poolName: poolName || `${project.projectName} Sukuk Pool`,
       projectId: project.projectId,
       projectName: project.projectName,
@@ -33,7 +55,7 @@ export const PoolCreationModal: React.FC<PoolCreationModalProps> = ({ isOpen, pr
       organisationName: project.organisationName,
       countryNodeId: project.countryNodeId,
       poolType: project.sector as any,
-      investmentStructure: project.proposedShariahContract as any,
+      investmentStructure: AKAD_LABELS[akad] as any,
       targetAmount,
       minimumAmount: targetAmount * 0.6,
       maximumAmount: targetAmount * 1.2,
@@ -123,17 +145,32 @@ export const PoolCreationModal: React.FC<PoolCreationModalProps> = ({ isOpen, pr
             </div>
           </div>
 
-          <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-[11px] text-amber-800 dark:text-amber-200 space-y-1">
-            <strong>Segregation of Duties & Multi-Sig Requirements:</strong>
-            <p>Pool creation requires 4 independent governance approvals (Shariah Board, Compliance Officer, Chief Risk Officer, Authorised Executive) before the pool can be opened for investor subscriptions.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Akad</label>
+              <select value={akad} onChange={e => { const type = e.target.value as AkadType; setAkadType(type); setInvestorProfitSharePct(Math.min(investorProfitSharePct, AKAD_MAX_INVESTOR_PCT[type])); }} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white">
+                {(Object.keys(AKAD_LABELS) as AkadType[]).map(type => <option key={type} value={type}>{AKAD_LABELS[type]}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Investor profit share (%)</label>
+              <input type="number" min={1} max={AKAD_MAX_INVESTOR_PCT[akad]} step={0.01} value={investorProfitSharePct} onChange={e => setInvestorProfitSharePct(Number(e.target.value))} className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white" />
+              <span className="text-[10px] text-slate-500">Manager share: {Math.max(0, 100 - investorProfitSharePct)}%</span>
+            </div>
           </div>
+
+          <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-[11px] text-amber-800 dark:text-amber-200 space-y-1">
+            <strong>Before the pool opens</strong>
+            <p>The server only creates a pool for a project whose feasibility has a final approval (including the Shariah Committee decision). The pool opens with these akad terms as version 1; they cannot change once an investor accepts them.</p>
+          </div>
+          {error && <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-[11px] font-semibold text-rose-700 dark:text-rose-300">{error}</div>}
         </div>
 
         <div className="flex justify-end gap-2 text-xs pt-2">
           <button onClick={onClose} className="px-4 py-2 rounded-xl font-bold bg-slate-100 text-slate-600 dark:bg-slate-700">Cancel</button>
-          <button onClick={handleCreatePool} className="px-4 py-2 rounded-xl font-bold bg-purple-600 text-white hover:bg-purple-500 flex items-center gap-1.5">
+          <button onClick={() => void handleCreatePool()} disabled={busy || investorProfitSharePct < 1 || investorProfitSharePct > AKAD_MAX_INVESTOR_PCT[akad]} className="px-4 py-2 rounded-xl font-bold bg-purple-600 text-white hover:bg-purple-500 flex items-center gap-1.5 disabled:opacity-50">
             <Save className="w-3.5 h-3.5" />
-            Create Pool Draft
+            {busy ? 'Creating…' : 'Create pool'}
           </button>
         </div>
       </div>
