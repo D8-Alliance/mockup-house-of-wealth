@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, Length, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, IsUrl, Length, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
 import { YEAR_BASES, YearBasis, ZAKAT_CATEGORIES, ZakatCategory } from './zakat-rules';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -39,4 +39,20 @@ export class AddNisabRateDto {
 
 export class ZakatPreferenceDto {
   @IsBoolean() enabled!: boolean;
+}
+
+export class CreateZakatAuthorityDto {
+  /** Country prefix and region, e.g. MY-SGR. */
+  @Matches(/^[A-Z]{2}-[A-Z0-9]{2,6}$/, { message: 'code must look like MY-SGR.' }) code!: string;
+  @IsString() countryNodeId!: string;
+  @IsString() @MaxLength(80) region!: string;
+  @IsString() @MaxLength(160) name!: string;
+  /** The authority's official site, where users pay. */
+  @IsUrl({ protocols: ['https'], require_protocol: true }) website!: string;
+}
+
+export class UpdateZakatAuthorityDto {
+  @IsOptional() @IsString() @MaxLength(160) name?: string;
+  @IsOptional() @IsUrl({ protocols: ['https'], require_protocol: true }) website?: string;
+  @IsOptional() @IsBoolean() isActive?: boolean;
 }

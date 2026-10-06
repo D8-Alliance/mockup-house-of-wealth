@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
-import { AddNisabRateDto, CalculateZakatDto, ZakatPreferenceDto } from './zakat.dto';
+import { AddNisabRateDto, CalculateZakatDto, CreateZakatAuthorityDto, UpdateZakatAuthorityDto, ZakatPreferenceDto } from './zakat.dto';
 import { ZakatService } from './zakat.service';
 
 @Controller('zakat')
@@ -21,6 +21,17 @@ export class ZakatController {
   @Get('authorities')
   authorities(@CurrentUser() actor: AuthenticatedUser) {
     return this.zakatService.authorities(actor);
+  }
+
+  /** Super Admin only (checked in the service). */
+  @Post('authorities')
+  createAuthority(@CurrentUser() actor: AuthenticatedUser, @Body() input: CreateZakatAuthorityDto) {
+    return this.zakatService.createAuthority(actor, input);
+  }
+
+  @Put('authorities/:code')
+  updateAuthority(@CurrentUser() actor: AuthenticatedUser, @Param('code') code: string, @Body() input: UpdateZakatAuthorityDto) {
+    return this.zakatService.updateAuthority(actor, code, input);
   }
 
   /** Records an authority's published nisab (role check in the service). */

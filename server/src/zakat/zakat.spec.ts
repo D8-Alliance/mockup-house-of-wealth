@@ -84,3 +84,12 @@ describe('ZakatService.createPaymentBill', () => {
     await expect(service.createPaymentBill(investor, 'CALC-1')).rejects.toThrow(/zakatselangor\.com\.my/);
   });
 });
+
+describe('ZakatService authorities', () => {
+  it('lets only a Super Admin add or change an authority', async () => {
+    const { service } = setup();
+    const input = { code: 'MY-XYZ', countryNodeId: 'CN-MYS', region: 'Test', name: 'Test Council', website: 'https://example.gov.my' };
+    await expect(service.createAuthority(investor, input)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.updateAuthority({ ...investor, role: 'Country Admin' }, 'MY-SGR', { isActive: false })).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});

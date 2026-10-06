@@ -8,7 +8,7 @@ import { FinancialLedgerService, toyyibPayCashAccount } from '../financial/finan
 import { assertTenantScope } from '../tenancy/tenant-scope';
 import { timezoneFor } from '../tenancy/country-time';
 import { localMidnight, localToday } from '../statements/statement-period';
-import { AddNisabRateDto, CalculateZakatDto } from './zakat.dto';
+import { AddNisabRateDto, CalculateZakatDto, CreateZakatAuthorityDto, UpdateZakatAuthorityDto } from './zakat.dto';
 import { CATEGORY_LABELS, computeZakat, HAUL_DAYS, ZakatLineInput } from './zakat-rules';
 
 /** Roles that may record an authority's published nisab. */
@@ -34,6 +34,25 @@ export class ZakatService {
       orderBy: [{ countryNodeId: 'asc' }, { region: 'asc' }],
       include: { nisabRates: { orderBy: { effectiveFrom: 'desc' }, take: 4 } },
     }).then((rows) => rows.map((row) => ({ ...row, isHomeCountry: row.countryNodeId === actor.countryNodeId })));
+  }
+
+  /** Adds a state zakat authority. Super Admin only: users are sent to this website to pay. */
+  async createAuthority(actor: AuthenticatedUser, input: CreateZakatAuthorityDto) {
+    if (actor.role !== 'Super Admin') throw new ForbiddenException('Only a Super Admin can add zakat authorities.');
+    if (!(await this.prisma.countryNode.findUnique({ where: { code: input.countryNodeId } }))) throw new BadRequestException('Unknown country node.');
+    if (await this.prisma.zakatAuthority.findUnique({ where: { code: input.code } })) throw new BadRequestException(`Zakat authority ${input.code} already exists.`);
+    const authority = await this.prisma.zakatAuthority.create({ data: { code: input.code, countryNodeId: input.countryNodeId, region: input.region.trim(), name: input.name.trim(), website: input.website } });
+    await this.audit.recordActor(actor, { action: 'zakat.authority.create', resourceType: 'ZakatAuthority', resourceId: authority.code, organisationId: actor.organisationId, countryNodeId: authority.countryNodeId, metadata: { name: authority.name, website: authority.website } });
+    return authority;
+  }
+
+  async updateAuthority(actor: AuthenticatedUser, code: string, input: UpdateZakatAuthorityDto) {
+    if (actor.role !== 'Super Admin') throw new ForbiddenException('Only a Super Admin can change zakat authorities.');
+    const before = await this.prisma.zakatAuthority.findUnique({ where: { code } });
+    if (!before) throw new NotFoundException('Zakat authority not found.');
+    const authority = await this.prisma.zakatAuthority.update({ where: { code }, data: { name: input.name?.trim(), website: input.website, isActive: input.isActive } });
+    await this.audit.recordActor(actor, { action: 'zakat.authority.update', resourceType: 'ZakatAuthority', resourceId: code, organisationId: actor.organisationId, countryNodeId: authority.countryNodeId, metadata: { before: { name: before.name, website: before.website, isActive: before.isActive }, after: { name: authority.name, website: authority.website, isActive: authority.isActive } } });
+    return authority;
   }
 
   async addNisabRate(actor: AuthenticatedUser, code: string, input: AddNisabRateDto) {
