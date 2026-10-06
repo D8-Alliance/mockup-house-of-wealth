@@ -8,7 +8,7 @@
 #  What runs where:
 #    Frontend (React/Vite) ...... http://localhost:3000      (repo root)
 #    Backend  (NestJS API) ...... http://localhost:3001      (server/)
-#    PostgreSQL (Docker) ........ localhost:55433            container: keycloak-postgres-new
+#    PostgreSQL (Docker) ........ localhost:5433             container: keycloak-postgres-5433
 #    AI model (Ollama, Docker) .. http://localhost:11434     container: gemma2
 #                                 models: gemma2:2b (chat), nomic-embed-text (RAG embeddings)
 #
@@ -25,7 +25,7 @@ return
 # -----------------------------------------------------------------------------
 
 # 1a. Start Docker Desktop first, then start the database and the AI model.
-docker start keycloak-postgres-new gemma2
+docker start keycloak-postgres-5433 gemma2
 
 # 1b. TERMINAL 1 — backend. Wait for "Nest application successfully started".
 cd C:\clone_how\mockup-house-of-wealth\server
@@ -48,7 +48,7 @@ ngrok http --url=yearbook-comfort-floral.ngrok-free.dev 3001
 # Backend health: should print {"status":"ok","service":"house-of-wealth-api",...}
 curl.exe http://localhost:3001/health
 
-# Containers: keycloak-postgres-new and gemma2 should say "Up".
+# Containers: keycloak-postgres-5433 and gemma2 should say "Up".
 docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 # AI models available to the backend (gemma2:2b and nomic-embed-text).
@@ -69,7 +69,7 @@ netstat -ano | findstr ":3000 :3001"
 taskkill /PID 12345 /F    # replace 12345 with the PID from netstat
 
 # Stop the containers when you are done for the day (optional).
-docker stop gemma2 keycloak-postgres-new
+docker stop gemma2 keycloak-postgres-5433
 
 
 # -----------------------------------------------------------------------------
@@ -187,9 +187,9 @@ npm --prefix server install
 Copy-Item .env.example .env.local
 Copy-Item server\.env.example server\.env
 
-# 8c. Database container (PostgreSQL with pgvector) on port 55433.
+# 8c. Database container (PostgreSQL with pgvector) on port 5433.
 #     Replace CHANGE_ME with your own password and put the same one in DATABASE_URL in server/.env.
-docker run -d --name keycloak-postgres-new -p 55433:5432 -e POSTGRES_PASSWORD=CHANGE_ME pgvector/pgvector:pg16
+docker run -d --name keycloak-postgres-5433 -p 5433:5432 -e POSTGRES_PASSWORD=CHANGE_ME pgvector/pgvector:pg16
 #     ...or let the helper script create the database and write DATABASE_URL for you:
 npm run db:setup:local
 
@@ -217,9 +217,16 @@ npm run models:download
 # "Backend API tidak dapat dicapai" in the browser -> the backend is not running.
 #   Start it (section 1b) and check curl.exe http://localhost:3001/health.
 
-# Backend log says it cannot reach the database (P1001 / ECONNREFUSED 55433)
+# Backend log says it cannot reach the database (P1001 / ECONNREFUSED 5433)
 #   -> start Docker Desktop, then:
-docker start keycloak-postgres-new
+docker start keycloak-postgres-5433
+
+# Database container will not start: "ports are not available ... bind: An attempt was made to access a socket"
+#   -> Windows reserved that port range (check with: netsh interface ipv4 show excludedportrange protocol=tcp).
+#      In 2026-10 the old port 55433 fell inside 55422-55521, so the data volume was moved to keycloak-postgres-5433
+#      on port 5433 (the old keycloak-postgres-new container is kept, stopped). Fix as Administrator:
+#        net stop winnat; net start winnat
+#      or run the data volume on another free port and change the port in DATABASE_URL in server/.env.
 
 # AI features fail with "AI provider is unavailable"
 #   -> the Ollama container is stopped:
