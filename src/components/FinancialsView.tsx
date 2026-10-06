@@ -34,14 +34,6 @@ export const FinancialsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'transactions' | 'statements' | 'profit' | 'zakat' | 'settlement'>('transactions');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Zakat Calculator state
-  const [investedCapital, setInvestedCapital] = useState('1000000');
-  const [liquidCash, setLiquidCash] = useState('150000');
-  const [debtsOwed, setDebtsOwed] = useState('20000');
-
-  const totalWealth = (parseFloat(investedCapital) || 0) + (parseFloat(liquidCash) || 0) - (parseFloat(debtsOwed) || 0);
-  const nisabThreshold = 6120; // 85g gold equivalent in USD
-  const zakatDue = totalWealth >= nisabThreshold ? Math.round(totalWealth * 0.025) : 0;
 
   // Transactions list
   const [transactions] = useState<FinancialTransaction[]>([
@@ -133,7 +125,7 @@ export const FinancialsView: React.FC = () => {
             activeTab === 'zakat' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
           }`}
         >
-          Zakat & Tax Report
+          Zakat
         </button>
         <button
           onClick={() => setActiveTab('profit')}

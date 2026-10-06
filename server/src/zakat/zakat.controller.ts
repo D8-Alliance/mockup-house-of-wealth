@@ -1,12 +1,33 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
-import { CalculateZakatDto } from './zakat.dto';
+import { AddNisabRateDto, CalculateZakatDto, ZakatPreferenceDto } from './zakat.dto';
 import { ZakatService } from './zakat.service';
 
 @Controller('zakat')
 export class ZakatController {
   constructor(private readonly zakatService: ZakatService) {}
+
+  @Get('preference')
+  preference(@CurrentUser() actor: AuthenticatedUser) {
+    return this.zakatService.getPreference(actor);
+  }
+
+  @Put('preference')
+  setPreference(@CurrentUser() actor: AuthenticatedUser, @Body() input: ZakatPreferenceDto) {
+    return this.zakatService.setPreference(actor, input.enabled);
+  }
+
+  @Get('authorities')
+  authorities(@CurrentUser() actor: AuthenticatedUser) {
+    return this.zakatService.authorities(actor);
+  }
+
+  /** Records an authority's published nisab (role check in the service). */
+  @Post('authorities/:code/nisab')
+  addNisab(@CurrentUser() actor: AuthenticatedUser, @Param('code') code: string, @Body() input: AddNisabRateDto) {
+    return this.zakatService.addNisabRate(actor, code, input);
+  }
 
   @Post('calculations')
   calculate(@CurrentUser() actor: AuthenticatedUser, @Body() input: CalculateZakatDto) {

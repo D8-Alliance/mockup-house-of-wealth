@@ -158,6 +158,7 @@ model CountryNode {
   documentVersions     DocumentVersion[]
   financialAccounts    FinancialAccount[]
   ledgerTransactions   LedgerTransaction[]
+  zakatAuthorities ZakatAuthority[]
 }
 
 model Organisation {
@@ -810,6 +811,13 @@ model ZakatCalculation {
   netWealth       Decimal        @db.Decimal(18, 2)
   zakatDue        Decimal        @db.Decimal(18, 2)
   createdAt       DateTime       @default(now())
+  /// Authority, nisab record, year basis (HIJRI 2.5% / GREGORIAN 2.577%) and itemised lines used.
+  authorityCode   String?
+  nisabRateId     String?
+  nisabSource     String?
+  yearBasis       String?
+  asOfDate        DateTime?      @db.Date
+  lines           Json?
   payments        ZakatPayment[]
 
   @@index([userId, createdAt])
@@ -1801,4 +1809,37 @@ model PoolAkadTerms {
   distributions Distribution[]
 
   @@unique([poolId, version])
+}
+
+/// A state zakat authority (amil). Users pay zakat through the authority's official channel.
+model ZakatAuthority {
+  code          String   @id
+  countryNodeId String
+  region        String
+  name          String
+  website       String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  countryNode CountryNode      @relation(fields: [countryNodeId], references: [code])
+  nisabRates  ZakatNisabRate[]
+
+  @@index([countryNodeId])
+}
+
+/// Nisab published by an authority for a period, with its source.
+model ZakatNisabRate {
+  id            String   @id @default(cuid())
+  authorityCode String
+  amount        Decimal  @db.Decimal(18, 2)
+  currency      String
+  effectiveFrom DateTime @db.Date
+  effectiveTo   DateTime @db.Date
+  source        String
+  createdBy     String
+  createdAt     DateTime @default(now())
+
+  authority ZakatAuthority @relation(fields: [authorityCode], references: [code])
+
+  @@index([authorityCode, effectiveFrom])
 }

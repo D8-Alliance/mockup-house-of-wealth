@@ -30,7 +30,7 @@ export function localMidnight(date: string, timezone: string) {
   return new Date(guess - zoneOffsetMs(new Date(first), timezone));
 }
 
-function localToday(timezone: string, now: Date) {
+export function localToday(timezone: string, now: Date) {
   return new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
 }
 
