@@ -28,4 +28,13 @@ describe('AuditService admin access', () => {
     // The file name carries the export date (today), not the events' dates.
     expect(result.fileName).toMatch(/^house-of-wealth-audit-\d{4}-\d{2}-\d{2}\.csv$/);
   });
+
+  it('neutralises spreadsheet formulas in user-supplied values but keeps negative numbers', async () => {
+    const prisma = { auditEvent: { findMany: jest.fn().mockResolvedValue([{ id: 'AUD-2', createdAt: new Date('2026-10-02T00:00:00.000Z'), userId: 'USR-A', userEmail: '=HYPERLINK("http://evil")', action: 'project.update', resourceType: 'Project', resourceId: '-42', organisationId: '@SUM(A1)', countryNodeId: 'CN-MYS', result: 'Success', metadata: {} }]) } };
+    const service = new AuditService(prisma as unknown as PrismaService);
+    const { content } = await service.exportCsv(actor, { page: 1, limit: 50 });
+    expect(content).toContain('"\'=HYPERLINK(""http://evil"")"');
+    expect(content).toContain(",'@SUM(A1),");
+    expect(content).toContain(',-42,');
+  });
 });

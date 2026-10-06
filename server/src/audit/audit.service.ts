@@ -89,7 +89,9 @@ export class AuditService {
   }
 
   private csvCell(value: unknown) {
-    const text = value === null || value === undefined ? '' : String(value);
+    let text = value === null || value === undefined ? '' : String(value);
+    // A leading quote stops spreadsheets from running user-supplied text as a formula.
+    if (/^[=+\-@\t\r]/.test(text) && !/^-?\d+(\.\d+)?$/.test(text)) text = `'${text}`;
     return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 }
