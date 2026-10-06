@@ -270,7 +270,46 @@ Jadual harga (`AiCapabilityPricing`) juga mengandungi "Investment Analysis" (30)
 | 2 | **Anchoring:** rekod hash kepala rantai atau Merkle root secara berkala ke blockchain awam yang murah (contohnya Ethereum Layer 2); halaman awam **Ketelusan Zakat**; butang "Sahkan bayaran saya" dengan bukti Merkle. Tiada data peribadi di blockchain | Menunggu pilihan rangkaian, dompet operasi dan bajet |
 | 3 | **Tokenisasi** bahagian pool dan **smart contract escrow** | Menunggu nasihat undang-undang Suruhanjaya Sekuriti dan resolusi Shariah; token pelaburan berkemungkinan dianggap sekuriti |
 
-**Sebab blockchain tidak digunakan untuk aliran wang sekarang:** ringgit tetap bergerak melalui FPX dan bank; data peribadi tidak boleh diletakkan di blockchain kerana PDPA (rekod blockchain tidak boleh dipadam atau dibetulkan); keuntungan Mudarabah/Musharakah perlu ditentukan melalui akaun dan audit manusia; dan kod smart contract yang tersilap tidak boleh diterbalikkan.
+#### Apa itu smart contract
+
+Smart contract ialah program kecil yang disimpan dan dijalankan di atas blockchain. Ia mempunyai tiga ciri:
+1. **Berjalan sendiri:** apabila syarat dipenuhi, kod bertindak (contohnya memindahkan dana) tanpa kelulusan sesiapa.
+2. **Tidak boleh diubah:** selepas dipasang, kod kekal. Pepijat tidak boleh dibaiki dengan mudah.
+3. **Boleh disemak semua orang:** kod dan setiap transaksi boleh dilihat secara awam.
+
+Walaupun dinamakan "contract", ia **bukan kontrak undang-undang**. Ia kod yang menguatkuasakan peraturan secara automatik. Contoh escrow pelaburan: "Simpan wang pelabur; jika jumlah mencapai RM500,000 sebelum 31 Disember, pindahkan kepada pengurus projek; jika tidak, pulangkan kepada setiap pelabur." Tiada pihak, termasuk operator platform, boleh menahan atau melencongkan wang itu.
+
+#### Perbandingan dengan sistem sekarang
+
+| Perkara | Sistem sekarang | Dengan smart contract |
+|---|---|---|
+| Akad (Mudarabah, Musharakah, Wakalah, Ijarah) | Terma dalam database, ber-versi, dikunci selepas diterima (5.4) | Akad kekal dokumen Shariah; smart contract hanya melaksanakan sebahagian terma |
+| Agihan untung dan tolakan rugi | Kod NestJS di server platform (5.5) | Kod di blockchain |
+| Pihak yang perlu dipercayai | Operator platform | Kod itu sendiri |
+| Bukti rekod tidak diubah | Rantai hash dalaman (5.6) | Rekod blockchain awam |
+| Pembetulan kesilapan | Boleh, melalui maker-checker dan jejak audit | Sangat sukar atau mustahil |
+
+Logik "kontrak" (agihan mengikut nisbah akad, tolakan rugi, kunci terma) **sudah dilaksanakan**; bezanya ia berjalan di server platform, bukan di blockchain.
+
+#### Sebab smart contract dilewatkan ke Fasa 3
+
+1. **Wang adalah ringgit sebenar.** Dana bergerak melalui ToyyibPay (FPX/kad) dan bank. Smart contract hanya boleh mengawal aset yang berada di blockchain, jadi ia memerlukan token atau ringgit digital (stablecoin). Ini dikawal selia oleh Bank Negara Malaysia dan Suruhanjaya Sekuriti (SC).
+2. **Status kawal selia.** Token yang mewakili bahagian pool berkemungkinan dianggap sekuriti dan memerlukan kelulusan atau pendaftaran SC (contohnya rangka kerja ECF atau aset digital) sebelum dilancarkan.
+3. **Masalah oracle.** Untung atau rugi projek berlaku di dunia sebenar dan mesti dimasukkan oleh manusia (akaun dan audit). Kepercayaan kepada pihak yang memasukkan data tidak hilang, jadi manfaat "tanpa perlu percaya" adalah terhad.
+4. **Kesilapan tidak boleh diundur.** Agihan wang pelabur yang tersilap tidak dapat dibetulkan seperti dalam sistem sekarang (maker-checker, pembalikan lejar).
+5. **PDPA.** Data peribadi tidak boleh diletakkan di rekod blockchain awam kerana ia tidak boleh dipadam atau dibetulkan.
+6. **Semakan Shariah.** Kod smart contract menjadi pelaksana akad, jadi kod itu sendiri memerlukan resolusi Majlis Penasihat Shariah.
+7. **Kos dan kepakaran.** Ia melibatkan yuran transaksi (gas), audit keselamatan kod oleh pihak ketiga (lazimnya puluhan ribu USD), pembangun Solidity atau seumpamanya, dan pengurusan kunci dompet operasi.
+
+#### Syarat untuk memulakan Fasa 3
+
+- Nasihat undang-undang bertulis dan, jika perlu, kelulusan SC bagi token pelaburan.
+- Resolusi Shariah ke atas reka bentuk token dan kod smart contract.
+- Fasa 2 (anchoring) sudah berjalan stabil.
+- Keperluan perniagaan yang jelas, contohnya pasaran sekunder unit pool atau escrow automatik yang diminta pelabur.
+- Bajet bagi audit keselamatan kod dan operasi dompet.
+
+Sehingga syarat ini dipenuhi, logik akad kekal di server, dan ketelusan diperoleh melalui rantai hash (Fasa 1) serta anchoring (Fasa 2), tanpa memindahkan wang atau data peribadi ke blockchain.
 
 ---
 
