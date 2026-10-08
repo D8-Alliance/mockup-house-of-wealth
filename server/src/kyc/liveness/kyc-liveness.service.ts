@@ -8,7 +8,8 @@ import { idNumberOnDocument } from '../checks/providers/document-content.provide
 import { KYC_EDITABLE_STATUSES, kycReviewScope } from '../kyc-workflow';
 import { detectDocumentType } from '../kyc.service';
 import { cosineSimilarity, decodeImage, DetectedFace, FaceEngine, headPose, meanBrightness, RgbImage } from './face-engine';
-import { Baseline, evaluateFaceStep, issueSteps, LivenessStep, SESSION_TTL_MS, splitLiveAndCardFaces, STEP_TIME_LIMIT_MS, StepVerdict, THRESHOLDS } from './liveness-rules';
+import { Baseline, evaluateFaceStep, issueSteps, LivenessStep, SESSION_TTL_MS, splitLiveAndCardFaces, stepTimeLimitMs, StepVerdict, THRESHOLDS } from './liveness-rules';
+import { cardImageQuality, cardRegion, CardRegion, cardRetryMessage } from './card-quality';
 
 /** What the client is told about a session. Embeddings and raw frames never leave the server. */
 export interface LivenessSessionView {
@@ -89,7 +90,8 @@ export class KycLivenessService {
     const steps = session.steps as LivenessStep[];
     const now = Date.now();
     if (now > session.expiresAt.getTime()) return this.fail(session.id, 'EXPIRED', 'The session expired before all steps were completed.');
-    if (now - session.stepStartedAt.getTime() > STEP_TIME_LIMIT_MS) return this.fail(session.id, 'FAILED', `Step ${steps[session.currentStep]} was not completed within ${STEP_TIME_LIMIT_MS / 1000} seconds.`);
+    const limitMs = stepTimeLimitMs(steps[session.currentStep]);
+    if (now - session.stepStartedAt.getTime() > limitMs) return this.fail(session.id, 'FAILED', `Step ${steps[session.currentStep]} was not completed within ${limitMs / 1000} seconds.`);
     if (steps[session.currentStep] !== step) throw new ConflictException(`Complete the current step first: ${steps[session.currentStep]}.`);
 
     const image = await decodeImage(file.buffer);
@@ -133,13 +135,21 @@ export class KycLivenessService {
 
   private async evaluateIdCard(actor: AuthenticatedUser, applicationId: string, image: RgbImage, faces: DetectedFace[]): Promise<StepVerdict> {
     const application = await this.prisma.kycApplication.findUniqueOrThrow({ where: { id: applicationId }, select: { idDocumentNumber: true } });
-    const { text } = await this.reader.read({ mimeType: 'image/png', content: await toPng(image) });
-    const idNumber = idNumberOnDocument(application.idDocumentNumber, text);
-    const metrics = { idNumberOnCard: idNumber, textLength: text.length, faces: faces.length };
-    if (idNumber === 'MATCH') return { accepted: true, message: 'ID card read.', metrics };
-    // Webcam images of a card are often too small for OCR; accept a readable card with a photo and let the officer judge.
-    if (faces.length >= 1 && text.replace(/\s/g, '').length >= 20) return { accepted: true, message: 'ID card captured. The number could not be read clearly; the officer will check it.', metrics };
-    return { accepted: false, message: 'Hold the FRONT of your ID card inside the frame, close to the camera, without glare.', metrics };
+    // The card must be read clearly: the ID number on it has to match the application. OCR runs
+    // first on the card guide area, enlarged and sharpened, then on the whole frame in case the
+    // card was held outside the guide.
+    const region = cardRegion(image);
+    let { text } = await this.reader.read({ mimeType: 'image/png', content: await cardForOcr(image, region) });
+    let idNumber = idNumberOnDocument(application.idDocumentNumber, text);
+    if (idNumber !== 'MATCH') {
+      const whole = (await this.reader.read({ mimeType: 'image/png', content: await toPng(image) })).text;
+      const wholeMatch = idNumberOnDocument(application.idDocumentNumber, whole);
+      if (wholeMatch === 'MATCH' || idNumber === 'NOT_FOUND') ({ text, idNumber } = { text: whole, idNumber: wholeMatch });
+    }
+    const quality = cardImageQuality(image, region);
+    const metrics = { idNumberOnCard: idNumber, textLength: text.length, faces: faces.length, cardBrightness: round(quality.brightness), cardGlare: round(quality.glare), cardSharpness: round(quality.sharpness) };
+    if (idNumber === 'MATCH') return { accepted: true, message: 'ID card read clearly.', metrics };
+    return { accepted: false, message: cardRetryMessage(idNumber, quality), metrics };
   }
 
   private async evaluateFaceWithId(image: RgbImage, detected: DetectedFace[], baselineEmbedding: Float32Array | null): Promise<StepVerdict> {
@@ -207,7 +217,7 @@ export class KycLivenessService {
   private view(session: { id: string; status: string; steps: unknown; currentStep: number; expiresAt: Date; completedAt: Date | null; result: unknown }, audience: 'applicant' | 'reviewer'): LivenessSessionView {
     const result = (session.result as LivenessResultView | null) ?? null;
     const visible = result && audience === 'applicant' ? { livenessPassed: result.livenessPassed, failureReason: result.failureReason } as LivenessResultView : result;
-    return { id: session.id, status: session.status, steps: session.steps as LivenessStep[], currentStep: session.currentStep, expiresAt: session.expiresAt, stepTimeLimitSeconds: STEP_TIME_LIMIT_MS / 1000, completedAt: session.completedAt, result: visible };
+    return { id: session.id, status: session.status, steps: session.steps as LivenessStep[], currentStep: session.currentStep, expiresAt: session.expiresAt, stepTimeLimitSeconds: stepTimeLimitMs((session.steps as LivenessStep[])[session.currentStep]) / 1000, completedAt: session.completedAt, result: visible };
   }
 }
 
@@ -226,6 +236,19 @@ function publicMetrics(metrics: Record<string, unknown>) {
 async function toPng(image: RgbImage): Promise<Buffer> {
   const sharp = (await import('sharp')).default;
   return sharp(image.data, { raw: { width: image.width, height: image.height, channels: 3 } }).png().toBuffer();
+}
+
+/** The card area, enlarged to ~2000 px wide, in greyscale with stretched contrast and sharpened: what OCR reads best. */
+async function cardForOcr(image: RgbImage, region: CardRegion): Promise<Buffer> {
+  const sharp = (await import('sharp')).default;
+  return sharp(image.data, { raw: { width: image.width, height: image.height, channels: 3 } })
+    .extract(region)
+    .resize({ width: Math.max(region.width, 2000), kernel: 'lanczos3' })
+    .greyscale()
+    .normalise()
+    .sharpen()
+    .png()
+    .toBuffer();
 }
 
 const round = (value: number) => Math.round(value * 1000) / 1000;

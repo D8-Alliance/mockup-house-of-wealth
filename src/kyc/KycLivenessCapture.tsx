@@ -7,7 +7,7 @@ const STEP_TEXT: Record<LivenessStep, { title: string; hint: string }> = {
   TURN_LEFT: { title: 'Turn your head to your LEFT', hint: 'Turn slowly and hold for a moment.' },
   TURN_RIGHT: { title: 'Turn your head to your RIGHT', hint: 'Turn slowly and hold for a moment.' },
   LOOK_UP: { title: 'Tilt your head UP', hint: 'Lift your chin slowly and hold for a moment.' },
-  ID_CARD: { title: 'Show the FRONT of your ID card', hint: 'Hold the card inside the frame, close to the camera, without glare.' },
+  ID_CARD: { title: 'Show the FRONT of your ID card', hint: 'Hold the card flat inside the frame, close to the camera, in good light and without glare. The ID number must be clearly readable.' },
   FACE_WITH_ID: { title: 'Hold your ID card next to your face', hint: 'Your face and the photo on the card must both be visible.' },
 };
 
@@ -57,7 +57,7 @@ export const KycLivenessCapture: React.FC<KycLivenessCaptureProps> = ({ onFinish
   const captureFrame = (step: LivenessStep): Promise<Blob> => {
     const video = videoRef.current!;
     // ID steps need more pixels so the card text and photo can be read.
-    const maxWidth = step === 'ID_CARD' || step === 'FACE_WITH_ID' ? 1280 : 960;
+    const maxWidth = step === 'ID_CARD' ? 1920 : step === 'FACE_WITH_ID' ? 1280 : 960; // full resolution for the card so its number can be read
     const scale = Math.min(1, maxWidth / video.videoWidth);
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(video.videoWidth * scale);
@@ -112,7 +112,7 @@ export const KycLivenessCapture: React.FC<KycLivenessCaptureProps> = ({ onFinish
     setAccepted(false);
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser cannot use the camera. Use a recent Chrome, Edge or Safari over https.');
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
       streamRef.current = stream;
       const video = videoRef.current!;
       video.srcObject = stream;

@@ -16,6 +16,12 @@ export type LivenessStep = (typeof LIVENESS_STEPS)[number];
 
 export const SESSION_TTL_MS = 5 * 60_000;
 export const STEP_TIME_LIMIT_MS = 45_000;
+// Reading the card needs the number to be legible, which can take a few attempts (each runs OCR).
+export const ID_CARD_STEP_TIME_LIMIT_MS = 90_000;
+
+export function stepTimeLimitMs(step: LivenessStep | undefined): number {
+  return step === 'ID_CARD' ? ID_CARD_STEP_TIME_LIMIT_MS : STEP_TIME_LIMIT_MS;
+}
 const CHALLENGE_COUNT = 3;
 
 export const THRESHOLDS = {
