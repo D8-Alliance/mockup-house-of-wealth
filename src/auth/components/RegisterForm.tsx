@@ -111,6 +111,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <UserIcon className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="text"
+            name="name"
+            autoComplete="name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
@@ -127,6 +129,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="email"
+            name="email"
+            autoComplete="username"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             required
@@ -143,6 +147,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="text"
+            name="organization"
+            autoComplete="organization"
             value={form.organisation}
             onChange={(e) => setForm({ ...form, organisation: e.target.value })}
             required
@@ -179,6 +185,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="password"
+            name="new-password"
+            autoComplete="new-password"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
@@ -195,6 +203,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="password"
+            name="confirm-password"
+            autoComplete="new-password"
             value={form.confirm}
             onChange={(e) => setForm({ ...form, confirm: e.target.value })}
             required

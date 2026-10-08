@@ -1,7 +1,8 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
-import { IsEmail, IsIn, IsString, MaxLength, MinLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { IsEmail, IsIn, IsString, MaxLength, MinLength, NotContains } from 'class-validator';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 
@@ -11,10 +12,16 @@ import { AuditService } from '../audit/audit.service';
  */
 export const SELF_REGISTRATION_ROLES = ['Retail Investor', 'Institutional Investor', 'Project Sponsor', 'Asset Owner'] as const;
 
+const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
+
 export class DemoRegisterDto {
-  @IsString() @MinLength(2) @MaxLength(200) name!: string;
-  @IsEmail() @MaxLength(200) email!: string;
-  @IsString() @MinLength(2) @MaxLength(200) organisation!: string;
+  // Trimmed before validation, so a name of only spaces fails MinLength instead of being saved empty.
+  @Transform(trim) @IsString() @MinLength(2) @MaxLength(200) name!: string;
+  @Transform(trim) @IsEmail() @MaxLength(200) email!: string;
+  // Browser autofill can put the sign-in email into this field; an organisation is a name, not an address.
+  @Transform(trim) @IsString() @MinLength(2) @MaxLength(200)
+  @NotContains('@', { message: 'Organisation must be a company or institution name, not an email address.' })
+  organisation!: string;
   @IsString() @MaxLength(20) countryNodeId!: string;
   @IsIn(SELF_REGISTRATION_ROLES) role!: (typeof SELF_REGISTRATION_ROLES)[number];
 }
@@ -44,12 +51,18 @@ export class DemoRegistrationService {
     const organisationId = `ORG-REG-${suffix}`;
     const role = input.role.replace(/ /g, '_') as PrismaUserRole;
 
-    await this.prisma.$transaction(async (tx) => {
-      // Each sign-up gets its own organisation, so new users never join an existing tenant.
-      await tx.organisation.create({ data: { id: organisationId, name: input.organisation.trim(), countryNodeId: country.code } });
-      await tx.user.create({ data: { id: userId, idpProvider: 'mock', idpSubjectId: userId, email, name: input.name.trim(), isActive: true } });
-      await tx.userRoleAssignment.create({ data: { userId, role, organisationId, countryNodeId: country.code, assignedBy: 'SELF_REGISTRATION' } });
-    });
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // Each sign-up gets its own organisation, so new users never join an existing tenant.
+        await tx.organisation.create({ data: { id: organisationId, name: input.organisation.trim(), countryNodeId: country.code } });
+        await tx.user.create({ data: { id: userId, idpProvider: 'mock', idpSubjectId: userId, email, name: input.name.trim(), isActive: true } });
+        await tx.userRoleAssignment.create({ data: { userId, role, organisationId, countryNodeId: country.code, assignedBy: 'SELF_REGISTRATION' } });
+      });
+    } catch (error) {
+      // Two sign-ups with the same email at the same moment: the unique index decides, report it as a conflict.
+      if ((error as { code?: string }).code === 'P2002') throw new ConflictException('An account with this email address already exists. Sign in instead.');
+      throw error;
+    }
     await this.audit.record({ userId, userEmail: email, action: 'auth.self_register', resourceType: 'User', resourceId: userId, organisationId, countryNodeId: country.code, metadata: { role: input.role, mode: 'demo' } });
 
     return { userId, organisationId, organisationName: input.organisation.trim(), countryNodeId: country.code, role: input.role, email, name: input.name.trim() };

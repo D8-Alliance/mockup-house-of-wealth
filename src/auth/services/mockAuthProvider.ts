@@ -4,6 +4,7 @@ import { mfaService } from './mfaService';
 import { auditLogger } from '../../audit/auditLogger';
 import { UserRole } from '../../rbac/types';
 import { SINGLE_ROLE_MODE } from '../../rbac/runtimeConfig';
+import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
 
 // The mock backend (AUTH_MODE=mock) reads identity claims from the first
 // segment of the bearer token, so a demo session must carry the persona it was
@@ -126,14 +127,24 @@ export class MockAuthProvider {
   }
 
   public login(credentials: LoginCredentials): { success: boolean; mfaRequired?: boolean; challengeId?: string; error?: string; session?: AuthSession } {
-    const selectedRole = credentials.selectedRole || 'Country Admin';
-
-    // A registered (self-signed up) account takes priority over demo personas.
+    // A registered (self-signed up) account takes priority over demo personas and keeps its own
+    // role: the persona dropdown must not turn a registered Retail Investor into another role.
     const emailKey = credentials.email?.trim().toLowerCase();
     const registeredEntry = emailKey ? this.registered[emailKey] : undefined;
+    const selectedRole = registeredEntry ? registeredEntry.user.assignedRoles[0] : credentials.selectedRole || 'Country Admin';
+    const demoPersona = DEMO_PERSONAS[selectedRole] || DEMO_PERSONAS['Country Admin'];
+
+    // Any other email must be the selected demo persona's own address. Previously an unknown email
+    // silently signed in as the persona (e.g. "Retail Investor" became Nurul Huda), so a user who
+    // was not registered in this browser ended up editing someone else's profile.
+    const personaEmails = [demoPersona.email, ROLE_DEFINITIONS[selectedRole]?.demoUser.email].filter(Boolean).map((value) => value!.toLowerCase());
+    if (!registeredEntry && (!emailKey || !personaEmails.includes(emailKey))) {
+      return { success: false, error: `No account found for ${credentials.email?.trim() || 'this email'} in this browser. Create an account first, or choose a demo persona and keep its email.` };
+    }
+
     const persona = registeredEntry
-      ? { ...registeredEntry.user, activeRole: registeredEntry.user.assignedRoles[0] }
-      : DEMO_PERSONAS[selectedRole] || DEMO_PERSONAS['Country Admin'];
+      ? { ...registeredEntry.user, activeRole: selectedRole }
+      : demoPersona;
 
     // Check account status
     if (persona.status === 'SUSPENDED') {

@@ -569,7 +569,6 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
                 onChange={e => setFormData({ ...formData, timezone: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
               >
-                <option value="Asia/Kuala_Lumpur">(GMT+05:00) Malaysia Standard Time - Kuala Lumpur</option>
                 <option value="Asia/Kuala_Lumpur">(GMT+08:00) Malaysia Time - Kuala Lumpur</option>
                 <option value="Europe/Istanbul">(GMT+03:00) Turkey Time - Istanbul</option>
                 <option value="Asia/Jakarta">(GMT+07:00) Western Indonesia Time - Jakarta</option>

@@ -87,6 +87,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="email"
+            name="email"
+            autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -114,6 +116,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type={showPassword ? 'text' : 'password'}
+            name="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required

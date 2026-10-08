@@ -58,7 +58,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
         setChallengeId(res.challengeId);
         setMode('mfa');
       } else if (res.success && res.session) {
-        performLoginSuccess(selectedRole);
+        // A registered account keeps its own role and email, whatever the persona dropdown shows.
+        performLoginSuccess(res.session.user.activeRole, res.session.user.email);
       } else {
         setError(res.error || 'Authentication failed. Please check your credentials.');
       }
@@ -101,8 +102,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
     }, 600);
   };
 
-  const performLoginSuccess = (role: UserRole) => {
-    loginUser(role);
+  const performLoginSuccess = (role: UserRole, signedInEmail?: string) => {
+    loginUser(role, signedInEmail);
     setSuccessMsg(`Authenticated successfully as ${role}`);
     setTimeout(() => {
       setSuccessMsg(null);

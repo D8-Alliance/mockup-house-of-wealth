@@ -1,5 +1,7 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
-import { DemoRegistrationService } from './demo-registration.service';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { DemoRegisterDto, DemoRegistrationService } from './demo-registration.service';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 
@@ -51,5 +53,31 @@ describe('DemoRegistrationService', () => {
     prisma.user.findUnique.mockResolvedValue({ id: 'USR-EXISTING' });
 
     await expect(service.register(input)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('reports a simultaneous sign-up with the same email as a conflict, not a server error', async () => {
+    prisma.$transaction.mockImplementationOnce(() => { throw Object.assign(new Error('Unique constraint failed'), { code: 'P2002' }); });
+
+    await expect(service.register(input)).rejects.toBeInstanceOf(ConflictException);
+  });
+});
+
+describe('DemoRegisterDto', () => {
+  const check = (organisation: string) => validate(plainToInstance(DemoRegisterDto, { ...input, organisation }));
+
+  it('rejects an email address as the organisation (browser autofill)', async () => {
+    const errors = await check('adtest@test.com');
+    expect(errors.map((error) => error.property)).toEqual(['organisation']);
+  });
+
+  it('rejects an organisation made only of spaces', async () => {
+    const errors = await check('   ');
+    expect(errors.map((error) => error.property)).toEqual(['organisation']);
+  });
+
+  it('accepts and trims a normal organisation name', async () => {
+    const dto = plainToInstance(DemoRegisterDto, { ...input, organisation: '  Aminah Holdings  ' });
+    expect(await validate(dto)).toEqual([]);
+    expect(dto.organisation).toBe('Aminah Holdings');
   });
 });
