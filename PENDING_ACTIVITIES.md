@@ -2,7 +2,7 @@
 
 Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila kerja dimulakan, dan buang item apabila selesai. Penerangan sistem semasa ada dalam [DOKUMENTASI_SISTEM.md](DOKUMENTASI_SISTEM.md).
 
-## Ringkasan: apa yang belum siap (disemak 2026-10-06)
+## Ringkasan: apa yang belum siap (disemak 2026-10-08)
 
 | # | Item | Yang belum siap | Menunggu |
 |---|---|---|---|
@@ -17,7 +17,9 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 9 | Background jobs dan notifikasi | Uji token push di browser sebenar, sijil TLS Redis (production), akaun Resend/Twilio, integration test dalam CI | Akaun Resend/Twilio; penyediaan secret production |
 | 10 | Blockchain dan smart contract | Fasa 2: anchoring hash ke blockchain awam dan halaman Ketelusan Zakat. Fasa 3: tokenisasi dan smart contract escrow. Baki teks "tokenization" dalam skrin mock | Fasa 2: pilihan rangkaian dan dompet operasi. Fasa 3: nasihat undang-undang SC dan resolusi Shariah |
 | 11 | Akad, zakat, cukai dan penyata kewangan | Nisab Kedah/Pahang/Perak; cukai pegangan, cukai perkhidmatan, e-invois; caj kerugian ke atas modal dan perkiraan akhir pool | Penasihat cukai; penasihat Shariah; keputusan pelantikan ejen kutipan zakat |
-| 12 | Dokumentasi | Kemas kini atau buang dokumen lama bahasa Inggeris yang sudah lapuk; pastikan `DOKUMENTASI_SISTEM.md` dikemas kini setiap kali sistem berubah | Keputusan: kekalkan dokumen lama atau gabungkan |
+| 12 | Dokumentasi | README.md bahasa Inggeris masih lapuk; pastikan `DOKUMENTASI_SISTEM.md` dikemas kini setiap kali sistem berubah | Keputusan: kemas kini atau ringkaskan README |
+| 13 | Fasa 0: keselamatan sebelum pilot | Sekat mock auth, larang beri peranan sendiri, semakan KYC sebelum melabur, pengasingan tugas, Helmet/had kadar/CORS, pool tidak kelihatan kepada pelabur baharu | Boleh dimulakan sekarang (penghalang pilot Malaysia) |
+| 14 | Keputusan kecil 2026-10-08 | Organization Admin dalam pengecualian kredit AI, pengesahan jadual tarikh tamat kad 9 negara, lencana AAOIFI dan angka contoh di halaman utama, data ujian local | Keputusan pemilik projek |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -54,6 +56,7 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 ## 3. Pengesahan wajah (liveness): penalaan dan pelancaran
 
 - **Status:** Prototaip siap (2026-10-02). Belum diuji dengan kamera sebenar oleh pengguna.
+- **Dikemas kini 2026-10-08 (commit `b2a4d2c`):** langkah kad kini **wajib** membaca nombor ID daripada kad dan memadankannya dengan borang (laluan alternatif "wajah + 20 huruf" dibuang). Kawasan kad dipotong, dibesarkan dan ditajamkan sebelum OCR; kamera 1920×1080; had masa langkah kad 90 saat; mesej punca (gelap, silau, kabur, tidak sepadan). Ambang kecerahan/silau/ketajaman dalam `card-quality.ts` hanya memilih mesej dan belum ditala dengan kamera sebenar. **Risiko:** tiada laluan alternatif lagi, jadi pengguna dengan webcam lemah mungkin gagal berulang kali; perkara 5 di bawah menjadi lebih penting.
 - **Kawasan:** `server/src/kyc/liveness/`, `src/kyc/KycLivenessCapture.tsx`, `src/kyc/KycLivenessReviewPanel.tsx`
 
 1. **Uji dan tala ambang dengan kamera sebenar:** saiz/kedudukan muka, pusing kiri/kanan (`turnYaw` 0.22), dongak (`lookUpPitch` 0.08) dan face match (0.363), pada pelbagai peranti, cahaya dan pengguna. Nilai sekarang disahkan dengan gambar sampel dan titik muka sintetik sahaja.
@@ -164,7 +167,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 - **`server/ops/secrets/redis_password` sudah diisi** (disemak semula 2026-10-05). Folder `server/ops/redis/certs/` masih kosong (belum ada `ca.crt`, `redis.crt` dan `redis.key`); local menggunakan `REDIS_TLS=false`.
 - Container Redis local `keycloak-redis-1` kini healthy, expose `6379`, dan menggunakan secret file; local integration test lulus (disahkan semula 2026-10-05).
 - **Notifikasi local:** FCM sudah diset dalam `server/.env` dan service account Firebase telah disahkan boleh mendapatkan token Google. Email/SMS kekal tidak dikonfigurasi; `NOTIFICATION_DEFAULT_CHANNELS=IN_APP,PUSH`, tetapi penghantaran push ke browser sebenar belum diuji. Worker tidak berjalan secara local (`WORKER_ENABLED=false`), jadi notification outbox (termasuk push) tidak diproses sehingga worker dihidupkan.
-- **Belum di-commit:** kod Firebase Web push (`src/services/firebaseMessaging.ts`, `public/firebase-messaging-sw.js`, `pushToken` profil) dan validasi Twilio (`server/ops/notifications-twilio.md`, ujian adapter) masih dalam working copy.
+- **Di-commit 2026-10-08 (commit `ab8980c`):** kod Firebase Web push (`src/services/firebaseMessaging.ts`, `public/firebase-messaging-sw.js`, `pushToken` profil) dan validasi Twilio (`server/ops/notifications-twilio.md`, ujian adapter). Saluran lalai kini `IN_APP,PUSH,SMS`.
 
 ## 10. Blockchain dan smart contract
 
@@ -247,3 +250,24 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 1. **`README.md` (bahasa Inggeris, ditulis September 2026) sudah lapuk.** Contohnya: port database 55433, tiada akad, zakat atau cukai. Pilihan: kemas kini atau ringkaskan kepada pautan ke `DOKUMENTASI_SISTEM.md`. Empat dokumen lama lain dan folder `RAG_AI_PROJECT/` telah dibuang pada 2026-10-07.
 2. **Kemas kini `DOKUMENTASI_SISTEM.md`** setiap kali modul, endpoint, migration atau peraturan perniagaan berubah, terutamanya bahagian 5 (modul), 9 (bilangan ujian) dan 10 (status skrin).
+
+## 13. Fasa 0: pembetulan keselamatan sebelum pilot (Master Architecture v1.0)
+
+- **Status:** Belum dimulakan (disemak 2026-10-08). Rujukan penuh: *D-8 Wealth Pooling Master Architecture v1.0* §16–18 dan *Technical Design Document v1.0* §3, §6, §7.
+- **Kawasan:** `server/src/main.ts`, `server/src/auth/identity.service.ts`, `server/src/users/users.service.ts`, `server/src/investments/investments.service.ts`, `server/src/funding/funding.service.ts`, `server/src/distribution/payout-destination.service.ts`, `server/src/ai/ai.service.ts`
+
+1. **Sekat `AUTH_MODE=mock` dalam production** dan hadkan algoritma JWT (tolak HS256 dalam production). Kritikal: token mock tidak ditandatangani.
+2. **Larang pemberian peranan kepada diri sendiri;** peranan Country Admin perlu pelulus kedua.
+3. **Semakan KYC sebelum pesanan pelaburan** (status APPROVED dan tahap minimum).
+4. **Pengasingan tugas:** pelulus tidak boleh mengeluarkan dana yang sama; Settlement Officer tidak boleh mengesahkan destinasi payout sendiri; Organization/Country Admin tidak lagi menjadi penyemak lalai bagi lima peringkat feasibility.
+5. **Helmet, had kadar permintaan dan senarai CORS** (`origin: true` sekarang menerima semua domain).
+6. **Pelabur baharu tidak nampak pool** (ditemui 2026-10-08): setiap pendaftaran mendapat organisasi sendiri dan `/pools` ditapis ikut organisasi, jadi senarai kosong. Buka pool OPEN dalam negara yang sama kepada pelabur **bersama** perkara 3, bukan sebelumnya.
+
+## 14. Keputusan kecil daripada kerja 2026-10-08
+
+- **Kawasan:** `server/src/membership/ai-credit-exemption.ts`, `server/src/kyc/kyc-workflow.ts` (dan `src/kyc/kycLabels.ts`), halaman utama awam
+
+1. **Organization Admin dalam pengecualian kredit AI:** kini dikecualikan (commit `42b47f8`) kerana diminta "semua administrator", tetapi kategori sistemnya Operational Management dan organisasi pelanggan juga boleh memegangnya. Keputusan: kekal atau buang (satu baris).
+2. **Jadual tarikh tamat kad pengenalan 9 negara** (commit `b64568b`) diambil daripada rujukan yang diberi pada 2026-10-08. Perlu disahkan untuk setiap negara sebelum dipindah ke Country Policy (Fasa 2).
+3. **Halaman utama awam** memaparkan angka contoh (102 projek, 36 pool, 587 pengguna) dan lencana "AAOIFI Certified" yang belum sah. Buang lencana atau sambung angka kepada API sebelum demo kepada pihak luar.
+4. **Data ujian dalam database local:** akaun `claude.check1@test.local`, `claude.check2@test.local` (nama organisasi kosong) dan `claude.check6@test.local` dicipta semasa pengujian. Nyahaktifkan jika tidak diperlukan.
