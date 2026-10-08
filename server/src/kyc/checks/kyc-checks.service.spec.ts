@@ -222,7 +222,10 @@ describe('InternalRulesProvider', () => {
   it('checks expiry and that the MyKad number encodes the stated date of birth', async () => {
     const provider = new InternalRulesProvider({} as PrismaService, () => now);
     await expect(run(provider, 'DOCUMENT_CONSISTENCY')).resolves.toEqual({ status: 'PASS', reasons: [] });
-    await expect(run(provider, 'DOCUMENT_CONSISTENCY', { idDocumentExpiry: new Date('2026-09-01') })).resolves.toEqual(expect.objectContaining({ status: 'FAIL' }));
+    await expect(run(provider, 'DOCUMENT_CONSISTENCY', { idDocumentType: 'PASSPORT', idDocumentNumber: 'A12345678', idDocumentExpiry: new Date('2026-09-01') })).resolves.toEqual(expect.objectContaining({ status: 'FAIL' }));
+    await expect(run(provider, 'DOCUMENT_CONSISTENCY', { idDocumentType: 'PASSPORT', idDocumentNumber: 'A12345678', idDocumentExpiry: null })).resolves.toEqual({ status: 'REVIEW', reasons: ['No identity document expiry date was given'] });
+    // Malaysian MyKad is valid for life: no expiry date is needed or checked.
+    await expect(run(provider, 'DOCUMENT_CONSISTENCY', { idDocumentExpiry: null })).resolves.toEqual({ status: 'PASS', reasons: [] });
     await expect(run(provider, 'DOCUMENT_CONSISTENCY', { idDocumentNumber: '910501-14-5678' })).resolves.toEqual(expect.objectContaining({ status: 'REVIEW', reasons: ['Date of birth does not match the MyKad number'] }));
     // Born 1925: the old two-digit-year guess would have read this as 2025.
     await expect(run(provider, 'DOCUMENT_CONSISTENCY', { dateOfBirth: new Date('1925-03-04'), idDocumentNumber: '250304-14-5678' })).resolves.toEqual({ status: 'PASS', reasons: [] });

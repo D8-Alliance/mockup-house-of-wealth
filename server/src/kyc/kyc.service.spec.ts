@@ -5,7 +5,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { KycService } from './kyc.service';
 import { KycChecksService } from './checks/kyc-checks.service';
-import { kycSubmissionGaps, maskIdNumber, requiredKycDocuments } from './kyc-workflow';
+import { idDocumentHasExpiry, kycSubmissionGaps, maskIdNumber, requiredKycDocuments } from './kyc-workflow';
 
 jest.mock('../prisma.service', () => ({ PrismaService: class {} }));
 jest.mock('../audit/audit.service', () => ({ AuditService: class {} }));
@@ -35,6 +35,31 @@ describe('KYC workflow rules', () => {
     const now = new Date('2026-10-01T00:00:00Z');
     expect(kycSubmissionGaps({ ...completeDetails, dateOfBirth: new Date('2008-10-02') }, ['ID_FRONT', 'ID_BACK', 'SELFIE', 'PROOF_OF_ADDRESS'], now)).toEqual(['Applicant must be at least 18 years old']);
     expect(kycSubmissionGaps({ ...completeDetails, dateOfBirth: new Date('2008-10-01') }, ['ID_FRONT', 'ID_BACK', 'SELFIE', 'PROOF_OF_ADDRESS'], now)).toEqual([]);
+  });
+
+  it('does not ask for an expiry date on a Malaysian MyKad, but does on a passport', () => {
+    const uploaded = ['ID_FRONT', 'ID_BACK', 'SELFIE', 'PROOF_OF_ADDRESS'];
+    expect(kycSubmissionGaps({ ...completeDetails, countryNodeId: 'CN-MYS', idDocumentExpiry: null }, uploaded)).toEqual([]);
+    expect(kycSubmissionGaps({ ...completeDetails, countryNodeId: 'CN-MYS', idDocumentType: 'PASSPORT', idDocumentExpiry: null }, ['PASSPORT', 'SELFIE', 'PROOF_OF_ADDRESS'])).toEqual(['Identity document expiry date']);
+  });
+
+  it('applies each D-8 country\'s national ID expiry rule, including the age exemptions', () => {
+    const now = new Date('2026-10-08T00:00:00Z');
+    const adult = new Date('1990-05-01'); // 36
+    // No expiry on the card itself.
+    for (const country of ['CN-IDN', 'CN-MYS', 'CN-NGA']) expect(idDocumentHasExpiry(country, 'NATIONAL_ID', adult, now)).toBe(false);
+    // Fixed-term cards.
+    for (const country of ['CN-BGD', 'CN-EGY', 'CN-IRN', 'CN-TUR', 'CN-AZE', 'CN-PAK']) expect(idDocumentHasExpiry(country, 'NATIONAL_ID', adult, now)).toBe(true);
+    // Azerbaijan: permanent from 55; Pakistan: permanent from 60.
+    expect(idDocumentHasExpiry('CN-AZE', 'NATIONAL_ID', new Date('1971-10-08'), now)).toBe(false);
+    expect(idDocumentHasExpiry('CN-AZE', 'NATIONAL_ID', new Date('1971-10-09'), now)).toBe(true);
+    expect(idDocumentHasExpiry('CN-PAK', 'NATIONAL_ID', new Date('1966-10-08'), now)).toBe(false);
+    expect(idDocumentHasExpiry('CN-PAK', 'NATIONAL_ID', new Date('1966-10-09'), now)).toBe(true);
+    // Without a date of birth the age exemption cannot apply.
+    expect(idDocumentHasExpiry('CN-PAK', 'NATIONAL_ID', null, now)).toBe(true);
+    // A passport always expires; an unknown country requires the date.
+    expect(idDocumentHasExpiry('CN-IDN', 'PASSPORT', adult, now)).toBe(true);
+    expect(idDocumentHasExpiry('CN-XYZ', 'NATIONAL_ID', adult, now)).toBe(true);
   });
 
   it('masks all but the last four characters of an ID number', () => {

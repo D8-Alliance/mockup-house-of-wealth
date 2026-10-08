@@ -6,7 +6,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { CHECK_RESULT_SELECT, KycChecksService } from './checks/kyc-checks.service';
 import { KycReviewDto, SaveKycDraftDto } from './kyc.dto';
-import { KYC_DOCUMENT_TYPES, KYC_EDITABLE_STATUSES, KYC_MAX_REJECTED_APPLICATIONS, KYC_OPEN_STATUSES, KycStatus, kycSubmissionGaps, kycReviewScope, maskIdNumber, normalizeIdNumber, requiredKycDocuments } from './kyc-workflow';
+import { idDocumentHasExpiry, KYC_DOCUMENT_TYPES, KYC_EDITABLE_STATUSES, KYC_MAX_REJECTED_APPLICATIONS, KYC_OPEN_STATUSES, KycStatus, kycSubmissionGaps, kycReviewScope, maskIdNumber, normalizeIdNumber, requiredKycDocuments } from './kyc-workflow';
 
 // File bytes are never returned in JSON; they are served only by the download endpoints.
 const DOCUMENT_SELECT = { id: true, documentType: true, fileName: true, mimeType: true, fileSize: true, sha256: true, createdAt: true } satisfies Prisma.KycDocumentSelect;
@@ -60,9 +60,13 @@ export class KycService {
       ...(input.residentialAddress !== undefined && { residentialAddress: input.residentialAddress.trim() }),
     };
     const open = await this.findOpen(actor);
+    // A document without an expiry (e.g. Malaysian MyKad) must not keep one left over from a passport.
+    const idDocumentType = input.idDocumentType ?? open?.idDocumentType ?? '';
+    const dateOfBirth = input.dateOfBirth !== undefined ? new Date(input.dateOfBirth) : open?.dateOfBirth ?? null;
+    const record = idDocumentHasExpiry(open?.countryNodeId ?? actor.countryNodeId, idDocumentType, dateOfBirth) ? data : { ...data, idDocumentExpiry: null };
     if (open) {
       this.assertEditable(open.status);
-      await this.prisma.kycApplication.update({ where: { id: open.id }, data });
+      await this.prisma.kycApplication.update({ where: { id: open.id }, data: record });
     } else {
       const latest = await this.prisma.kycApplication.findFirst({ where: { userId: actor.userId }, orderBy: { createdAt: 'desc' }, select: { status: true } });
       if (latest?.status === 'APPROVED') throw new ConflictException('Your identity is already verified.');
@@ -70,7 +74,7 @@ export class KycService {
       const rejected = await this.prisma.kycApplication.count({ where: { userId: actor.userId, status: 'REJECTED' } });
       if (rejected >= KYC_MAX_REJECTED_APPLICATIONS) throw new ForbiddenException('The maximum number of KYC applications has been reached. Please contact support.');
       try {
-        const created = await this.prisma.kycApplication.create({ data: { ...data, applicationNumber: this.newApplicationNumber(), userId: actor.userId, userEmail: actor.email, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId } });
+        const created = await this.prisma.kycApplication.create({ data: { ...record, applicationNumber: this.newApplicationNumber(), userId: actor.userId, userEmail: actor.email, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId } });
         await this.audit.recordActor(actor, { action: 'kyc.application.create', resourceType: 'KycApplication', resourceId: created.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { applicationNumber: created.applicationNumber } });
       } catch (error) {
         // KycApplication_userId_open_key: a concurrent request already opened one.

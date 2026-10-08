@@ -3,7 +3,8 @@ import { AlertCircle, CheckCircle2, FileCheck, RefreshCw, ScanFace, Send, Shield
 import { apiClient, apiErrorMessage, KycApplication, KycDocumentType, KycDraftInput, KycIdDocumentType, LivenessSession } from '../services/apiClient';
 import { KycLivenessCapture } from './KycLivenessCapture';
 import { formatDateTime } from '../utils/platformTime';
-import { KYC_DOCUMENT_LABELS, KYC_ID_DOCUMENT_LABELS, KYC_LEVEL_LABELS, KYC_STATUS_LABELS, KYC_STATUS_STYLES, requiredKycDocuments } from './kycLabels';
+import { noExpiryReason, KYC_DOCUMENT_LABELS, KYC_ID_DOCUMENT_LABELS, KYC_LEVEL_LABELS, KYC_STATUS_LABELS, KYC_STATUS_STYLES, requiredKycDocuments } from './kycLabels';
+import { authService } from '../auth/services/authService';
 
 interface KycApplicationPanelProps {
   application: KycApplication | null;
@@ -46,6 +47,8 @@ export const KycApplicationPanel: React.FC<KycApplicationPanelProps> = ({ applic
 
   const status = application?.status;
   const editable = !application || status === 'DRAFT' || status === 'RESUBMISSION_REQUIRED';
+  const countryNodeId = application?.countryNodeId ?? authService.getAuthState().session?.user.countryNodeId;
+  const expiryNotNeeded = noExpiryReason(countryNodeId, form.idDocumentType, form.dateOfBirth || undefined);
   const canStartNew = status === 'REJECTED';
   const required = requiredKycDocuments(form.idDocumentType);
   const uploaded = new Map((application?.documents ?? []).map((document) => [document.documentType, document]));
@@ -140,10 +143,17 @@ export const KycApplicationPanel: React.FC<KycApplicationPanelProps> = ({ applic
           <span>Document number</span>
           <input className={inputClass} value={form.idDocumentNumber} disabled={!editable} onChange={(event) => setForm({ ...form, idDocumentNumber: event.target.value })} />
         </label>
-        <label className="space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
-          <span>Document expiry date</span>
-          <input type="date" className={inputClass} value={form.idDocumentExpiry} disabled={!editable} onChange={(event) => setForm({ ...form, idDocumentExpiry: event.target.value })} />
-        </label>
+        {!expiryNotNeeded ? (
+          <label className="space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
+            <span>Document expiry date</span>
+            <input type="date" required className={inputClass} value={form.idDocumentExpiry} disabled={!editable} onChange={(event) => setForm({ ...form, idDocumentExpiry: event.target.value })} />
+          </label>
+        ) : (
+          <div className="space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
+            <span>Document expiry date</span>
+            <p className="px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-sm font-medium text-slate-500 dark:text-slate-400">{expiryNotNeeded}</p>
+          </div>
+        )}
         <label className="space-y-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 md:col-span-2">
           <span>Residential address</span>
           <textarea rows={2} className={inputClass} value={form.residentialAddress} disabled={!editable} onChange={(event) => setForm({ ...form, residentialAddress: event.target.value })} />

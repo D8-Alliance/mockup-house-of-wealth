@@ -26,7 +26,36 @@ export const KYC_MIN_AGE_YEARS = 18;
 // Rejected applications allowed per user before they must contact support.
 export const KYC_MAX_REJECTED_APPLICATIONS = 3;
 
+/**
+ * Whether each D-8 country's national ID card carries an expiry date (country reference table
+ * provided on 2026-10-08; to be confirmed per country before it moves into the country policy).
+ * `permanentFromAge`: the card no longer expires once the holder reaches that age.
+ * A passport always expires; an unknown country requires the expiry date.
+ * Mirrored in src/kyc/kycLabels.ts.
+ */
+export const NATIONAL_ID_EXPIRY_RULES: Record<string, { expires: boolean; permanentFromAge?: number }> = {
+  'CN-AZE': { expires: true, permanentFromAge: 55 }, // Şəxsiyyət vəsiqəsi: 10 years, permanent from 55
+  'CN-BGD': { expires: true }, // Smart NID: 15 years
+  'CN-EGY': { expires: true }, // National ID: 7 years
+  'CN-IDN': { expires: false }, // e-KTP: lifetime (seumur hidup)
+  'CN-IRN': { expires: true }, // National Smart Card: 7 years
+  'CN-MYS': { expires: false }, // MyKad: no expiry date (replaced at set ages, not renewed by date)
+  'CN-NGA': { expires: false }, // National e-ID: the identity function does not expire
+  'CN-PAK': { expires: true, permanentFromAge: 60 }, // CNIC: 10 years, permanent from 60
+  'CN-TUR': { expires: true }, // T.C. Kimlik Kartı: 10 years
+};
+
+export function idDocumentHasExpiry(countryNodeId: string | undefined, idDocumentType: string, dateOfBirth?: Date | null, now = new Date()): boolean {
+  if (idDocumentType !== 'NATIONAL_ID') return true;
+  const rule = countryNodeId ? NATIONAL_ID_EXPIRY_RULES[countryNodeId] : undefined;
+  if (!rule) return true;
+  if (!rule.expires) return false;
+  // Without a date of birth the age exemption cannot apply; the missing date is reported separately.
+  return !(rule.permanentFromAge && dateOfBirth && ageInYears(dateOfBirth, now) >= rule.permanentFromAge);
+}
+
 export interface KycApplicantDetails {
+  countryNodeId?: string;
   fullName: string;
   dateOfBirth: Date | null;
   nationality: string;
@@ -58,8 +87,10 @@ export function kycSubmissionGaps(details: KycApplicantDetails, uploadedTypes: s
   if (!details.nationality.trim()) gaps.push('Nationality');
   if (!(KYC_ID_DOCUMENT_TYPES as readonly string[]).includes(details.idDocumentType)) gaps.push('Identity document type');
   if (!details.idDocumentNumber.trim()) gaps.push('Identity document number');
-  if (!details.idDocumentExpiry) gaps.push('Identity document expiry date');
-  else if (details.idDocumentExpiry.getTime() < now.getTime()) gaps.push('Identity document has expired');
+  if (idDocumentHasExpiry(details.countryNodeId, details.idDocumentType, details.dateOfBirth, now)) {
+    if (!details.idDocumentExpiry) gaps.push('Identity document expiry date');
+    else if (details.idDocumentExpiry.getTime() < now.getTime()) gaps.push('Identity document has expired');
+  }
   if (!details.residentialAddress.trim()) gaps.push('Residential address');
   for (const type of requiredKycDocuments(details.idDocumentType)) {
     if (!uploadedTypes.includes(type)) gaps.push(`Document: ${type}`);

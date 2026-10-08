@@ -41,6 +41,40 @@ export function requiredKycDocuments(idDocumentType: string): KycDocumentType[] 
   return [...identity, 'SELFIE', 'PROOF_OF_ADDRESS'];
 }
 
+// Mirrors NATIONAL_ID_EXPIRY_RULES / idDocumentHasExpiry in server/src/kyc/kyc-workflow.ts.
+const NATIONAL_ID_EXPIRY_RULES: Record<string, { expires: boolean; permanentFromAge?: number; card: string }> = {
+  'CN-AZE': { expires: true, permanentFromAge: 55, card: 'Şəxsiyyət vəsiqəsi' },
+  'CN-BGD': { expires: true, card: 'Smart NID card' },
+  'CN-EGY': { expires: true, card: 'National ID card' },
+  'CN-IDN': { expires: false, card: 'e-KTP' },
+  'CN-IRN': { expires: true, card: 'National Smart Card' },
+  'CN-MYS': { expires: false, card: 'MyKad' },
+  'CN-NGA': { expires: false, card: 'National e-ID card' },
+  'CN-PAK': { expires: true, permanentFromAge: 60, card: 'CNIC' },
+  'CN-TUR': { expires: true, card: 'T.C. Kimlik Kartı' },
+};
+
+function ageInYears(dateOfBirth: string, now: Date): number {
+  const birth = new Date(dateOfBirth);
+  const age = now.getUTCFullYear() - birth.getUTCFullYear();
+  const beforeBirthday = now.getUTCMonth() < birth.getUTCMonth() || (now.getUTCMonth() === birth.getUTCMonth() && now.getUTCDate() < birth.getUTCDate());
+  return beforeBirthday ? age - 1 : age;
+}
+
+/** Why no expiry date is needed, or null when the form must ask for one. */
+export function noExpiryReason(countryNodeId: string | undefined, idDocumentType: string, dateOfBirth?: string, now = new Date()): string | null {
+  if (idDocumentType !== 'NATIONAL_ID') return null;
+  const rule = countryNodeId ? NATIONAL_ID_EXPIRY_RULES[countryNodeId] : undefined;
+  if (!rule) return null;
+  if (!rule.expires) return `Not needed: the ${rule.card} has no expiry date`;
+  if (rule.permanentFromAge && dateOfBirth && ageInYears(dateOfBirth, now) >= rule.permanentFromAge) return `Not needed: the ${rule.card} is permanent from age ${rule.permanentFromAge}`;
+  return null;
+}
+
+export function idDocumentHasExpiry(countryNodeId: string | undefined, idDocumentType: string, dateOfBirth?: string): boolean {
+  return noExpiryReason(countryNodeId, idDocumentType, dateOfBirth) === null;
+}
+
 /** Profile badge text, derived only from the user's real KYC application. */
 export function kycBadgeText(application: KycApplication | null | undefined): { text: string; verified: boolean } {
   if (!application) return { text: 'KYC not started', verified: false };

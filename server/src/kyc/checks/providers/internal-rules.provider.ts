@@ -1,5 +1,5 @@
 import { PrismaService } from '../../../prisma.service';
-import { KYC_MIN_AGE_YEARS } from '../../kyc-workflow';
+import { idDocumentHasExpiry, KYC_MIN_AGE_YEARS } from '../../kyc-workflow';
 import { CheckContext, CheckOutcome, KycCheckProvider, KycCheckStatus, KycCheckType } from '../check-types';
 
 const EXPIRY_WARNING_DAYS = 30;
@@ -39,7 +39,9 @@ export class InternalRulesProvider implements KycCheckProvider {
     const reasons: string[] = [];
     let status: KycCheckStatus = 'PASS';
 
-    if (!subject.idDocumentExpiry) {
+    if (!idDocumentHasExpiry(subject.countryNodeId, subject.idDocumentType, subject.dateOfBirth, now)) {
+      // e.g. Malaysian MyKad or Indonesian e-KTP, or a Pakistani CNIC holder aged 60+: nothing to check.
+    } else if (!subject.idDocumentExpiry) {
       status = worst(status, 'REVIEW');
       reasons.push('No identity document expiry date was given');
     } else if (subject.idDocumentExpiry.getTime() < now.getTime()) {
