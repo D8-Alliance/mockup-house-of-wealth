@@ -907,6 +907,8 @@ export interface BackendCreditSummary {
   userTier: string;
   purchasedCredits?: number;
   bonusCredits?: number;
+  /** Administrators and Shariah reviewers: AI is not charged for the active role. */
+  creditExempt?: boolean;
 }
 
 export interface BackendCreditTransaction {

@@ -50,7 +50,9 @@ import { AICitationAudit } from '../ai/components/AICitationAudit';
 import { ShariahReviewInbox } from '../ai/components/ShariahReviewInbox';
 import { BuyAICreditsModal } from '../ai/monetisation/BuyAICreditsModal';
 import { aiMonetisationService } from '../ai/monetisation/aiMonetisationService';
-import { apiClient } from '../services/apiClient';
+import { apiClient, BackendCreditSummary } from '../services/apiClient';
+
+type BackendCreditSummaryView = Omit<BackendCreditSummary, 'userId'> & { userId?: string };
 
 type AIEngineTab = 
   | 'overview'
@@ -82,7 +84,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showTopUpModal, setShowTopUpModal] = useState(false);
-  const [creditBalance, setCreditBalance] = useState({
+  const [creditBalance, setCreditBalance] = useState<BackendCreditSummaryView>({
     availableBalance: 0,
     usedCredits: 0,
     remainingCredits: 0,
@@ -148,7 +150,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
 
   const tabs: { id: AIEngineTab; label: string; icon: React.ReactNode; badge?: string }[] = [
     { id: 'overview', label: 'AI Suite Overview', icon: <BrainCircuit className="w-4 h-4" /> },
-    { id: 'ai-credits', label: 'AI Credits & Usage', icon: <Coins className="w-4 h-4 text-amber-500" />, badge: `${creditBalance.availableBalance} Cr` },
+    { id: 'ai-credits', label: 'AI Credits & Usage', icon: <Coins className="w-4 h-4 text-amber-500" />, badge: creditBalance.creditExempt ? 'Staff' : `${creditBalance.availableBalance} Cr` },
     ...(canViewProjectFeasibility ? [{ id: 'project-analyzer' as AIEngineTab, label: 'Project Feasibility', icon: <FileText className="w-4 h-4" /> }] : []),
     { id: 'contract-advisor', label: 'Contract Structuring & Draft', icon: <Scale className="w-4 h-4" /> },
     { id: 'agreement-generation', label: 'Agreement Generation', icon: <FileSignature className="w-4 h-4" />, badge: 'DOCX/PDF' },
@@ -216,16 +218,18 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
               <div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] font-bold text-slate-300 uppercase">AI Balance:</span>
-                  <span className="text-sm font-black text-white font-mono">{creditBalance.availableBalance} Credits</span>
+                  <span className="text-sm font-black text-white font-mono">{creditBalance.creditExempt ? 'Not charged' : `${creditBalance.availableBalance} Credits`}</span>
                 </div>
-                <span className="text-[10px] text-slate-400">Used: {creditBalance.usedThisMonth} / {creditBalance.monthlyAllowance} mo</span>
+                <span className="text-[10px] text-slate-400">{creditBalance.creditExempt ? 'Staff role: AI use is recorded, not billed' : `Used: ${creditBalance.usedThisMonth} / ${creditBalance.monthlyAllowance} mo`}</span>
               </div>
-              <button
-                onClick={() => setShowTopUpModal(true)}
-                className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10.5px] flex items-center gap-1 shadow-sm cursor-pointer ml-1"
-              >
-                <Plus className="w-3 h-3" /> Top Up
-              </button>
+              {!creditBalance.creditExempt && (
+                <button
+                  onClick={() => setShowTopUpModal(true)}
+                  className="px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-[10.5px] flex items-center gap-1 shadow-sm cursor-pointer ml-1"
+                >
+                  <Plus className="w-3 h-3" /> Top Up
+                </button>
+              )}
             </div>
 
             <button

@@ -8,6 +8,7 @@ import { ToyyibPayService } from './toyyibpay.service';
 import { formatLocalDateTime } from '../tenancy/country-time';
 import { tenantScopeFilter } from '../tenancy/tenant-scope';
 import { FinancialLedgerService, toyyibPayCashAccount } from '../financial/financial-ledger.service';
+import { isAiCreditExempt } from './ai-credit-exemption';
 
 const AI_CAPABILITIES = ['SIMPLE_QUERY', 'PROJECT_SUMMARY', 'FULL_FEASIBILITY_ANALYSIS', 'INVESTMENT_ANALYSIS', 'RISK_ANALYSIS', 'CONTRACT_ANALYSIS', 'DUE_DILIGENCE', 'FULL_PROJECT_INTELLIGENCE'] as const;
 const PLANS = [
@@ -383,6 +384,8 @@ export class MembershipService {
       totalPoolCredits: wallet.monthlyAllowance + paid.total,
       resetDate: wallet.resetDate,
       userTier: wallet.subscriptionPlan,
+      // True when the active role is not charged (administrators, Shariah reviewers); the UI shows it instead of a balance.
+      creditExempt: isAiCreditExempt(actor.role),
     };
   }
 
@@ -437,6 +440,8 @@ export class MembershipService {
    */
   async assertCanConsume(actor: AuthenticatedUser, operationKey: string) {
     const pricing = await this.getPricing(operationKey);
+    // Administrators and Shariah reviewers are not limited by plan or balance (ai-credit-exemption.ts).
+    if (isAiCreditExempt(actor.role)) return { pricing, wallet: null };
     const wallet = await this.getWallet(actor);
     const plan = PLANS.find((candidate) => candidate.tier === wallet.subscriptionPlan) || PLANS[0];
     if (!plan.aiCapabilities.includes(operationKey as (typeof AI_CAPABILITIES)[number])) throw new BadRequestException('This AI capability is not included in the current subscription plan. Please upgrade plan or purchase credits.');
@@ -447,6 +452,17 @@ export class MembershipService {
   /** With `client`, charges inside the caller's transaction and leaves the audit entry to the caller (recordCreditAudit). */
   async consumeCredits(actor: AuthenticatedUser, operationKey: string, targetEntity?: string, client?: Prisma.TransactionClient) {
     const { pricing, wallet } = await this.assertCanConsume(actor, operationKey);
+    if (!wallet) {
+      // Exempt role: nothing is charged, but the use is still recorded for reporting and audit.
+      const record = async (tx: Prisma.TransactionClient) => {
+        const usage = await tx.aiUsageTransaction.create({ data: { userId: actor.userId, organisationId: actor.organisationId, featureType: pricing.featureType, operationName: pricing.operationName, creditsConsumed: 0, projectId: targetEntity?.startsWith('PROJ-') ? targetEntity : null, status: 'EXEMPT' } });
+        return { id: usage.id, usageTransactionId: usage.id, operationName: pricing.operationName, cost: 0, exempt: true as const, listPrice: pricing.creditsRequired };
+      };
+      if (client) return record(client);
+      const result = await this.prisma.$transaction(record);
+      await this.recordCreditAudit(actor, operationKey, result, targetEntity);
+      return result;
+    }
     const cost = pricing.creditsRequired;
     const charge = async (tx: Prisma.TransactionClient) => {
       // Lock the wallet so the free → bonus → purchased split is computed on current balances.
@@ -467,8 +483,9 @@ export class MembershipService {
     return result;
   }
 
-  recordCreditAudit(actor: AuthenticatedUser, operationKey: string, result: { usageTransactionId: string; operationName: string; cost: number }, targetEntity?: string) {
-    return this.audit.recordActor(actor, { action: 'ai.credits.consume', resourceType: 'AiUsageTransaction', resourceId: result.usageTransactionId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { operationKey, operationName: result.operationName, cost: result.cost, targetEntity } });
+  recordCreditAudit(actor: AuthenticatedUser, operationKey: string, result: { usageTransactionId: string; operationName: string; cost: number; exempt?: boolean; listPrice?: number }, targetEntity?: string) {
+    const action = result.exempt ? 'ai.credits.exempt' : 'ai.credits.consume';
+    return this.audit.recordActor(actor, { action, resourceType: 'AiUsageTransaction', resourceId: result.usageTransactionId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { operationKey, operationName: result.operationName, cost: result.cost, targetEntity, ...(result.exempt && { exemptRole: actor.role, listPrice: result.listPrice }) } });
   }
 
   async topUpCredits(actor: AuthenticatedUser, packageId: string, paymentMethod: string) {
