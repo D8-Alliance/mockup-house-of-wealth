@@ -36,6 +36,8 @@ interface RBACContextType {
   currentCountryNode: string;
   currentOrgId: string;
   currentUserId: string;
+  /** Replace the cached backend user after a profile save, so the header shows the new picture at once. */
+  updateBackendUser: (user: BackendUser) => void;
 }
 
 // Keep a single context instance across Vite HMR re-evaluations of this module
@@ -196,7 +198,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
     name: isAuthenticated ? (backendUser?.name || sessionUser?.name || roleDef.demoUser.name) : 'Guest Visitor',
     email: isAuthenticated ? (backendUser?.email || sessionUser?.email || roleDef.demoUser.email) : 'visitor@public-d8.org',
     organization: isAuthenticated ? (sessionUser?.organisationName || roleDef.demoUser.organization) : 'Public Visitor',
-    avatarUrl: isAuthenticated ? (sessionUser?.avatarUrl || roleDef.demoUser.avatarUrl) : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
+    avatarUrl: isAuthenticated ? ((typeof backendUser?.profile?.avatarUrl === 'string' && backendUser.profile.avatarUrl) || sessionUser?.avatarUrl || roleDef.demoUser.avatarUrl) : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
   };
 
   const tenantContext = {
@@ -221,6 +223,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
         isAuthenticated,
         guestBrowsing,
         loginUser,
+        updateBackendUser: setBackendUser,
         logoutUser,
         enterGuestMode,
         exitGuestMode,

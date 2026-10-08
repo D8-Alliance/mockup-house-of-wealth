@@ -56,13 +56,32 @@ export const AvatarChangeModal: React.FC<AvatarChangeModalProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      if (e.target?.result) {
-        setPreviewUrl(e.target.result as string);
+    // The server stores the picture in the user profile, so it is shrunk here to a 256x256
+    // JPEG (a few tens of KB). Drawing onto a canvas also turns SVG into a plain image.
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      const size = 256;
+      const side = Math.min(image.naturalWidth, image.naturalHeight);
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext('2d');
+      if (!context || !side) {
+        setErrorMsg('This image could not be read. Try another file.');
+      } else {
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, size, size);
+        context.drawImage(image, (image.naturalWidth - side) / 2, (image.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+        setPreviewUrl(canvas.toDataURL('image/jpeg', 0.85));
       }
+      URL.revokeObjectURL(objectUrl);
     };
-    reader.readAsDataURL(file);
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      setErrorMsg('This image could not be read. Try another file.');
+    };
+    image.src = objectUrl;
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

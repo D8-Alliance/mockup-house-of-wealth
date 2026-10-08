@@ -44,6 +44,7 @@ import { BeneficiaryModal } from './BeneficiaryModal';
 import { revenueService } from '../revenue/revenueService';
 import { HoWCreditBalance } from '../revenue/revenueTypes';
 import { apiClient, apiErrorMessage, KycApplication } from '../services/apiClient';
+import { useRBAC } from '../rbac/RBACContext';
 import { authService } from '../auth/services/authService';
 import { displayPhone, phoneFormatFor } from '../countryNodes/countryPhone';
 import { KycApplicationPanel } from '../kyc/KycApplicationPanel';
@@ -76,6 +77,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
   setBeneficiaries,
   setTab
 }) => {
+  const { updateBackendUser } = useRBAC();
   const handleUserUpdate = (u: UserProfile) => {
     if (onUpdateUser) onUpdateUser(u);
     if (setUser) setUser(u);
@@ -134,7 +136,8 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
     apiClient.getCurrentUser()
       .then((backendUser) => {
         const saved = typeof backendUser.profile?.phone === 'string' ? backendUser.profile.phone : '';
-        setFormData((current) => ({ ...current, phone: saved ? displayPhone(saved, userCountryNodeId) : `${phoneFormat.dialCode} ` }));
+        const savedAvatar = typeof backendUser.profile?.avatarUrl === 'string' ? backendUser.profile.avatarUrl : '';
+        setFormData((current) => ({ ...current, phone: saved ? displayPhone(saved, userCountryNodeId) : `${phoneFormat.dialCode} `, ...(savedAvatar ? { avatarUrl: savedAvatar } : {}) }));
       })
       .catch(() => setFormData((current) => ({ ...current, phone: current.phone || `${phoneFormat.dialCode} ` })));
   }, [userCountryNodeId, phoneFormat.dialCode]);
@@ -145,14 +148,14 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
       ...acc,
       isDefault: acc.id === id
     }));
-    onUpdatePaymentAccounts(updated);
+    handleAccountsUpdate(updated);
     showToast('Default payout account set successfully.');
   };
 
   const handleDeleteAccount = (id: string) => {
     if (confirm('Are you sure you want to remove this financial account?')) {
       const updated = paymentAccounts.filter(acc => acc.id !== id);
-      onUpdatePaymentAccounts(updated);
+      handleAccountsUpdate(updated);
       showToast('Account removed.');
     }
   };
@@ -172,7 +175,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
         isDefault: acc.id === account.id
       }));
     }
-    onUpdatePaymentAccounts(updated);
+    handleAccountsUpdate(updated);
     showToast('Financial account saved successfully.');
   };
 
@@ -182,14 +185,14 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
       ...b,
       isPrimary: b.id === id
     }));
-    onUpdateBeneficiaries(updated);
+    handleBeneficiariesUpdate(updated);
     showToast('Primary beneficiary set successfully.');
   };
 
   const handleDeleteBeneficiary = (id: string) => {
     if (confirm('Are you sure you want to remove this beneficiary preference?')) {
       const updated = beneficiaries.filter(b => b.id !== id);
-      onUpdateBeneficiaries(updated);
+      handleBeneficiariesUpdate(updated);
       showToast('Beneficiary preference removed.');
     }
   };
@@ -209,18 +212,22 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
         isPrimary: b.id === item.id
       }));
     }
-    onUpdateBeneficiaries(updated);
+    handleBeneficiariesUpdate(updated);
     showToast('Beneficiary & Wasiyyah preference saved successfully.');
   };
 
-  const handleAvatarChange = (newAvatarUrl: string) => {
-    const updated = {
-      ...formData,
-      avatarUrl: newAvatarUrl
-    };
-    setFormData(updated);
-    onUpdateUser(updated);
-    showToast('Profile picture updated successfully!');
+  const handleAvatarChange = async (newAvatarUrl: string) => {
+    try {
+      // Saved on the server (user profile), so the picture survives a reload and other devices see it.
+      const saved = await apiClient.updateMyProfile({ avatarUrl: newAvatarUrl });
+      updateBackendUser(saved);
+      const updated = { ...formData, avatarUrl: newAvatarUrl };
+      setFormData(updated);
+      handleUserUpdate(updated);
+      showToast('Profile picture updated successfully!');
+    } catch (cause) {
+      showToast(apiErrorMessage(cause, 'Unable to save your profile picture.'));
+    }
   };
   
   // Password State
@@ -253,7 +260,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
       const saved = await apiClient.updateMyProfile({ phone });
       const savedPhone = typeof saved.profile?.phone === 'string' ? displayPhone(saved.profile.phone, userCountryNodeId) : `${phoneFormat.dialCode} `;
       setFormData((current) => ({ ...current, phone: savedPhone }));
-      onUpdateUser({
+      handleUserUpdate({
         ...formData,
         phone: savedPhone,
         twoFactorEnabled: twoFactor

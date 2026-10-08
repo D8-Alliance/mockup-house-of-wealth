@@ -185,7 +185,7 @@ export const apiClient = {
   },
   getCurrentUser: () => request<BackendUser>('/users/me'),
   getCurrentAccess: () => request<BackendAccess>('/users/me/access'),
-  updateMyProfile: (input: { phone?: string; pushToken?: string }) => request<BackendUser>('/users/me/profile', { method: 'PATCH', body: JSON.stringify(input) }),
+  updateMyProfile: (input: { phone?: string; pushToken?: string; avatarUrl?: string }) => request<BackendUser>('/users/me/profile', { method: 'PATCH', body: JSON.stringify(input) }),
   getUsers: () => request<BackendUser[]>('/users'),
   updateUserStatus: (userId: string, status: string) => request<BackendUser>(`/users/${userId}/status`, {
     method: 'PATCH',

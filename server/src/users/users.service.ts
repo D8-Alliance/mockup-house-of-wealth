@@ -26,13 +26,14 @@ export class UsersService {
   }
 
   /** Self-service profile fields. The phone is stored in E.164 using the user's country code. */
-  async updateMyProfile(actor: AuthenticatedUser, input: { phone?: string; pushToken?: string }) {
+  async updateMyProfile(actor: AuthenticatedUser, input: { phone?: string; pushToken?: string; avatarUrl?: string }) {
     const user = await this.prisma.user.findUnique({ where: { id: actor.userId }, select: { profile: true } });
     if (!user) throw new NotFoundException('User not found');
     const current = user.profile && typeof user.profile === 'object' && !Array.isArray(user.profile) ? user.profile as Record<string, unknown> : {};
     const phone = input.phone === undefined ? current.phone : input.phone.trim() ? normalizePhone(input.phone, actor.countryNodeId) : undefined;
     const pushToken = input.pushToken === undefined ? current.pushToken : input.pushToken.trim() || undefined;
-    await this.prisma.user.update({ where: { id: actor.userId }, data: { profile: { ...current, phone, pushToken } as Prisma.InputJsonObject } });
+    const avatarUrl = input.avatarUrl === undefined ? current.avatarUrl : input.avatarUrl.trim() || undefined;
+    await this.prisma.user.update({ where: { id: actor.userId }, data: { profile: { ...current, phone, pushToken, avatarUrl } as Prisma.InputJsonObject } });
     await this.audit.recordActor(actor, { action: 'user.profile.update', resourceType: 'User', resourceId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { fields: Object.keys(input) } });
     return this.getCurrentUser(actor);
   }
