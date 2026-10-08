@@ -1,8 +1,8 @@
 # Pending Activities
 
-Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila kerja dimulakan, dan buang item apabila selesai.
+Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila kerja dimulakan, dan buang item apabila selesai. Penerangan sistem semasa ada dalam [DOKUMENTASI_SISTEM.md](DOKUMENTASI_SISTEM.md).
 
-## Ringkasan: apa yang belum siap (disemak 2026-10-05)
+## Ringkasan: apa yang belum siap (disemak 2026-10-06)
 
 | # | Item | Yang belum siap | Menunggu |
 |---|---|---|---|
@@ -14,8 +14,10 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 6 | Contract Advisory/Agreement ikut projek | `projectId` pada kontrak, versi v2/v3, wizard pilih projek | Boleh dibuat bila diminta (kerja besar) |
 | 7 | Perkara kecil pembayaran | Kredit bonus, Project Promotion ke ToyyibPay, go-live ToyyibPay, akaun lejar lama | Keputusan kredit bonus; akaun ToyyibPay live dan domain |
 | 8 | Payout provider | Adapter bank/DuitNow, validation sebelum SETTLED, dual approval ikut had amaun | Pilihan provider; nilai had amaun |
-| 9 | Background jobs dan notifikasi | Kata laluan dan sijil TLS Redis, kunci Resend/Twilio, tetapan push FCM dalam `server/.env` | Akaun Resend/Twilio; penyediaan secret production |
+| 9 | Background jobs dan notifikasi | Uji token push di browser sebenar, sijil TLS Redis (production), akaun Resend/Twilio, integration test dalam CI | Akaun Resend/Twilio; penyediaan secret production |
 | 10 | Blockchain dan smart contract | Fasa 2: anchoring hash ke blockchain awam dan halaman Ketelusan Zakat. Fasa 3: tokenisasi dan smart contract escrow. Baki teks "tokenization" dalam skrin mock | Fasa 2: pilihan rangkaian dan dompet operasi. Fasa 3: nasihat undang-undang SC dan resolusi Shariah |
+| 11 | Akad, zakat, cukai dan penyata kewangan | Nisab Kedah/Pahang/Perak; cukai pegangan, cukai perkhidmatan, e-invois; caj kerugian ke atas modal dan perkiraan akhir pool | Penasihat cukai; penasihat Shariah; keputusan pelantikan ejen kutipan zakat |
+| 12 | Dokumentasi | Kemas kini atau buang dokumen lama bahasa Inggeris yang sudah lapuk; pastikan `DOKUMENTASI_SISTEM.md` dikemas kini setiap kali sistem berubah | Keputusan: kekalkan dokumen lama atau gabungkan |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -133,7 +135,7 @@ Bingkai kamera dan dokumen KYC disimpan dalam database tanpa had masa. Perlu dip
 
 ## 9. Background jobs, notifications dan provider delivery
 
-- **Status:** Queue topology, job persistence, ToyyibPay reconciliation worker, generic in-app notifications, notification outbox dan provider adapters siap (2026-10-02). Local Redis authentication dan integration smoke test sudah lulus; production secret/TLS provisioning dan provider activation masih pending.
+- **Status:** Queue topology, job persistence, ToyyibPay reconciliation worker, generic in-app notifications, notification outbox dan provider adapters siap (2026-10-02). Firebase Push dan Twilio SMS kini disediakan sebagai external channels; Resend kekal optional. Local Redis authentication dan integration smoke test sudah lulus; production secret/TLS provisioning masih pending.
 - **Kawasan:** `server/src/jobs/`, `server/src/notifications/`, migration `20261002160000_add_jobs_and_notification_outbox`
 
 **Sudah ada:**
@@ -148,18 +150,21 @@ Bingkai kamera dan dokumen KYC disimpan dalam database tanpa had masa. Perlu dip
 - Production env template `server/.env.production.example` dengan fail-closed placeholders.
 - Production Redis compose dengan password secret mount, TLS certificate mount, persistence dan healthcheck.
 - GitHub Actions workflow `.github/workflows/ci.yml` dengan PostgreSQL + Redis service dan integration test.
+- Firebase Web SDK config, browser permission/token registration, Firebase messaging service worker dan backend `pushToken` profile persistence.
+- Twilio adapter validation, E.164 checks, mocked delivery tests dan setup guide `server/ops/notifications-twilio.md`.
 
 **Masih pending:**
-1. Provision secret files `server/ops/secrets/redis_password` dan certificate files berdasarkan `server/ops/redis/README.md`; jangan commit values.
-2. Set provider credentials, sender identity, delivery consent dan notification templates dalam secret manager/deployment environment. Twilio SMS credentials (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`) masih pending/optional; push perlukan `NOTIFICATION_PUSH_PROVIDER=fcm` dan `FCM_SERVICE_ACCOUNT_FILE`; in-app notifications tidak memerlukan kedua-duanya.
-3. Jalankan integration suite dengan `RUN_INTEGRATION_TESTS=true` dalam CI yang menyediakan PostgreSQL dan Redis. Local smoke test pernah lulus (2026-10-02) selepas local `.env` diselaraskan dengan Redis authentication.
+1. Sediakan certificate files Redis (`ca.crt`, `redis.crt`, `redis.key`) berdasarkan `server/ops/redis/README.md` untuk production (TLS). Fail `redis_password` local sudah diisi; jangan commit nilainya.
+2. Set provider credentials, sender identity, delivery consent dan notification templates dalam secret manager/deployment environment. Twilio code/config validation siap tetapi live SMS perlu diuji dengan account dan nombor yang disahkan; Resend masih optional.
+3. Jalankan integration suite dengan `RUN_INTEGRATION_TESTS=true` dalam CI yang menyediakan PostgreSQL dan Redis. Local integration test (PostgreSQL + Redis dengan secret file) lulus pada 2026-10-05; yang tinggal ialah menjalankannya dalam CI.
 
 Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan password Redis ke secret manager/file mount dan jangan simpan nilainya dalam Git.
 
 **Semakan 2026-10-05:**
-- **`server/ops/secrets/redis_password` wujud tetapi kosong** (0 bait), dan folder `server/ops/redis/certs/` kosong (belum ada `ca.crt`, `redis.crt` dan `redis.key`).
-- Container Redis local (`redis`, `keycloak-redis-1`) sedang berhenti; hidupkan sebelum menjalankan worker atau integration test.
-- **Pembolehubah notifikasi belum diset dalam `server/.env`:** `NOTIFICATION_EMAIL_PROVIDER`, `NOTIFICATION_EMAIL_FROM`, `RESEND_API_KEY`, `NOTIFICATION_SMS_PROVIDER`, `TWILIO_*`, `NOTIFICATION_PUSH_PROVIDER`, `FCM_SERVICE_ACCOUNT_FILE` dan `NOTIFICATION_DEFAULT_CHANNELS`. Tanpanya hanya notifikasi dalam app yang berfungsi. Fail service account Firebase sudah ada dan telah disahkan boleh mendapatkan token Google.
+- **`server/ops/secrets/redis_password` sudah diisi** (disemak semula 2026-10-05). Folder `server/ops/redis/certs/` masih kosong (belum ada `ca.crt`, `redis.crt` dan `redis.key`); local menggunakan `REDIS_TLS=false`.
+- Container Redis local `keycloak-redis-1` kini healthy, expose `6379`, dan menggunakan secret file; local integration test lulus (disahkan semula 2026-10-05).
+- **Notifikasi local:** FCM sudah diset dalam `server/.env` dan service account Firebase telah disahkan boleh mendapatkan token Google. Email/SMS kekal tidak dikonfigurasi; `NOTIFICATION_DEFAULT_CHANNELS=IN_APP,PUSH`, tetapi penghantaran push ke browser sebenar belum diuji. Worker tidak berjalan secara local (`WORKER_ENABLED=false`), jadi notification outbox (termasuk push) tidak diproses sehingga worker dihidupkan.
+- **Belum di-commit:** kod Firebase Web push (`src/services/firebaseMessaging.ts`, `public/firebase-messaging-sw.js`, `pushToken` profil) dan validasi Twilio (`server/ops/notifications-twilio.md`, ujian adapter) masih dalam working copy.
 
 ## 10. Blockchain dan smart contract
 
@@ -182,5 +187,63 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 1. Token bagi bahagian pool pelaburan hampir pasti dianggap sekuriti oleh Suruhanjaya Sekuriti Malaysia. Dapatkan nasihat undang-undang dan resolusi Shariah sebelum sebarang kerja teknikal.
 2. Jika diluluskan: pertimbangkan blockchain berizin (contohnya Hyperledger Besu, satu nod bagi setiap negara D-8), audit keselamatan kontrak, dan kelulusan manusia sebelum sebarang agihan automatik. Keuntungan Mudarabah/Musharakah tetap ditentukan melalui akaun dan audit.
 3. Tiada data peribadi di blockchain (PDPA: data perlu boleh dibetulkan, rekod blockchain tidak boleh dipadam).
+4. Penerangan smart contract, perbandingan dengan sistem sekarang, 7 sebab Fasa 3 dilewatkan, dan syarat untuk memulakannya: lihat `DOKUMENTASI_SISTEM.md` bahagian 5.14.
 
 **Baki teks:** perkataan "tokenization/tokenized" masih ada dalam skrin admin mock, dashboard, data mock dan penerangan peranan (contohnya `WorkflowEnginePanel`, `AdminGovernanceDashboards` dengan hash "Immutable Hash Certified" palsu, `rbac/roles/*`, `revenueConfig`). Kemas kini atau buang selepas keputusan Fasa 3. Kandungan halaman info yang pernah diedit dan diterbitkan oleh admin dalam mod DEMO disimpan dalam localStorage pelayar dan tidak menerima teks baharu.
+
+## 11. Akad, zakat, cukai dan penyata kewangan
+
+- **Status:** Fasa A dan B siap; Fasa C dan D, bahagian yang tidak memerlukan keputusan penasihat, siap (2026-10-06). Baki memerlukan penasihat cukai, penasihat Shariah dan keputusan pengurusan.
+- **Kawasan:** `server/src/pools/`, `server/src/investments/`, `server/src/distribution/`, `server/src/zakat/`, `server/src/tax/`, `server/src/statements/`, `src/components/FinancialsView.tsx`, `src/components/financials/`
+
+**Prinsip:** platform digunakan oleh Muslim dan bukan Muslim. Sistem tidak menyimpan agama pengguna. **Cukai terpakai kepada semua pengguna**; **zakat ialah pilihan** (opt-in dalam profil). Kedua-duanya mengambil angka dari satu sumber, iaitu lejar kewangan.
+
+**⚠️ Isu undang-undang zakat:** memungut zakat tanpa dilantik sebagai amil atau diberi kuasa oleh Majlis Agama Islam Negeri ialah kesalahan jenayah syariah (contoh: seksyen 16 Akta 559, Wilayah Persekutuan). Rebat cukai zakat (seksyen 6A(3) Akta Cukai Pendapatan) hanya diberi dengan resit asal pusat zakat. Sistem kini hanya mengira dan menghantar pengguna ke portal rasmi.
+
+**Fakta cukai Malaysia yang disahkan (2026-10-06):**
+- Pulangan pembiayaan jenis P2P dikenakan cukai pendapatan; pelabur bukan pemastautin dipotong cukai pegangan 15% oleh operator.
+- Pelaburan ECF layak pengecualian cukai 50% daripada jumlah pelaburan (had RM50,000 setahun, pegangan 2 tahun), hanya untuk tawaran ECF berdaftar dengan SC.
+- Dividen individu melebihi RM100,000 setahun dikenakan cukai 2% (mulai 2025).
+- Zakat individu: rebat cukai RM untuk RM. Zakat perniagaan Sdn Bhd/Bhd: potongan sehingga 2.5% pendapatan agregat.
+- e-Invois (MyInvois): wajib jika jualan tahunan melebihi RM1 juta; bagi RM1–5 juta, tiada penalti hingga 31 Disember 2027.
+- Cukai perkhidmatan 8% (ambang umum RM500,000).
+- **Jenis cukai pelabur bergantung pada struktur undang-undang pool** (ECF, P2P atau dana Mudarabah).
+
+**Sudah siap:**
+- **Akad (Fasa A):** terma akad setiap pool (Mudarabah, Musharakah, Wakalah, Ijarah) dengan PSR, versi, append-only, dan dikunci selepas diterima pelabur; pool dicipta di server bersama terma versi 1 (`PoolCreationModal`); wizard pelaburan memaparkan teks terma dan merekod ijab qabul (id terma, hash, masa); agihan menggunakan PSR dari akad.
+- **Penyata (Fasa A):** penyata pelabur dan penyata projek sebenar (JSON, CSV, PDF) dari rekod dan lejar.
+- **Zakat (Fasa B):** opt-in; 14 pusat zakat Malaysia (Selangor, WP, Pahang, Kedah, Perak, Sarawak, Johor, Melaka, Negeri Sembilan, Pulau Pinang, Kelantan, Terengganu, Perlis, Sabah; laman rasmi disahkan); nisab bertarikh dengan sumber (Selangor 2026, WP 2026, Sarawak September 2026); haul ikut kategori; 2.5% Hijrah atau 2.577% Masihi; pelaburan platform dikira sebagai al-mustaghallat atau modal cukup haul; bayaran melalui portal rasmi; kutipan ToyyibPay hanya dengan `ZAKAT_COLLECTION_APPOINTMENT_REF`. Super Admin boleh menambah atau mengubah pusat zakat; admin dan pegawai Shariah merekod nisab.
+- **Kerugian (Fasa D, sebahagian):** keputusan tempoh yang rugi, atau untung yang habis menampung rugi lama, direkod melalui kelulusan maker-checker tanpa bayaran (`POST /distributions/period-results`). Untung baharu menampung kerugian yang belum pulih sebelum dikongsi (offset). Penyata projek memaparkan jenis tempoh, keputusan bersih dan offset.
+- **Cukai (Fasa C, sebahagian):** profil cukai pengguna (negara pemastautin, status pemastautin Malaysia, jenis entiti, nombor cukai yang disimpan dan dipaparkan bertopeng, tidak dimasukkan ke log audit); penyata pendapatan tahunan untuk cukai (`GET /statements/investor/tax`): pendapatan dibayar dalam tahun itu mengikut jenis akad, cukai dipotong (tiada setakat ini), dan modal dilabur disenaraikan berasingan.
+- Diuji end-to-end pada PostgreSQL sementara (migration dari kosong, seed, kelulusan dua pegawai).
+
+**Baki: perlu penasihat Shariah (Fasa D):**
+1. **Caj kerugian ke atas modal:** kerugian yang tidak pulih kini hanya disimpan sebagai rekod tempoh; modal pelabur dalam lejar belum dikurangkan. Perlu kaedah perakaunan (akaun kerugian, pengurangan modal ikut nisbah modal) yang disahkan.
+2. **Perkiraan akhir pool (tanzid/qismah)** semasa pool ditutup, termasuk sama ada agihan terdahulu dianggap "atas akaun".
+3. **Kecuaian pengurus:** proses untuk menentukan dan merekod kerugian yang ditanggung pengurus (mudarib/wakil) kerana kecuaian atau pelanggaran terma.
+4. **Musharakah:** bahagian kerugian rakan kongsi pengurus mengikut modal yang disumbang (contohnya sumbangan penaja projek).
+
+**Baki: perlu penasihat cukai (Fasa C):**
+1. **Cukai pegangan bukan pemastautin:** kadar dan jenis pendapatan bagi setiap struktur pool, potongan semasa agihan (kasar, cukai, bersih), akaun lejar cukai pegangan, dan remitan kepada LHDN.
+2. **Cukai perkhidmatan** ke atas yuran platform (membership, kredit AI) jika klasifikasi dan ambang terpakai.
+3. **e-Invois MyInvois** apabila jualan platform melebihi RM1 juta (perlu kelayakan akses LHDN).
+4. Peraturan negara D-8 lain dan perjanjian cukai berganda (DTA).
+5. **Penyata platform:** hasil yuran dengan cukai perkhidmatan, imbangan duga dan lejar am.
+
+**Baki: zakat dan kerja lain:**
+1. Nisab **Kedah, Pahang dan Perak** belum direkodkan: nilai yang dijumpai tiada tempoh berkuat kuasa yang jelas, atau tidak dapat disahkan dari laman rasmi. Nisab Sarawak ditetapkan bulanan; hanya September 2026 direkodkan. Admin perlu merekod nilai rasmi secara berkala.
+2. **Keputusan pengurusan:** sama ada platform mahu memohon pelantikan rasmi sebagai ejen kutipan zakat.
+3. `PDPPoolCreationModal` (pihak sponsor) masih cadangan mock; di backend hanya admin dan Pool Manager boleh mencipta pool.
+4. Selepas kerja notifikasi yang mengubah `apiClient.ts` dan `server/.env.example` di-commit: buang `apiClient.calculateZakat`/`createZakatPayment` (tidak digunakan lagi), kemas kini `apiClient.createInvestmentOrder`, dan dokumentasikan `ZAKAT_COLLECTION_APPOINTMENT_REF`.
+
+**Nota pepijat lejar (dibetulkan 2026-10-06, commit `770649a`):** trigger baki lejar menyebabkan setiap posting lejar gagal pada PostgreSQL sebenar. Migration pembetulan sudah dipasang pada database local.
+
+**Nota database local (2026-10-06):** Windows merizab julat port 55422–55521, jadi `keycloak-postgres-new` (port 55433) tidak dapat dihidupkan. Volume data yang sama kini dijalankan sebagai `keycloak-postgres-5433` pada port 5433, dan `DATABASE_URL` dalam `server/.env` sudah ditukar. Container lama disimpan (berhenti). Lihat `RUN_COMMANDS.ps1`.
+
+## 12. Dokumentasi
+
+- **Status:** `DOKUMENTASI_SISTEM.md` (Bahasa Melayu) ditulis pada 2026-10-06 sebagai penerangan lengkap sistem semasa.
+- **Kawasan:** `DOKUMENTASI_SISTEM.md`, `README.md`
+
+1. **`README.md` (bahasa Inggeris, ditulis September 2026) sudah lapuk.** Contohnya: port database 55433, tiada akad, zakat atau cukai. Pilihan: kemas kini atau ringkaskan kepada pautan ke `DOKUMENTASI_SISTEM.md`. Empat dokumen lama lain dan folder `RAG_AI_PROJECT/` telah dibuang pada 2026-10-07.
+2. **Kemas kini `DOKUMENTASI_SISTEM.md`** setiap kali modul, endpoint, migration atau peraturan perniagaan berubah, terutamanya bahagian 5 (modul), 9 (bilangan ujian) dan 10 (status skrin).

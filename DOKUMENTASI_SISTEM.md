@@ -2,7 +2,7 @@
 
 Keadaan sistem pada **6 Oktober 2026**, cawangan `feat/keycloak-oidc-auth`. Dokumen ini menerangkan apa yang ada dalam sistem sekarang. Kerja yang belum siap disenaraikan dalam [PENDING_ACTIVITIES.md](PENDING_ACTIVITIES.md); arahan menjalankan sistem ada dalam [RUN_COMMANDS.ps1](RUN_COMMANDS.ps1).
 
-> Dokumen lama dalam bahasa Inggeris ([README.md](README.md), [PROJECT_DOCUMENTATION.md](PROJECT_DOCUMENTATION.md), [CURRENT_ARCHITECTURE.md](CURRENT_ARCHITECTURE.md), [server/PRODUCTION_STATUS.md](server/PRODUCTION_STATUS.md), [RUN_CODE_WEALTH_POOLING.md](RUN_CODE_WEALTH_POOLING.md)) ditulis pada September 2026 dan sebahagiannya sudah lapuk. Jika bercanggah, ikut dokumen ini.
+> [README.md](README.md) (bahasa Inggeris) ditulis pada September 2026 dan sebahagiannya sudah lapuk. Jika bercanggah, ikut dokumen ini. Seni bina sasaran untuk 9 negara D-8 ada dalam dokumen *D-8 Wealth Pooling Master Architecture v1.0* dan *D-8 Wealth Pooling Technical Design Document v1.0* (Claude Docs).
 
 ---
 
