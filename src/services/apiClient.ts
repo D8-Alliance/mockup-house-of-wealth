@@ -23,7 +23,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
-    const message = await response.text();
+    const text = await response.text();
+    // Nest and demo mode send {"message": "..."}; throw the readable message, so screens that show
+    // error.message directly do not print raw JSON. apiErrorMessage() accepts both forms.
+    let message = text;
+    try {
+      const parsed = JSON.parse(text) as { message?: string | string[] };
+      if (Array.isArray(parsed.message)) message = parsed.message.join('; ');
+      else if (typeof parsed.message === 'string') message = parsed.message;
+    } catch {
+      // Not JSON: keep the text as it is.
+    }
     throw new Error(message || `API request failed with status ${response.status}`);
   }
 
