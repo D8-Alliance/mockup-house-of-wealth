@@ -127,8 +127,39 @@ export const DEMO_PERSONAS: Record<string, AuthUser> = {
     mfaStatus: 'Enforced',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
   },
+  // USR-MYS-004 holds Shariah Advisor and Shariah Reviewer in ORG-D8-GOV in the seed database
+  // (USR-MYS-002 has no Shariah role there, so the backend refused this persona).
+  'Shariah Reviewer': {
+    userId: 'USR-MYS-004',
+    name: 'Ustadh Bilal Al-Azhari',
+    email: 'bilal.reviewer@shariah-audit.org',
+    organisationId: 'ORG-D8-GOV',
+    organisationName: 'D-8 Shariah Executive Review Committee',
+    countryNodeId: 'CN-MYS',
+    countryName: 'Malaysia Node',
+    assignedRoles: ['Shariah Reviewer', 'Shariah Advisor'],
+    activeRole: 'Shariah Reviewer',
+    status: 'ACTIVE',
+    mfaStatus: 'Enforced',
+    avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80'
+  },
+  // USR-IDN-004 holds Legal Officer (and Compliance Officer) in ORG-FELDA-MYS in the seed database.
+  'Legal Officer': {
+    userId: 'USR-IDN-004',
+    name: 'Advocate Tariq Mahmud',
+    email: 'tariq.legal@d8law.com',
+    organisationId: 'ORG-FELDA-MYS',
+    organisationName: 'FELDA Legal Department',
+    countryNodeId: 'CN-MYS',
+    countryName: 'Malaysia Node',
+    assignedRoles: ['Legal Officer', 'Compliance Officer'],
+    activeRole: 'Legal Officer',
+    status: 'ACTIVE',
+    mfaStatus: 'Enforced',
+    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'
+  },
   'Shariah Advisor': {
-    userId: 'USR-MYS-002',
+    userId: 'USR-MYS-004',
     name: 'Tengku Dr. Hasmadi',
     email: 'hasmadi@shariahboard.d8.org',
     organisationId: 'ORG-D8-GOV',
