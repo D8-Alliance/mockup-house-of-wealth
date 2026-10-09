@@ -11,6 +11,7 @@ import { AgreementReviewDto, AgreementWizardDto } from './agreement.dto';
 export class ContractIntelligenceController {
   constructor(private readonly engine: ContractIntelligenceService, private readonly agreements: AgreementGenerationService) {}
 
+  @Get('agreements') listAgreements(@CurrentUser() actor: AuthenticatedUser) { return this.agreements.list(actor); }
   @Post('agreements/drafts') createAgreementDraft(@Body() input: AgreementWizardDto, @CurrentUser() actor: AuthenticatedUser) { return this.agreements.createDraft(actor, input); }
   @Get('agreements/:agreementId') agreement(@Param('agreementId') id: string, @CurrentUser() actor: AuthenticatedUser) { return this.agreements.get(actor, id); }
   @Post('agreements/:agreementId/review') reviewAgreement(@Param('agreementId') id: string, @Body() input: AgreementReviewDto, @CurrentUser() actor: AuthenticatedUser) { return this.agreements.review(actor, id, input); }

@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
-import { tenantScopeFilter } from '../tenancy/tenant-scope';
+
+/** Approved clauses and Shariah rules are a country-wide library: drafters, legal and Shariah reviewers sit in different organisations. */
+const libraryScope = (actor: AuthenticatedUser) => (actor.role === 'Super Admin' ? {} : { countryNodeId: actor.countryNodeId });
 
 export interface ContractRetrievalInput {
   contractType: string;
@@ -15,7 +17,7 @@ export class ContractClauseRetriever {
   constructor(private readonly prisma: PrismaService) {}
 
   async retrieveClauses(actor: AuthenticatedUser, input: ContractRetrievalInput) {
-    const scope = tenantScopeFilter(actor);
+    const scope = libraryScope(actor);
     const clauses = await this.prisma.contractClause.findMany({
       where: {
         ...scope,
@@ -48,7 +50,7 @@ export class ContractClauseRetriever {
   }
 
   async retrieveShariahRules(actor: AuthenticatedUser, input: ContractRetrievalInput) {
-    return this.prisma.shariahRule.findMany({ where: { ...tenantScopeFilter(actor), contractType: input.contractType, approvalStatus: 'APPROVED', ...(input.jurisdiction ? { OR: [{ jurisdiction: input.jurisdiction }, { jurisdiction: null }, { jurisdiction: 'International' }] } : {}) }, orderBy: [{ severity: 'desc' }, { ruleName: 'asc' }], take: 50 });
+    return this.prisma.shariahRule.findMany({ where: { ...libraryScope(actor), contractType: input.contractType, approvalStatus: 'APPROVED', ...(input.jurisdiction ? { OR: [{ jurisdiction: input.jurisdiction }, { jurisdiction: null }, { jurisdiction: 'International' }] } : {}) }, orderBy: [{ severity: 'desc' }, { ruleName: 'asc' }], take: 50 });
   }
 
   async validateShariahRules(actor: AuthenticatedUser, input: ContractRetrievalInput, context: Record<string, unknown> = {}) {
