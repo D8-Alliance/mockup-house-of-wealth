@@ -315,7 +315,9 @@ export const apiClient = {
     body: JSON.stringify(input),
   }),
   createAgreementDraft: (input: { contractType: string; projectName: string; jurisdiction: string; projectId?: string; wizardData: Record<string, unknown> }) => request<BackendAgreementDraft>('/contract-intelligence/agreements/drafts', { method: 'POST', body: JSON.stringify(input) }),
-  reviewAgreement: (id: string, input: { reviewStatus: string; note?: string }) => request(`/contract-intelligence/agreements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  listAgreements: () => request<AgreementSummary[]>('/contract-intelligence/agreements'),
+  getAgreement: (id: string) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}`),
+  reviewAgreement: (id: string, input: { reviewStatus: AgreementAction; note?: string }) => request(`/contract-intelligence/agreements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   downloadAgreement: async (id: string, format: 'docx' | 'pdf') => { const token = authService.getAuthState().session?.token; const response = await fetch(`${API_BASE_URL}/contract-intelligence/agreements/${encodeURIComponent(id)}/download/${format}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); if (!response.ok) throw new Error(await response.text() || 'Agreement download failed.'); const url = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = url; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || `agreement.${format}`; link.click(); URL.revokeObjectURL(url); },
   analyzeShariah: (input: { proposedContract: string; terms: string; projectId: string }) => request<BackendAiRun>('/ai/shariah/analyze', {
     method: 'POST',
@@ -1119,4 +1121,29 @@ function mapPdpApplication(application: BackendPdpApplication): PDPApplication {
     updatedAt: application.updatedAt,
     submittedAt: application.submittedAt,
   };
+}
+
+export type AgreementStatus = 'DRAFT' | 'LEGAL_REVIEW' | 'SHARIAH_REVIEW' | 'APPROVED' | 'CHANGES_REQUESTED' | 'EXECUTION';
+export type AgreementAction = 'LEGAL_REVIEW' | 'SHARIAH_REVIEW' | 'APPROVED' | 'CHANGES_REQUESTED' | 'EXECUTION';
+export interface AgreementAvailableAction { action: AgreementAction; label: string }
+
+export interface AgreementSummary {
+  id: string;
+  contractNumber: string;
+  title: string | null;
+  contractType: string;
+  status: AgreementStatus;
+  createdBy: string;
+  organisationId: string;
+  countryNodeId: string;
+  createdAt: string;
+  updatedAt: string;
+  complianceStatus: string | null;
+  availableActions: AgreementAvailableAction[];
+}
+
+export interface AgreementDetail extends Omit<AgreementSummary, 'complianceStatus'> {
+  complianceReport: { status?: string; checks?: Array<{ key: string; label: string; pass: boolean; severity: string }> } | null;
+  versions: Array<{ id: string; version: number; content: { sections?: Array<{ number: string; title: string; paragraphs: string[] }>; approvedClauseIds?: string[]; shariahRuleIds?: string[] } }>;
+  events: Array<{ id: string; eventType: string; fromStatus: string | null; toStatus: string | null; actorId: string; createdAt: string; metadata: { note?: string | null; role?: string } | null }>;
 }

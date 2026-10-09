@@ -4,6 +4,7 @@ import { RoleGuard } from '../rbac/RoleGuard';
 import { RoleDashboardView } from './dashboards/RoleDashboardView';
 import { MyAssetsView } from './MyAssetsView';
 import { MyContractsView } from './MyContractsView';
+import { AgreementReviewPanel } from '../ai/features/contract/AgreementReviewPanel';
 import { AssetDiscoveryView } from './AssetDiscoveryView';
 import { PoolingView } from './PoolingView';
 import { LedgerView } from './LedgerView';
@@ -114,6 +115,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'contracts' && (
         <RoleGuard tab="contracts">
+          <div className="mb-6"><AgreementReviewPanel /></div>
           <MyContractsView
             contracts={contracts}
             lang={lang}
