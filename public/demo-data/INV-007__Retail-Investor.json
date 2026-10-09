@@ -1,0 +1,32 @@
+{
+ "GET /dashboard/summary": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"source\":\"database\",\"scope\":{\"countryNodeId\":\"CN-IDN\",\"organisationId\":\"ORG-NUSA-DEV\"},\"projectCount\":0,\"totalProjectValue\":0,\"fundingRequired\":0,\"activePoolCount\":0,\"contractCount\":0,\"fundingRequestCount\":0,\"fundingRequested\":0}"
+ },
+ "GET /financial/accounts": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /financial/ledger": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /membership/me": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"id\":\"cmuyxuwph000rpjtstuj1trs6\",\"userId\":\"USR-INV-007\",\"planId\":\"plan_free\",\"tier\":\"FREE\",\"billingInterval\":\"monthly\",\"status\":\"Active\",\"currentPeriodStart\":\"2026-10-08T02:49:59.570Z\",\"currentPeriodEnd\":\"2026-11-07T02:49:59.570Z\",\"autoRenew\":false,\"paymentMethodSummary\":\"None (Free Plan)\",\"aiCreditsRemaining\":20,\"aiCreditsTotal\":20,\"createdAt\":\"2026-10-08T02:49:59.574Z\",\"updatedAt\":\"2026-10-08T02:49:59.574Z\",\"planName\":\"Wealth Pooling Free\",\"lifecycleStatus\":\"FREE\",\"daysRemaining\":29,\"graceEndsAt\":null,\"graceDays\":7,\"renewalMode\":\"NONE\",\"redeemableCredits\":0,\"creditValueMYR\":0.2,\"fpxFeeMYR\":1,\"toyyibPayMinimumMYR\":1,\"pendingMembershipPayments\":0}"
+ },
+ "GET /users/me": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"id\":\"USR-INV-007\",\"email\":\"nurul.investor@gmail.com\",\"name\":\"Nurul Huda\",\"isActive\":true,\"profile\":null,\"assignedRoles\":[{\"role\":\"Retail Investor\",\"organisationId\":\"ORG-NUSA-DEV\",\"countryNodeId\":\"CN-IDN\"}],\"createdAt\":\"2026-09-30T02:47:37.384Z\",\"updatedAt\":\"2026-09-30T02:47:37.384Z\"}"
+ },
+ "GET /users/me/access": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"userId\":\"USR-INV-007\",\"role\":\"Retail Investor\",\"assignedRoles\":[\"Retail Investor\"],\"countryNodeId\":\"CN-IDN\",\"organisationId\":\"ORG-NUSA-DEV\"}"
+ }
+}

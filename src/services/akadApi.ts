@@ -1,3 +1,4 @@
+import { apiFetch } from './apiFetch';
 import { authService } from '../auth/services/authService';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3001`;
@@ -35,7 +36,7 @@ export class AkadApiError extends Error {
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = authService.getAuthState().session?.token;
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers: { ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+  const response = await apiFetch(`${API_BASE_URL}${path}`, { ...init, headers: { ...(init.body ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
   const body = await response.json().catch(() => null) as { message?: string | string[] } | null;
   if (!response.ok) throw new AkadApiError((Array.isArray(body?.message) ? body?.message.join(' ') : body?.message) || `Request failed (${response.status}).`, response.status);
   return body as T;

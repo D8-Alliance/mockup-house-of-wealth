@@ -1,0 +1,32 @@
+{
+ "GET /dashboard/summary": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"source\":\"database\",\"scope\":{\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-FELDA-MYS\"},\"projectCount\":1,\"totalProjectValue\":10000000,\"fundingRequired\":8000000,\"activePoolCount\":1,\"contractCount\":4,\"fundingRequestCount\":1,\"fundingRequested\":3500000}"
+ },
+ "GET /membership/me": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"id\":\"cmup6uw7c0000pjmsm974zzn6\",\"userId\":\"USR-MYS-001\",\"planId\":\"plan_plus\",\"tier\":\"PLUS\",\"billingInterval\":\"monthly\",\"status\":\"Active\",\"currentPeriodStart\":\"2026-10-01T08:02:48.098Z\",\"currentPeriodEnd\":\"2026-10-31T08:02:48.098Z\",\"autoRenew\":false,\"paymentMethodSummary\":\"ToyyibPay\",\"aiCreditsRemaining\":5743,\"aiCreditsTotal\":100,\"createdAt\":\"2026-10-01T07:04:13.705Z\",\"updatedAt\":\"2026-10-01T08:25:24.767Z\",\"planName\":\"Wealth Pooling Plus\",\"lifecycleStatus\":\"ACTIVE\",\"daysRemaining\":23,\"graceEndsAt\":\"2026-11-07T08:02:48.098Z\",\"graceDays\":7,\"renewalMode\":\"MANUAL\",\"redeemableCredits\":5644,\"creditValueMYR\":0.2,\"fpxFeeMYR\":1,\"toyyibPayMinimumMYR\":1,\"pendingMembershipPayments\":0}"
+ },
+ "GET /membership/me/credits": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"userId\":\"USR-MYS-001\",\"monthlyAllowance\":100,\"purchasedCredits\":5000,\"bonusCredits\":644,\"usedCredits\":1,\"availableBalance\":5743,\"remainingCredits\":5743,\"usedThisMonth\":1,\"additionalCredits\":5644,\"allowanceRemaining\":99,\"totalPoolCredits\":5744,\"resetDate\":\"2026-10-31T08:02:48.098Z\",\"userTier\":\"PLUS\",\"creditExempt\":false}"
+ },
+ "GET /projects": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[{\"projectId\":\"PROJ-MYS-001\",\"projectCode\":\"MYS-AGRI-2026\",\"projectName\":\"FELDA Agri-Smart Oil Palm & Tech Expansion\",\"description\":\"High-yield sustainable oil palm replanting with integrated precision agriculture sensors, drone monitoring, and automated harvesting machinery.\",\"organisationId\":\"ORG-FELDA-MYS\",\"countryNodeId\":\"CN-MYS\",\"sector\":\"Agriculture & Plantation\",\"totalProjectCost\":\"10000000\",\"sponsorContribution\":\"2000000\",\"fundingRequired\":\"8000000\",\"proposedShariahContract\":\"Mudarabah\",\"sponsorEntityType\":null,\"status\":\"POOLING\",\"projectSponsorId\":\"USR-MYS-001\",\"createdAt\":\"2026-06-01T08:00:00.000Z\",\"updatedAt\":\"2026-08-10T14:20:00.000Z\",\"lifecycleVersion\":1,\"countryNode\":{\"currency\":\"MYR\"},\"projectSponsor\":{\"name\":\"Ahmad bin Razak\"},\"milestones\":[{\"id\":\"cmunikrl50000pjkkwiqezisy\",\"projectId\":\"PROJ-MYS-001\",\"organisationId\":\"ORG-FELDA-MYS\",\"countryNodeId\":\"CN-MYS\",\"title\":\"Project information and sponsor evidence\",\"targetDate\":null,\"completionPct\":100,\"disbursementAmount\":\"0\",\"status\":\"COMPLETED\",\"shariahSignoff\":false,\"auditorSignoff\":false,\"createdAt\":\"2026-09-30T02:56:44.201Z\",\"updatedAt\":\"2026-09-30T02:56:44.201Z\"},{\"id\":\"cmunikrl50001pjkk6e55vjhp\",\"projectId\":\"PROJ-MYS-001\",\"organisationId\":\"ORG-FELDA-MYS\",\"countryNodeId\":\"CN-MYS\",\"title\":\"Shariah term sheet review\",\"targetDate\":null,\"completionPct\":0,\"disbursementAmount\":\"2666666.67\",\"status\":\"UPCOMING\",\"shariahSignoff\":false,\"auditorSignoff\":false,\"createdAt\":\"2026-09-30T02:56:44.201Z\",\"updatedAt\":\"2026-09-30T02:56:44.201Z\"},{\"id\":\"cmunikrl50002pjkkqaf1rq93\",\"projectId\":\"PROJ-MYS-001\",\"organisationId\":\"ORG-FELDA-MYS\",\"countryNodeId\":\"CN-MYS\",\"title\":\"Due diligence and risk clearance\",\"targetDate\":null,\"completionPct\":0,\"disbursementAmount\":\"2666666.67\",\"status\":\"UPCOMING\",\"shariahSignoff\":false,\"auditorSignoff\":false,\"createdAt\":\"2026-09-30T02:56:44.201Z\",\"updatedAt\":\"2026-09-30T02:56:44.201Z\"},{\"id\":\"cmunikrl50003pjkkblkyjrj3\",\"projectId\":\"PROJ-MYS-001\",\"organisationId\":\"ORG-FELDA-MYS\",\"countryNodeId\":\"CN-MYS\",\"title\":\"Funding, execution and completion\",\"targetDate\":null,\"completionPct\":0,\"disbursementAmount\":\"2666666.67\",\"status\":\"UPCOMING\",\"shariahSignoff\":false,\"auditorSignoff\":false,\"createdAt\":\"2026-09-30T02:56:44.201Z\",\"updatedAt\":\"2026-09-30T02:56:44.201Z\"}]}]"
+ },
+ "GET /users/me": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"id\":\"USR-MYS-001\",\"email\":\"ahmad.razak@felda.gov.my\",\"name\":\"Ahmad bin Razak\",\"isActive\":true,\"profile\":{\"email\":\"ahmad.razak@felda.gov.my\",\"phone\":\"+60 12 998 1122\",\"status\":\"ACTIVE\",\"userId\":\"USR-MYS-001\",\"fullName\":\"Ahmad bin Razak\",\"jobTitle\":\"Senior PDP & Project Sponsor Lead\",\"kycLevel\":\"Corporate KYB\",\"timezone\":\"Asia/Kuala_Lumpur\",\"verified\":true,\"createdAt\":\"2024-01-10T08:00:00Z\",\"createdBy\":\"SYS-ADMIN-01\",\"lastLogin\":\"2026-08-11T16:30:00Z\",\"mfaStatus\":\"Enforced\",\"updatedAt\":\"2026-08-11T16:30:00Z\",\"updatedBy\":\"SYS-ADMIN-01\",\"department\":\"Agricultural Development Projects\",\"joinedDate\":\"Jan 2024\",\"mfaEnabled\":true,\"primaryRole\":\"Project Sponsor\",\"roleHistory\":[{\"id\":\"RH-001\",\"reason\":\"Promotion to Chief Project Sponsor for Smart Agritech Sukuk\",\"status\":\"Completed\",\"userId\":\"USR-MYS-001\",\"newRole\":\"Project Sponsor\",\"oldRole\":\"Project Manager\",\"timestamp\":\"2025-01-15T10:00:00Z\",\"performedBy\":\"FELDA Org Admin\",\"organisationId\":\"ORG-FELDA-MYS\"}],\"profilePhoto\":\"https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80\",\"assignedRoles\":[\"Project Sponsor\",\"Project Manager\"],\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-FELDA-MYS\"},\"assignedRoles\":[{\"role\":\"Project Sponsor\",\"organisationId\":\"ORG-FELDA-MYS\",\"countryNodeId\":\"CN-MYS\"},{\"role\":\"Project Manager\",\"organisationId\":\"ORG-FELDA-MYS\",\"countryNodeId\":\"CN-MYS\"}],\"createdAt\":\"2024-01-10T08:00:00.000Z\",\"updatedAt\":\"2026-09-30T02:47:37.337Z\"}"
+ },
+ "GET /users/me/access": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"userId\":\"USR-MYS-001\",\"role\":\"Project Sponsor\",\"assignedRoles\":[\"Project Sponsor\",\"Project Manager\"],\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-FELDA-MYS\"}"
+ }
+}

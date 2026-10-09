@@ -65,6 +65,19 @@ curl.exe http://localhost:3001/health             # semak backend
 - Pengguna baharu dan KYC: [PANDUAN_PENGGUNA_BARU_KYC.md](PANDUAN_PENGGUNA_BARU_KYC.md).
 - Pelayan VPS: [PANDUAN_LENGKAP_VPS.md](PANDUAN_LENGKAP_VPS.md), [DEPLOYMENT_TROUBLESHOOTING_PLESK.md](DEPLOYMENT_TROUBLESHOOTING_PLESK.md).
 
+### 3.1 Mod demo frontend sahaja (tanpa backend)
+
+Untuk menunjuk sistem secara langsung tanpa mendedahkan backend, frontend boleh berjalan dengan data seed yang dirakam (`VITE_DATA_SOURCE=static`, fail [.env.demo](.env.demo)).
+
+- **Cara berfungsi:** semua panggilan API melalui `apiFetch` ([src/services/apiFetch.ts](src/services/apiFetch.ts)). Dalam mod demo, jawapan diambil daripada `public/demo-data/<pengguna>__<peranan>.json`, bukan dari server. Tindakan tulis (hantar, lulus, bayar) memaparkan "Demo mode: this action is not saved"; tiada apa yang disimpan. Label "Demo mode" dipaparkan di sudut skrin.
+- **Persona yang dirakam:** Super Admin, Country Admin, Project Sponsor, Retail Investor, Shariah Reviewer, Legal Officer. Borang log masuk hanya menawarkan persona ini dalam mod demo.
+- **Jalankan:** `npm run dev:demo` (local) atau `npm run build:demo` lalu hoskan folder `dist/` sebagai laman statik. Tiada database, Redis, Keycloak atau kunci API diperlukan.
+- **Rakam semula** (selepas data seed atau skrin berubah):
+  1. Hidupkan backend dengan data seed (port 3001).
+  2. `npm run demo:record` (proksi port 3002; tindakan tulis disekat supaya database tidak berubah).
+  3. Jalankan frontend dengan `VITE_API_BASE_URL=http://localhost:3002`, log masuk sebagai setiap persona dan buka skrin yang ingin dirakam.
+- **Had:** hanya skrin yang dibuka semasa rakaman ada data; skrin lain memaparkan "this screen has no recorded data yet". Data tidak berubah dan kembali asal selepas refresh.
+
 ---
 
 ## 4. Pengesahan, peranan (RBAC) dan tenant

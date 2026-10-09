@@ -1,0 +1,17 @@
+{
+ "GET /membership/me": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"id\":\"cmv0dnyj10000pjyg08w7np5h\",\"userId\":\"USR-MYS-004\",\"planId\":\"plan_free\",\"tier\":\"FREE\",\"billingInterval\":\"monthly\",\"status\":\"Active\",\"currentPeriodStart\":\"2026-10-09T03:00:15.369Z\",\"currentPeriodEnd\":\"2026-11-08T03:00:15.369Z\",\"autoRenew\":false,\"paymentMethodSummary\":\"None (Free Plan)\",\"aiCreditsRemaining\":20,\"aiCreditsTotal\":20,\"createdAt\":\"2026-10-09T03:00:15.372Z\",\"updatedAt\":\"2026-10-09T03:00:15.372Z\",\"planName\":\"Wealth Pooling Free\",\"lifecycleStatus\":\"FREE\",\"daysRemaining\":30,\"graceEndsAt\":null,\"graceDays\":7,\"renewalMode\":\"NONE\",\"redeemableCredits\":0,\"creditValueMYR\":0.2,\"fpxFeeMYR\":1,\"toyyibPayMinimumMYR\":1,\"pendingMembershipPayments\":0}"
+ },
+ "GET /users/me": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"id\":\"USR-MYS-004\",\"email\":\"hasmadi@shariahboard.d8.org\",\"name\":\"Tengku Dr. Hasmadi\",\"isActive\":true,\"profile\":{\"email\":\"hasmadi@shariahboard.d8.org\",\"phone\":\"+60 12 345 6789\",\"status\":\"ACTIVE\",\"userId\":\"USR-MYS-004\",\"fullName\":\"Tengku Dr. Hasmadi\",\"jobTitle\":\"Chairman of Shariah Supervisory Council\",\"kycLevel\":\"Level 3\",\"timezone\":\"Asia/Kuala_Lumpur\",\"verified\":true,\"createdAt\":\"2024-03-15T09:00:00Z\",\"createdBy\":\"SYS-ADMIN-01\",\"lastLogin\":\"2026-08-11T12:00:00Z\",\"mfaStatus\":\"Enforced\",\"updatedAt\":\"2026-08-11T12:00:00Z\",\"updatedBy\":\"SYS-ADMIN-01\",\"department\":\"AAOIFI Shariah Governance Board\",\"joinedDate\":\"Mar 2024\",\"mfaEnabled\":true,\"primaryRole\":\"Shariah Advisor\",\"roleHistory\":[],\"profilePhoto\":\"https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80\",\"assignedRoles\":[\"Shariah Advisor\",\"Shariah Reviewer\"],\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-D8-GOV\"},\"assignedRoles\":[{\"role\":\"Shariah Advisor\",\"organisationId\":\"ORG-D8-GOV\",\"countryNodeId\":\"CN-MYS\"},{\"role\":\"Shariah Reviewer\",\"organisationId\":\"ORG-D8-GOV\",\"countryNodeId\":\"CN-MYS\"}],\"createdAt\":\"2024-03-15T09:00:00.000Z\",\"updatedAt\":\"2026-08-11T12:00:00.000Z\"}"
+ },
+ "GET /users/me/access": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"userId\":\"USR-MYS-004\",\"role\":\"Shariah Reviewer\",\"assignedRoles\":[\"Shariah Advisor\",\"Shariah Reviewer\"],\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-D8-GOV\"}"
+ }
+}

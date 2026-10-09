@@ -1,0 +1,17 @@
+{
+ "GET /membership/me": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"id\":\"cmuzc7iqf000cpjnwrrf2aoqv\",\"userId\":\"USR-IDN-004\",\"planId\":\"plan_free\",\"tier\":\"FREE\",\"billingInterval\":\"monthly\",\"status\":\"Active\",\"currentPeriodStart\":\"2026-10-08T09:31:42.614Z\",\"currentPeriodEnd\":\"2026-11-07T09:31:42.614Z\",\"autoRenew\":false,\"paymentMethodSummary\":\"None (Free Plan)\",\"aiCreditsRemaining\":20,\"aiCreditsTotal\":20,\"createdAt\":\"2026-10-08T09:31:42.615Z\",\"updatedAt\":\"2026-10-08T09:31:42.615Z\",\"planName\":\"Wealth Pooling Free\",\"lifecycleStatus\":\"FREE\",\"daysRemaining\":30,\"graceEndsAt\":null,\"graceDays\":7,\"renewalMode\":\"NONE\",\"redeemableCredits\":0,\"creditValueMYR\":0.2,\"fpxFeeMYR\":1,\"toyyibPayMinimumMYR\":1,\"pendingMembershipPayments\":0}"
+ },
+ "GET /users/me": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"id\":\"USR-IDN-004\",\"email\":\"nurul.hidayah@sc.my\",\"name\":\"Nurul Hidayah\",\"isActive\":true,\"profile\":null,\"assignedRoles\":[{\"role\":\"Compliance Officer\",\"organisationId\":\"ORG-FELDA-MYS\",\"countryNodeId\":\"CN-MYS\"},{\"role\":\"Legal Officer\",\"organisationId\":\"ORG-FELDA-MYS\",\"countryNodeId\":\"CN-MYS\"}],\"createdAt\":\"2026-09-30T02:47:37.427Z\",\"updatedAt\":\"2026-09-30T02:47:37.427Z\"}"
+ },
+ "GET /users/me/access": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"userId\":\"USR-IDN-004\",\"role\":\"Legal Officer\",\"assignedRoles\":[\"Compliance Officer\",\"Legal Officer\"],\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-FELDA-MYS\"}"
+ }
+}

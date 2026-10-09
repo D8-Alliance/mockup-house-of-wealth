@@ -1,0 +1,7 @@
+{
+ "GET /health": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"status\":\"ok\",\"service\":\"house-of-wealth-api\",\"time\":\"2026-10-09T02:58:52.247Z\"}"
+ }
+}

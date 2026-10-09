@@ -1,3 +1,4 @@
+import { apiFetch } from './apiFetch';
 import { authService } from '../auth/services/authService';
 import { PDPApplication } from '../pdp/pdpTypes';
 import { AdminAIAnalyticsSummary } from '../ai/monetisation/aiMonetisationTypes';
@@ -9,7 +10,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const isFormData = options.body instanceof FormData;
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await apiFetch(`${API_BASE_URL}${path}`, {
       ...options,
       headers: {
         ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
@@ -109,7 +110,7 @@ export const apiClient = {
   getMembershipCreditUsage: () => request<BackendCreditTransaction[]>('/membership/me/credits/usage'),
   getMembershipTransactions: () => request<BackendTransaction[]>('/membership/me/transactions'),
   downloadTransactionReceipt: async (transactionId: string) => {
-    const token = authService.getAuthState().session?.token; const response = await fetch(`${API_BASE_URL}/membership/me/transactions/${encodeURIComponent(transactionId)}/receipt`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const token = authService.getAuthState().session?.token; const response = await apiFetch(`${API_BASE_URL}/membership/me/transactions/${encodeURIComponent(transactionId)}/receipt`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (!response.ok) throw new Error(await response.text() || 'Receipt is unavailable.'); const blobUrl = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = blobUrl; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || 'receipt.txt'; link.click(); URL.revokeObjectURL(blobUrl);
   },
   consumeMembershipCredits: (operationKey: string, targetEntity?: string) => request<BackendCreditTransaction>('/membership/me/credits/consume', { method: 'POST', body: JSON.stringify({ operationKey, targetEntity }) }),
@@ -161,7 +162,7 @@ export const apiClient = {
   confirmProjectPromotionPayment: (projectId: string, campaignId: string) => request<BackendProjectPromotion>(`/projects/${encodeURIComponent(projectId)}/promotions/${encodeURIComponent(campaignId)}/payment/confirm`, { method: 'POST' }),
   downloadPromotionReceipt: async (projectId: string, campaignId: string) => {
     const token = authService.getAuthState().session?.token;
-    const response = await fetch(`${API_BASE_URL}/projects/${encodeURIComponent(projectId)}/promotions/${encodeURIComponent(campaignId)}/receipt`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const response = await apiFetch(`${API_BASE_URL}/projects/${encodeURIComponent(projectId)}/promotions/${encodeURIComponent(campaignId)}/receipt`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (!response.ok) throw new Error(await response.text() || 'Promotion receipt is unavailable.');
     const blobUrl = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = blobUrl; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || 'promotion-receipt.txt'; link.click(); URL.revokeObjectURL(blobUrl);
   },
@@ -172,7 +173,7 @@ export const apiClient = {
   },
   downloadProjectDocument: async (projectId: string, documentId: string) => {
     const token = authService.getAuthState().session?.token;
-    const response = await fetch(`${API_BASE_URL}/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/download`, {
+    const response = await apiFetch(`${API_BASE_URL}/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/download`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!response.ok) throw new Error(await response.text() || `Document download failed with status ${response.status}`);
@@ -266,7 +267,7 @@ export const apiClient = {
   }),
   exportCitationsCsv: async (filter: CitationAuditFilter = {}) => {
     const token = authService.getAuthState().session?.token;
-    const response = await fetch(`${API_BASE_URL}/ai/citations/export${citationQuery(filter)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const response = await apiFetch(`${API_BASE_URL}/ai/citations/export${citationQuery(filter)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (!response.ok) throw new Error(await response.text() || 'Citation export failed.');
     const url = URL.createObjectURL(await response.blob());
     const link = document.createElement('a');
@@ -318,7 +319,7 @@ export const apiClient = {
   listAgreements: () => request<AgreementSummary[]>('/contract-intelligence/agreements'),
   getAgreement: (id: string) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}`),
   reviewAgreement: (id: string, input: { reviewStatus: AgreementAction; note?: string }) => request(`/contract-intelligence/agreements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
-  downloadAgreement: async (id: string, format: 'docx' | 'pdf') => { const token = authService.getAuthState().session?.token; const response = await fetch(`${API_BASE_URL}/contract-intelligence/agreements/${encodeURIComponent(id)}/download/${format}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); if (!response.ok) throw new Error(await response.text() || 'Agreement download failed.'); const url = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = url; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || `agreement.${format}`; link.click(); URL.revokeObjectURL(url); },
+  downloadAgreement: async (id: string, format: 'docx' | 'pdf') => { const token = authService.getAuthState().session?.token; const response = await apiFetch(`${API_BASE_URL}/contract-intelligence/agreements/${encodeURIComponent(id)}/download/${format}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); if (!response.ok) throw new Error(await response.text() || 'Agreement download failed.'); const url = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = url; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || `agreement.${format}`; link.click(); URL.revokeObjectURL(url); },
   analyzeShariah: (input: { proposedContract: string; terms: string; projectId: string }) => request<BackendAiRun>('/ai/shariah/analyze', {
     method: 'POST',
     body: JSON.stringify(input),
@@ -357,7 +358,7 @@ export const apiClient = {
   /** Object URL of a captured liveness frame (the caller revokes it). */
   getKycLivenessFrameUrl: async (applicationId: string, frameId: string) => {
     const token = authService.getAuthState().session?.token;
-    const response = await fetch(`${API_BASE_URL}/kyc/applications/${encodeURIComponent(applicationId)}/liveness/frames/${encodeURIComponent(frameId)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    const response = await apiFetch(`${API_BASE_URL}/kyc/applications/${encodeURIComponent(applicationId)}/liveness/frames/${encodeURIComponent(frameId)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (!response.ok) throw new Error(await response.text() || 'Frame is unavailable.');
     return URL.createObjectURL(await response.blob());
   },
@@ -366,7 +367,7 @@ export const apiClient = {
 /** Fetches a protected file with the bearer token and opens it in a new tab. */
 async function openAuthenticatedFile(path: string) {
   const token = authService.getAuthState().session?.token;
-  const response = await fetch(`${API_BASE_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const response = await apiFetch(`${API_BASE_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
   if (!response.ok) throw new Error(await response.text() || 'File is unavailable.');
   const blobUrl = URL.createObjectURL(await response.blob());
   window.open(blobUrl, '_blank', 'noopener');
