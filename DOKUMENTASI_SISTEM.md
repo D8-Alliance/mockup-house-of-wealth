@@ -76,6 +76,7 @@ Untuk menunjuk sistem secara langsung tanpa mendedahkan backend, frontend boleh 
   1. Hidupkan backend dengan data seed (port 3001).
   2. `npm run demo:record` (proksi port 3002; tindakan tulis disekat supaya database tidak berubah).
   3. Jalankan frontend dengan `VITE_API_BASE_URL=http://localhost:3002`, log masuk sebagai setiap persona dan buka skrin yang ingin dirakam.
+  4. **Wajib sebelum commit:** `npm run demo:sanitize`. Ia membuang semua rekod milik pengguna yang mendaftar sendiri (`USR-REG-*`, iaitu penguji sebenar) supaya hanya data seed diterbitkan, dan gagal jika data peribadi mereka masih ada.
 - **Had:** hanya skrin yang dibuka semasa rakaman ada data; skrin lain memaparkan "this screen has no recorded data yet". Data tidak berubah dan kembali asal selepas refresh.
 
 ---

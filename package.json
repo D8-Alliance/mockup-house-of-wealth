@@ -12,7 +12,8 @@
     "lint": "tsc --noEmit",
     "dev:demo": "vite --mode demo --host=0.0.0.0 --port=3000 --strictPort",
     "build:demo": "vite build --mode demo",
-    "demo:record": "node scripts/demo-recorder.mjs"
+    "demo:record": "node scripts/demo-recorder.mjs",
+    "demo:sanitize": "node scripts/demo-sanitize.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
