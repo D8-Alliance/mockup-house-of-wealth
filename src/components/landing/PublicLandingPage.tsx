@@ -4,7 +4,6 @@ import {
   Building2,
   Globe2,
   Landmark,
-  PiggyBank,
   ShieldCheck,
   Newspaper,
   Sparkles,
