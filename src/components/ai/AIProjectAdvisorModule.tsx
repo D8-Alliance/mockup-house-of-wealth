@@ -22,7 +22,7 @@ export const AIProjectAdvisorModule: React.FC = () => {
       strengths: [
         'Strong asset collateral (Cold storage hubs valued at $7.2M)',
         'Pre-signed 5-year off-take supply contracts with regional exporters',
-        'Certified AAOIFI Shariah-compliant asset backing'
+        'Shariah review of the asset backing'
       ],
       weaknesses: [
         'Initial electricity expenditure dependency in remote logistics corridors',

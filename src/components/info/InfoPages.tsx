@@ -206,7 +206,7 @@ export function InfoPageLayout({ children, pageId, onNavigate, onSignIn }: InfoP
             <span>·</span>
             <span>Shariah Governance</span>
             <span>·</span>
-            <span>AAOIFI Certified</span>
+            <span>AAOIFI standards referenced</span>
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 text-[10px] text-slate-600">
@@ -596,7 +596,7 @@ export function ShariahGovernancePage() {
         <SectionHeading
           icon={<BookOpen className="w-4 h-4" />}
           title="Shariah-Compliant Structures"
-          subtitle="The building blocks powering every tokenized asset and wealth pool on the platform."
+          subtitle="The building blocks behind every registered asset and wealth pool on the platform."
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {structures.map((s) => (

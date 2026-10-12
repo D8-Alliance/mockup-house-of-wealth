@@ -67,7 +67,7 @@ export const INITIAL_PAGE_CONTENT: Record<string, PageContent> = {
           year: '2025',
           title: 'Network Phase 1 Live',
           detail:
-            'Initial 9 country nodes go live with central-bank-aligned regulatory profiles and the first AAOIFI-certified marketplace offerings.'
+            'Planned: country nodes go live one at a time, starting with the Malaysia pilot, each with its own regulatory profile and Shariah-reviewed marketplace offerings.'
         }),
         item('m5', {
           year: '2026',

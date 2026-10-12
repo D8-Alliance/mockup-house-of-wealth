@@ -87,7 +87,7 @@ export const ExecutiveDashboardWidgets: React.FC<ExecutiveDashboardWidgetsProps>
       <div className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard label="Regional Node TVL" value="$42,100,000 USD" sub="Malaysia Node #1" icon={<Building2 className="w-5 h-5 text-emerald-500" />} />
-          <MetricCard label="Active Local Assets" value={assets.length.toString()} sub="Verified & Tokenized" icon={<Coins className="w-5 h-5 text-blue-500" />} />
+          <MetricCard label="Active Local Assets" value={assets.length.toString()} sub="Verified & Registered" icon={<Coins className="w-5 h-5 text-blue-500" />} />
           <MetricCard label="Active Smart Sukuk" value={contracts.length.toString()} sub="Mudarabah & Musharakah" icon={<FileCheck className="w-5 h-5 text-teal-500" />} />
           <MetricCard label="Regional Yield YTD" value="9.45% Avg" sub="Net Distribution" icon={<TrendingUp className="w-5 h-5 text-amber-500" />} />
         </div>

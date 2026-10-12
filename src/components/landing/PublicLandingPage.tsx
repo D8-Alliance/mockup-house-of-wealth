@@ -69,10 +69,8 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
   // Public marketplace preview (Guest-tier visibility, restricted to 9 D-8 nodes)
   const marketPreview = INITIAL_MARKETPLACE.slice(0, 3);
 
-  const totalProjects = countries.reduce((sum, c) => sum + c.activeProjectsCount, 0);
-  const totalPools = countries.reduce((sum, c) => sum + c.activePoolsCount, 0);
-  const totalUsers = countries.reduce((sum, c) => sum + c.activeUsersCount, 0);
-  const totalOrgs = countries.reduce((sum, c) => sum + c.activeOrganisationsCount, 0);
+  // Malaysia is the first pilot node; the other member states are planned (Master Architecture roadmap).
+  const nodeStatus = (countryNodeId: string) => (countryNodeId === 'CN-MYS' ? 'Pilot' : 'Planned');
 
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 font-sans">
@@ -181,7 +179,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
                   {selectedCountry.countryName} Node
                 </span>
                 <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
-                  AAOIFI Certified
+                  {nodeStatus(selectedCountry.countryNodeId) === 'Pilot' ? 'Pilot node' : 'Planned node'}
                 </span>
               </div>
 
@@ -197,23 +195,23 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
                 transparent wealth pooling.
               </p>
 
-              {/* Live D-8 Network Stats */}
+              {/* Platform facts (not activity counts: the public page shows no sample numbers as if they were real) */}
               <div className="grid min-w-0 grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="min-w-0 p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                   <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{countries.length}</p>
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Member States</p>
                 </div>
                 <div className="min-w-0 p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{totalProjects}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Active Projects</p>
+                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">4</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Akad Types</p>
                 </div>
                 <div className="min-w-0 p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{totalPools}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Wealth Pools</p>
+                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">2</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Review Stages (Legal, Shariah)</p>
                 </div>
                 <div className="min-w-0 p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{totalUsers.toLocaleString()}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Verified Users</p>
+                  <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">1</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Pilot Node (Malaysia)</p>
                 </div>
               </div>
 
@@ -254,7 +252,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                    <p className="text-slate-400">Regulator</p>
+                    <p className="text-slate-400">Relevant regulators</p>
                     <p className="font-bold mt-0.5 text-[10px] leading-snug">{selectedCountry.regulatoryProfile}</p>
                   </div>
                   <div className="p-3 rounded-xl bg-white/5 border border-white/10">
@@ -262,12 +260,12 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
                     <p className="font-bold mt-0.5">{selectedCountry.currency} • {selectedCountry.timezone}</p>
                   </div>
                   <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                    <p className="text-slate-400">Organisations</p>
-                    <p className="font-bold mt-0.5 text-emerald-400">{selectedCountry.activeOrganisationsCount}</p>
+                    <p className="text-slate-400">Node status</p>
+                    <p className="font-bold mt-0.5 text-emerald-400">{nodeStatus(selectedCountry.countryNodeId)}</p>
                   </div>
                   <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                    <p className="text-slate-400">Projects</p>
-                    <p className="font-bold mt-0.5 text-emerald-400">{selectedCountry.activeProjectsCount}</p>
+                    <p className="text-slate-400">Akad types</p>
+                    <p className="font-bold mt-0.5 text-emerald-400">Mudarabah, Musharakah, Wakalah, Ijarah</p>
                   </div>
                 </div>
               </div>
@@ -280,11 +278,11 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
                 <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                    <span>AAOIFI-aligned Shariah contracts (Mudarabah, Musharakah, Ijarah, Murabaha, Wakalah)</span>
+                    <span>Shariah contracts based on Mudarabah, Musharakah, Wakalah and Ijarah, with versioned akad terms that investors accept before investing</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                    <span>Central-bank regulated country nodes with independent Shariah supervisory councils</span>
+                    <span>Each country node is designed around its own regulator and Shariah authority; Malaysia is the first pilot node</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
@@ -322,7 +320,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
               <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">{c.region} • {c.currency}</p>
               <div className="flex items-center gap-2 mt-2 text-[10px] text-slate-600 dark:text-slate-300">
                 <Coins className="w-3 h-3 text-emerald-500" />
-                <span>{c.activeProjectsCount} projects</span>
+                <span>{nodeStatus(c.countryNodeId)}</span>
               </div>
             </button>
           ))}
@@ -334,7 +332,8 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Landmark className="w-5 h-5 text-emerald-500" />
-            <h2 className="text-xl sm:text-2xl font-black">Featured Public Offerings</h2>
+            <h2 className="text-xl sm:text-2xl font-black">Sample Offerings</h2>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">Illustrative examples for demonstration only, not an offer to invest.</span>
           </div>
           <button
             onClick={onEnterPublicGuest}
@@ -429,7 +428,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
             <span>·</span>
             <span>Shariah Governance</span>
             <span>·</span>
-            <span>AAOIFI Certified</span>
+            <span>AAOIFI standards referenced</span>
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 text-[10px] text-slate-600">

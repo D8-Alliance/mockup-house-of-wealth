@@ -14,7 +14,7 @@ export const Footer: React.FC<FooterProps> = ({ setTab }) => {
           <WealthPoolingLogo compact />
           <span className="text-xs text-slate-500 dark:text-slate-400">Wealth Pooling © 2026</span>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Part of the D-8 Masjid SuperApp Ecosystem. Certified AAOIFI Shariah Compliant.
+            Part of the D-8 Masjid SuperApp Ecosystem. Shariah governance designed with reference to AAOIFI standards.
           </p>
         </div>
 

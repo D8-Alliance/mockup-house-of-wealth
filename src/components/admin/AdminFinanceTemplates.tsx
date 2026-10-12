@@ -190,7 +190,7 @@ export const AdminFinanceTemplates: React.FC<AdminFinanceTemplatesProps> = ({ se
       {/* CONTRACT TEMPLATES */}
       {section === 'shariah_templates' && (
         <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
-          <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">AAOIFI Compliant Smart Contract Master Templates</h3>
+          <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">Shariah Contract Master Templates</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             {contractTemplates.map(c => (
               <div key={c.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200/60 dark:border-slate-700/60 space-y-2">

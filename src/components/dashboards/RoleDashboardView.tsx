@@ -64,7 +64,7 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
                 {roleDef.category} • {currentRole}
               </span>
               <span className="bg-emerald-500/20 text-emerald-400 text-xs font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                AAOIFI Certified Node
+                Shariah Governance
               </span>
             </div>
 
@@ -188,7 +188,7 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
             <h4 className="font-black text-slate-900 dark:text-white text-sm">Asset Holdings</h4>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            {assets.length} Tokenized Real World Assets currently listed in the portfolio.
+            {assets.length} sample real-world assets listed in the portfolio.
           </p>
           <button 
             onClick={() => setTab('assets')}
@@ -222,7 +222,7 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
             <h4 className="font-black text-slate-900 dark:text-white text-sm">Marketplace & Liquidity</h4>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Discover tokenized Sukuk offerings and Waqf pool allocations across D-8 nations.
+            Discover Sukuk offerings and Waqf pool allocations across D-8 nations.
           </p>
           <button 
             onClick={() => setTab('marketplace')}
