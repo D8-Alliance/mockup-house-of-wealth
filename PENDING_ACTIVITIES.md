@@ -15,11 +15,11 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 7 | Perkara kecil pembayaran | Kredit bonus, Project Promotion ke ToyyibPay, go-live ToyyibPay, akaun lejar lama | Keputusan kredit bonus; akaun ToyyibPay live dan domain |
 | 8 | Payout provider | Adapter bank/DuitNow, validation sebelum SETTLED, dual approval ikut had amaun | Pilihan provider; nilai had amaun |
 | 9 | Background jobs dan notifikasi | Uji token push di browser sebenar, sijil TLS Redis (production), akaun Resend/Twilio, integration test dalam CI | Akaun Resend/Twilio; penyediaan secret production |
-| 10 | Blockchain dan smart contract | Fasa 2: anchoring hash ke blockchain awam dan halaman Ketelusan Zakat. Fasa 3: tokenisasi dan smart contract escrow. Baki teks "tokenization" dalam skrin mock | Fasa 2: pilihan rangkaian dan dompet operasi. Fasa 3: nasihat undang-undang SC dan resolusi Shariah |
+| 10 | Blockchain dan smart contract | Fasa 2: anchoring hash ke blockchain awam dan halaman Ketelusan Zakat. Fasa 3: tokenisasi dan smart contract escrow. Baki perkataan "tokenization" dalam tajuk data contoh (dakwaan awam sudah dibuang 2026-10-12) | Fasa 2: pilihan rangkaian dan dompet operasi. Fasa 3: nasihat undang-undang SC dan resolusi Shariah |
 | 11 | Akad, zakat, cukai dan penyata kewangan | Nisab Kedah/Pahang/Perak; cukai pegangan, cukai perkhidmatan, e-invois; caj kerugian ke atas modal dan perkiraan akhir pool | Penasihat cukai; penasihat Shariah; keputusan pelantikan ejen kutipan zakat |
 | 12 | Dokumentasi | README.md bahasa Inggeris masih lapuk; pastikan `DOKUMENTASI_SISTEM.md` dikemas kini setiap kali sistem berubah | Keputusan: kemas kini atau ringkaskan README |
-| 13 | Fasa 0: keselamatan sebelum pilot | Sekat mock auth, larang beri peranan sendiri, semakan KYC sebelum melabur, pengasingan tugas, Helmet/had kadar/CORS, pool tidak kelihatan kepada pelabur baharu | Boleh dimulakan sekarang (penghalang pilot Malaysia) |
-| 14 | Keputusan kecil 2026-10-08 | Organization Admin dalam pengecualian kredit AI, pengesahan jadual tarikh tamat kad 9 negara, lencana AAOIFI dan angka contoh di halaman utama, data ujian local | Keputusan pemilik projek |
+| 13 | Fasa 0: keselamatan sebelum pilot | Semakan KYC sebelum melabur, baki pengasingan tugas (feasibility), pool tidak kelihatan kepada pelabur baharu | Boleh dimulakan sekarang (penghalang pilot Malaysia) |
+| 14 | Keputusan kecil 2026-10-08 | Organization Admin dalam pengecualian kredit AI, pengesahan jadual tarikh tamat kad 9 negara, data ujian local | Keputusan pemilik projek |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -253,15 +253,13 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 ## 13. Fasa 0: pembetulan keselamatan sebelum pilot (Master Architecture v1.0)
 
-- **Status:** Belum dimulakan (disemak 2026-10-08). Rujukan penuh: *D-8 Wealth Pooling Master Architecture v1.0* §16–18 dan *Technical Design Document v1.0* §3, §6, §7.
+- **Status:** Separuh siap (2026-10-12): larang peranan sendiri, pengasingan tugas funding dan payout, Helmet/had kadar/CORS, serta sekatan mock auth dan algoritma JWT (production hanya terima `oidc` + RS256) sudah dibuat. Baki di bawah. Rujukan penuh: *D-8 Wealth Pooling Master Architecture v1.0* §16–18 dan *Technical Design Document v1.0* §3, §6, §7.
 - **Kawasan:** `server/src/main.ts`, `server/src/auth/identity.service.ts`, `server/src/users/users.service.ts`, `server/src/investments/investments.service.ts`, `server/src/funding/funding.service.ts`, `server/src/distribution/payout-destination.service.ts`, `server/src/ai/ai.service.ts`
 
-1. **Sekat `AUTH_MODE=mock` dalam production** dan hadkan algoritma JWT (tolak HS256 dalam production). Kritikal: token mock tidak ditandatangani.
-2. **Larang pemberian peranan kepada diri sendiri;** peranan Country Admin perlu pelulus kedua.
-3. **Semakan KYC sebelum pesanan pelaburan** (status APPROVED dan tahap minimum).
-4. **Pengasingan tugas:** pelulus tidak boleh mengeluarkan dana yang sama; Settlement Officer tidak boleh mengesahkan destinasi payout sendiri; Organization/Country Admin tidak lagi menjadi penyemak lalai bagi lima peringkat feasibility.
-5. **Helmet, had kadar permintaan dan senarai CORS** (`origin: true` sekarang menerima semua domain).
-6. **Pelabur baharu tidak nampak pool** (ditemui 2026-10-08): setiap pendaftaran mendapat organisasi sendiri dan `/pools` ditapis ikut organisasi, jadi senarai kosong. Buka pool OPEN dalam negara yang sama kepada pelabur **bersama** perkara 3, bukan sebelumnya.
+1. **Semakan KYC sebelum pesanan pelaburan** (status APPROVED dan tahap minimum).
+2. **Pengasingan tugas (baki):** Organization/Country Admin masih penyemak lalai bagi lima peringkat feasibility dalam `ai.service.ts`. (Funding dan destinasi payout siap 2026-10-12.)
+3. **Pelabur baharu tidak nampak pool** (ditemui 2026-10-08): setiap pendaftaran mendapat organisasi sendiri dan `/pools` ditapis ikut organisasi, jadi senarai kosong. Buka pool OPEN dalam negara yang sama kepada pelabur **bersama** perkara 1, bukan sebelumnya.
+4. **Pelulus kedua untuk peranan Country Admin** (pilihan): kini hanya Super Admin boleh memberi atau menarik Country Admin; aliran pelulus kedua (`RoleGrantRequest`) belum dibina.
 
 ## 14. Keputusan kecil daripada kerja 2026-10-08
 
@@ -269,5 +267,4 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 1. **Organization Admin dalam pengecualian kredit AI:** kini dikecualikan (commit `42b47f8`) kerana diminta "semua administrator", tetapi kategori sistemnya Operational Management dan organisasi pelanggan juga boleh memegangnya. Keputusan: kekal atau buang (satu baris).
 2. **Jadual tarikh tamat kad pengenalan 9 negara** (commit `b64568b`) diambil daripada rujukan yang diberi pada 2026-10-08. Perlu disahkan untuk setiap negara sebelum dipindah ke Country Policy (Fasa 2).
-3. **Halaman utama awam** memaparkan angka contoh (102 projek, 36 pool, 587 pengguna) dan lencana "AAOIFI Certified" yang belum sah. Buang lencana atau sambung angka kepada API sebelum demo kepada pihak luar.
-4. **Data ujian dalam database local:** akaun `claude.check1@test.local`, `claude.check2@test.local` (nama organisasi kosong) dan `claude.check6@test.local` dicipta semasa pengujian. Nyahaktifkan jika tidak diperlukan.
+3. **Data ujian dalam database local:** akaun `claude.check1@test.local`, `claude.check2@test.local` (nama organisasi kosong) dan `claude.check6@test.local` dicipta semasa pengujian. Nyahaktifkan jika tidak diperlukan.

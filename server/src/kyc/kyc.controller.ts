@@ -1,3 +1,4 @@
+import { SkipThrottle } from '@nestjs/throttler';
 import { BadRequestException, Body, Controller, Get, HttpCode, Param, Post, Put, Query, RawBodyRequest, Req, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request, Response } from 'express';
@@ -141,6 +142,7 @@ export class KycController {
 export class KycWebhookController {
   constructor(private readonly checks: KycChecksService) {}
 
+  @SkipThrottle()
   @Public()
   @Post(':provider')
   @HttpCode(200)

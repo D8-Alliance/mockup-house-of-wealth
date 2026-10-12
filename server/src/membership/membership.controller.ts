@@ -1,3 +1,4 @@
+import { SkipThrottle } from '@nestjs/throttler';
 import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -104,6 +105,7 @@ export class MembershipController {
     return this.membershipService.upgrade(actor, input);
   }
 
+  @SkipThrottle()
   @Public()
   @Post('payments/toyyibpay/callback')
   toyyibPayCallback(@Body() input: Record<string, unknown>) {

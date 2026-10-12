@@ -121,6 +121,18 @@ describe('FundingService approval', () => {
     expect(prismaMock.fundingRequest.update).not.toHaveBeenCalled();
   });
 
+  it('separates duties: the requester cannot approve, and neither requester nor approver can disburse', async () => {
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'PENDING', requestedBy: 'USR-A' });
+    await expect(service.approve('FRQ-1', actor('Country Admin'))).rejects.toThrow('another person must approve');
+
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'APPROVED', requestedBy: 'USR-SPONSOR', approvedBy: 'USR-A' });
+    await expect(service.disburse('FRQ-1', actor('Country Admin'))).rejects.toThrow('You approved this funding request');
+
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'APPROVED', requestedBy: 'USR-A', approvedBy: 'USR-OTHER' });
+    await expect(service.disburse('FRQ-1', actor('Country Admin'))).rejects.toThrow('You submitted this funding request');
+    expect(prismaMock.fundingRequest.updateMany).not.toHaveBeenCalled();
+  });
+
   it('only disburses an already-approved request', async () => {
     prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'PENDING' });
 

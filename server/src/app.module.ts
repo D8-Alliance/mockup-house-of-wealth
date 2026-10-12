@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { OidcGuard } from './auth/oidc.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { AuthModule } from './auth/auth.module';
@@ -31,6 +32,8 @@ import { JobsModule } from './jobs/jobs.module';
 
 @Module({
   imports: [
+    // Requests per client IP per minute (RATE_LIMIT_PER_MINUTE, default 120); stricter limits on public sign-up.
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: Number(process.env.RATE_LIMIT_PER_MINUTE || 120) }]),
     PrismaModule,
     AuthModule,
     PolicyModule,
@@ -59,6 +62,8 @@ import { JobsModule } from './jobs/jobs.module';
     JobsModule,
   ],
   providers: [
+    // First, so a flood is refused before any token check or database lookup.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: OidcGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

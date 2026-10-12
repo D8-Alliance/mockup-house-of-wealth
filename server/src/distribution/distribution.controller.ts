@@ -1,3 +1,4 @@
+import { SkipThrottle } from '@nestjs/throttler';
 import { Body, Controller, Get, Headers, Param, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { Request } from 'express';
@@ -100,6 +101,8 @@ export class DistributionController {
   @RequirePermission('ledger', 'update')
   reconcilePayouts(@CurrentUser() actor: AuthenticatedUser) { return this.distributions.reconcilePayouts(actor); }
 
+  // Provider callbacks retry on failure and are authenticated by signature, so they are not rate limited.
+  @SkipThrottle()
   @Post('payouts/webhook/:provider')
   @Public()
   async payoutWebhook(@Param('provider') provider: string, @Headers('x-payout-signature') signature: string | undefined, @Req() request: Request, @Body() body: Record<string, unknown>) {

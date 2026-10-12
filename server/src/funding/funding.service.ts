@@ -69,6 +69,8 @@ export class FundingService {
     if (!this.policy.can(user.role, 'approvals', 'approve')) {
       throw new ForbiddenException(this.policy.evaluate(user.role, 'approvals', 'approve').reason);
     }
+    // Segregation of duties: the person who asked for the money cannot approve it.
+    if (request.requestedBy === user.userId) throw new ForbiddenException('You submitted this funding request, so another person must approve it.');
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.fundingRequest.updateMany({ where: { fundingRequestId, status: 'PENDING' }, data: { status: 'APPROVED', approvedBy: user.userId, approvedAt: new Date() } });
@@ -94,6 +96,9 @@ export class FundingService {
     if (!this.policy.can(user.role, 'approvals', 'disburse')) {
       throw new ForbiddenException(this.policy.evaluate(user.role, 'approvals', 'disburse').reason);
     }
+    // Segregation of duties: neither the requester nor the approver releases the money.
+    if (request.requestedBy === user.userId) throw new ForbiddenException('You submitted this funding request, so another person must disburse it.');
+    if (request.approvedBy === user.userId) throw new ForbiddenException('You approved this funding request, so another person must disburse it.');
 
     const currency = request.currency;
     const poolAccount = await this.ledger.ensureAccount(user, { accountCode: `POOL-${request.poolId || request.projectId}-CASH-${currency}`, accountType: 'ASSET', ownerType: 'POOL', ownerId: request.poolId || request.projectId, organisationId: request.organisationId, countryNodeId: request.countryNodeId, currency });

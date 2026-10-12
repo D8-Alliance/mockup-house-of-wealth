@@ -1,3 +1,4 @@
+import { Throttle } from '@nestjs/throttler';
 import { Body, Controller, Headers, Post } from '@nestjs/common';
 import { IdentityService } from './identity.service';
 import { Public } from './roles.decorator';
@@ -15,6 +16,8 @@ export class AuthController {
   }
 
   // Public sign-up for AUTH_MODE=mock only; refused in every other mode.
+  // Public sign-up: a handful per minute per IP is enough for people and stops bulk account creation.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Public()
   @Post('demo-register')
   demoRegister(@Body() input: DemoRegisterDto) {

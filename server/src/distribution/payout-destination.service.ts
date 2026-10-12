@@ -33,6 +33,8 @@ export class PayoutDestinationService {
     const destination = await this.prisma.payoutDestination.findUnique({ where: { id } });
     if (!destination) throw new NotFoundException('Payout destination not found.');
     assertTenantScope(actor, destination, 'Payout destination');
+    // Segregation of duties: an operator must not verify the bank account they will be paid into.
+    if (destination.ownerUserId === actor.userId) throw new ForbiddenException('This is your own payout account, so another settlement operator must verify it.');
     const updated = await this.prisma.payoutDestination.update({ where: { id }, data: { status: 'VERIFIED', verifiedBy: actor.userId, verifiedAt: new Date(), cooldownUntil: new Date() } });
     await this.audit.recordActor(actor, { action: 'payout.destination.verify', resourceType: 'PayoutDestination', resourceId: id, organisationId: destination.organisationId, countryNodeId: destination.countryNodeId, metadata: { ownerUserId: destination.ownerUserId, destinationHash: destination.destinationHash } });
     return this.publicDestination(updated);

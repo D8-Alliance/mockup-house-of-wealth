@@ -4,6 +4,9 @@ import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { UserRole, PRIVILEGED_ROLES } from '../policy/permissions';
+
+/** Not privileged in the system-admin sense, but only a Super Admin may grant or revoke them: a Country Admin must not create peers. */
+const SUPER_ADMIN_GRANTED_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Country Admin']);
 import { PolicyService } from '../policy/policy.service';
 import { normalizePhone } from '../tenancy/country-phone';
 import { tenantScopeFilter } from '../tenancy/tenant-scope';
@@ -71,6 +74,7 @@ export class UsersService {
       throw new ForbiddenException(this.policy.evaluate(actor.role, 'users', 'update').reason);
     }
 
+    if (userId === actor.userId) throw new ForbiddenException('You cannot change the status of your own account.');
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
     if (actor.role === 'Country Admin' && !(await this.hasTenantAssignment(userId, actor.countryNodeId))) {
@@ -115,9 +119,13 @@ export class UsersService {
       throw new ForbiddenException('Only Super Admin or Country Admin can assign roles');
     }
 
-    // Escalation guard: privileged roles can only be granted by a Super Admin.
-    if (PRIVILEGED_ROLES.has(role) && actor.role !== 'Super Admin') {
-      throw new ForbiddenException(`Only Super Admin can assign the privileged role "${role}"`);
+    // Nobody changes their own roles: otherwise a Country Admin could give themselves
+    // Shariah Committee and approve a project alone.
+    if (userId === actor.userId) throw new ForbiddenException('You cannot change your own roles. Ask another administrator.');
+
+    // Escalation guard: privileged roles, and Country Admin itself, can only be granted by a Super Admin.
+    if ((PRIVILEGED_ROLES.has(role) || SUPER_ADMIN_GRANTED_ROLES.has(role)) && actor.role !== 'Super Admin') {
+      throw new ForbiddenException(`Only Super Admin can assign the role "${role}"`);
     }
 
     // Tenant check: Country Admin can only assign roles in their own country node
@@ -204,9 +212,11 @@ export class UsersService {
       throw new ForbiddenException('Only Super Admin or Country Admin can revoke roles');
     }
 
-    // Escalation guard: privileged roles can only be revoked by a Super Admin.
-    if (PRIVILEGED_ROLES.has(role) && actor.role !== 'Super Admin') {
-      throw new ForbiddenException(`Only Super Admin can revoke the privileged role "${role}"`);
+    if (userId === actor.userId) throw new ForbiddenException('You cannot change your own roles. Ask another administrator.');
+
+    // Escalation guard: privileged roles, and Country Admin itself, can only be revoked by a Super Admin.
+    if ((PRIVILEGED_ROLES.has(role) || SUPER_ADMIN_GRANTED_ROLES.has(role)) && actor.role !== 'Super Admin') {
+      throw new ForbiddenException(`Only Super Admin can revoke the role "${role}"`);
     }
 
     // Tenant check

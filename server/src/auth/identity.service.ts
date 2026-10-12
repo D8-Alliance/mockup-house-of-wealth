@@ -27,9 +27,29 @@ export interface JwtPayload {
 }
 
 /**
+ * Signature algorithms accepted on OIDC tokens. HS256 relies on a shared secret that anyone
+ * holding it can sign with, so production accepts only the identity provider's RS256 keys.
+ */
+export function allowedJwtAlgorithms(env: NodeJS.ProcessEnv = process.env): string[] {
+  return env.NODE_ENV === 'production' ? ['RS256'] : ['RS256', 'HS256'];
+}
+
+/**
+ * Refuses production settings that would let anyone sign in as anyone: mock tokens are
+ * unsigned, and OIDC without an issuer, audience or public key cannot be verified.
+ * Checked when the server starts; mock tokens are also refused per request.
+ */
+export function assertAuthConfig(env: NodeJS.ProcessEnv = process.env): void {
+  if (env.NODE_ENV !== 'production') return;
+  if (env.AUTH_MODE !== 'oidc') throw new Error(`AUTH_MODE must be "oidc" in production (found "${env.AUTH_MODE ?? ''}"). Mock tokens are unsigned and let anyone sign in as any user.`);
+  if (!env.OIDC_ISSUER || !env.OIDC_AUDIENCE) throw new Error('OIDC_ISSUER and OIDC_AUDIENCE are required in production.');
+  if (!env.OIDC_JWKS_URI && !env.OIDC_PUBLIC_KEY_PEM) throw new Error('OIDC_JWKS_URI or OIDC_PUBLIC_KEY_PEM is required in production.');
+}
+
+/**
  * Validates OIDC ID/access tokens issued by Auth0, Microsoft Entra ID, Keycloak,
  * or Okta using the configured issuer/audience and either a JWKS/public key
- * (RS256, production) or a shared secret (HS256, local development).
+ * (RS256, production) or a shared secret (HS256, local development only).
  *
  * No external JWT dependency is required; verification uses node:crypto.
  */
@@ -51,6 +71,7 @@ export class IdentityService {
     }
 
     if (authMode === 'mock') {
+      if (process.env.NODE_ENV === 'production') throw new UnauthorizedException('Mock sign-in is disabled in production');
       return this.verifyMockToken(token);
     }
 
@@ -210,7 +231,11 @@ export class IdentityService {
       throw new UnauthorizedException('Token audience mismatch');
     }
 
-    const alg = header.alg ?? 'RS256';
+    // The algorithm must be stated and on the allow-list; never fall back to a default.
+    const alg = header.alg;
+    if (!alg || !allowedJwtAlgorithms().includes(alg)) {
+      throw new UnauthorizedException(`Unsupported token algorithm: ${alg ?? 'none'}`);
+    }
 
     if (alg === 'HS256') {
       return this.verifyHs256(token, payload);

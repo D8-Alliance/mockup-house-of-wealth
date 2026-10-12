@@ -56,6 +56,22 @@ describe('UsersService role assignment', () => {
     expect(prismaMock.userRoleAssignment.create).not.toHaveBeenCalled();
   });
 
+  it('refuses anyone changing their own roles or account status, including a Super Admin', async () => {
+    // A Country Admin giving themselves Shariah Committee could approve a project alone.
+    await expect(service.assignRole('USR-ADMIN', 'Shariah Committee', 'ORG-A', 'CN-MYS', actor('Country Admin'))).rejects.toThrow('You cannot change your own roles');
+    await expect(service.assignRole('USR-ADMIN', 'Finance Officer', 'ORG-A', 'CN-MYS', actor('Super Admin'))).rejects.toThrow('You cannot change your own roles');
+    await expect(service.revokeRole('USR-ADMIN', 'Auditor', 'ORG-A', 'CN-MYS', actor('Country Admin'))).rejects.toThrow('You cannot change your own roles');
+    await expect(service.updateStatus('USR-ADMIN', 'ACTIVE', actor('Super Admin'))).rejects.toThrow('your own account');
+    expect(prismaMock.userRoleAssignment.create).not.toHaveBeenCalled();
+    expect(prismaMock.user.update).not.toHaveBeenCalled();
+  });
+
+  it('lets only a Super Admin grant or revoke Country Admin, so Country Admins cannot create peers', async () => {
+    await expect(service.assignRole('USR-TARGET', 'Country Admin', 'ORG-A', 'CN-MYS', actor('Country Admin'))).rejects.toThrow('Only Super Admin can assign the role "Country Admin"');
+    await expect(service.revokeRole('USR-TARGET', 'Country Admin', 'ORG-A', 'CN-MYS', actor('Country Admin'))).rejects.toThrow('Only Super Admin can revoke the role "Country Admin"');
+    expect(prismaMock.userRoleAssignment.create).not.toHaveBeenCalled();
+  });
+
   it('rejects a Country Admin revoking a privileged role (role escalation)', async () => {
     await expect(
       service.revokeRole('USR-TARGET', 'System Administrator', 'ORG-A', 'CN-MYS', actor('Country Admin')),
