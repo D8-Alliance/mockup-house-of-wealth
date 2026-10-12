@@ -20,6 +20,8 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 12 | Dokumentasi | README.md bahasa Inggeris masih lapuk; pastikan `DOKUMENTASI_SISTEM.md` dikemas kini setiap kali sistem berubah | Keputusan: kemas kini atau ringkaskan README |
 | 13 | Fasa 0: keselamatan sebelum pilot | Semakan KYC sebelum melabur, baki pengasingan tugas (feasibility), pool tidak kelihatan kepada pelabur baharu | Boleh dimulakan sekarang (penghalang pilot Malaysia) |
 | 14 | Keputusan kecil 2026-10-08 | Organization Admin dalam pengecualian kredit AI, pengesahan jadual tarikh tamat kad 9 negara, data ujian local | Keputusan pemilik projek |
+| 15 | Pembantu dokumen AI (KYC/KYB/PDP) | Smart upload (kenal pasti jenis, isi automatik, semakan awal), chatbot tahu status dokumen, lampiran fail dalam chat | Keputusan untuk mula Fasa A; model AI tempatan yang lebih kuat untuk Fasa C |
+| 16 | Pemindahan ke DigitalOcean | Simpan fail di Spaces (bukan dalam database), konfigurasi deploy, staging di DO, kemudian pilot production | Keputusan bajet dan lokasi data (Singapura) oleh compliance |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -268,3 +270,43 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 1. **Organization Admin dalam pengecualian kredit AI:** kini dikecualikan (commit `42b47f8`) kerana diminta "semua administrator", tetapi kategori sistemnya Operational Management dan organisasi pelanggan juga boleh memegangnya. Keputusan: kekal atau buang (satu baris).
 2. **Jadual tarikh tamat kad pengenalan 9 negara** (commit `b64568b`) diambil daripada rujukan yang diberi pada 2026-10-08. Perlu disahkan untuk setiap negara sebelum dipindah ke Country Policy (Fasa 2).
 3. **Data ujian dalam database local:** akaun `claude.check1@test.local`, `claude.check2@test.local` (nama organisasi kosong) dan `claude.check6@test.local` dicipta semasa pengujian. Nyahaktifkan jika tidak diperlukan.
+
+## 15. Pembantu dokumen AI untuk muat naik KYC, KYB dan PDP
+
+- **Status:** Cadangan (2026-10-12). Belum dimulakan.
+- **Kawasan:** `server/src/kyc/checks/document-text-reader.ts` (OCR sedia ada), `server/src/kyc/kyc.controller.ts`, `server/src/pdp/`, `server/src/projects/projects.controller.ts` (muat naik bukti), `server/src/ai/ai.service.ts` (`/ai/chat`), `src/ai/components/AIAssistant.tsx`
+
+**Sudah ada:** OCR tesseract di dalam pelayan, semakan pengubahsuaian dokumen dan liveness untuk KYC, analisis AI untuk dokumen bukti projek, chatbot RAG (hanya menjawab soalan, tiada lampiran fail atau tindakan).
+
+**Cadangan fasa:**
+1. **Fasa A: smart upload dalam borang KYC/KYB/PDP.** Pengguna seret beberapa fail sekali gus. Sistem kenal pasti jenis dokumen (MyKad, passport, Sijil SSM, penyata bank, akaun beraudit), isi medan borang (nama, nombor IC/pendaftaran, alamat, tarikh tamat), dan buat semakan awal sebelum hantar: dokumen kabur atau terpotong, sudah tamat tempoh, nama tidak sepadan dengan profil, jenis dokumen salah. Guna OCR dan peraturan tetap, tanpa LLM.
+2. **Fasa B: chatbot tahu status pengguna.** Menyenaraikan dokumen yang belum lengkap mengikut negara dan jenis akad, menerangkan sebab permohonan dikembalikan, dan memberi pautan terus ke borang yang betul.
+3. **Fasa C: lampiran fail dalam chat.** AI cadangkan ke mana setiap fail patut pergi; pengguna sahkan sebelum dimuat naik.
+
+**Prinsip:**
+- AI hanya mencadangkan; pengguna mengesahkan. Muat naik tetap melalui endpoint sedia ada dengan semakan kebenaran, pengubahsuaian dokumen dan log audit yang sama.
+- AI tidak meluluskan KYC/KYB; keputusan kekal pada KYC/KYB Officer.
+- Imej IC dan passport tidak dihantar ke AI luar (PDPA). Guna OCR dan model tempatan.
+- Bantuan onboarding (KYC/KYB) dikecualikan daripada kredit AI.
+
+**Nota:** model tempatan sekarang (`gemma2:2b`) terlalu kecil untuk ekstraksi yang tepat. Fasa C memerlukan model vision atau model yang lebih besar, iaitu pelayan yang lebih kuat atau GPU.
+
+## 16. Pemindahan database, backend dan LLM ke DigitalOcean
+
+- **Status:** Cadangan (2026-10-12). Belum dimulakan.
+- **Kawasan:** `server/prisma/schema.prisma` (lajur `fileContent`/`content` jenis `Bytes`), `server/src/kyc/`, `server/src/projects/`, `server/src/ai/` (muat naik RAG), `server/Dockerfile`, `server/.env.production.example`
+
+**Keadaan sekarang (diukur 2026-10-12):** database tempatan 21 MB; fail KYC, bukti projek dan dokumen RAG disimpan terus dalam PostgreSQL (`Bytes`). Plesk hanya menjalankan demo statik; backend tidak berjalan di sana.
+
+**Langkah:**
+1. **Simpan fail di DigitalOcean Spaces (serasi S3)** dan bukan dalam database. Database hanya simpan kunci objek, hash SHA-256 dan metadata. Pindahkan fail sedia ada dengan skrip migrasi. Fail KYC mesti peribadi (tiada akses awam) dan dicapai melalui URL bertandatangan yang singkat tempohnya.
+2. **Konfigurasi deploy:** App Platform spec atau Docker Compose untuk API, worker dan Keycloak; secret dalam pengurus secret, bukan dalam Git.
+3. **Staging (anggaran $50–65 sebulan):** Droplet 4 GB, Managed PostgreSQL 1 GB dengan pgvector, Spaces, LLM serverless ikut penggunaan. Frontend dibina dengan `VITE_API_BASE_URL` ke API staging.
+4. **Pilot production (anggaran $160–240 sebulan):** Droplet 8 GB, PostgreSQL dengan standby HA, Redis, sandaran. Selepas baki item 13 siap.
+
+**Keputusan diperlukan:**
+- Bajet bulanan.
+- Lokasi data: DigitalOcean tiada region Malaysia (terdekat Singapura). Sahkan pemindahan data KYC dan kewangan ke luar negara dengan compliance (PDPA, garis panduan BNM/SC jika terpakai).
+- LLM: serverless (bayar ikut token) untuk teks; imej IC dan passport kekal diproses oleh OCR dalam pelayan sendiri (rujuk item 15).
+
+**Nota:** anggaran harga berdasarkan senarai harga DigitalOcean yang diketahui pada 2026; sahkan sebelum membuat keputusan.
