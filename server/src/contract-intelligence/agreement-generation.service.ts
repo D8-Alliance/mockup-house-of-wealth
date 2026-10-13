@@ -10,7 +10,7 @@ import { PrismaService } from '../prisma.service';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { ContractClauseRetriever } from '../ai/contract-clause-retriever.service';
 import { AGREEMENT_TYPES, AgreementReviewDto, AgreementType, AgreementWizardDto } from './agreement.dto';
-import { availableActions, canSeeAgreement, DRAFTER_ROLES, isAgreementReviewer, reviewBlocker } from './agreement-review-rules';
+import { agreementTypeBlocker, availableActions, canSeeAgreement, DRAFTER_ROLES, isAgreementReviewer, reviewBlocker } from './agreement-review-rules';
 import { getJurisdictionProfile } from './jurisdiction-profiles';
 
 type Section = { number: string; title: string; paragraphs: string[] };
@@ -25,7 +25,9 @@ export class AgreementGenerationService {
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly retriever: ContractClauseRetriever, private readonly ai: AiService) {}
 
   async createDraft(actor: AuthenticatedUser, input: AgreementWizardDto) {
-    if (!(DRAFTER_ROLES as readonly string[]).includes(actor.role)) throw new ForbiddenException('Only project sponsors, project managers and administrators can draft agreements.');
+    if (!(DRAFTER_ROLES as readonly string[]).includes(actor.role)) throw new ForbiddenException('Only project sponsors, project managers, asset owners and administrators can draft agreements.');
+    const typeBlocked = agreementTypeBlocker(actor.role, input.contractType);
+    if (typeBlocked) throw new ForbiddenException(typeBlocked);
     if (input.projectId) {
       const project = await this.prisma.project.findUnique({ where: { projectId: input.projectId }, select: { organisationId: true, countryNodeId: true } });
       if (!project) throw new NotFoundException('Project not found.');

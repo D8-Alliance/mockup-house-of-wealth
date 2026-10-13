@@ -5,8 +5,12 @@ import { UserRole } from './types';
  * accessibleTabs; these cover the extra buttons that otherwise show for everyone.
  */
 
-/** Delivery-partner (PDP) onboarding: for visitors and the roles that run projects or pools. Asset owners are a separate group and do not onboard as PDPs. */
-const PDP_ONBOARDING_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Guest', 'Project Sponsor', 'Project Manager', 'Pool Manager', 'Organization Admin']);
+/**
+ * Delivery-partner (PDP) onboarding: for visitors and organisation admins whose organisation is
+ * not yet a PDP. Project Sponsors and Project Managers already act for a registered PDP, and
+ * asset owners are a separate group.
+ */
+const PDP_ONBOARDING_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Guest', 'Organization Admin']);
 
 /** The architecture and code review report is an internal document for platform administrators. */
 const CODE_REVIEW_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Super Admin', 'System Administrator']);

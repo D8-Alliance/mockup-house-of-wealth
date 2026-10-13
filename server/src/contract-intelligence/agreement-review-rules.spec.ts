@@ -1,5 +1,5 @@
 import { AuthenticatedUser } from '../auth/identity.service';
-import { AgreementForReview, availableActions, canSeeAgreement, reviewBlocker } from './agreement-review-rules';
+import { AgreementForReview, availableActions, canSeeAgreement, reviewBlocker, agreementTypeBlocker } from './agreement-review-rules';
 
 function actor(userId: string, role: AuthenticatedUser['role'], organisationId = 'ORG-FELDA', countryNodeId = 'CN-MYS'): AuthenticatedUser {
   return { userId, idpSubjectId: userId, email: `${userId}@example.test`, name: userId, role, countryNodeId, organisationId, assignedRoles: [role] };
@@ -76,5 +76,19 @@ describe('agreement visibility', () => {
     expect(canSeeAgreement(sponsor, agreement('DRAFT'))).toBe(true);
     expect(canSeeAgreement(shariah, agreement('DRAFT'))).toBe(false);
     expect(canSeeAgreement(shariah, agreement('LEGAL_REVIEW'))).toBe(true);
+  });
+});
+
+describe('agreement types by role', () => {
+  it('lets a delivery partner draft project financing and an asset owner draft asset contracts', () => {
+    expect(agreementTypeBlocker('Project Sponsor', 'MUDARABAH')).toBeNull();
+    expect(agreementTypeBlocker('Project Sponsor', 'IJARAH')).toMatch(/As Project Sponsor, you can draft/);
+    expect(agreementTypeBlocker('Asset Owner', 'IJARAH')).toBeNull();
+    expect(agreementTypeBlocker('Asset Owner', 'MUSHARAKAH')).toBeNull();
+    expect(agreementTypeBlocker('Asset Owner', 'MUDARABAH')).toMatch(/IJARAH, MUSHARAKAH/);
+  });
+
+  it('leaves administrators free to draft any type', () => {
+    expect(agreementTypeBlocker('Country Admin', 'SUKUK')).toBeNull();
   });
 });

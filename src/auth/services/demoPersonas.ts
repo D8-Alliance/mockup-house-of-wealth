@@ -71,12 +71,13 @@ export const DEMO_PERSONAS: Record<string, AuthUser> = {
     mfaStatus: 'Enabled',
     avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80'
   },
+  // An asset owner is their own entity, separate from delivery partners, investors and platform staff.
   'Asset Owner': {
     userId: 'USR-AO-005',
     name: 'Rashid Al-Nuaimi',
     email: 'rashid.assets@mycapital.my',
-    organisationId: 'ORG-MYS-P2-CAP',
-    organisationName: 'Malaysian Sovereign Capital Assets',
+    organisationId: 'ORG-AO-MYS-01',
+    organisationName: 'Rashid Al-Nuaimi (asset owner)',
     countryNodeId: 'CN-MYS',
     countryName: 'Malaysia Node',
     assignedRoles: ['Asset Owner'],

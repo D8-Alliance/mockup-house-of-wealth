@@ -25,6 +25,7 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 17 | Entiti berasingan dan pihak berkaitan | No. SSM, jenis entiti dan kumpulan induk pada organisasi; penanda transaksi pihak berkaitan | Boleh dimulakan |
 | 18 | Prestasi projek PDP dan baki skrin kontrak | Laporan prestasi berkala (KPI kewangan dan sektor), "My Contracts" pelabur masih data contoh | Keputusan senarai KPI; boleh dimulakan |
 | 19 | Benefisiari dan pusaka (backend dan aliran kematian) | Simpanan di backend, peranan Estate Officer, laporan kematian dan pembekuan akaun, penyaluran pelaburan dan aset kepada waris | Keputusan proses dan pemegang amanah (contoh Amanah Raya); nasihat Shariah dan undang-undang |
+| 20 | Modul aset (Asset Owner) | Daftar aset di backend, senarai aset sebenar, kad dashboard dan My Contracts pelabur masih data contoh | Boleh dimulakan; keputusan medan aset dan dokumen bukti |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -349,3 +350,14 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 5. **Persetujuan waris:** wasiyyah kepada waris faraid atau melebihi 1/3 hanya sah jika waris lain bersetuju; sediakan rekod persetujuan jika mahu disokong.
 6. **Penama dan wasi:** catat wasi atau pentadbir (contoh Amanah Raya Berhad). Bagi Muslim di Malaysia, penama biasanya bertindak sebagai pentadbir, bukan pemilik manfaat.
 7. **Semakan:** teks panduan dan peraturan perlu disahkan oleh penasihat Shariah dan peguam sebelum pilot.
+
+## 20. Modul aset untuk Asset Owner
+
+- **Status:** Belum dimulakan (dicatat 2026-10-13). Asset Owner kini mempunyai organisasi sendiri dan boleh menggubal perjanjian Ijarah atau Musharakah melalui Agreement Generation (butang "Draft Agreement" menggantikan wizard contoh "Issue Contract"; jenis akad dihadkan mengikut peranan di frontend dan backend).
+- **Kawasan:** `src/components/AssetRegistrationWizardModal.tsx`, `src/components/MyAssetsView.tsx`, `src/components/dashboards/RoleDashboardView.tsx`, backend baharu
+
+**Baki:**
+1. **Daftar aset di backend:** "Register Asset" masih wizard contoh yang tidak disimpan. Bina model aset (jenis: tanah, bangunan, jentera; lokasi; nilai dan penilai; hak milik; dokumen bukti seperti geran atau invois) dengan semakan pengubahsuaian dokumen yang sedia ada.
+2. **Senarai aset sebenar:** tab Asset Register dan kad dashboard "Asset Holdings: 4 sample assets" masih data contoh. Baca dari backend mengikut organisasi.
+3. **Kad kontrak:** "Islamic Contracts: 4 active agreements" dan ringkasan My Contracts pelabur masih data contoh; gantikan dengan perjanjian dan pesanan sebenar (rujuk item 18).
+4. **Hubungan aset dengan pool atau projek:** aset yang dipajak (Ijarah) atau disumbang (Musharakah) dipautkan kepada pool atau projek, dengan perjanjian yang telah diluluskan Legal dan Shariah.

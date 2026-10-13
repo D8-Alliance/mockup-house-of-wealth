@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { takeAiEngineSection } from '../ai/aiEngineNavigation';
 import { useRBAC } from '../rbac/RBACContext';
 import { 
   BrainCircuit, 
@@ -79,7 +80,8 @@ interface AIWealthEngineViewProps {
 
 export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNavigateToMembership }) => {
   const { activeUser, isAuthenticated } = useRBAC();
-  const [activeTab, setActiveTab] = useState<AIEngineTab>('overview');
+  // Another screen may ask to open a section, e.g. the dashboard's Draft Agreement button.
+  const [activeTab, setActiveTab] = useState<AIEngineTab>(() => (takeAiEngineSection() as AIEngineTab | null) ?? 'overview');
   const [chatOpen, setChatOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

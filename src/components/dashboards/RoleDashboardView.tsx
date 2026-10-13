@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useRBAC } from '../../rbac/RBACContext';
 import { canSeePdpOnboarding } from '../../rbac/menuVisibility';
+import { canDraftAgreement, openAiEngineSection } from '../../ai/aiEngineNavigation';
 import { UserProfile, AssetItem, ContractItem, LanguageCode, NavTab } from '../../types';
 import { 
   Building2, 
@@ -113,14 +114,15 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
               </button>
             )}
 
-            {checkPermission('contracts', 'create') && (
+            {/* Agreements go through the real chain (draft, Legal review, Shariah review) in Agreement Generation. */}
+            {canDraftAgreement(currentRole) && canAccessTab('ai-engine') && (
               <button
                 type="button"
-                onClick={onOpenContractWizard}
+                onClick={() => { openAiEngineSection('agreement-generation'); setTab('ai-engine'); }}
                 className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-xs rounded-xl border border-slate-600 flex items-center gap-2 cursor-pointer"
               >
                 <Coins className="w-4 h-4 text-emerald-400" />
-                <span>Issue Contract</span>
+                <span>Draft Agreement</span>
               </button>
             )}
 

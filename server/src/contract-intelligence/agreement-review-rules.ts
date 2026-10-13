@@ -10,7 +10,24 @@ import { isWithinTenantScope } from '../tenancy/tenant-scope';
  *                          │                                 │
  *                          └──────── CHANGES_REQUESTED ◀─────┘ ──resubmit──▶ LEGAL_REVIEW
  */
-export const DRAFTER_ROLES = ['Project Sponsor', 'Project Manager', 'Organization Admin', 'Country Admin', 'Super Admin'] as const;
+export const DRAFTER_ROLES = ['Project Sponsor', 'Project Manager', 'Asset Owner', 'Organization Admin', 'Country Admin', 'Super Admin'] as const;
+
+/**
+ * Which akad each drafter may draft. A delivery partner finances a project; an asset owner
+ * provides an asset (leased, or contributed as capital). Administrators may draft any type.
+ */
+export const AGREEMENT_TYPES_BY_ROLE: Readonly<Record<string, readonly string[]>> = {
+  'Project Sponsor': ['MUDARABAH', 'MUSHARAKAH', 'WAKALAH', 'SUKUK'],
+  'Project Manager': ['MUDARABAH', 'MUSHARAKAH', 'WAKALAH', 'SUKUK'],
+  'Asset Owner': ['IJARAH', 'MUSHARAKAH'],
+};
+
+/** Why this role may not draft this type of agreement, or null when allowed. */
+export function agreementTypeBlocker(role: string, contractType: string): string | null {
+  const allowed = AGREEMENT_TYPES_BY_ROLE[role];
+  if (!allowed || allowed.includes(contractType)) return null;
+  return `As ${role}, you can draft these agreements: ${allowed.join(', ')}.`;
+}
 export const LEGAL_ROLES = ['Legal Officer'] as const;
 export const SHARIAH_ROLES = ['Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'] as const;
 
