@@ -11,11 +11,11 @@ import { UserRole } from '../rbac/types';
 export const DATA_SOURCE: 'live' | 'static' = import.meta.env.VITE_DATA_SOURCE === 'static' ? 'static' : 'live';
 export const IS_STATIC_DEMO = DATA_SOURCE === 'static';
 
-/** Personas switched on by default in static mode (investor, delivery partner, country admin, super admin). */
-export const STATIC_DEMO_ROLES: UserRole[] = ['Super Admin', 'Country Admin', 'Project Sponsor', 'Retail Investor'];
+/** Personas agreed for the demo and switched on by default: super admin, country admin, delivery partner (PDP), asset owner and investor. */
+export const STATIC_DEMO_ROLES: UserRole[] = ['Super Admin', 'Country Admin', 'Project Sponsor', 'Asset Owner', 'Retail Investor'];
 
 /** Every persona with recorded screens. A Super Admin can switch these on in the demo (Role Availability); others have no data to show. */
-export const RECORDED_DEMO_ROLES: UserRole[] = [...STATIC_DEMO_ROLES, 'Asset Owner', 'Shariah Reviewer', 'Legal Officer'];
+export const RECORDED_DEMO_ROLES: UserRole[] = [...STATIC_DEMO_ROLES, 'Shariah Reviewer', 'Legal Officer'];
 
 interface RecordedResponse { status: number; contentType: string; contentDisposition?: string; body?: string; bodyBase64?: string }
 type RecordingFile = Record<string, RecordedResponse>;

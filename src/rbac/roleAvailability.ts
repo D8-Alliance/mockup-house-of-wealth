@@ -14,7 +14,8 @@ const entriesFor = (isEnabled: (role: UserRole) => boolean): RoleAvailabilityEnt
  * Static demo builds have no backend, so the Super Admin's switches are kept in this browser only.
  * Only personas with recorded screens can be switched on; the others would have no data to show.
  */
-const DEMO_STORAGE_KEY = 'how-demo-enabled-roles';
+// Versioned: a change to the agreed demo set resets choices saved under an older default.
+const DEMO_STORAGE_KEY = 'how-demo-enabled-roles-v2';
 
 function readDemoEnabledRoles(): UserRole[] {
   try {

@@ -4,12 +4,12 @@ import { useRBAC } from '../../rbac/RBACContext';
 import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
 import { useRoleAvailability } from '../../rbac/roleAvailability';
 import { ROLE_CATEGORIES, UserRole } from '../../rbac/types';
-import { IS_STATIC_DEMO } from '../../services/apiFetch';
+import { IS_STATIC_DEMO, STATIC_DEMO_ROLES } from '../../services/apiFetch';
 
 const CATEGORIES = ROLE_CATEGORIES;
 
-/** The roles shown in the demo: investor, delivery partner (PDP), country admin and super admin. */
-const DEMO_SET: UserRole[] = ['Super Admin', 'Country Admin', 'Project Sponsor', 'Retail Investor'];
+/** The roles agreed for the demo (same list as the static demo build). */
+const DEMO_SET: UserRole[] = STATIC_DEMO_ROLES;
 
 export const RoleAvailabilityPanel: React.FC = () => {
   const { currentRole } = useRBAC();
@@ -59,7 +59,7 @@ export const RoleAvailabilityPanel: React.FC = () => {
           {canEdit && (
             <>
               <button type="button" disabled={!!busy || loading} onClick={() => applyPreset('demo', role => DEMO_SET.includes(role))} className="px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white disabled:opacity-50 cursor-pointer">
-                {busy === 'demo' ? 'Applying...' : 'Demo set (4 roles)'}
+                {busy === 'demo' ? 'Applying...' : `Demo set (${DEMO_SET.length} roles)`}
               </button>
               <button type="button" disabled={!!busy || loading} onClick={() => applyPreset('all', () => true)} className="px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 cursor-pointer">
                 {busy === 'all' ? 'Applying...' : 'Enable all'}

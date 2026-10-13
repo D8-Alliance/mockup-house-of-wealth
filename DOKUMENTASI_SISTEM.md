@@ -70,7 +70,7 @@ curl.exe http://localhost:3001/health             # semak backend
 Untuk menunjuk sistem secara langsung tanpa mendedahkan backend, frontend boleh berjalan dengan data seed yang dirakam (`VITE_DATA_SOURCE=static`, fail [.env.demo](.env.demo)).
 
 - **Cara berfungsi:** semua panggilan API melalui `apiFetch` ([src/services/apiFetch.ts](src/services/apiFetch.ts)). Dalam mod demo, jawapan diambil daripada `public/demo-data/<pengguna>__<peranan>.json`, bukan dari server. Tindakan tulis (hantar, lulus, bayar) memaparkan "Demo mode: this action is not saved"; tiada apa yang disimpan. Label "Demo mode" dipaparkan di sudut skrin.
-- **Persona yang dirakam:** Super Admin, Country Admin, Project Sponsor, Retail Investor, Shariah Reviewer, Legal Officer. Borang log masuk hanya menawarkan persona ini dalam mod demo.
+- **Persona yang dirakam:** Super Admin, Country Admin, Project Sponsor, Asset Owner, Retail Investor, Shariah Reviewer, Legal Officer. Lima yang pertama aktif secara lalai (`STATIC_DEMO_ROLES`); Super Admin boleh menghidupkan Shariah Reviewer dan Legal Officer di Role Availability. Pilihan itu disimpan dalam pelayar sahaja.
 - **Jalankan:** `npm run dev:demo` (local) atau `npm run build:demo` lalu hoskan folder `dist/` sebagai laman statik. Tiada database, Redis, Keycloak atau kunci API diperlukan.
 - **Rakam semula** (selepas data seed atau skrin berubah):
   1. Hidupkan backend dengan data seed (port 3001).
@@ -136,7 +136,7 @@ Super Admin boleh menghidupkan atau mematikan peranan untuk seluruh platform di 
 - tidak boleh digunakan untuk log masuk (backend menolak dengan "Your role is currently disabled on this platform"), diberi kepada pengguna, atau dipilih semasa mendaftar;
 - disembunyikan daripada pemilih peranan, borang log masuk, borang daftar dan modal pemberian peranan.
 
-Rekod pemberian peranan tidak dipadam, jadi menghidupkan semula peranan memulihkan akses. Super Admin dan Guest sentiasa aktif. Data seed menghidupkan set demo sahaja (Super Admin, Country Admin, Project Sponsor, Retail Investor) jika jadual masih kosong. Build demo statik menggunakan `STATIC_DEMO_ROLES` dalam `src/services/apiFetch.ts`.
+Rekod pemberian peranan tidak dipadam, jadi menghidupkan semula peranan memulihkan akses. Super Admin dan Guest sentiasa aktif. Data seed menghidupkan set demo sahaja (Super Admin, Country Admin, Project Sponsor, Asset Owner, Retail Investor) jika jadual masih kosong. Build demo statik menggunakan `STATIC_DEMO_ROLES` dalam `src/services/apiFetch.ts`.
 
 Butang header juga ikut peranan (`src/rbac/menuVisibility.ts`): **PDP Onboarding** untuk pelawat dan peranan penghantar projek/pool/aset sahaja; **Code Review Report** untuk Super Admin dan System Administrator sahaja.
 
