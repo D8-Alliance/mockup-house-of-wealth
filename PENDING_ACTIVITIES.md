@@ -205,6 +205,8 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 **⚠️ Isu undang-undang zakat:** memungut zakat tanpa dilantik sebagai amil atau diberi kuasa oleh Majlis Agama Islam Negeri ialah kesalahan jenayah syariah (contoh: seksyen 16 Akta 559, Wilayah Persekutuan). Rebat cukai zakat (seksyen 6A(3) Akta Cukai Pendapatan) hanya diberi dengan resit asal pusat zakat. Sistem kini hanya mengira dan menghantar pengguna ke portal rasmi.
 
+**Hibah Amanah (ditambah 2026-10-13):** borang benefisiari kini ada pilihan Hibah Amanah dengan akad: penghibah mengesahkan tawaran (ijab), dan status penerimaan penerima (qabul) bermula "Awaiting acceptance". Baki: (a) benefisiari masih disimpan di pelayar sahaja, belum di backend; (b) permintaan qabul belum dihantar kepada penerima, dan penerima belum ada skrin untuk menerima atau menolak; (c) teks akad dan surat ikatan amanah (trust deed) perlu disemak oleh penasihat Shariah dan pemegang amanah yang dilantik.
+
 **Fakta cukai Malaysia yang disahkan (2026-10-06):**
 - Pulangan pembiayaan jenis P2P dikenakan cukai pendapatan; pelabur bukan pemastautin dipotong cukai pegangan 15% oleh operator.
 - Pelaburan ECF layak pengecualian cukai 50% daripada jumlah pelaburan (had RM50,000 setahun, pegangan 2 tahun), hanya untuk tawaran ECF berdaftar dengan SC.

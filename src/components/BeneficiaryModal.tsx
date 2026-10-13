@@ -34,9 +34,10 @@ const RELATIONS = [
   'Other'
 ];
 
-const DISTRIBUTION_TYPES: Array<'Profit Share' | 'Estate / Wasiyyah' | 'Zakat & Sadaqah' | 'All Proceeds'> = [
+const DISTRIBUTION_TYPES: Array<BeneficiaryItem['distributionType']> = [
   'Profit Share',
   'Estate / Wasiyyah',
+  'Hibah Amanah',
   'Zakat & Sadaqah',
   'All Proceeds'
 ];
@@ -68,6 +69,9 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
   const [payoutMethod, setPayoutMethod] = useState(beneficiary?.payoutMethod || PAYOUT_METHODS[0]);
   const [isPrimary, setIsPrimary] = useState(beneficiary?.isPrimary || false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Hibah Amanah: the donor's offer (ijab). Already made when editing an existing hibah.
+  const [ijabConfirmed, setIjabConfirmed] = useState<boolean>(!!beneficiary?.hibahAkad);
+  const isHibah = distributionType === 'Hibah Amanah';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,6 +87,26 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
       return;
     }
 
+    // A hibah is an akad: the recipient must be identified and reachable to give acceptance (qabul),
+    // and the donor must make the offer (ijab) knowingly.
+    if (isHibah) {
+      if (!email.trim()) {
+        setErrorMsg('Hibah Amanah needs the recipient’s email address, so they can accept the hibah (qabul).');
+        return;
+      }
+      if (!identityNumber.trim()) {
+        setErrorMsg('Hibah Amanah needs the recipient’s national ID or passport number.');
+        return;
+      }
+      if (!ijabConfirmed) {
+        setErrorMsg('Please confirm the hibah offer (ijab) to continue.');
+        return;
+      }
+    }
+    const hibahAkad = !isHibah
+      ? undefined
+      : beneficiary?.hibahAkad ?? { ijabDeclaredAt: new Date().toISOString(), qabulStatus: 'Awaiting acceptance' as const };
+
     const savedItem: BeneficiaryItem = {
       id: beneficiary?.id || `BEN-${Math.floor(100 + Math.random() * 900)}`,
       name: name.trim(),
@@ -93,7 +117,8 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
       phone: phone.trim() || undefined,
       identityNumber: identityNumber.trim() || undefined,
       payoutMethod,
-      isPrimary
+      isPrimary,
+      hibahAkad
     };
 
     onSave(savedItem);
@@ -115,7 +140,7 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
                 {isEditing ? 'Edit Beneficiary & Wasiyyah' : 'Add New Beneficiary'}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Define profit distribution, Wasiyyah (will), or Waqf allocation
+                Define profit distribution, Wasiyyah (will), Hibah Amanah, or Waqf allocation
               </p>
             </div>
           </div>
@@ -261,6 +286,38 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
               ))}
             </select>
           </div>
+
+          {/* Hibah Amanah akad: the donor's offer (ijab) here, the recipient's acceptance (qabul) later */}
+          {isHibah && (
+            <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-xs font-black text-slate-900 dark:text-white">Hibah Amanah akad (contract)</span>
+              </div>
+              <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                <li><strong>Offer (ijab):</strong> you, the donor (penghibah), give the share above to the recipient (penerima hibah) voluntarily and without any payment in return.</li>
+                <li><strong>Acceptance (qabul):</strong> the hibah takes effect only after the recipient accepts it. They will be asked to accept using the email address above.</li>
+                <li><strong>Trust (amanah):</strong> the share is held in trust for the recipient, and passes to them on the terms of the hibah trust deed (for example, on the donor&rsquo;s death).</li>
+                <li><strong>Conditions:</strong> the donor is of age and of sound mind, the gifted share is identified, and the recipient is identified by name and ID number.</li>
+              </ol>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">The final akad and trust deed are subject to review by the Shariah adviser and the appointed trustee.</p>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ijabConfirmed}
+                  disabled={!!beneficiary?.hibahAkad}
+                  onChange={e => setIjabConfirmed(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-emerald-600"
+                />
+                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                  I make this offer of hibah (ijab) voluntarily, and I confirm that I am of age and of sound mind.
+                </span>
+              </label>
+              <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                Recipient&rsquo;s acceptance (qabul): {beneficiary?.hibahAkad?.qabulStatus ?? 'Awaiting acceptance'}
+              </p>
+            </div>
+          )}
 
           {/* Primary Beneficiary Toggle */}
           <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700/60">

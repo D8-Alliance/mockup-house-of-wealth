@@ -355,6 +355,14 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
                       <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold px-2.5 py-0.5 rounded-lg border border-emerald-500/20">
                         {ben.distributionType}
                       </span>
+                      {ben.hibahAkad && (
+                        <span
+                          title="A hibah takes effect only after the recipient accepts it (qabul)."
+                          className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg border ${ben.hibahAkad.qabulStatus === 'Accepted' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30'}`}
+                        >
+                          Qabul: {ben.hibahAkad.qabulStatus}
+                        </span>
+                      )}
                     </div>
                   </div>
 

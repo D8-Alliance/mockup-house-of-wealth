@@ -58,12 +58,22 @@ export interface PaymentAccount {
   isShariahApproved: boolean;
 }
 
+export interface HibahAkad {
+  /** When the donor made the offer (ijab), confirming it is voluntary and that they are of age and sound mind. */
+  ijabDeclaredAt: string;
+  /** The recipient's acceptance (qabul). Until 'Accepted', the hibah has no effect. */
+  qabulStatus: 'Awaiting acceptance' | 'Accepted' | 'Declined';
+  qabulAt?: string;
+}
+
 export interface BeneficiaryItem {
   id: string;
   name: string;
   relation: 'Spouse' | 'Child' | 'Parent' | 'Sibling' | 'Waqf Foundation' | 'Zakat Institution' | 'Other';
   allocationPercent: number;
-  distributionType: 'Profit Share' | 'Estate / Wasiyyah' | 'Zakat & Sadaqah' | 'All Proceeds';
+  distributionType: 'Profit Share' | 'Estate / Wasiyyah' | 'Hibah Amanah' | 'Zakat & Sadaqah' | 'All Proceeds';
+  /** Hibah Amanah only: the akad. The donor's offer (ijab) is recorded here; the gift takes effect only after the recipient accepts (qabul). */
+  hibahAkad?: HibahAkad;
   email?: string;
   phone?: string;
   identityNumber?: string;

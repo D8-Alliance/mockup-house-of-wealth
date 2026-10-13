@@ -1,5 +1,6 @@
 import React from 'react';
 import { Globe2, Coins, Users, ShieldCheck, Building2, FileCheck, TrendingUp, Zap, Lock, ChevronRight } from 'lucide-react';
+import { useRBAC } from '../../rbac/RBACContext';
 import { MetricCard } from './MetricCard';
 import { AssetItem, ContractItem, NavTab } from '../../types';
 
@@ -18,6 +19,7 @@ export const ExecutiveDashboardWidgets: React.FC<ExecutiveDashboardWidgetsProps>
   setTab,
   onQuickApprove
 }) => {
+  const { canAccessTab } = useRBAC();
   if (currentRole === 'Super Admin') {
     return (
       <div className="space-y-6">
@@ -71,10 +73,12 @@ export const ExecutiveDashboardWidgets: React.FC<ExecutiveDashboardWidgetsProps>
                 <span>Emergency Protocol (Unavailable)</span>
                 <Lock className="w-4 h-4" />
               </button>
-              <button onClick={() => setTab('ledger')} title="Opens the MVP ledger view with demo data" className="w-full p-3 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 font-bold rounded-xl text-left flex items-center justify-between cursor-pointer">
-                <span>View Audit Ledger (Demo Data)</span>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
-              </button>
+              {canAccessTab('ledger') && (
+                <button onClick={() => setTab('ledger')} title="Opens the MVP ledger view with demo data" className="w-full p-3 bg-slate-100 dark:bg-slate-700/60 hover:bg-slate-200 font-bold rounded-xl text-left flex items-center justify-between cursor-pointer">
+                  <span>View Audit Ledger (Demo Data)</span>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -128,18 +132,24 @@ export const ExecutiveDashboardWidgets: React.FC<ExecutiveDashboardWidgetsProps>
           <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-md space-y-4">
             <h3 className="text-base font-black text-slate-900 dark:text-white">Regional Quick Tools</h3>
             <div className="space-y-2 text-xs">
-              <button onClick={() => setTab('assets')} className="w-full p-3 bg-slate-100 dark:bg-slate-700/60 font-bold rounded-xl text-left flex justify-between cursor-pointer">
-                <span>Manage Regional Assets ({assets.length})</span>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
-              </button>
-              <button onClick={() => setTab('pooling')} className="w-full p-3 bg-slate-100 dark:bg-slate-700/60 font-bold rounded-xl text-left flex justify-between cursor-pointer">
-                <span>National Waqf Pool Overview</span>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
-              </button>
-              <button onClick={() => setTab('ledger')} className="w-full p-3 bg-slate-100 dark:bg-slate-700/60 font-bold rounded-xl text-left flex justify-between cursor-pointer">
-                <span>Inspect Audit Ledger</span>
-                <ChevronRight className="w-4 h-4 text-slate-400" />
-              </button>
+              {canAccessTab('assets') && (
+                <button onClick={() => setTab('assets')} className="w-full p-3 bg-slate-100 dark:bg-slate-700/60 font-bold rounded-xl text-left flex justify-between cursor-pointer">
+                  <span>Manage Regional Assets ({assets.length})</span>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+              )}
+              {canAccessTab('pooling') && (
+                <button onClick={() => setTab('pooling')} className="w-full p-3 bg-slate-100 dark:bg-slate-700/60 font-bold rounded-xl text-left flex justify-between cursor-pointer">
+                  <span>National Waqf Pool Overview</span>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+              )}
+              {canAccessTab('ledger') && (
+                <button onClick={() => setTab('ledger')} className="w-full p-3 bg-slate-100 dark:bg-slate-700/60 font-bold rounded-xl text-left flex justify-between cursor-pointer">
+                  <span>Inspect Audit Ledger</span>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+              )}
             </div>
           </div>
         </div>
