@@ -5,6 +5,7 @@ import { Transform } from 'class-transformer';
 import { IsEmail, IsIn, IsString, MaxLength, MinLength, NotContains } from 'class-validator';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { RoleAvailabilityService } from '../roles/role-availability.service';
 
 /**
  * Roles a member of the public may give themselves when signing up. Staff roles
@@ -33,11 +34,14 @@ export class DemoRegisterDto {
  */
 @Injectable()
 export class DemoRegistrationService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly roleAvailability: RoleAvailabilityService) {}
 
   async register(input: DemoRegisterDto) {
     if (process.env.AUTH_MODE !== 'mock') {
       throw new ForbiddenException('Self-registration here is only available in demo mode. Use the identity provider sign-up.');
+    }
+    if (!(await this.roleAvailability.isEnabled(input.role))) {
+      throw new ForbiddenException(`Sign-up as "${input.role}" is not open at the moment. Choose another role.`);
     }
     const email = input.email.trim().toLowerCase();
     const country = await this.prisma.countryNode.findUnique({ where: { code: input.countryNodeId } });

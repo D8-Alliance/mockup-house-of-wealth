@@ -6,6 +6,8 @@ import { UserRole } from '../policy/permissions';
 import { PolicyService } from '../policy/policy.service';
 import { PrismaService } from '../prisma.service';
 
+import { RoleAvailabilityService } from '../roles/role-availability.service';
+
 jest.mock('../prisma.service', () => ({ PrismaService: class {} }));
 jest.mock('../audit/audit.service', () => ({ AuditService: class {} }));
 
@@ -40,11 +42,14 @@ function actor(role: UserRole, countryNodeId = 'CN-MYS', organisationId = 'ORG-A
   };
 }
 
+const roleAvailabilityStub = { disabledRoles: jest.fn(async () => new Set<string>()), isEnabled: jest.fn(async () => true) };
+
 describe('UsersService role assignment', () => {
   const service = new UsersService(
     prismaMock as unknown as PrismaService,
     auditMock as unknown as AuditService,
     policy,
+    roleAvailabilityStub as unknown as RoleAvailabilityService,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -60,6 +65,11 @@ describe('UsersService role assignment', () => {
     // A Country Admin giving themselves Shariah Committee could approve a project alone.
     await expect(service.assignRole('USR-ADMIN', 'Shariah Committee', 'ORG-A', 'CN-MYS', actor('Country Admin'))).rejects.toThrow('You cannot change your own roles');
     await expect(service.assignRole('USR-ADMIN', 'Finance Officer', 'ORG-A', 'CN-MYS', actor('Super Admin'))).rejects.toThrow('You cannot change your own roles');
+  });
+
+  it('refuses to assign a role that is disabled on the platform', async () => {
+    roleAvailabilityStub.isEnabled.mockResolvedValueOnce(false);
+    await expect(service.assignRole('USR-TARGET', 'Legal Officer', 'ORG-A', 'CN-MYS', actor('Super Admin'))).rejects.toThrow('is disabled on this platform');
     await expect(service.revokeRole('USR-ADMIN', 'Auditor', 'ORG-A', 'CN-MYS', actor('Country Admin'))).rejects.toThrow('You cannot change your own roles');
     await expect(service.updateStatus('USR-ADMIN', 'ACTIVE', actor('Super Admin'))).rejects.toThrow('your own account');
     expect(prismaMock.userRoleAssignment.create).not.toHaveBeenCalled();

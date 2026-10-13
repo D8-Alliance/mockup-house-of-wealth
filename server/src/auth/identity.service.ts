@@ -3,6 +3,7 @@ import { createPublicKey, createHmac, createVerify, KeyObject, timingSafeEqual, 
 import { PRIVILEGED_ROLES, UserRole } from '../policy/permissions';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
+import { RoleAvailabilityService } from '../roles/role-availability.service';
 
 export interface AuthenticatedUser {
   userId: string;
@@ -57,7 +58,7 @@ export function assertAuthConfig(env: NodeJS.ProcessEnv = process.env): void {
 export class IdentityService {
   private readonly logger = new Logger(IdentityService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly roleAvailability: RoleAvailabilityService) {}
 
   public async verifyToken(token: string): Promise<AuthenticatedUser> {
     if (!token) {
@@ -134,9 +135,11 @@ export class IdentityService {
     if (validAssignments.length !== user.roleAssignments.length) {
       throw new UnauthorizedException('Organisation or country node is inactive or mismatched');
     }
-    const assignedRoles = validAssignments.map((assignment) => this.fromPrismaRole(assignment.role));
+    // Roles a Super Admin has switched off platform-wide are ignored until switched back on.
+    const disabled = await this.roleAvailability.disabledRoles();
+    const assignedRoles = validAssignments.map((assignment) => this.fromPrismaRole(assignment.role)).filter((role) => !disabled.has(role));
     if (assignedRoles.length === 0) {
-      throw new UnauthorizedException('User has no active role in this organisation and country');
+      throw new UnauthorizedException(validAssignments.length ? 'Your role is currently disabled on this platform' : 'User has no active role in this organisation and country');
     }
 
     const activeRole = preferredRole && assignedRoles.includes(preferredRole) ? preferredRole : assignedRoles[0];

@@ -21,6 +21,7 @@ import { PdpModule } from './pdp/pdp.module';
 import { ContractsModule } from './contracts/contracts.module';
 import { ShariahModule } from './shariah/shariah.module';
 import { FeatureModuleModule } from './modules/feature-module.module';
+import { RoleAvailabilityModule } from './roles/role-availability.module';
 import { AiModule } from './ai/ai.module';
 import { ContractIntelligenceModule } from './contract-intelligence/contract-intelligence.module';
 import { KycModule } from './kyc/kyc.module';
@@ -52,6 +53,7 @@ import { JobsModule } from './jobs/jobs.module';
     ContractsModule,
     ShariahModule,
     FeatureModuleModule,
+    RoleAvailabilityModule,
     AiModule,
     ContractIntelligenceModule,
     KycModule,

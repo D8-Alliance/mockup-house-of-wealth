@@ -131,6 +131,15 @@ Contoh kebenaran:
 ### 4.5 Modul ciri
 Admin boleh menghidupkan atau mematikan modul (`GET/PATCH /admin/modules`): `ASSET_REGISTRATION`, `WEALTH_POOLING`, `SHARIAH_GOVERNANCE`, `AI_INTELLIGENCE`, `CONTRACTS`, `DOCUMENT_VAULT`, `FINANCIAL_LEDGER`, `SECONDARY_MARKET`, `KYC_VERIFICATION`, `KYB_VERIFICATION`. Mod: `ACTIVE`, `MANUAL_REVIEW` atau `DISABLED`. Endpoint modul yang dimatikan ditolak oleh `FeatureModuleGuard`.
 
+### 4.6 Peranan aktif (Role Availability)
+Super Admin boleh menghidupkan atau mematikan peranan untuk seluruh platform di **Admin Center → Role Availability** (`GET /roles/availability` awam, `PATCH /admin/roles/:role/availability` Super Admin sahaja). Peranan yang dimatikan:
+- tidak boleh digunakan untuk log masuk (backend menolak dengan "Your role is currently disabled on this platform"), diberi kepada pengguna, atau dipilih semasa mendaftar;
+- disembunyikan daripada pemilih peranan, borang log masuk, borang daftar dan modal pemberian peranan.
+
+Rekod pemberian peranan tidak dipadam, jadi menghidupkan semula peranan memulihkan akses. Super Admin dan Guest sentiasa aktif. Data seed menghidupkan set demo sahaja (Super Admin, Country Admin, Project Sponsor, Retail Investor) jika jadual masih kosong. Build demo statik menggunakan `STATIC_DEMO_ROLES` dalam `src/services/apiFetch.ts`.
+
+Butang header juga ikut peranan (`src/rbac/menuVisibility.ts`): **PDP Onboarding** untuk pelawat dan peranan penghantar projek/pool/aset sahaja; **Code Review Report** untuk Super Admin dan System Administrator sahaja.
+
 ---
 
 ## 5. Modul fungsi

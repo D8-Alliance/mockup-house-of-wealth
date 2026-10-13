@@ -11,8 +11,8 @@ import { UserRole } from '../rbac/types';
 export const DATA_SOURCE: 'live' | 'static' = import.meta.env.VITE_DATA_SOURCE === 'static' ? 'static' : 'live';
 export const IS_STATIC_DEMO = DATA_SOURCE === 'static';
 
-/** Personas whose screens were recorded; the sign-in form offers only these in static mode. */
-export const STATIC_DEMO_ROLES: UserRole[] = ['Super Admin', 'Country Admin', 'Project Sponsor', 'Retail Investor', 'Shariah Reviewer', 'Legal Officer'];
+/** Personas offered in static mode (investor, delivery partner, country admin, super admin). Shariah Reviewer and Legal Officer recordings also exist and can be added back here. */
+export const STATIC_DEMO_ROLES: UserRole[] = ['Super Admin', 'Country Admin', 'Project Sponsor', 'Retail Investor'];
 
 interface RecordedResponse { status: number; contentType: string; contentDisposition?: string; body?: string; bodyBase64?: string }
 type RecordingFile = Record<string, RecordedResponse>;

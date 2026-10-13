@@ -5,6 +5,8 @@ import { DemoRegisterDto, DemoRegistrationService } from './demo-registration.se
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 
+import { RoleAvailabilityService } from '../roles/role-availability.service';
+
 jest.mock('../prisma.service', () => ({ PrismaService: class {} }));
 jest.mock('../audit/audit.service', () => ({ AuditService: class {} }));
 
@@ -21,8 +23,10 @@ const prisma = {
 const audit = { record: jest.fn().mockResolvedValue(undefined) };
 const input = { name: 'Aminah Yusof', email: 'Aminah@Example.com', organisation: 'Aminah Holdings', countryNodeId: 'CN-MYS', role: 'Retail Investor' as const };
 
+const roleAvailabilityStub = { disabledRoles: jest.fn(async () => new Set<string>()), isEnabled: jest.fn(async () => true) };
+
 describe('DemoRegistrationService', () => {
-  const service = new DemoRegistrationService(prisma as unknown as PrismaService, audit as unknown as AuditService);
+  const service = new DemoRegistrationService(prisma as unknown as PrismaService, audit as unknown as AuditService, roleAvailabilityStub as unknown as RoleAvailabilityService);
   const originalMode = process.env.AUTH_MODE;
 
   beforeEach(() => {
@@ -40,6 +44,12 @@ describe('DemoRegistrationService', () => {
     expect(result.organisationId).toMatch(/^ORG-REG-/);
     expect(result.email).toBe('aminah@example.com');
     expect(tx.userRoleAssignment.create).toHaveBeenCalledWith({ data: expect.objectContaining({ role: 'Retail_Investor', organisationId: result.organisationId, countryNodeId: 'CN-MYS' }) });
+  });
+
+  it('refuses sign-up with a role that is disabled on the platform', async () => {
+    roleAvailabilityStub.isEnabled.mockResolvedValueOnce(false);
+    await expect(service.register(input)).rejects.toThrow('is not open at the moment');
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
   });
 
   it('is refused outside demo mode, where Keycloak handles sign-up', async () => {

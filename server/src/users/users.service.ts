@@ -10,6 +10,7 @@ const SUPER_ADMIN_GRANTED_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Cou
 import { PolicyService } from '../policy/policy.service';
 import { normalizePhone } from '../tenancy/country-phone';
 import { tenantScopeFilter } from '../tenancy/tenant-scope';
+import { RoleAvailabilityService } from '../roles/role-availability.service';
 
 @Injectable()
 export class UsersService {
@@ -17,6 +18,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly policy: PolicyService,
+    private readonly roleAvailability: RoleAvailabilityService,
   ) {}
 
   async getCurrentUser(actor: AuthenticatedUser) {
@@ -126,6 +128,10 @@ export class UsersService {
     // Escalation guard: privileged roles, and Country Admin itself, can only be granted by a Super Admin.
     if ((PRIVILEGED_ROLES.has(role) || SUPER_ADMIN_GRANTED_ROLES.has(role)) && actor.role !== 'Super Admin') {
       throw new ForbiddenException(`Only Super Admin can assign the role "${role}"`);
+    }
+
+    if (!(await this.roleAvailability.isEnabled(role))) {
+      throw new BadRequestException(`The role "${role}" is disabled on this platform. A Super Admin can enable it under Role Availability.`);
     }
 
     // Tenant check: Country Admin can only assign roles in their own country node

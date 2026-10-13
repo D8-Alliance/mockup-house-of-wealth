@@ -260,6 +260,11 @@ export const apiClient = {
     method: 'POST',
     body: JSON.stringify(input),
   }),
+  getRoleAvailability: () => request<RoleAvailabilityEntry[]>('/roles/availability'),
+  updateRoleAvailability: (role: string, enabled: boolean) => request<RoleAvailabilityEntry>(`/admin/roles/${encodeURIComponent(role)}/availability`, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled }),
+  }),
   getFeatureModules: () => request<FeatureModule[]>('/admin/modules'),
   updateFeatureModule: (moduleKey: string, mode: FeatureModuleMode) => request<FeatureModule>(`/admin/modules/${moduleKey}`, {
     method: 'PATCH',
@@ -595,6 +600,13 @@ export interface ShariahNotification {
   resourceId?: string | null;
   readAt?: string | null;
   createdAt: string;
+}
+
+/** A platform-wide role switch. Locked roles (Super Admin, Guest) cannot be disabled. */
+export interface RoleAvailabilityEntry {
+  role: string;
+  enabled: boolean;
+  locked: boolean;
 }
 
 export interface FeatureModule {

@@ -13,6 +13,9 @@ import {
 
 const prisma = new PrismaClient();
 
+/** Roles switched on by default for the demo; Super Admin can change this later in Admin Center. */
+const DEMO_ENABLED_ROLES: UserRole[] = ['Super_Admin', 'Country_Admin', 'Project_Sponsor', 'Retail_Investor'];
+
 type OrganisationSeed = (typeof INITIAL_ORGANISATIONS)[number];
 type UserSeed = (typeof INITIAL_APP_USERS)[number];
 type ProjectSeed = (typeof INITIAL_PROJECTS)[number];
@@ -642,6 +645,16 @@ async function seed(): Promise<void> {
       auditEventCount += 1;
     }
   });
+
+  // Demo default: only the roles shown in the demo are switched on (investor, delivery partner,
+  // country admin, super admin). Applied once, so a Super Admin's later choices survive a re-seed.
+  if ((await prisma.roleAvailability.count()) === 0) {
+    const demoRoles = new Set<UserRole>(DEMO_ENABLED_ROLES);
+    await prisma.roleAvailability.createMany({
+      data: Object.values(UserRole).filter((role) => role !== 'Guest').map((role) => ({ role, enabled: demoRoles.has(role), updatedBy: 'SEED' })),
+    });
+    console.log(`Role availability: ${DEMO_ENABLED_ROLES.length} demo roles enabled, others disabled (change under Admin Center > Role Availability).`);
+  }
 
   console.log(`Imported ${INITIAL_COUNTRY_NODES.length} country nodes.`);
   console.log(`Imported ${INITIAL_ORGANISATIONS.length} declared organisations plus referenced placeholders.`);

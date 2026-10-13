@@ -3,6 +3,7 @@ import { Building2, ChevronDown, Globe2, Mail, User as UserIcon, Lock, ShieldChe
 import { UserRole } from '../../rbac/types';
 import { AuthMode } from '../types/authTypes';
 import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
+import { useRoleAvailability } from '../../rbac/roleAvailability';
 import { INITIAL_COUNTRY_NODES } from '../../countryNodes/mockCountryNodes';
 import { authService } from '../../auth/services/authService';
 import { RegisterCredentials } from '../../auth/types/authTypes';
@@ -43,6 +44,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   });
   const [countryNodeId, setCountryNodeId] = useState<string>('CN-MYS');
   const [selectedRole, setSelectedRole] = useState<UserRole>('Retail Investor');
+  // Only roles a Super Admin has left enabled can be chosen at sign-up.
+  const { filterEnabled } = useRoleAvailability();
+  const registrableRoles = filterEnabled(REGISTRABLE_ROLES);
   const [agree, setAgree] = useState(true);
 
   const countries = INITIAL_COUNTRY_NODES;
@@ -224,7 +228,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             onChange={(e) => setSelectedRole(e.target.value as UserRole)}
             className="w-full pl-9 pr-8 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none appearance-none cursor-pointer"
           >
-            {REGISTRABLE_ROLES.map((r) => (
+            {registrableRoles.map((r) => (
               <option key={r} value={r}>
                 {r} {ROLE_DEFINITIONS[r]?.category ? `(${ROLE_DEFINITIONS[r].category})` : ''}
               </option>

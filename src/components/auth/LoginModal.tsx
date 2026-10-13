@@ -4,6 +4,8 @@ import { WealthPoolingLogo } from '../WealthPoolingLogo';
 import { X, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useRBAC } from '../../rbac/RBACContext';
 import { UserRole } from '../../rbac/types';
+import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
+import { useRoleAvailability } from '../../rbac/roleAvailability';
 import { authService } from '../../auth/services/authService';
 
 import { LoginForm } from '../../auth/components/LoginForm';
@@ -19,6 +21,7 @@ interface LoginModalProps {
 
 export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSuccessLogin }) => {
   const { currentRole, authMode, loginUser } = useRBAC();
+  const { filterEnabled } = useRoleAvailability();
 
   const [mode, setMode] = useState<'login' | 'register' | 'mfa' | 'forgot'>('login');
   const [email, setEmail] = useState('ahmad.razak@felda.gov.my');
@@ -225,7 +228,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                 onLoginSubmit={handleSubmitLogin}
                 onForgotPasswordClick={() => setMode('forgot')}
                 authMode={authMode}
-                availableRoles={IS_STATIC_DEMO ? STATIC_DEMO_ROLES : undefined}
+                availableRoles={filterEnabled(IS_STATIC_DEMO ? STATIC_DEMO_ROLES : (Object.keys(ROLE_DEFINITIONS) as UserRole[]))}
               />
               <p className="text-center text-[11px] text-slate-500 dark:text-slate-400">
                 New to Wealth Pooling?{' '}

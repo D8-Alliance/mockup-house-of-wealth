@@ -3,6 +3,8 @@ import { createHmac } from 'node:crypto';
 import { allowedJwtAlgorithms, assertAuthConfig, IdentityService } from './identity.service';
 import { PrismaService } from '../prisma.service';
 
+import { RoleAvailabilityService } from '../roles/role-availability.service';
+
 jest.mock('../prisma.service', () => ({
   PrismaService: class {},
 }));
@@ -11,12 +13,14 @@ const prismaMock = {
   user: { findFirst: jest.fn() },
 };
 
+const roleAvailabilityStub = { disabledRoles: jest.fn(async () => new Set<string>()), isEnabled: jest.fn(async () => true) };
+
 function tokenForMockHeader(header: Record<string, unknown>): string {
   return `${Buffer.from(JSON.stringify(header)).toString('base64url')}.payload.sig`;
 }
 
 describe('IdentityService role extraction', () => {
-  const service = new IdentityService(prismaMock as unknown as PrismaService);
+  const service = new IdentityService(prismaMock as unknown as PrismaService, roleAvailabilityStub as unknown as RoleAvailabilityService);
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -42,6 +46,18 @@ describe('IdentityService role extraction', () => {
     expect(user.role).toBe('Country Admin');
     expect(user.assignedRoles).toEqual(['Country Admin', 'Institutional Investor']);
     expect(user.email).toBe('ahmad.admin@wealthpooling.my');
+  });
+
+  it('ignores roles a Super Admin has disabled, and refuses sign-in when no enabled role is left', async () => {
+    const assignment = (role: string) => ({ role, assignedAt: new Date(), organisation: { id: 'ORG-PUBLIC', countryNodeId: 'CN-MYS', status: 'ACTIVE' }, countryNode: { code: 'CN-MYS', status: 'ACTIVE' } });
+    prismaMock.user.findFirst.mockResolvedValue({ id: 'USR-A', idpSubjectId: 'USR-A', email: 'a@example.test', name: 'A', isActive: true, roleAssignments: [assignment('Shariah_Reviewer'), assignment('Retail_Investor')] });
+    roleAvailabilityStub.disabledRoles.mockResolvedValueOnce(new Set(['Shariah Reviewer']));
+    const user = await service.verifyToken(tokenForMockHeader({ mock: 'A', role: 'Shariah Reviewer' }));
+    expect(user.role).toBe('Retail Investor');
+    expect(user.assignedRoles).toEqual(['Retail Investor']);
+
+    roleAvailabilityStub.disabledRoles.mockResolvedValueOnce(new Set(['Shariah Reviewer', 'Retail Investor']));
+    await expect(service.verifyToken(tokenForMockHeader({ mock: 'A' }))).rejects.toThrow('Your role is currently disabled on this platform');
   });
 
   it('rejects a user with no active role assignments instead of defaulting to a role', async () => {
@@ -89,7 +105,7 @@ describe('IdentityService role extraction', () => {
 });
 
 describe('production sign-in restrictions', () => {
-  const service = new IdentityService(prismaMock as unknown as PrismaService);
+  const service = new IdentityService(prismaMock as unknown as PrismaService, roleAvailabilityStub as unknown as RoleAvailabilityService);
   const saved = { ...process.env };
   const b64 = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
   const hs256Token = (header: object) => {

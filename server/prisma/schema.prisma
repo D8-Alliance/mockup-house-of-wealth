@@ -1848,3 +1848,14 @@ model ZakatNisabRate {
 
   @@index([authorityCode, effectiveFrom])
 }
+
+// Platform-wide role switches, set by Super Admin. A disabled role cannot sign in, be
+// assigned or be chosen at sign-up; existing assignments are kept, so enabling the role
+// again restores access. A role without a row is enabled.
+model RoleAvailability {
+  role      UserRole @id
+  enabled   Boolean  @default(true)
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
