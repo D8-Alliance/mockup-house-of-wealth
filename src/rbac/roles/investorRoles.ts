@@ -7,11 +7,11 @@ export const INVESTOR_ROLES: Record<string, RoleDefinition> = {
     category: 'Participant & User',
     description: 'Participates in fractionalized Sukuk, Mudarabah contracts, Waqf pools, micro-investments, and automated Zakat calculations.',
     badgeColor: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30',
-    accessibleTabs: ['dashboard', 'ai-engine', 'marketplace', 'pooling', 'investments', 'wallet', 'financials', 'beneficiaries', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'marketplace', 'pooling', 'investments', 'wallet', 'financials', 'beneficiaries', 'documents', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['read'],
-      contracts: ['read', 'create', 'export'],
+      contracts: ['read', 'export'],
       marketplace: ['read', 'create'],
       pooling: ['read', 'create'],
       ledger: ['read', 'export'],

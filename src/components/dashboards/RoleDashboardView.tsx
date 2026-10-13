@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useRBAC } from '../../rbac/RBACContext';
+import { canSeePdpOnboarding } from '../../rbac/menuVisibility';
 import { UserProfile, AssetItem, ContractItem, LanguageCode, NavTab } from '../../types';
 import { 
   Building2, 
@@ -38,6 +39,8 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
   onOpenPdpRegister
 }) => {
   const { currentRole, roleDef, checkPermission } = useRBAC();
+  // PDP onboarding is offered only to visitors and the roles that deliver projects, pools or assets.
+  const showPdpOnboarding = !!onOpenPdpRegister && canSeePdpOnboarding(currentRole);
   const [approvalActionDone, setApprovalActionDone] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
@@ -79,7 +82,7 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
 
           {/* Role Quick Actions */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {onOpenPdpRegister && (
+            {showPdpOnboarding && (
               <button
                 type="button"
                 onClick={onOpenPdpRegister}
@@ -127,7 +130,7 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
       </div>
 
       {/* PDP Onboarding Opportunity Banner */}
-      {onOpenPdpRegister && (
+      {showPdpOnboarding && (
         <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-900/40 via-purple-950/20 to-slate-900/60 border border-purple-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
           <div className="space-y-1">
             <div className="flex items-center gap-2">

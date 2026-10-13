@@ -31,6 +31,7 @@ import {
 import { NavTab, LanguageCode, UserProfile } from '../types';
 import { LANGUAGES, TRANSLATIONS } from '../data/translations';
 import { useRBAC } from '../rbac/RBACContext';
+import { canSeeCodeReview, canSeePdpOnboarding } from '../rbac/menuVisibility';
 import { LogIn, LogOut } from 'lucide-react';
 import { NavLinks } from './navbar/NavLinks';
 
@@ -105,7 +106,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Right Controls */}
           <div className="flex min-w-0 shrink-0 items-center gap-2.5">
             
-            {/* PDP Register Quick Button */}
+            {/* PDP Register Quick Button: visitors and delivery-partner roles only */}
+            {canSeePdpOnboarding(currentRole) && (
             <button
               onClick={onOpenPdpRegister}
               className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-500 text-white shadow-sm shadow-purple-500/20 transition-all cursor-pointer shrink-0"
@@ -114,8 +116,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Building2 className="w-3.5 h-3.5" />
               <span className="hidden md:inline">PDP Onboarding</span>
             </button>
+            )}
 
-            {/* Code Review Button */}
+            {/* Code Review Button: internal report for platform administrators */}
+            {canSeeCodeReview(currentRole) && (
               <button
                 onClick={onOpenCodeReview}
                 className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition-all cursor-pointer shrink-0"
@@ -124,6 +128,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Code2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span className="hidden sm:inline">{t.codeReview}</span>
             </button>
+            )}
 
             {/* Language Switcher */}
             <div className="relative hidden lg:block">
