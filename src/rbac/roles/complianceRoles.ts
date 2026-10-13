@@ -7,7 +7,7 @@ export const COMPLIANCE_ROLES: Record<string, RoleDefinition> = {
     category: 'Governance & Risk',
     description: 'Monitors anti-money laundering (AML), sanctions list checking, KYC verification levels, and regulatory reporting.',
     badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30',
-    accessibleTabs: ['dashboard', 'ai-engine', 'admin-center', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'wallet', 'financials', 'beneficiaries', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'admin-center', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'wallet', 'financials', 'documents', 'ledger', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['read', 'audit'],

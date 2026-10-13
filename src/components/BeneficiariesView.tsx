@@ -22,6 +22,7 @@ import {
 import { BeneficiaryItem, LanguageCode } from '../types';
 import { BeneficiaryModal } from './BeneficiaryModal';
 import { TRANSLATIONS } from '../data/translations';
+import { hasOwnerSetShare, useEstateFramework, wasiyyahTotal, willTotal, WASIYYAH_LIMIT_PCT } from '../beneficiaries/estateRules';
 
 interface BeneficiariesViewProps {
   beneficiaries: BeneficiaryItem[];
@@ -40,6 +41,7 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
   const [filterRelation, setFilterRelation] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [framework, setFramework] = useEstateFramework();
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -77,7 +79,10 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
     }
   };
 
-  const totalAllocation = beneficiaries.reduce((acc, b) => acc + (b.allocationPercent || 0), 0);
+  const isIslamic = framework === 'Islamic';
+  const usedPct = isIslamic ? wasiyyahTotal(beneficiaries) : willTotal(beneficiaries);
+  const limitPct = isIslamic ? WASIYYAH_LIMIT_PCT : 100;
+  const shareLabel = (b: BeneficiaryItem) => (hasOwnerSetShare(b.distributionType) ? `${b.allocationPercent}%` : 'By faraid');
   const primaryBeneficiary = beneficiaries.find(b => b.isPrimary);
   const waqfTotal = beneficiaries
     .filter(b => b.relation === 'Waqf Foundation' || b.distributionType === 'Zakat & Sadaqah')
@@ -114,15 +119,21 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
             <span className="px-3 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
               Shariah Estate & Wealth Preservation
             </span>
-            <span className="text-xs font-mono text-slate-400">AAOIFI Shariah Standard No. 33</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-1 flex items-center gap-2.5">
             <HeartHandshake className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-            <span>Beneficiaries & Wasiyyah Distributions</span>
+            <span>Beneficiaries & Estate Instructions</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
-            Configure automated profit-share distributions, legal estate allocation (Wasiyyah), and perpetual Waqf endowment trusts across D-8 member jurisdictions.
+            Tell the platform how your investments and assets pass on if you die, and who receives profit payouts while you live. Final distribution follows the Syariah court&rsquo;s faraid certificate, or the grant of probate or letters of administration.
           </p>
+          <div className="mt-3 inline-flex rounded-xl border border-slate-200 dark:border-slate-700 p-1 bg-white dark:bg-slate-800 text-xs font-bold" role="group" aria-label="Estate framework">
+            {(['Islamic', 'Civil'] as const).map(option => (
+              <button key={option} type="button" onClick={() => setFramework(option)} aria-pressed={framework === option} className={`px-3 py-1.5 rounded-lg ${framework === option ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
+                {option === 'Islamic' ? 'Islamic: faraid, hibah, wasiyyah' : 'Civil: will (non-Muslim)'}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
@@ -157,27 +168,27 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
 
         <div className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-slate-400 text-xs font-extrabold uppercase">
-            <span>Total Allocation</span>
+            <span>{isIslamic ? 'Wasiyyah used' : 'Will allocation'}</span>
             <Percent className="w-4 h-4 text-blue-500" />
           </div>
           <div className="flex items-baseline justify-between">
             <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
-              {totalAllocation}%
+              {Number(usedPct.toFixed(2))}%
             </p>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-              totalAllocation === 100 
+              usedPct <= limitPct + 0.001
                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
             }`}>
-              {totalAllocation === 100 ? '100% Fully Allocated' : `${100 - totalAllocation}% Remaining`}
+              {isIslamic ? 'of 33.33% limit' : 'of 100%'}
             </span>
           </div>
           <div className="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
             <div 
               className={`h-full rounded-full transition-all duration-500 ${
-                totalAllocation === 100 ? 'bg-emerald-500' : totalAllocation > 100 ? 'bg-rose-500' : 'bg-blue-500'
+                usedPct > limitPct + 0.001 ? 'bg-rose-500' : 'bg-emerald-500'
               }`}
-              style={{ width: `${Math.min(totalAllocation, 100)}%` }}
+              style={{ width: `${Math.min((usedPct / limitPct) * 100, 100)}%` }}
             />
           </div>
         </div>
@@ -191,7 +202,7 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
             {primaryBeneficiary?.name || 'None Designated'}
           </p>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-            {primaryBeneficiary ? `${primaryBeneficiary.relation} • ${primaryBeneficiary.allocationPercent}%` : 'Select a primary heir'}
+            {primaryBeneficiary ? `${primaryBeneficiary.relation} • ${shareLabel(primaryBeneficiary)}` : 'Select a primary recipient'}
           </p>
         </div>
 
@@ -218,23 +229,25 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-300">
-                Wasiyyah Rule
+                {isIslamic ? 'Faraid & Wasiyyah' : 'Will'}
               </span>
-              <span className="text-xs text-slate-300 font-mono">1/3 Maximum Limit</span>
+              <span className="text-xs text-slate-300 font-mono">{isIslamic ? 'Wasiyyah: 1/3 maximum, not to heirs' : 'Wills Act 1959'}</span>
             </div>
             <h4 className="text-sm font-black text-white">
-              Islamic Inheritance & Bequest Standards
+              {isIslamic ? 'How a Muslim estate passes on' : 'How a non-Muslim estate passes on'}
             </h4>
             <p className="text-xs text-slate-300 max-w-3xl leading-relaxed">
-              Under AAOIFI and unified D-8 Shariah estate principles, non-Quranic heirs and charitable Waqf bequests (Wasiyyah) are capped at maximum <strong>one-third (33.33%)</strong> of total estate value, with the remaining balance distributed according to statutory Faraid inheritance quotas.
+              {isIslamic
+                ? <>The estate is divided among the heirs by <strong>faraid</strong>. A bequest (<strong>wasiyyah</strong>) is limited to <strong>one-third</strong> and cannot go to a faraid heir unless the other heirs agree. To give an heir more, use <strong>Hibah Amanah</strong> during your lifetime.</>
+                : <>Your will names who receives your estate and in what shares. Without a valid will, the estate passes under the Distribution Act 1958.</>}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <span className="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-[11px] font-bold text-emerald-400 flex items-center gap-1.5">
+          <span className="px-3 py-1.5 rounded-xl bg-slate-800/80 border border-slate-700 text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-emerald-400" />
-            <span>Dual-Jurisdiction Certified</span>
+            <span>Guidance only: confirm with a Shariah adviser or lawyer</span>
           </span>
         </div>
       </div>
@@ -370,20 +383,20 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
                   <div className="text-right shrink-0 bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded-2xl border border-slate-100 dark:border-slate-700/60">
                     <span className="text-[10px] font-bold text-slate-400 uppercase block">Share</span>
                     <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
-                      {ben.allocationPercent}%
+                      {shareLabel(ben)}
                     </span>
                   </div>
                 </div>
 
-                {/* Progress Bar */}
-                <div className="space-y-1">
+                {/* Progress Bar (none for a faraid heir, whose share is fixed by law) */}
+                {hasOwnerSetShare(ben.distributionType) && <div className="space-y-1">
                   <div className="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
                     <div 
                       className="bg-emerald-500 h-full rounded-full transition-all duration-500"
                       style={{ width: `${Math.min(ben.allocationPercent, 100)}%` }}
                     />
                   </div>
-                </div>
+                </div>}
 
                 {/* Identity & Coordinates */}
                 <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-700/60 text-xs">
@@ -476,6 +489,8 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
             setEditingBeneficiary(null);
           }}
           onSave={handleSave}
+          framework={framework}
+          others={beneficiaries.filter(b => b.id !== editingBeneficiary?.id)}
         />
       )}
     </div>

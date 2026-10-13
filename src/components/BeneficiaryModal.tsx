@@ -17,11 +17,16 @@ import {
 import { BeneficiaryItem } from '../types';
 import { authService } from '../auth/services/authService';
 import { phoneFormatFor } from '../countryNodes/countryPhone';
+import { EstateFramework, estateRuleError, hasOwnerSetShare, TYPES_BY_FRAMEWORK } from '../beneficiaries/estateRules';
 
 interface BeneficiaryModalProps {
   beneficiary: BeneficiaryItem | null; // null for Create
   onClose: () => void;
   onSave: (item: BeneficiaryItem) => void;
+  /** Islamic (faraid, hibah, wasiyyah) or civil (will); decides which purposes are offered. */
+  framework: EstateFramework;
+  /** The owner's other beneficiaries, for the one-third wasiyyah limit. */
+  others: BeneficiaryItem[];
 }
 
 const RELATIONS = [
@@ -32,14 +37,6 @@ const RELATIONS = [
   'Waqf Foundation',
   'Zakat Institution',
   'Other'
-];
-
-const DISTRIBUTION_TYPES: Array<BeneficiaryItem['distributionType']> = [
-  'Profit Share',
-  'Estate / Wasiyyah',
-  'Hibah Amanah',
-  'Zakat & Sadaqah',
-  'All Proceeds'
 ];
 
 const PAYOUT_METHODS = [
@@ -55,14 +52,18 @@ const PAYOUT_METHODS = [
 export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
   beneficiary,
   onClose,
-  onSave
+  onSave,
+  framework,
+  others
 }) => {
   const isEditing = !!beneficiary;
 
   const [name, setName] = useState(beneficiary?.name || '');
   const [relation, setRelation] = useState<BeneficiaryItem['relation']>(beneficiary?.relation || 'Spouse');
   const [allocationPercent, setAllocationPercent] = useState<number>(beneficiary?.allocationPercent ?? 25);
-  const [distributionType, setDistributionType] = useState<BeneficiaryItem['distributionType']>(beneficiary?.distributionType || 'Profit Share');
+  const [distributionType, setDistributionType] = useState<BeneficiaryItem['distributionType']>(beneficiary?.distributionType || TYPES_BY_FRAMEWORK[framework][0]);
+  const distributionTypes = TYPES_BY_FRAMEWORK[framework];
+  const ownerSetsShare = hasOwnerSetShare(distributionType);
   const [email, setEmail] = useState(beneficiary?.email || '');
   const [phone, setPhone] = useState(beneficiary?.phone || '');
   const [identityNumber, setIdentityNumber] = useState(beneficiary?.identityNumber || '');
@@ -82,8 +83,15 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
       return;
     }
 
-    if (allocationPercent <= 0 || allocationPercent > 100) {
+    if (ownerSetsShare && (allocationPercent <= 0 || allocationPercent > 100)) {
       setErrorMsg('Allocation percentage must be between 1% and 100%.');
+      return;
+    }
+
+    const shareToSave = ownerSetsShare ? Number(allocationPercent) : 0;
+    const ruleError = estateRuleError({ relation, distributionType, allocationPercent: shareToSave }, others);
+    if (ruleError) {
+      setErrorMsg(ruleError);
       return;
     }
 
@@ -111,7 +119,7 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
       id: beneficiary?.id || `BEN-${Math.floor(100 + Math.random() * 900)}`,
       name: name.trim(),
       relation,
-      allocationPercent: Number(allocationPercent),
+      allocationPercent: shareToSave,
       distributionType,
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
@@ -196,14 +204,19 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
                 onChange={e => setDistributionType(e.target.value as any)}
                 className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
-                {DISTRIBUTION_TYPES.map(d => (
+                {distributionTypes.map(d => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Allocation Percentage Slider/Input */}
+          {/* Allocation Percentage Slider/Input (not for a faraid heir, whose share is fixed by law) */}
+          {!ownerSetsShare ? (
+            <p className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/60 text-[11px] text-slate-600 dark:text-slate-300">
+              <strong>Share fixed by faraid.</strong> A faraid heir&rsquo;s share is set by Islamic law and confirmed by the Syariah court&rsquo;s faraid certificate, so you do not choose a percentage. Listing the heir here helps the estate officer reach them.
+            </p>
+          ) : (
           <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-2">
             <div className="flex justify-between items-center">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -224,9 +237,10 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
               className="w-full accent-emerald-600 cursor-pointer"
             />
             <p className="text-[11px] text-slate-400">
-              Specify proportion of returns or estate allocated to this beneficiary under Shariah guidelines.
+              {distributionType === 'Wasiyyah' ? 'Share of your estate. All wasiyyah together may not exceed one-third (33.33%).' : distributionType === 'Hibah Amanah' ? 'Share of your investments given by hibah.' : 'Share of the returns or estate for this beneficiary.'}
             </p>
           </div>
+          )}
 
           {/* Grid: Email + Phone */}
           <div className="grid grid-cols-2 gap-3">

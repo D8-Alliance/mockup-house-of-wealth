@@ -40,7 +40,6 @@ import {
 import { UserProfile, LanguageCode, PaymentAccount, BeneficiaryItem, NavTab } from '../types';
 import { AvatarChangeModal } from './AvatarChangeModal';
 import { PaymentAccountModal } from './PaymentAccountModal';
-import { BeneficiaryModal } from './BeneficiaryModal';
 import { revenueService } from '../revenue/revenueService';
 import { HoWCreditBalance } from '../revenue/revenueTypes';
 import { apiClient, apiErrorMessage, KycApplication } from '../services/apiClient';
@@ -77,7 +76,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
   setBeneficiaries,
   setTab
 }) => {
-  const { updateBackendUser } = useRBAC();
+  const { updateBackendUser, canAccessTab } = useRBAC();
   const handleUserUpdate = (u: UserProfile) => {
     if (onUpdateUser) onUpdateUser(u);
     if (setUser) setUser(u);
@@ -417,7 +416,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
             { id: 'kyc', label: 'Identity Verification', icon: <ShieldCheck className="w-4 h-4" /> },
             { id: 'security', label: 'Security & Auth', icon: <Lock className="w-4 h-4" /> },
             { id: 'shariah', label: 'Shariah & Financial', icon: <Coins className="w-4 h-4" /> },
-            { id: 'beneficiary', label: 'Beneficiaries & Wasiyyah', icon: <HeartHandshake className="w-4 h-4" /> },
+            ...(canAccessTab('beneficiaries') ? [{ id: 'beneficiary', label: 'Beneficiaries', icon: <HeartHandshake className="w-4 h-4" /> }] : []),
             { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
             { id: 'api', label: 'API & Integrations', icon: <Key className="w-4 h-4" /> }
           ].map(tab => {
@@ -1011,184 +1010,22 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
       )}
 
       {/* TAB 4: BENEFICIARY & DISTRIBUTION PREFERENCES */}
-      {activeTab === 'beneficiary' && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 dark:border-slate-700 pb-4">
-            <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <HeartHandshake className="w-5 h-5 text-emerald-500" />
-                <span>Beneficiary & Distribution Preferences (Wasiyyah & Waqf)</span>
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Manage Islamic inheritance ratios (Wasiyyah), profit sharing, and auto-Sadaqah/Waqf distributions.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setEditingBeneficiary(null);
-                setBeneficiaryModalOpen(true);
-              }}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl shadow-lg shadow-emerald-600/20 flex items-center gap-2 cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Beneficiary</span>
-            </button>
-          </div>
-
-          {/* Distribution Overview Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Total Beneficiaries
-              </span>
-              <span className="text-xl font-black text-slate-900 dark:text-white block">
-                {beneficiaries.length} Registered
-              </span>
-            </div>
-
-            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Allocated Percentage
-              </span>
-              <div className="flex items-center justify-between">
-                <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 block">
-                  {beneficiaries.reduce((acc, b) => acc + b.allocationPercent, 0)}%
-                </span>
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">
-                  Target: 100%
-                </span>
-              </div>
-            </div>
-
-            <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-1">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Primary Recipient
-              </span>
-              <span className="text-sm font-black text-slate-900 dark:text-white block truncate">
-                {beneficiaries.find(b => b.isPrimary)?.name || 'None Set'}
-              </span>
-            </div>
-          </div>
-
-          {/* Beneficiary Cards List */}
-          <div className="space-y-4">
-            {beneficiaries.map(ben => (
-              <div 
-                key={ben.id}
-                className={`p-5 rounded-2xl border transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4 ${
-                  ben.isPrimary 
-                    ? 'bg-emerald-500/5 border-emerald-500/40 dark:border-emerald-500/30 shadow-sm' 
-                    : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700/60 hover:border-slate-300'
-                }`}
-              >
-                <div className="space-y-2 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="text-sm font-black text-slate-900 dark:text-white">
-                      {ben.name}
-                    </h4>
-
-                    <span className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 text-[10px] font-extrabold px-2.5 py-0.5 rounded-md">
-                      {ben.relation}
-                    </span>
-
-                    <span className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold px-2.5 py-0.5 rounded-md border border-emerald-500/20">
-                      {ben.distributionType}
-                    </span>
-
-                    {ben.isPrimary && (
-                      <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-extrabold px-2.5 py-0.5 rounded-md flex items-center gap-1 border border-amber-500/20">
-                        <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-                        Primary Beneficiary
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Allocation Bar */}
-                  <div className="space-y-1 max-w-md">
-                    <div className="flex justify-between text-[11px] font-extrabold text-slate-600 dark:text-slate-400">
-                      <span>Allocation Ratio</span>
-                      <span className="text-emerald-600 dark:text-emerald-400">{ben.allocationPercent}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
-                      <div 
-                        className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(ben.allocationPercent, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 dark:text-slate-400 pt-1">
-                    {ben.email && (
-                      <span className="flex items-center gap-1">
-                        <Mail className="w-3.5 h-3.5 text-slate-400" />
-                        {ben.email}
-                      </span>
-                    )}
-                    {ben.phone && (
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-3.5 h-3.5 text-slate-400" />
-                        {ben.phone}
-                      </span>
-                    )}
-                    {ben.identityNumber && (
-                      <span className="font-mono text-[11px] text-slate-400">
-                        ID: {ben.identityNumber}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-1.5 pt-1">
-                    <Wallet className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Payout Method: {ben.payoutMethod}</span>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex md:flex-col items-end gap-2 shrink-0 w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0 border-slate-200 dark:border-slate-700">
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingBeneficiary(ben);
-                        setBeneficiaryModalOpen(true);
-                      }}
-                      className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-emerald-600 text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer transition-colors"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Edit</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteBeneficiary(ben.id)}
-                      className="px-3 py-1.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 text-xs font-bold rounded-xl flex items-center gap-1 cursor-pointer transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
-                  </div>
-
-                  {!ben.isPrimary && (
-                    <button
-                      type="button"
-                      onClick={() => handleSetPrimaryBeneficiary(ben.id)}
-                      className="px-3 py-1.5 text-xs font-extrabold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-200 dark:border-slate-700 hover:border-emerald-500/40 rounded-xl bg-white dark:bg-slate-800 transition-all cursor-pointer flex items-center gap-1"
-                    >
-                      <Star className="w-3.5 h-3.5 text-amber-500" />
-                      <span>Set as Primary</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
-            <ShieldCheck className="w-5 h-5 shrink-0" />
-            <span>Beneficiary distributions adhere to the D-8 Unified Shariah Code & AAOIFI Estate Distribution guidelines.</span>
-          </div>
+      {activeTab === 'beneficiary' && canAccessTab('beneficiaries') && (
+        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-md space-y-4">
+          <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+            <HeartHandshake className="w-5 h-5 text-emerald-500" />
+            <span>Beneficiaries & Estate Instructions</span>
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl">
+            Your heirs, hibah, wasiyyah (or will) and charitable giving are managed on one screen, so the platform knows how your investments and assets pass on. You have {beneficiaries.length} beneficiaries listed.
+          </p>
+          <button
+            type="button"
+            onClick={() => setTab?.('beneficiaries')}
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
+          >
+            Open Beneficiaries & Estate Instructions
+          </button>
         </div>
       )}
 
@@ -1317,17 +1154,6 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
         />
       )}
 
-      {/* Beneficiary Modal */}
-      {beneficiaryModalOpen && (
-        <BeneficiaryModal
-          beneficiary={editingBeneficiary}
-          onClose={() => {
-            setBeneficiaryModalOpen(false);
-            setEditingBeneficiary(null);
-          }}
-          onSave={handleSaveBeneficiary}
-        />
-      )}
 
     </div>
   );

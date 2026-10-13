@@ -24,6 +24,7 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 16 | Pemindahan ke DigitalOcean | Simpan fail di Spaces (bukan dalam database), konfigurasi deploy, staging di DO, kemudian pilot production | Keputusan bajet dan lokasi data (Singapura) oleh compliance |
 | 17 | Entiti berasingan dan pihak berkaitan | No. SSM, jenis entiti dan kumpulan induk pada organisasi; penanda transaksi pihak berkaitan | Boleh dimulakan |
 | 18 | Prestasi projek PDP dan baki skrin kontrak | Laporan prestasi berkala (KPI kewangan dan sektor), "My Contracts" pelabur masih data contoh | Keputusan senarai KPI; boleh dimulakan |
+| 19 | Benefisiari dan pusaka (backend dan aliran kematian) | Simpanan di backend, peranan Estate Officer, laporan kematian dan pembekuan akaun, penyaluran pelaburan dan aset kepada waris | Keputusan proses dan pemegang amanah (contoh Amanah Raya); nasihat Shariah dan undang-undang |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -334,3 +335,17 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 **Baki:**
 1. **Laporan prestasi projek berkala:** PDP menghantar angka sebenar setiap suku tahun, disahkan juruaudit, dan dipaparkan kepada pelabur. KPI kewangan: hasil dan kos sebenar berbanding unjuran, pulangan sebenar berbanding yang dijanjikan, milestone tepat masa (%), penggunaan bajet, keuntungan yang diagihkan. KPI sektor (contoh ladang: hasil BTS sehektar, kadar perahan minyak, keluasan tanam semula). Insiden Shariah dan dapatan audit.
 2. **"My Contracts" pelabur:** angka ringkasan (4 Agreements, $117,500, Nov 15, 2026) masih data contoh tetap di frontend. Gantikan dengan pesanan pelaburan dan terma akad yang diterima pelabur dari backend.
+
+## 19. Benefisiari dan pusaka: backend dan aliran kematian
+
+- **Status:** Bahagian frontend siap (2026-10-13). Tab Beneficiaries hanya untuk individu (Retail, HNWI, Family Office) dan Asset Owner; admin, Compliance, Institutional dan Corporate Investor tiada akses. Pemilik memilih rangka Islam (faraid, Hibah Amanah, wasiyyah) atau sivil (wasiat). Peraturan: wasiyyah maksimum 1/3 dan tidak kepada waris faraid (pasangan, anak, ibu bapa); bahagian waris faraid tidak ditetapkan pengguna; institusi bukan waris faraid. Tuntutan "AAOIFI Shariah Standard No. 33" dan "Dual-Jurisdiction Certified" dibuang; data contoh guna domain contoh.
+- **Kawasan:** `src/beneficiaries/estateRules.ts`, `src/components/BeneficiariesView.tsx`, `src/components/BeneficiaryModal.tsx`, backend baharu
+
+**Baki:**
+1. **Simpanan di backend:** benefisiari kini dalam pelayar sahaja dan hilang apabila dimuat semula. Simpan setiap pemilik di server, nombor ID disulitkan (PDPA), dan setiap perubahan diaudit. Hanya pemilik boleh membaca dan menulis.
+2. **Peranan Estate Officer:** boleh membaca arahan pusaka seorang pemilik hanya selepas kematian dilaporkan, dengan log audit; tidak boleh mengubah arahan.
+3. **Aliran kematian:** lapor kematian, kemudian akaun dibekukan (tiada pesanan baharu; keuntungan terkumpul kepada harta pusaka), sahkan dokumen (sijil kematian, Sijil Faraid, surat kuasa tadbir atau probet), salurkan pelaburan dan aset mengikut arahan dan perintah mahkamah, kemudian penyelesaian.
+4. **Qabul hibah:** hantar permintaan qabul kepada penerima, dan sediakan skrin untuk menerima atau menolak (rujuk item 11).
+5. **Persetujuan waris:** wasiyyah kepada waris faraid atau melebihi 1/3 hanya sah jika waris lain bersetuju; sediakan rekod persetujuan jika mahu disokong.
+6. **Penama dan wasi:** catat wasi atau pentadbir (contoh Amanah Raya Berhad). Bagi Muslim di Malaysia, penama biasanya bertindak sebagai pentadbir, bukan pemilik manfaat.
+7. **Semakan:** teks panduan dan peraturan perlu disahkan oleh penasihat Shariah dan peguam sebelum pilot.
