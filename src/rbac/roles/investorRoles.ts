@@ -76,7 +76,7 @@ export const INVESTOR_ROLES: Record<string, RoleDefinition> = {
     role: 'Institutional Investor',
     title: 'Institutional Wealth & Sovereign Fund Manager',
     category: 'Participant & User',
-    description: 'Manages multi-million dollar sovereign, takaful, and institutional capital deployments with custom risk parameters.',
+    description: 'Investment companies, fund managers and GLCs that place institutional, takaful and sovereign capital into pools with custom risk parameters.',
     badgeColor: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30',
     accessibleTabs: ['dashboard', 'ai-engine', 'marketplace', 'pooling', 'investments', 'wallet', 'financials', 'beneficiaries', 'documents', 'ledger', 'profile'],
     permissions: {

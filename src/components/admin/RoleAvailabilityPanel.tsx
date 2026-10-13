@@ -3,9 +3,9 @@ import { Lock, RefreshCw, UserCheck } from 'lucide-react';
 import { useRBAC } from '../../rbac/RBACContext';
 import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
 import { useRoleAvailability } from '../../rbac/roleAvailability';
-import { UserRole } from '../../rbac/types';
+import { ROLE_CATEGORIES, UserRole } from '../../rbac/types';
 
-const CATEGORIES = ['System Executive', 'Operational Management', 'Governance & Risk', 'Participant & User'] as const;
+const CATEGORIES = ROLE_CATEGORIES;
 
 /** The roles shown in the demo: investor, delivery partner (PDP), country admin and super admin. */
 const DEMO_SET: UserRole[] = ['Super Admin', 'Country Admin', 'Project Sponsor', 'Retail Investor'];

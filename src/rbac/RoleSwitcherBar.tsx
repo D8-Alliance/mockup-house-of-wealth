@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useRBAC } from './RBACContext';
 import { ROLE_DEFINITIONS } from './roleDefinitions';
-import { UserRole } from './types';
+import { ROLE_CATEGORIES, UserRole } from './types';
 import { SINGLE_ROLE_MODE, SINGLE_TEST_ROLE } from './runtimeConfig';
 import { useRoleAvailability } from './roleAvailability';
 import { 
@@ -29,12 +29,7 @@ export const RoleSwitcherBar: React.FC = () => {
     ? [SINGLE_TEST_ROLE]
     : filterEnabled(authMode === 'DEMO' ? (Object.keys(ROLE_DEFINITIONS) as UserRole[]) : assignedRoles);
 
-  const categories = [
-    'System Executive',
-    'Operational Management',
-    'Governance & Risk',
-    'Participant & User'
-  ] as const;
+  const categories = ROLE_CATEGORIES;
 
   const filteredRoles = rolesList.filter(r => 
     r.toLowerCase().includes(searchQuery.toLowerCase()) ||
