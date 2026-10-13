@@ -56,9 +56,13 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
       contact: <ContactPage />
     }[pageId];
     return (
-      <InfoPageLayout pageId={pageId} onNavigate={navigate} onSignIn={() => setShowLoginModal(true)}>
-        {page}
-      </InfoPageLayout>
+      <>
+        <InfoPageLayout pageId={pageId} onNavigate={navigate} onSignIn={() => setShowLoginModal(true)}>
+          {page}
+        </InfoPageLayout>
+        {/* The sign-in buttons on these pages need the modal too, not only the home page. */}
+        {showLoginModal && <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />}
+      </>
     );
   }
 
