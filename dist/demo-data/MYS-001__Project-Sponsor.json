@@ -92,6 +92,16 @@
   "contentType": "application/json; charset=utf-8",
   "body": "{\"source\":\"database\",\"scope\":{\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-FELDA-MYS\"},\"projectCount\":1,\"totalProjectValue\":10000000,\"fundingRequired\":8000000,\"activePoolCount\":1,\"contractCount\":4,\"fundingRequestCount\":1,\"fundingRequested\":3500000}"
  },
+ "GET /distributions": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /funding/requests/PROJ-MYS-001": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[{\"fundingRequestId\":\"FUND-REQ-001\",\"projectId\":\"PROJ-MYS-001\",\"poolId\":\"POOL-MYS-001\",\"organisationId\":\"ORG-FELDA-MYS\",\"countryNodeId\":\"CN-MYS\",\"requestedAmount\":\"3500000\",\"currency\":\"USD\",\"purpose\":\"Initial tranche release for IoT sensors deployment and land preparation.\",\"status\":\"APPROVED\",\"requestedBy\":\"Ahmad Razak (PDP)\",\"requestedAt\":\"2026-07-10T10:00:00.000Z\",\"approvedBy\":\"Treasury Officer (BNM Node)\",\"approvedAt\":\"2026-07-12T11:00:00.000Z\",\"disbursedBy\":null,\"disbursedAt\":\"2026-07-13T09:00:00.000Z\",\"createdAt\":\"2026-07-10T10:00:00.000Z\",\"updatedAt\":\"2026-07-10T10:00:00.000Z\"}]"
+ },
  "GET /investments/orders": {
   "status": 200,
   "contentType": "application/json; charset=utf-8",
