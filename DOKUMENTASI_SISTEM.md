@@ -70,7 +70,7 @@ curl.exe http://localhost:3001/health             # semak backend
 Untuk menunjuk sistem secara langsung tanpa mendedahkan backend, frontend boleh berjalan dengan data seed yang dirakam (`VITE_DATA_SOURCE=static`, fail [.env.demo](.env.demo)).
 
 - **Cara berfungsi:** semua panggilan API melalui `apiFetch` ([src/services/apiFetch.ts](src/services/apiFetch.ts)). Dalam mod demo, jawapan diambil daripada `public/demo-data/<pengguna>__<peranan>.json`, bukan dari server. Tindakan tulis (hantar, lulus, bayar) memaparkan "Demo mode: this action is not saved"; tiada apa yang disimpan. Label "Demo mode" dipaparkan di sudut skrin.
-- **Persona yang dirakam:** Super Admin, Country Admin, Project Sponsor, Asset Owner, Retail Investor, Shariah Reviewer, Legal Officer. Lima yang pertama aktif secara lalai (`STATIC_DEMO_ROLES`); Super Admin boleh menghidupkan Shariah Reviewer dan Legal Officer di Role Availability. Pilihan itu disimpan dalam pelayar sahaja.
+- **Persona yang dirakam:** Super Admin, Country Admin, Project Sponsor, Asset Owner, Retail Investor (Siti Aminah, pelabur individu Malaysia dengan KYC diluluskan), Shariah Reviewer, Legal Officer. Lima yang pertama aktif secara lalai (`STATIC_DEMO_ROLES`); Super Admin boleh menghidupkan Shariah Reviewer dan Legal Officer di Role Availability. Pilihan itu disimpan dalam pelayar sahaja.
 - **Jalankan:** `npm run dev:demo` (local) atau `npm run build:demo` lalu hoskan folder `dist/` sebagai laman statik. Tiada database, Redis, Keycloak atau kunci API diperlukan.
 - **Rakam semula** (selepas data seed atau skrin berubah):
   1. Hidupkan backend dengan data seed (port 3001).
@@ -127,6 +127,7 @@ Contoh kebenaran:
 ### 4.4 Tenant
 - Setiap rekod milik satu **negara (country node)**, contohnya `CN-MYS`, dan satu **organisasi**. Pengguna hanya membaca dan menulis dalam tenant mereka (`assertTenantScope`, `tenantScopeFilter`); Super Admin merentas tenant.
 - Zon masa dan format telefon mengikut negara (GMT+8 dan +60 bagi Malaysia).
+- **Pengecualian untuk pelabur:** peranan pelabur (Retail, HNWI, Institutional, Corporate, Family Office) boleh melihat dan melabur dalam pool berstatus OPEN milik organisasi lain dalam **negara yang sama** (`server/src/pools/pool-access.ts`). Pesanan pelaburan memerlukan KYC berstatus APPROVED, dan ditolak jika pelabur dari organisasi yang menjalankan projek (entiti PDP), penaja projek, atau pemegang peranan Project Sponsor/Project Manager. Pelabur hanya melihat pesanan sendiri.
 
 ### 4.5 Modul ciri
 Admin boleh menghidupkan atau mematikan modul (`GET/PATCH /admin/modules`): `ASSET_REGISTRATION`, `WEALTH_POOLING`, `SHARIAH_GOVERNANCE`, `AI_INTELLIGENCE`, `CONTRACTS`, `DOCUMENT_VAULT`, `FINANCIAL_LEDGER`, `SECONDARY_MARKET`, `KYC_VERIFICATION`, `KYB_VERIFICATION`. Mod: `ACTIVE`, `MANUAL_REVIEW` atau `DISABLED`. Endpoint modul yang dimatikan ditolak oleh `FeatureModuleGuard`.

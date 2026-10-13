@@ -99,14 +99,16 @@ export const DEMO_PERSONAS: Record<string, AuthUser> = {
     mfaStatus: 'Enabled',
     avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80'
   },
+  // A Malaysian individual investor with approved KYC, so the demo can invest in the Malaysian pools.
+  // An individual is their own entity (own organisation), separate from the delivery partners.
   'Retail Investor': {
-    userId: 'USR-INV-007',
-    name: 'Nurul Huda',
-    email: 'nurul.investor@gmail.com',
-    organisationId: 'ORG-NUSA-DEV',
-    organisationName: 'Nusa Capital Retail Pool',
-    countryNodeId: 'CN-IDN',
-    countryName: 'Indonesia Node',
+    userId: 'USR-INV-MYS-01',
+    name: 'Siti Aminah binti Yusof',
+    email: 'siti.aminah@investor.my',
+    organisationId: 'ORG-INV-MYS-01',
+    organisationName: 'Siti Aminah (individual investor)',
+    countryNodeId: 'CN-MYS',
+    countryName: 'Malaysia Node',
     assignedRoles: ['Retail Investor'],
     activeRole: 'Retail Investor',
     status: 'ACTIVE',

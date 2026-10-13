@@ -18,12 +18,12 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 10 | Blockchain dan smart contract | Fasa 2: anchoring hash ke blockchain awam dan halaman Ketelusan Zakat. Fasa 3: tokenisasi dan smart contract escrow. Baki perkataan "tokenization" dalam tajuk data contoh (dakwaan awam sudah dibuang 2026-10-12) | Fasa 2: pilihan rangkaian dan dompet operasi. Fasa 3: nasihat undang-undang SC dan resolusi Shariah |
 | 11 | Akad, zakat, cukai dan penyata kewangan | Nisab Kedah/Pahang/Perak; cukai pegangan, cukai perkhidmatan, e-invois; caj kerugian ke atas modal dan perkiraan akhir pool | Penasihat cukai; penasihat Shariah; keputusan pelantikan ejen kutipan zakat |
 | 12 | Dokumentasi | README.md bahasa Inggeris masih lapuk; pastikan `DOKUMENTASI_SISTEM.md` dikemas kini setiap kali sistem berubah | Keputusan: kemas kini atau ringkaskan README |
-| 13 | Fasa 0: keselamatan sebelum pilot | Semakan KYC sebelum melabur, baki pengasingan tugas (feasibility), pool tidak kelihatan kepada pelabur baharu | Boleh dimulakan sekarang (penghalang pilot Malaysia) |
+| 13 | Fasa 0: keselamatan sebelum pilot | Baki pengasingan tugas (feasibility), tahap KYC minimum, pelulus kedua Country Admin (pilihan) | Boleh dimulakan sekarang (penghalang pilot Malaysia) |
 | 14 | Keputusan kecil 2026-10-08 | Organization Admin dalam pengecualian kredit AI, pengesahan jadual tarikh tamat kad 9 negara, data ujian local | Keputusan pemilik projek |
 | 15 | Pembantu dokumen AI (KYC/KYB/PDP) | Smart upload (kenal pasti jenis, isi automatik, semakan awal), chatbot tahu status dokumen, lampiran fail dalam chat | Keputusan untuk mula Fasa A; model AI tempatan yang lebih kuat untuk Fasa C |
 | 16 | Pemindahan ke DigitalOcean | Simpan fail di Spaces (bukan dalam database), konfigurasi deploy, staging di DO, kemudian pilot production | Keputusan bajet dan lokasi data (Singapura) oleh compliance |
-| 17 | Entiti berasingan dan pihak berkaitan | No. SSM, jenis entiti dan kumpulan induk pada organisasi; penanda transaksi pihak berkaitan; sekatan PDP di peringkat entiti | Boleh dimulakan; peraturan entiti penuh bergantung pada item 13.3 |
-| 18 | Prestasi projek PDP dan baki skrin kontrak | Laporan prestasi berkala (KPI kewangan dan sektor), terma akad untuk pool seed, "My Contracts" pelabur masih data contoh | Keputusan senarai KPI; boleh dimulakan |
+| 17 | Entiti berasingan dan pihak berkaitan | No. SSM, jenis entiti dan kumpulan induk pada organisasi; penanda transaksi pihak berkaitan | Boleh dimulakan |
+| 18 | Prestasi projek PDP dan baki skrin kontrak | Laporan prestasi berkala (KPI kewangan dan sektor), "My Contracts" pelabur masih data contoh | Keputusan senarai KPI; boleh dimulakan |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -259,13 +259,12 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 ## 13. Fasa 0: pembetulan keselamatan sebelum pilot (Master Architecture v1.0)
 
-- **Status:** Separuh siap (2026-10-12): larang peranan sendiri, pengasingan tugas funding dan payout, Helmet/had kadar/CORS, serta sekatan mock auth dan algoritma JWT (production hanya terima `oidc` + RS256) sudah dibuat. Baki di bawah. Rujukan penuh: *D-8 Wealth Pooling Master Architecture v1.0* §16–18 dan *Technical Design Document v1.0* §3, §6, §7.
+- **Status:** Separuh siap (2026-10-12): larang peranan sendiri, pengasingan tugas funding dan payout, Helmet/had kadar/CORS, serta sekatan mock auth dan algoritma JWT (production hanya terima `oidc` + RS256) sudah dibuat. Pada 2026-10-13: semakan KYC sebelum melabur (status APPROVED) dan pool OPEN kelihatan kepada pelabur semua organisasi dalam negara yang sama. Baki di bawah. Rujukan penuh: *D-8 Wealth Pooling Master Architecture v1.0* §16–18 dan *Technical Design Document v1.0* §3, §6, §7.
 - **Kawasan:** `server/src/main.ts`, `server/src/auth/identity.service.ts`, `server/src/users/users.service.ts`, `server/src/investments/investments.service.ts`, `server/src/funding/funding.service.ts`, `server/src/distribution/payout-destination.service.ts`, `server/src/ai/ai.service.ts`
 
-1. **Semakan KYC sebelum pesanan pelaburan** (status APPROVED dan tahap minimum).
+1. **Tahap KYC minimum:** pesanan pelaburan kini memerlukan KYC berstatus APPROVED (2026-10-13). Baki: had amaun mengikut tahap KYC (LEVEL_1, LEVEL_2, LEVEL_3).
 2. **Pengasingan tugas (baki):** Organization/Country Admin masih penyemak lalai bagi lima peringkat feasibility dalam `ai.service.ts`. (Funding dan destinasi payout siap 2026-10-12.)
-3. **Pelabur baharu tidak nampak pool** (ditemui 2026-10-08): setiap pendaftaran mendapat organisasi sendiri dan `/pools` ditapis ikut organisasi, jadi senarai kosong. Buka pool OPEN dalam negara yang sama kepada pelabur **bersama** perkara 1, bukan sebelumnya.
-4. **Pelulus kedua untuk peranan Country Admin** (pilihan): kini hanya Super Admin boleh memberi atau menarik Country Admin; aliran pelulus kedua (`RoleGrantRequest`) belum dibina.
+3. **Pelulus kedua untuk peranan Country Admin** (pilihan): kini hanya Super Admin boleh memberi atau menarik Country Admin; aliran pelulus kedua (`RoleGrantRequest`) belum dibina.
 
 ## 14. Keputusan kecil daripada kerja 2026-10-08
 
@@ -317,7 +316,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 ## 17. Entiti berasingan (GLC dan anak syarikat) dan transaksi pihak berkaitan
 
-- **Status:** Langkah 1 siap (2026-10-13): hanya peranan pelabur boleh membuat pesanan pelaburan, dan penaja projek atau pemegang peranan PDP (Project Sponsor, Project Manager) tidak boleh melabur dalam pool projek itu. Butang Invest Now, Subscribe to Pool dan Invest in Pool hanya dipaparkan kepada pelabur.
+- **Status:** Langkah 1 dan sekatan entiti siap (2026-10-13): organisasi yang menjalankan projek (entiti PDP) tidak boleh melabur dalam pool sendiri; pelabur dari entiti lain dalam negara yang sama boleh melabur dalam pool OPEN. Juga: hanya peranan pelabur boleh membuat pesanan pelaburan, dan penaja projek atau pemegang peranan PDP (Project Sponsor, Project Manager) tidak boleh melabur dalam pool projek itu. Butang Invest Now, Subscribe to Pool dan Invest in Pool hanya dipaparkan kepada pelabur.
 - **Kawasan:** `server/prisma/schema.prisma` (model `Organisation`), `server/src/investments/investments.service.ts`, `server/src/tenancy/tenant-scope.ts`, skrin Organization Management
 
 **Prinsip:** setiap entiti dalam kumpulan GLC (contoh: Felda Plantation, Felda Ventures) didaftarkan sebagai organisasi berasingan, kerana struktur dan cara kerjanya berbeza. Setiap entiti ada pengguna, peranan, KYB dan akaun bank sendiri.
@@ -325,15 +324,13 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 **Baki:**
 1. **Maklumat entiti:** tambah No. pendaftaran (SSM), jenis entiti (GLC, syarikat, individu, institusi) dan kumpulan induk pada organisasi. Kumpulan hanya untuk pendedahan, bukan untuk berkongsi akses.
 2. **Transaksi pihak berkaitan:** apabila entiti dalam kumpulan yang sama dengan PDP melabur dalam pool PDP itu (contoh: Felda Ventures dalam pool Felda Plantation), tanda pesanan itu sebagai pihak berkaitan, paparkan kepada Compliance dan Shariah reviewer, dan nyatakan kepada pelabur lain.
-3. **Sekatan PDP di peringkat entiti:** apabila pool dibuka kepada pelabur organisasi lain (item 13.3), sekat seluruh entiti PDP (bukan sahaja pengguna berperanan PDP) daripada melabur dalam pool projeknya sendiri.
-4. **Sumbangan modal penaja (pilihan):** jika PDP perlu membiayai bersama projeknya (Musharakah), bina sebagai sumbangan berasingan yang dinyatakan dalam terma akad pool, dengan semakan penasihat Shariah. Bukan melalui butang Invest Now.
+3. **Sumbangan modal penaja (pilihan):** jika PDP perlu membiayai bersama projeknya (Musharakah), bina sebagai sumbangan berasingan yang dinyatakan dalam terma akad pool, dengan semakan penasihat Shariah. Bukan melalui butang Invest Now.
 
 ## 18. Prestasi projek PDP dan baki skrin kontrak
 
-- **Status:** Separuh siap (2026-10-13): "My Contracts" untuk PDP (Project Sponsor, Project Manager) kini dipanggil "My Pool Agreements" dan membaca data sebenar: terma akad setiap pool (jenis akad, nisbah untung, versi), dana diterima, permohonan dana dan keuntungan yang diagihkan. Project Sponsor kini boleh membaca permohonan dana projeknya sendiri.
+- **Status:** Separuh siap (2026-10-13): "My Contracts" untuk PDP (Project Sponsor, Project Manager) kini dipanggil "My Pool Agreements" dan membaca data sebenar: terma akad setiap pool (jenis akad, nisbah untung, versi), dana diterima, permohonan dana dan keuntungan yang diagihkan. Project Sponsor kini boleh membaca permohonan dana projeknya sendiri. Terma akad versi 1 diterbitkan untuk pool seed (`server/scripts/seed-pool-akad-terms.ts`), jadi aliran pelaburan boleh didemokan.
 - **Kawasan:** `src/components/sponsor/SponsorAgreementsView.tsx`, `src/components/sponsor/SponsorKPICards.tsx`, `src/components/MyContractsView.tsx`, `server/src/projects/` (milestone), `server/scripts/seed-mock-data.ts`
 
 **Baki:**
 1. **Laporan prestasi projek berkala:** PDP menghantar angka sebenar setiap suku tahun, disahkan juruaudit, dan dipaparkan kepada pelabur. KPI kewangan: hasil dan kos sebenar berbanding unjuran, pulangan sebenar berbanding yang dijanjikan, milestone tepat masa (%), penggunaan bajet, keuntungan yang diagihkan. KPI sektor (contoh ladang: hasil BTS sehektar, kadar perahan minyak, keluasan tanam semula). Insiden Shariah dan dapatan audit.
-2. **Terma akad untuk pool seed:** pool contoh (contoh POOL-MYS-001 Felda) tiada terma akad, jadi skrin PDP menunjukkan "Not published" dan pelabur tidak boleh melabur dalam demo. Terbitkan versi 1 terma akad untuk setiap pool seed.
-3. **"My Contracts" pelabur:** angka ringkasan (4 Agreements, $117,500, Nov 15, 2026) masih data contoh tetap di frontend. Gantikan dengan pesanan pelaburan dan terma akad yang diterima pelabur dari backend.
+2. **"My Contracts" pelabur:** angka ringkasan (4 Agreements, $117,500, Nov 15, 2026) masih data contoh tetap di frontend. Gantikan dengan pesanan pelaburan dan terma akad yang diterima pelabur dari backend.

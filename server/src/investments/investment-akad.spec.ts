@@ -16,7 +16,9 @@ function setup(terms: { id: string; version: number; termsHash: string; akadType
     investmentOrder: { create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: 'ORD-1', ...data })) },
   };
   const prisma = {
-    wealthPool: { findUnique: jest.fn(async () => ({ poolId: 'POOL-1', projectId: 'P1', status: 'OPEN', currency: 'MYR', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', project: { projectId: 'P1', fundingRequired: 100000 } })) },
+    kycApplication: { findFirst: jest.fn(async () => ({ id: 'KYC-1' })) },
+    // The pool is run by the delivery partner's organisation, not the investor's.
+    wealthPool: { findUnique: jest.fn(async () => ({ poolId: 'POOL-1', projectId: 'P1', status: 'OPEN', currency: 'MYR', organisationId: 'ORG-PDP', countryNodeId: 'CN-MYS', project: { projectId: 'P1', fundingRequired: 100000 } })) },
     investmentOrder: { findUnique: jest.fn(async () => null) },
     $transaction: jest.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
   };

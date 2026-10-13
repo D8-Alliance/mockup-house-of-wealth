@@ -41,10 +41,11 @@ describe('InvestmentsService.settle', () => {
 
 describe('InvestmentsService.createOrder: who may invest', () => {
   const input = { poolId: 'POOL-1', amount: 1000, currency: 'MYR', idempotencyKey: 'KEY-1', akadTermsId: 'TERMS-1', acceptAkad: true };
-  const pool = { poolId: 'POOL-1', projectId: 'P1', status: 'OPEN', currency: 'MYR', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', project: { projectId: 'P1', fundingRequired: 100000, projectSponsorId: 'USR-SPONSOR' } };
+  const pool = { poolId: 'POOL-1', projectId: 'P1', status: 'OPEN', currency: 'MYR', organisationId: 'ORG-PDP', countryNodeId: 'CN-MYS', project: { projectId: 'P1', fundingRequired: 100000, projectSponsorId: 'USR-SPONSOR' } };
   const prisma = {
-    wealthPool: { findUnique: jest.fn(async () => pool) },
-    investmentOrder: { findUnique: jest.fn(async () => null) },
+    wealthPool: { findUnique: jest.fn(async (): Promise<Record<string, unknown>> => pool) },
+    investmentOrder: { findUnique: jest.fn(async () => null), findMany: jest.fn(async () => []) },
+    kycApplication: { findFirst: jest.fn(async (): Promise<{ id: string } | null> => ({ id: 'KYC-1' })) },
     $transaction: jest.fn(async () => { throw new Error('reached the order transaction'); }),
   };
   const service = new InvestmentsService(prisma as unknown as PrismaService, {} as FinancialLedgerService, {} as AuditService);
@@ -66,5 +67,45 @@ describe('InvestmentsService.createOrder: who may invest', () => {
 
   it('lets an ordinary investor through to the order itself', async () => {
     await expect(service.createOrder(actor('Retail Investor', 'USR-INVESTOR'), input)).rejects.toThrow('reached the order transaction');
+  });
+});
+
+describe('InvestmentsService.createOrder: separate entities, KYC and own orders', () => {
+  const input = { poolId: 'POOL-1', amount: 1000, currency: 'MYR', idempotencyKey: 'KEY-2', akadTermsId: 'TERMS-1', acceptAkad: true };
+  const openPool = { poolId: 'POOL-1', projectId: 'P1', status: 'OPEN', currency: 'MYR', organisationId: 'ORG-PDP', countryNodeId: 'CN-MYS', project: { projectId: 'P1', fundingRequired: 100000, projectSponsorId: 'USR-SPONSOR' } };
+  const prisma = {
+    wealthPool: { findUnique: jest.fn(async (): Promise<Record<string, unknown>> => openPool) },
+    investmentOrder: { findUnique: jest.fn(async () => null), findMany: jest.fn(async () => []) },
+    kycApplication: { findFirst: jest.fn(async (): Promise<{ id: string } | null> => ({ id: 'KYC-1' })) },
+    $transaction: jest.fn(async () => { throw new Error('reached the order transaction'); }),
+  };
+  const service = new InvestmentsService(prisma as unknown as PrismaService, {} as FinancialLedgerService, {} as AuditService);
+  const investor = (overrides: Partial<AuthenticatedUser> = {}) => ({ ...actor('Retail Investor', 'USR-INVESTOR'), organisationId: 'ORG-INVESTOR', ...overrides }) as AuthenticatedUser;
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('lets an investor from another organisation in the same country invest in an OPEN pool', async () => {
+    await expect(service.createOrder(investor(), input)).rejects.toThrow('reached the order transaction');
+  });
+
+  it('refuses the organisation that runs the project (the delivery-partner entity)', async () => {
+    await expect(service.createOrder(investor({ organisationId: 'ORG-PDP' }), input)).rejects.toThrow('Your organisation runs this project');
+  });
+
+  it('refuses an investor whose KYC is not approved', async () => {
+    prisma.kycApplication.findFirst.mockResolvedValueOnce(null);
+    await expect(service.createOrder(investor(), input)).rejects.toThrow('Complete identity verification (KYC)');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('keeps other countries, and pools that are not OPEN, out of reach', async () => {
+    await expect(service.createOrder(investor({ countryNodeId: 'CN-IDN' }), input)).rejects.toThrow('outside your organisation and country scope');
+    prisma.wealthPool.findUnique.mockResolvedValueOnce({ ...openPool, status: 'DRAFT' });
+    await expect(service.createOrder(investor(), input)).rejects.toThrow('outside your organisation and country scope');
+  });
+
+  it('lists only their own orders to an investor', async () => {
+    await service.listOrders(investor());
+    expect(prisma.investmentOrder.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { investorUserId: 'USR-INVESTOR' } }));
   });
 });

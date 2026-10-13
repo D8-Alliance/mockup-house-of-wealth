@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient, UserRole } from '@prisma/client';
 import { createHash, randomUUID } from 'node:crypto';
+import { seedPoolAkadTerms } from './seed-pool-akad-terms';
 import { INITIAL_AUDIT_EVENTS } from '../../src/audit/mockAuditEvents';
 import { INITIAL_COUNTRY_NODES } from '../../src/countryNodes/mockCountryNodes';
 import { INITIAL_ORGANISATIONS } from '../../src/organisations/mockOrganisations';
@@ -135,15 +136,17 @@ async function ensureOrganisations(tx: Prisma.TransactionClient): Promise<void> 
     ...INITIAL_PROJECTS.map((project) => ({ id: project.organisationId, countryNodeId: project.countryNodeId })),
     ...INITIAL_WEALTH_POOLS.map((pool) => ({ id: pool.organisationId, countryNodeId: pool.countryNodeId })),
     ...INITIAL_FUNDING_REQUESTS.map((request) => ({ id: request.organisationId, countryNodeId: request.countryNodeId })),
-    ...INITIAL_AUDIT_EVENTS.map((event) => ({ id: event.organisationId, countryNodeId: event.countryNodeId }))
-  ];
+    ...INITIAL_AUDIT_EVENTS.map((event) => ({ id: event.organisationId, countryNodeId: event.countryNodeId })),
+    // Demo personas may belong to their own entity, such as an individual investor.
+    ...Object.values(DEMO_PERSONAS).filter((persona) => persona.userId.startsWith('USR-')).map((persona) => ({ id: persona.organisationId, countryNodeId: persona.countryNodeId, name: persona.organisationName }))
+  ] as { id: string; countryNodeId: string; name?: string }[];
 
   for (const reference of references) {
     if (!organisations.has(reference.id)) {
       organisations.set(reference.id, {
         organisationId: reference.id,
-        legalName: reference.id,
-        displayName: reference.id,
+        legalName: reference.name || reference.id,
+        displayName: reference.name || reference.id,
         registrationNumber: `MOCK-${reference.id}`,
         organisationType: 'Other',
         countryNodeId: reference.countryNodeId,
@@ -188,6 +191,35 @@ async function ensureOrganisations(tx: Prisma.TransactionClient): Promise<void> 
       }
     });
   }
+}
+
+/** Approved KYC for the demo Retail Investor, so the investment flow can be shown end to end. Applied once. */
+async function seedDemoInvestorKyc(): Promise<boolean> {
+  const persona = DEMO_PERSONAS['Retail Investor'];
+  if (!persona?.userId.startsWith('USR-') || !(await prisma.user.findUnique({ where: { id: persona.userId } }))) return false;
+  const applicationNumber = `KYC-DEMO-${persona.userId}`;
+  if (await prisma.kycApplication.findUnique({ where: { applicationNumber } })) return false;
+  await prisma.kycApplication.create({
+    data: {
+      applicationNumber,
+      userId: persona.userId,
+      userEmail: persona.email,
+      organisationId: persona.organisationId,
+      countryNodeId: persona.countryNodeId,
+      fullName: persona.name,
+      nationality: 'MY',
+      idDocumentType: 'NATIONAL_ID',
+      idDocumentNumber: '900101-14-0000 (demo)',
+      residentialAddress: 'Kuala Lumpur (demo address)',
+      status: 'APPROVED',
+      kycLevel: 'LEVEL_2',
+      submittedAt: new Date(),
+      reviewedAt: new Date(),
+      reviewedBy: 'SEED',
+      reviewComment: 'Demo persona: approved for the investment demo.',
+    },
+  });
+  return true;
 }
 
 async function seed(): Promise<void> {
@@ -645,6 +677,13 @@ async function seed(): Promise<void> {
       auditEventCount += 1;
     }
   });
+
+  // The demo investor has approved KYC, which is required before investing.
+  if (await seedDemoInvestorKyc()) console.log('Approved KYC for the demo Retail Investor persona.');
+
+  // Every pool needs published akad terms before anyone can invest in it.
+  const poolsWithNewTerms = await seedPoolAkadTerms(prisma);
+  if (poolsWithNewTerms) console.log(`Published akad terms (version 1) for ${poolsWithNewTerms} pool(s).`);
 
   // Demo default: only the roles shown in the demo are switched on (super admin, country admin,
   // delivery partner, asset owner, investor). Applied once, so a Super Admin's later choices survive a re-seed.

@@ -131,7 +131,7 @@ export const InvestmentOrderWizardModal: React.FC<InvestmentOrderWizardModalProp
               <div className="space-y-4 text-xs">
                 <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-1">
                   <span className="font-extrabold text-slate-900 dark:text-white block">Investor Suitability Check</span>
-                  <p className="text-slate-500">Classification: <strong>{profile.investorType}</strong> • Risk tolerance: <strong>{profile.riskProfile}</strong></p>
+                  <p className="text-slate-500">Classification: <strong>{currentRole}</strong> • Risk tolerance: <strong>{profile.riskProfile}</strong></p>
                 </div>
 
                 {loading ? (

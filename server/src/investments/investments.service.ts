@@ -6,11 +6,9 @@ import { FinancialLedgerService } from '../financial/financial-ledger.service';
 import { PrismaService } from '../prisma.service';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { CreateInvestmentOrderDto } from './investments.dto';
+import { assertCanViewPool, INVESTOR_ROLES } from '../pools/pool-access';
 
 const SETTLEMENT_ROLES = new Set(['Super Admin', 'Settlement Officer', 'Portfolio Manager']);
-
-/** Only investor accounts place investment orders; staff, delivery partners and asset owners do not. */
-export const INVESTOR_ROLES: ReadonlySet<string> = new Set(['Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office']);
 
 /** Delivery-partner (PDP) roles. Someone running a project must not also invest in its pool. */
 const DELIVERY_PARTNER_ROLES: ReadonlySet<string> = new Set(['Project Sponsor', 'Project Manager']);
@@ -23,18 +21,22 @@ export class InvestmentsService {
     if (!INVESTOR_ROLES.has(actor.role)) throw new ForbiddenException('Only investor accounts can place investment orders.');
     const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: input.poolId }, include: { project: { select: { projectId: true, fundingRequired: true, projectSponsorId: true } } } });
     if (!pool) throw new NotFoundException('Pool not found.');
-    assertTenantScope(actor, pool, 'Pool');
-    // Conflict of interest: the project's sponsor, or anyone holding a delivery-partner role in the
-    // organisation that runs it, cannot invest in its pool. (Pools are visible only inside their own
-    // organisation for now; when other entities can invest, the rule extends to the whole PDP entity.)
+    assertCanViewPool(actor, pool);
+    // Conflict of interest: the organisation that runs the project (the delivery-partner entity),
+    // its sponsor, and anyone holding a delivery-partner role cannot invest in its pool.
+    if (pool.organisationId === actor.organisationId) {
+      throw new ForbiddenException('Your organisation runs this project, so it cannot invest in its own pool.');
+    }
     if (pool.project?.projectSponsorId === actor.userId || actor.assignedRoles.some((role) => DELIVERY_PARTNER_ROLES.has(role))) {
       throw new ForbiddenException('You are a delivery partner for this project, so you cannot invest in its pool.');
     }
+    // Know your customer: only investors whose identity verification is approved may invest.
+    const kyc = await this.prisma.kycApplication.findFirst({ where: { userId: actor.userId, status: 'APPROVED' }, select: { id: true } });
+    if (!kyc) throw new ForbiddenException('Complete identity verification (KYC) before investing. Your KYC must be approved first.');
     if (pool.status !== 'OPEN') throw new BadRequestException('Only OPEN pools accept investment orders.');
     if (pool.currency.toUpperCase() !== input.currency.toUpperCase()) throw new BadRequestException('Investment currency does not match the pool currency.');
     const existing = await this.prisma.investmentOrder.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
     if (existing) {
-      assertTenantScope(actor, existing, 'Investment order');
       if (existing.investorUserId !== actor.userId) throw new ForbiddenException('Investment order belongs to another investor.');
       return existing;
     }
@@ -54,12 +56,15 @@ export class InvestmentsService {
   }
 
   listOrders(actor: AuthenticatedUser) {
-    return this.prisma.investmentOrder.findMany({ where: tenantScopeFilter(actor), orderBy: { createdAt: 'desc' }, include: { contribution: true }, take: 100 });
+    // An investor sees only their own orders (they sit in the pool's organisation, not the investor's).
+    const where = INVESTOR_ROLES.has(actor.role) ? { investorUserId: actor.userId } : tenantScopeFilter(actor);
+    return this.prisma.investmentOrder.findMany({ where, orderBy: { createdAt: 'desc' }, include: { contribution: true }, take: 100 });
   }
 
   async getOrder(actor: AuthenticatedUser, id: string) {
     const order = await this.prisma.investmentOrder.findUnique({ where: { id }, include: { contribution: true, pool: true } });
     if (!order) throw new NotFoundException('Investment order not found.');
+    if (order.investorUserId === actor.userId) return order;
     assertTenantScope(actor, order, 'Investment order');
     if (order.investorUserId !== actor.userId && !SETTLEMENT_ROLES.has(actor.role)) throw new ForbiddenException('Investment order is not owned by this investor.');
     return order;

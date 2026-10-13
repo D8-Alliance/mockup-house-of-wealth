@@ -6,7 +6,8 @@ import { PolicyService } from '../policy/policy.service';
 import { Prisma } from '@prisma/client';
 import { CreatePoolDto, SetAkadTermsDto } from './pools.dto';
 import { AKAD_RULES, buildAkadTermsText, hashTerms, PoolAkadType, validateProfitShare } from './akad-terms';
-import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
+import { assertTenantScope } from '../tenancy/tenant-scope';
+import { assertCanViewPool, poolVisibilityFilter } from './pool-access';
 import { FUNDABLE_PROJECT_STATUSES, hasCurrentFinalApproval } from '../projects/project-lock';
 
 @Injectable()
@@ -18,7 +19,7 @@ export class PoolsService {
   ) {}
 
   async list(user: AuthenticatedUser) {
-    const where = tenantScopeFilter(user);
+    const where = poolVisibilityFilter(user);
     if (user.role !== 'Super Admin' && !this.policy.can(user.role, 'pooling', 'read')) {
       throw new ForbiddenException(this.policy.evaluate(user.role, 'pooling', 'read').reason);
     }
@@ -28,7 +29,7 @@ export class PoolsService {
   async get(id: string, user: AuthenticatedUser) {
     const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: id }, include: { project: { select: { fundingRequired: true } } } });
     if (!pool) throw new NotFoundException('Pool not found');
-    assertTenantScope(user, pool, 'Pool');
+    assertCanViewPool(user, pool);
     const [raised, akadTerms] = await Promise.all([
       this.prisma.investmentContribution.aggregate({ _sum: { amount: true }, where: { poolId: id, status: 'POSTED' } }),
       this.currentTerms(this.prisma, id),
@@ -39,7 +40,7 @@ export class PoolsService {
   async akadTerms(id: string, user: AuthenticatedUser) {
     const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: id } });
     if (!pool) throw new NotFoundException('Pool not found');
-    assertTenantScope(user, pool, 'Pool');
+    assertCanViewPool(user, pool);
     const versions = await this.prisma.poolAkadTerms.findMany({ where: { poolId: id }, orderBy: { version: 'desc' } });
     return { current: versions[0] ?? null, versions };
   }

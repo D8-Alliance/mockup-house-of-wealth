@@ -193,7 +193,7 @@ export const PoolingView: React.FC<PoolingViewProps> = ({ lang }) => {
                       <Lock className="w-3.5 h-3.5" />
                       Multi-Sig Governance Approval
                     </button>
-                  ) : canInvest(currentRole) && (
+                  ) : pool.status === 'OPEN' && canInvest(currentRole) && (
                     <button
                       onClick={() => setSelectedPoolForInvestment(pool)}
                       className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow flex items-center justify-center gap-1.5"
