@@ -4,6 +4,7 @@ import { useRBAC } from '../../rbac/RBACContext';
 import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
 import { useRoleAvailability } from '../../rbac/roleAvailability';
 import { ROLE_CATEGORIES, UserRole } from '../../rbac/types';
+import { IS_STATIC_DEMO } from '../../services/apiFetch';
 
 const CATEGORIES = ROLE_CATEGORIES;
 
@@ -68,6 +69,7 @@ export const RoleAvailabilityPanel: React.FC = () => {
         </div>
       </div>
 
+      {IS_STATIC_DEMO && canEdit && <p className="p-3 rounded-xl bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-300 text-xs font-semibold">Demo mode: your choices are kept in this browser only. Roles without recorded demo screens cannot be switched on.</p>}
       {!canEdit && <p className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 text-xs font-semibold">Only a Super Admin can change role availability.</p>}
       {error && <p role="alert" className="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold">{error}</p>}
       {loading && <p className="text-xs text-slate-500 flex items-center gap-2"><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading roles...</p>}
@@ -88,9 +90,9 @@ export const RoleAvailabilityPanel: React.FC = () => {
                       <p className={`text-sm font-bold flex items-center gap-1.5 ${entry.enabled ? 'text-slate-900 dark:text-white' : 'text-slate-400'}`}>
                         <UserCheck className="w-3.5 h-3.5 shrink-0" />
                         {role}
-                        {entry.locked && <Lock className="w-3 h-3 text-slate-400" aria-label="Always enabled" />}
+                        {entry.locked && <Lock className="w-3 h-3 text-slate-400" aria-label={entry.note || 'Always enabled'} />}
                       </p>
-                      <p className="text-[11px] text-slate-500 truncate">{ROLE_DEFINITIONS[role]?.title}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{entry.note || ROLE_DEFINITIONS[role]?.title}</p>
                     </div>
                     <button
                       type="button"

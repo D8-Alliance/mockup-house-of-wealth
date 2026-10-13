@@ -1,4 +1,4 @@
-import { IS_STATIC_DEMO, STATIC_DEMO_ROLES } from '../../services/apiFetch';
+import { IS_STATIC_DEMO, RECORDED_DEMO_ROLES } from '../../services/apiFetch';
 import React, { useState } from 'react';
 import { WealthPoolingLogo } from '../WealthPoolingLogo';
 import { X, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -228,7 +228,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                 onLoginSubmit={handleSubmitLogin}
                 onForgotPasswordClick={() => setMode('forgot')}
                 authMode={authMode}
-                availableRoles={filterEnabled(IS_STATIC_DEMO ? STATIC_DEMO_ROLES : (Object.keys(ROLE_DEFINITIONS) as UserRole[]))}
+                availableRoles={filterEnabled(IS_STATIC_DEMO ? RECORDED_DEMO_ROLES : (Object.keys(ROLE_DEFINITIONS) as UserRole[]))}
               />
               <p className="text-center text-[11px] text-slate-500 dark:text-slate-400">
                 New to Wealth Pooling?{' '}

@@ -607,6 +607,8 @@ export interface RoleAvailabilityEntry {
   role: string;
   enabled: boolean;
   locked: boolean;
+  /** Why a locked role cannot be switched (static demo: no recorded screens). */
+  note?: string;
 }
 
 export interface FeatureModule {

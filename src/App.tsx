@@ -34,7 +34,12 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
   const [lang, setLang] = useState<LanguageCode>('en');
   const [darkMode, setDarkMode] = useState<boolean>(false);
 
-  const { showLoginModal, setShowLoginModal } = useRBAC();
+  const { showLoginModal, setShowLoginModal, currentRole, canAccessTab } = useRBAC();
+
+  // After signing in as someone else or switching role, leave a tab the new role cannot open.
+  useEffect(() => {
+    if (!canAccessTab(currentTab)) setTab('dashboard');
+  }, [currentRole]);
 
   const [assets, setAssets] = useState<AssetItem[]>(INITIAL_ASSETS);
   const [contracts, setContracts] = useState<ContractItem[]>(INITIAL_CONTRACTS);
