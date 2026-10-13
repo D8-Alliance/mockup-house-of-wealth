@@ -22,6 +22,7 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 14 | Keputusan kecil 2026-10-08 | Organization Admin dalam pengecualian kredit AI, pengesahan jadual tarikh tamat kad 9 negara, data ujian local | Keputusan pemilik projek |
 | 15 | Pembantu dokumen AI (KYC/KYB/PDP) | Smart upload (kenal pasti jenis, isi automatik, semakan awal), chatbot tahu status dokumen, lampiran fail dalam chat | Keputusan untuk mula Fasa A; model AI tempatan yang lebih kuat untuk Fasa C |
 | 16 | Pemindahan ke DigitalOcean | Simpan fail di Spaces (bukan dalam database), konfigurasi deploy, staging di DO, kemudian pilot production | Keputusan bajet dan lokasi data (Singapura) oleh compliance |
+| 17 | Entiti berasingan dan pihak berkaitan | No. SSM, jenis entiti dan kumpulan induk pada organisasi; penanda transaksi pihak berkaitan; sekatan PDP di peringkat entiti | Boleh dimulakan; peraturan entiti penuh bergantung pada item 13.3 |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -312,3 +313,16 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 - LLM: serverless (bayar ikut token) untuk teks; imej IC dan passport kekal diproses oleh OCR dalam pelayan sendiri (rujuk item 15).
 
 **Nota:** anggaran harga berdasarkan senarai harga DigitalOcean yang diketahui pada 2026; sahkan sebelum membuat keputusan.
+
+## 17. Entiti berasingan (GLC dan anak syarikat) dan transaksi pihak berkaitan
+
+- **Status:** Langkah 1 siap (2026-10-13): hanya peranan pelabur boleh membuat pesanan pelaburan, dan penaja projek atau pemegang peranan PDP (Project Sponsor, Project Manager) tidak boleh melabur dalam pool projek itu. Butang Invest Now, Subscribe to Pool dan Invest in Pool hanya dipaparkan kepada pelabur.
+- **Kawasan:** `server/prisma/schema.prisma` (model `Organisation`), `server/src/investments/investments.service.ts`, `server/src/tenancy/tenant-scope.ts`, skrin Organization Management
+
+**Prinsip:** setiap entiti dalam kumpulan GLC (contoh: Felda Plantation, Felda Ventures) didaftarkan sebagai organisasi berasingan, kerana struktur dan cara kerjanya berbeza. Setiap entiti ada pengguna, peranan, KYB dan akaun bank sendiri.
+
+**Baki:**
+1. **Maklumat entiti:** tambah No. pendaftaran (SSM), jenis entiti (GLC, syarikat, individu, institusi) dan kumpulan induk pada organisasi. Kumpulan hanya untuk pendedahan, bukan untuk berkongsi akses.
+2. **Transaksi pihak berkaitan:** apabila entiti dalam kumpulan yang sama dengan PDP melabur dalam pool PDP itu (contoh: Felda Ventures dalam pool Felda Plantation), tanda pesanan itu sebagai pihak berkaitan, paparkan kepada Compliance dan Shariah reviewer, dan nyatakan kepada pelabur lain.
+3. **Sekatan PDP di peringkat entiti:** apabila pool dibuka kepada pelabur organisasi lain (item 13.3), sekat seluruh entiti PDP (bukan sahaja pengguna berperanan PDP) daripada melabur dalam pool projeknya sendiri.
+4. **Sumbangan modal penaja (pilihan):** jika PDP perlu membiayai bersama projeknya (Musharakah), bina sebagai sumbangan berasingan yang dinyatakan dalam terma akad pool, dengan semakan penasihat Shariah. Bukan melalui butang Invest Now.

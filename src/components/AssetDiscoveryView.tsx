@@ -14,6 +14,8 @@ import {
 import { MarketplaceItem, LanguageCode } from '../types';
 import { TRANSLATIONS } from '../data/translations';
 import { SponsoredMarketplaceBanner } from './revenue/SponsoredMarketplaceBanner';
+import { useRBAC } from '../rbac/RBACContext';
+import { canInvest } from '../rbac/menuVisibility';
 
 interface AssetDiscoveryViewProps {
   items: MarketplaceItem[];
@@ -26,6 +28,9 @@ export const AssetDiscoveryView: React.FC<AssetDiscoveryViewProps> = ({
   lang,
   onSelectInvestment
 }) => {
+  // Only investors invest; delivery partners, asset owners and staff browse offerings only.
+  const { currentRole } = useRBAC();
+  const showInvest = canInvest(currentRole);
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -199,7 +204,7 @@ export const AssetDiscoveryView: React.FC<AssetDiscoveryViewProps> = ({
                   {item.riskLevel}
                 </span>
 
-                <button 
+                {showInvest && <button 
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelectInvestment(item);
@@ -208,7 +213,7 @@ export const AssetDiscoveryView: React.FC<AssetDiscoveryViewProps> = ({
                 >
                   <span>Invest Now</span>
                   <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                </button>}
               </div>
 
             </div>
@@ -267,7 +272,7 @@ export const AssetDiscoveryView: React.FC<AssetDiscoveryViewProps> = ({
               >
                 Close
               </button>
-              <button 
+              {showInvest && <button 
                 onClick={() => {
                   onSelectInvestment(selectedItem);
                   setSelectedItem(null);
@@ -275,7 +280,7 @@ export const AssetDiscoveryView: React.FC<AssetDiscoveryViewProps> = ({
                 className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white shadow-md shadow-emerald-600/20"
               >
                 Initiate Mudarabah Contract
-              </button>
+              </button>}
             </div>
 
           </div>

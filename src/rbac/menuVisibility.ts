@@ -13,3 +13,8 @@ const CODE_REVIEW_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Super Admin
 
 export const canSeePdpOnboarding = (role: UserRole) => PDP_ONBOARDING_ROLES.has(role);
 export const canSeeCodeReview = (role: UserRole) => CODE_REVIEW_ROLES.has(role);
+
+/** Only investor accounts place investment orders (the backend enforces the same list). */
+const INVESTOR_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office']);
+
+export const canInvest = (role: UserRole) => INVESTOR_ROLES.has(role);

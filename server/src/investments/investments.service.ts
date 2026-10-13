@@ -9,14 +9,27 @@ import { CreateInvestmentOrderDto } from './investments.dto';
 
 const SETTLEMENT_ROLES = new Set(['Super Admin', 'Settlement Officer', 'Portfolio Manager']);
 
+/** Only investor accounts place investment orders; staff, delivery partners and asset owners do not. */
+export const INVESTOR_ROLES: ReadonlySet<string> = new Set(['Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office']);
+
+/** Delivery-partner (PDP) roles. Someone running a project must not also invest in its pool. */
+const DELIVERY_PARTNER_ROLES: ReadonlySet<string> = new Set(['Project Sponsor', 'Project Manager']);
+
 @Injectable()
 export class InvestmentsService {
   constructor(private readonly prisma: PrismaService, private readonly ledger: FinancialLedgerService, private readonly audit: AuditService) {}
 
   async createOrder(actor: AuthenticatedUser, input: CreateInvestmentOrderDto) {
-    const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: input.poolId }, include: { project: { select: { projectId: true, fundingRequired: true } } } });
+    if (!INVESTOR_ROLES.has(actor.role)) throw new ForbiddenException('Only investor accounts can place investment orders.');
+    const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: input.poolId }, include: { project: { select: { projectId: true, fundingRequired: true, projectSponsorId: true } } } });
     if (!pool) throw new NotFoundException('Pool not found.');
     assertTenantScope(actor, pool, 'Pool');
+    // Conflict of interest: the project's sponsor, or anyone holding a delivery-partner role in the
+    // organisation that runs it, cannot invest in its pool. (Pools are visible only inside their own
+    // organisation for now; when other entities can invest, the rule extends to the whole PDP entity.)
+    if (pool.project?.projectSponsorId === actor.userId || actor.assignedRoles.some((role) => DELIVERY_PARTNER_ROLES.has(role))) {
+      throw new ForbiddenException('You are a delivery partner for this project, so you cannot invest in its pool.');
+    }
     if (pool.status !== 'OPEN') throw new BadRequestException('Only OPEN pools accept investment orders.');
     if (pool.currency.toUpperCase() !== input.currency.toUpperCase()) throw new BadRequestException('Investment currency does not match the pool currency.');
     const existing = await this.prisma.investmentOrder.findUnique({ where: { idempotencyKey: input.idempotencyKey } });

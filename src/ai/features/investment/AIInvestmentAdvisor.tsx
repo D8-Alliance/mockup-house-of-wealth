@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { AIService } from '../../services/AIService';
 import { AIRecommendationCard } from '../../components/AIRecommendationCard';
 import { PieChart, Sparkles, Filter, ShieldCheck, ArrowRight } from 'lucide-react';
+import { useRBAC } from '../../../rbac/RBACContext';
+import { canInvest } from '../../../rbac/menuVisibility';
 
 export const AIInvestmentAdvisor: React.FC<{ user: any }> = ({ user }) => {
+  const { currentRole } = useRBAC();
   const [riskProfile, setRiskProfile] = useState<'Conservative' | 'Moderate' | 'Balanced' | 'Growth' | 'Aggressive'>('Moderate');
   const [timeHorizonYears, setTimeHorizonYears] = useState(5);
   const [loading, setLoading] = useState(false);
@@ -102,12 +105,14 @@ export const AIInvestmentAdvisor: React.FC<{ user: any }> = ({ user }) => {
                 actions={
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono text-slate-400">Pool ID: {m.poolId}</span>
-                    <button
-                      onClick={() => alert(`Navigating to order wizard for ${m.poolName}`)}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      Invest in Pool <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                    {canInvest(currentRole) && (
+                      <button
+                        onClick={() => alert(`Navigating to order wizard for ${m.poolName}`)}
+                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        Invest in Pool <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 }
               />
