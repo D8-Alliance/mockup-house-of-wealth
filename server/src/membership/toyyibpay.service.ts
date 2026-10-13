@@ -157,7 +157,17 @@ export class ToyyibPayService {
     if (!this.secretKey || !billCode) throw new ServiceUnavailableException('ToyyibPay verification is not configured.');
     const response = await fetch(`${this.baseUrl}/index.php/api/getBillTransactions`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ userSecretKey: this.secretKey, billCode }) });
     if (!response.ok) throw new ServiceUnavailableException('ToyyibPay verification failed.');
-    const result = await response.json() as Array<Record<string, unknown>>;
+    // An unpaid bill has no transactions, and ToyyibPay then answers with the plain text
+    // "No data found!" instead of JSON: treat that as not paid yet, not as an error.
+    const raw = (await response.text()).trim();
+    if (/^no data found/i.test(raw)) return { status: '' };
+    let result: Array<Record<string, unknown>>;
+    try {
+      result = JSON.parse(raw) as Array<Record<string, unknown>>;
+    } catch {
+      throw new ServiceUnavailableException('ToyyibPay returned an unexpected response while verifying the bill.');
+    }
+    if (!Array.isArray(result)) throw new ServiceUnavailableException('ToyyibPay returned an unexpected response while verifying the bill.');
     const latest = result[result.length - 1];
     const amountValue = latest?.billpaymentAmount ?? latest?.amount ?? latest?.billAmount;
     const parsedAmount = amountValue === undefined || amountValue === null || amountValue === '' ? undefined : Number(String(amountValue).replace(/[^0-9.-]/g, ''));

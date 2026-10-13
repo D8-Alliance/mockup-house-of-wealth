@@ -29,7 +29,7 @@ describe('ToyyibPayService.handleCallback', () => {
     process.env.TOYYIBPAY_BASE_URL = 'https://dev.toyyibpay.test';
     process.env.TOYYIBPAY_SECRET_KEY = 'secret';
     service = new ToyyibPayService(prisma as unknown as PrismaService, { record: jest.fn() } as unknown as AuditService);
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => paidBill() }) as unknown as typeof fetch;
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: async () => JSON.stringify(paidBill()) }) as unknown as typeof fetch;
   });
 
   it('fulfils a verified paid bill exactly once', async () => {
@@ -61,8 +61,15 @@ describe('ToyyibPayService.handleCallback', () => {
 
   it('rejects a bill whose external reference belongs to another payment', async () => {
     prisma.paymentTransaction.findFirst.mockResolvedValue(payment());
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => paidBill({ billExternalReferenceNo: 'PAY-OTHER' }) }) as unknown as typeof fetch;
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: async () => JSON.stringify(paidBill({ billExternalReferenceNo: 'PAY-OTHER' })) }) as unknown as typeof fetch;
     await expect(service.handleCallback({ order_id: 'PAY-1' }, fulfil)).rejects.toThrow(/reference does not match/);
+    expect(fulfil).not.toHaveBeenCalled();
+  });
+
+  it('treats the plain-text "No data found!" for an unpaid bill as not paid yet, not as an error', async () => {
+    prisma.paymentTransaction.findFirst.mockResolvedValue(payment());
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, text: async () => '\t\t\t\tNo data found!' }) as unknown as typeof fetch;
+    await expect(service.handleCallback({ order_id: 'PAY-1' }, fulfil)).resolves.toMatchObject({ status: 'PENDING' });
     expect(fulfil).not.toHaveBeenCalled();
   });
 });
