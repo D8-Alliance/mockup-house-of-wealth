@@ -220,7 +220,7 @@
  "GET /membership/me": {
   "status": 200,
   "contentType": "application/json; charset=utf-8",
-  "body": "{\"id\":\"cmunq2d7u0014pjkk9ms6mcdj\",\"userId\":\"USR-SYS-001\",\"planId\":\"plan_free\",\"tier\":\"FREE\",\"billingInterval\":\"monthly\",\"status\":\"Active\",\"currentPeriodStart\":\"2026-09-30T06:26:22.694Z\",\"currentPeriodEnd\":\"2026-10-30T06:26:22.694Z\",\"autoRenew\":false,\"paymentMethodSummary\":\"None (Free Plan)\",\"aiCreditsRemaining\":20,\"aiCreditsTotal\":20,\"createdAt\":\"2026-09-30T06:26:22.698Z\",\"updatedAt\":\"2026-09-30T06:26:22.698Z\",\"planName\":\"Wealth Pooling Free\",\"lifecycleStatus\":\"FREE\",\"daysRemaining\":22,\"graceEndsAt\":null,\"graceDays\":7,\"renewalMode\":\"NONE\",\"redeemableCredits\":0,\"creditValueMYR\":0.2,\"fpxFeeMYR\":1,\"toyyibPayMinimumMYR\":1,\"pendingMembershipPayments\":0}"
+  "body": "{\"id\":\"cmunq2d7u0014pjkk9ms6mcdj\",\"userId\":\"USR-SYS-001\",\"planId\":\"plan_free\",\"tier\":\"FREE\",\"billingInterval\":\"monthly\",\"status\":\"Active\",\"currentPeriodStart\":\"2026-09-30T06:26:22.694Z\",\"currentPeriodEnd\":\"2026-10-30T06:26:22.694Z\",\"autoRenew\":false,\"paymentMethodSummary\":\"None (Free Plan)\",\"aiCreditsRemaining\":20,\"aiCreditsTotal\":20,\"createdAt\":\"2026-09-30T06:26:22.698Z\",\"updatedAt\":\"2026-09-30T06:26:22.698Z\",\"planName\":\"Wealth Pooling Free\",\"lifecycleStatus\":\"FREE\",\"daysRemaining\":18,\"graceEndsAt\":null,\"graceDays\":7,\"renewalMode\":\"NONE\",\"redeemableCredits\":0,\"creditValueMYR\":0.2,\"fpxFeeMYR\":1,\"toyyibPayMinimumMYR\":1,\"pendingMembershipPayments\":0}"
  },
  "GET /membership/me/credits": {
   "status": 200,
@@ -422,6 +422,11 @@
   "contentType": "application/json; charset=utf-8",
   "body": "[{\"id\":\"USR-MEHMET-PDP\",\"name\":\"Mehmet Yilmaz\",\"email\":\"mehmet.pdp@istanbultech.tr\",\"roles\":[\"Project_Sponsor\"]}]"
  },
+ "GET /roles/availability": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[{\"role\":\"Super Admin\",\"enabled\":true,\"locked\":true},{\"role\":\"Country Admin\",\"enabled\":true,\"locked\":false},{\"role\":\"Organization Admin\",\"enabled\":false,\"locked\":false},{\"role\":\"Project Sponsor\",\"enabled\":true,\"locked\":false},{\"role\":\"Project Manager\",\"enabled\":false,\"locked\":false},{\"role\":\"Asset Owner\",\"enabled\":true,\"locked\":false},{\"role\":\"Asset Manager\",\"enabled\":false,\"locked\":false},{\"role\":\"Pool Manager\",\"enabled\":false,\"locked\":false},{\"role\":\"Retail Investor\",\"enabled\":true,\"locked\":false},{\"role\":\"HNWI Investor\",\"enabled\":false,\"locked\":false},{\"role\":\"Institutional Investor\",\"enabled\":false,\"locked\":false},{\"role\":\"Corporate Investor\",\"enabled\":false,\"locked\":false},{\"role\":\"Family Office\",\"enabled\":false,\"locked\":false},{\"role\":\"Portfolio Manager\",\"enabled\":false,\"locked\":false},{\"role\":\"Shariah Advisor\",\"enabled\":false,\"locked\":false},{\"role\":\"Shariah Reviewer\",\"enabled\":false,\"locked\":false},{\"role\":\"Shariah Committee\",\"enabled\":false,\"locked\":false},{\"role\":\"Compliance Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"KYC Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"KYB Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"AML Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Risk Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Fraud Analyst\",\"enabled\":false,\"locked\":false},{\"role\":\"Legal Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Finance Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Treasury Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Settlement Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Reconciliation Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Auditor\",\"enabled\":false,\"locked\":false},{\"role\":\"Customer Support\",\"enabled\":false,\"locked\":false},{\"role\":\"System Administrator\",\"enabled\":false,\"locked\":false},{\"role\":\"Security Administrator\",\"enabled\":false,\"locked\":false},{\"role\":\"Data Administrator\",\"enabled\":false,\"locked\":false},{\"role\":\"AI Administrator\",\"enabled\":false,\"locked\":false},{\"role\":\"AI Model Reviewer\",\"enabled\":false,\"locked\":false},{\"role\":\"Guest\",\"enabled\":true,\"locked\":true}]"
+ },
  "GET /shariah/reviews": {
   "status": 200,
   "contentType": "application/json; charset=utf-8",
@@ -508,7 +513,7 @@
  "GET /users/me/access": {
   "status": 200,
   "contentType": "application/json; charset=utf-8",
-  "body": "{\"userId\":\"USR-SYS-001\",\"role\":\"Super Admin\",\"assignedRoles\":[\"Super Admin\",\"Security Administrator\",\"Country Admin\"],\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-D8-GOV\"}"
+  "body": "{\"userId\":\"USR-SYS-001\",\"role\":\"Super Admin\",\"assignedRoles\":[\"Super Admin\",\"Country Admin\"],\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-D8-GOV\"}"
  },
  "GET /zakat/authorities": {
   "status": 200,
