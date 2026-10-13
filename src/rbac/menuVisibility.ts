@@ -18,3 +18,8 @@ export const canSeeCodeReview = (role: UserRole) => CODE_REVIEW_ROLES.has(role);
 const INVESTOR_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office']);
 
 export const canInvest = (role: UserRole) => INVESTOR_ROLES.has(role);
+
+/** Delivery-partner (PDP) roles: their Contracts tab shows their pools' akad terms and obligations, not an investor portfolio. */
+const DELIVERY_PARTNER_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Project Sponsor', 'Project Manager']);
+
+export const isDeliveryPartner = (role: UserRole) => DELIVERY_PARTNER_ROLES.has(role);

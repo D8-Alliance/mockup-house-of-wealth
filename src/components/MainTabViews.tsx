@@ -23,6 +23,9 @@ import { MembershipView } from './revenue/MembershipView';
 import { BeneficiariesView } from './BeneficiariesView';
 import { BillingTransactionsView } from './revenue/BillingTransactionsView';
 import { BackendFinancialAccount } from '../services/apiClient';
+import { SponsorAgreementsView } from './sponsor/SponsorAgreementsView';
+import { useRBAC } from '../rbac/RBACContext';
+import { isDeliveryPartner } from '../rbac/menuVisibility';
 
 interface MainTabViewsProps {
   currentTab: NavTab;
@@ -67,6 +70,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
   onOpenPdpRegister,
   setUser
 }) => {
+  const { currentRole } = useRBAC();
   return (
     <>
       {currentTab === 'dashboard' && (
@@ -116,12 +120,17 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
       {currentTab === 'contracts' && (
         <RoleGuard tab="contracts">
           <div className="mb-6"><AgreementReviewPanel /></div>
-          <MyContractsView
-            contracts={contracts}
-            lang={lang}
-            onOpenContractWizard={onOpenContractWizard}
-            onOpenFinancialPerf={onOpenFinancialPerf}
-          />
+          {/* A delivery partner receives funding and owes profit, so it sees its pool agreements from the server. */}
+          {isDeliveryPartner(currentRole) ? (
+            <SponsorAgreementsView />
+          ) : (
+            <MyContractsView
+              contracts={contracts}
+              lang={lang}
+              onOpenContractWizard={onOpenContractWizard}
+              onOpenFinancialPerf={onOpenFinancialPerf}
+            />
+          )}
         </RoleGuard>
       )}
 

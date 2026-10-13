@@ -128,6 +128,9 @@ export const apiClient = {
   verifyMembershipPayment: (paymentId: string) => request<{ status: 'PAID' | 'FAILED' | 'PENDING'; paymentId: string; productType: string }>(`/membership/me/payments/${encodeURIComponent(paymentId)}/verify`, { method: 'POST' }),
   getAdminCreditAnalytics: () =>request<{ summary: AdminAIAnalyticsSummary; transactions: BackendCreditTransaction[] }>('/membership/admin/credits/analytics'),
   getProjects: () => request<BackendProject[]>('/projects'),
+  getPools: () => request<BackendPool[]>('/pools'),
+  getFundingRequests: (projectId: string) => request<BackendFundingRequest[]>(`/funding/requests/${encodeURIComponent(projectId)}`),
+  getDistributions: () => request<BackendDistribution[]>('/distributions'),
   analyzeProjectFeasibility: (projectId: string) => request<BackendFeasibilityAssessment>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/analyze`, { method: 'POST' }),
   getLatestProjectFeasibility: (projectId: string) => request<BackendFeasibilityAssessment | null>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/latest`),
   reviewProjectFeasibility: (projectId: string, runId: string, input: { reviewStage: string; decision: string; comment: string; supportingEvidence?: string[] }) => request<BackendFeasibilityAssessment & { reviewStatus?: string; roleResponsibility?: string[]; aiRecommendationIsNotApproval?: boolean }>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/${encodeURIComponent(runId)}/review`, { method: 'POST', body: JSON.stringify(input) }),
@@ -845,6 +848,40 @@ export interface BackendRagSearchResult {
   paragraphRefs?: string[];
   retrieval?: 'keyword' | 'vector' | 'hybrid';
   score?: number;
+}
+
+export interface BackendPool {
+  poolId: string;
+  poolName: string;
+  currency: string;
+  investmentStructure: string;
+  indicativeExpectedReturn: number | string;
+  status: string;
+  projectId: string;
+}
+
+export interface BackendFundingRequest {
+  fundingRequestId: string;
+  projectId: string;
+  poolId?: string | null;
+  requestedAmount: number | string;
+  currency: string;
+  purpose: string;
+  status: string;
+  requestedAt: string;
+  disbursedAt?: string | null;
+}
+
+export interface BackendDistribution {
+  id: string;
+  projectId: string;
+  poolId?: string | null;
+  totalAmount: number | string;
+  investorProfit?: number | string | null;
+  currency: string;
+  status: string;
+  periodName: string;
+  createdAt: string;
 }
 
 export interface BackendProject {

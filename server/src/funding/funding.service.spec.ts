@@ -204,3 +204,19 @@ describe('FundingService sponsor request access', () => {
     expect(prismaMock.fundingRequest.create).not.toHaveBeenCalled();
   });
 });
+
+describe('FundingService sponsor visibility of funding requests', () => {
+  const service = new FundingService(prismaMock as unknown as PrismaService, auditMock as unknown as AuditService, policy, ledgerMock as unknown as FinancialLedgerService);
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('lets a Project Sponsor read the funding requests of their own project, and no other', async () => {
+    expect(policy.can('Project Sponsor', 'approvals', 'read')).toBe(true);
+    prismaMock.project.findUnique.mockResolvedValue({ projectId: 'PRJ-1', projectSponsorId: 'USR-A', organisationId: 'ORG-A', countryNodeId: 'CN-MYS' });
+    prismaMock.fundingRequest.findMany.mockResolvedValue([{ fundingRequestId: 'FRQ-1' }]);
+    await expect(service.list('PRJ-1', actor('Project Sponsor'))).resolves.toHaveLength(1);
+
+    prismaMock.project.findUnique.mockResolvedValue({ projectId: 'PRJ-2', projectSponsorId: 'USR-B', organisationId: 'ORG-A', countryNodeId: 'CN-MYS' });
+    await expect(service.list('PRJ-2', actor('Project Sponsor'))).rejects.toBeInstanceOf(ForbiddenException);
+  });
+});

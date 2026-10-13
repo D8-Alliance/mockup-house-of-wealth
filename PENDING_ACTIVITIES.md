@@ -23,6 +23,7 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 15 | Pembantu dokumen AI (KYC/KYB/PDP) | Smart upload (kenal pasti jenis, isi automatik, semakan awal), chatbot tahu status dokumen, lampiran fail dalam chat | Keputusan untuk mula Fasa A; model AI tempatan yang lebih kuat untuk Fasa C |
 | 16 | Pemindahan ke DigitalOcean | Simpan fail di Spaces (bukan dalam database), konfigurasi deploy, staging di DO, kemudian pilot production | Keputusan bajet dan lokasi data (Singapura) oleh compliance |
 | 17 | Entiti berasingan dan pihak berkaitan | No. SSM, jenis entiti dan kumpulan induk pada organisasi; penanda transaksi pihak berkaitan; sekatan PDP di peringkat entiti | Boleh dimulakan; peraturan entiti penuh bergantung pada item 13.3 |
+| 18 | Prestasi projek PDP dan baki skrin kontrak | Laporan prestasi berkala (KPI kewangan dan sektor), terma akad untuk pool seed, "My Contracts" pelabur masih data contoh | Keputusan senarai KPI; boleh dimulakan |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -326,3 +327,13 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 2. **Transaksi pihak berkaitan:** apabila entiti dalam kumpulan yang sama dengan PDP melabur dalam pool PDP itu (contoh: Felda Ventures dalam pool Felda Plantation), tanda pesanan itu sebagai pihak berkaitan, paparkan kepada Compliance dan Shariah reviewer, dan nyatakan kepada pelabur lain.
 3. **Sekatan PDP di peringkat entiti:** apabila pool dibuka kepada pelabur organisasi lain (item 13.3), sekat seluruh entiti PDP (bukan sahaja pengguna berperanan PDP) daripada melabur dalam pool projeknya sendiri.
 4. **Sumbangan modal penaja (pilihan):** jika PDP perlu membiayai bersama projeknya (Musharakah), bina sebagai sumbangan berasingan yang dinyatakan dalam terma akad pool, dengan semakan penasihat Shariah. Bukan melalui butang Invest Now.
+
+## 18. Prestasi projek PDP dan baki skrin kontrak
+
+- **Status:** Separuh siap (2026-10-13): "My Contracts" untuk PDP (Project Sponsor, Project Manager) kini dipanggil "My Pool Agreements" dan membaca data sebenar: terma akad setiap pool (jenis akad, nisbah untung, versi), dana diterima, permohonan dana dan keuntungan yang diagihkan. Project Sponsor kini boleh membaca permohonan dana projeknya sendiri.
+- **Kawasan:** `src/components/sponsor/SponsorAgreementsView.tsx`, `src/components/sponsor/SponsorKPICards.tsx`, `src/components/MyContractsView.tsx`, `server/src/projects/` (milestone), `server/scripts/seed-mock-data.ts`
+
+**Baki:**
+1. **Laporan prestasi projek berkala:** PDP menghantar angka sebenar setiap suku tahun, disahkan juruaudit, dan dipaparkan kepada pelabur. KPI kewangan: hasil dan kos sebenar berbanding unjuran, pulangan sebenar berbanding yang dijanjikan, milestone tepat masa (%), penggunaan bajet, keuntungan yang diagihkan. KPI sektor (contoh ladang: hasil BTS sehektar, kadar perahan minyak, keluasan tanam semula). Insiden Shariah dan dapatan audit.
+2. **Terma akad untuk pool seed:** pool contoh (contoh POOL-MYS-001 Felda) tiada terma akad, jadi skrin PDP menunjukkan "Not published" dan pelabur tidak boleh melabur dalam demo. Terbitkan versi 1 terma akad untuk setiap pool seed.
+3. **"My Contracts" pelabur:** angka ringkasan (4 Agreements, $117,500, Nov 15, 2026) masih data contoh tetap di frontend. Gantikan dengan pesanan pelaburan dan terma akad yang diterima pelabur dari backend.
