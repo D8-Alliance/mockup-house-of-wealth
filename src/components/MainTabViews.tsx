@@ -169,6 +169,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
             beneficiaries={beneficiaries}
             setBeneficiaries={setBeneficiaries}
             lang={lang}
+            setTab={setTab}
           />
         </RoleGuard>
       )}
