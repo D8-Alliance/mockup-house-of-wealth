@@ -47,7 +47,7 @@ import { useRBAC } from '../rbac/RBACContext';
 import { authService } from '../auth/services/authService';
 import { displayPhone, phoneFormatFor } from '../countryNodes/countryPhone';
 import { KycApplicationPanel } from '../kyc/KycApplicationPanel';
-import { kycBadgeText } from '../kyc/kycLabels';
+import { kycBadgeText, roleNeedsKyc } from '../kyc/kycLabels';
 
 interface UserProfileSettingsViewProps {
   user: UserProfile;
@@ -76,7 +76,8 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
   setBeneficiaries,
   setTab
 }) => {
-  const { updateBackendUser, canAccessTab } = useRBAC();
+  const { updateBackendUser, canAccessTab, currentRole } = useRBAC();
+  const needsKyc = roleNeedsKyc(currentRole);
   const handleUserUpdate = (u: UserProfile) => {
     if (onUpdateUser) onUpdateUser(u);
     if (setUser) setUser(u);
@@ -326,7 +327,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
             <span>D-8 Islamic Circular Economy Node</span>
           </div>
 
-          {!kycLoading && (
+          {needsKyc && !kycLoading && (
             <button
               type="button"
               onClick={() => setActiveTab('kyc')}
@@ -413,7 +414,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
         <div className="px-6 border-t border-slate-100 dark:border-slate-700/60 bg-slate-50/50 dark:bg-slate-900/30 flex overflow-x-auto gap-2">
           {[
             { id: 'personal', label: 'Personal Info', icon: <User className="w-4 h-4" /> },
-            { id: 'kyc', label: 'Identity Verification', icon: <ShieldCheck className="w-4 h-4" /> },
+            ...(needsKyc ? [{ id: 'kyc', label: 'Identity Verification', icon: <ShieldCheck className="w-4 h-4" /> }] : []),
             { id: 'security', label: 'Security & Auth', icon: <Lock className="w-4 h-4" /> },
             { id: 'shariah', label: 'Shariah & Financial', icon: <Coins className="w-4 h-4" /> },
             ...(canAccessTab('beneficiaries') ? [{ id: 'beneficiary', label: 'Beneficiaries', icon: <HeartHandshake className="w-4 h-4" /> }] : []),
@@ -440,7 +441,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
 
       </div>
 
-      {activeTab === 'kyc' && (
+      {activeTab === 'kyc' && needsKyc && (
         <KycApplicationPanel application={kycApplication} loading={kycLoading} onChange={setKycApplication} />
       )}
 

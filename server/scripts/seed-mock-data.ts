@@ -269,10 +269,10 @@ async function seed(): Promise<void> {
     // Role resolution stays fully DB-authoritative regardless.
     await tx.organisation.upsert({
       where: { id: 'ORG-PUBLIC' },
-      update: { name: 'Wealth Pooling Public (Mock)', countryNodeId: 'CN-MYS', status: 'ACTIVE' },
+      update: { name: 'D-8 Wealth Pooling Platform', countryNodeId: 'CN-MYS', status: 'ACTIVE' },
       create: {
         id: 'ORG-PUBLIC',
-        name: 'Wealth Pooling Public (Mock)',
+        name: 'D-8 Wealth Pooling Platform',
         countryNodeId: 'CN-MYS',
         status: 'ACTIVE',
       },

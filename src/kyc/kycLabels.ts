@@ -1,4 +1,18 @@
 import { KycApplication, KycDocumentType, KycIdDocumentType, KycLevel, KycStatus } from '../services/apiClient';
+import { ROLE_DEFINITIONS } from '../rbac/roleDefinitions';
+import { UserRole } from '../rbac/types';
+
+/**
+ * KYC is for the people who put money in or take it out: investors, PDPs and asset owners.
+ * Platform staff (super admin, officers, reviewers) are appointed by their organisation and
+ * hold no investments, so they are not asked for it.
+ */
+const KYC_CATEGORIES = new Set(['Participant & User', 'Delivery Partner (PDP)', 'Asset Owner']);
+
+export function roleNeedsKyc(role: UserRole): boolean {
+  const category = ROLE_DEFINITIONS[role]?.category;
+  return category ? KYC_CATEGORIES.has(category) : true;
+}
 
 export const KYC_DOCUMENT_LABELS: Record<KycDocumentType, string> = {
   ID_FRONT: 'National ID (front)',

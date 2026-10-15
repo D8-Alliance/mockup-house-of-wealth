@@ -334,6 +334,12 @@ Buka https://how-staging-auth.alhidayahgroup.com.my/admin dan log masuk dengan `
    PGPASSWORD="$(grep '^KC_DB_PASSWORD=' keycloak/.env | cut -d= -f2-)" psql "host=HOST_DB port=25060 user=doadmin dbname=house_of_wealth sslmode=require" -c "UPDATE \"User\" SET \"idpProvider\"='keycloak', \"idpSubjectId\"='KEYCLOAK_USER_ID', \"isActive\"=true WHERE id='USR-mock-user';"
    ```
    Mesti keluar `UPDATE 1`. `USR-mock-user` ialah Super Admin (`ORG-PUBLIC`, `CN-MYS`) daripada data seed; organisasi itu sama dengan nilai lalai backend, jadi pengguna Keycloak tidak memerlukan atribut tambahan.
+8. Tukar ID ahli `USR-mock-user` kepada ID sebenar, supaya profil tidak memaparkan "mock". Langkah ini dibuat sekali sahaja:
+   ```bash
+   cd /opt/how/server
+   npx tsx scripts/rename-user-id.ts USR-mock-user USR-SYS-002
+   ```
+   Skrip ini mengemas kini semua jadual yang merujuk ID itu dalam satu transaksi. Jejak audit dan lejar tidak diubah, kerana kedua-duanya dilindungi rantaian hash dan merekodkan siapa yang bertindak pada masa itu. Selepas itu, log keluar dan log masuk semula.
 Buka https://how-staging.alhidayahgroup.com.my dan log masuk.
 
 Log masuk dalam tetingkap **Incognito** baharu, supaya sesi lama Keycloak tidak digunakan semula. Jika log masuk ditolak, halaman utama kini memaparkan sebabnya (contohnya `MFA is required for this role`).
