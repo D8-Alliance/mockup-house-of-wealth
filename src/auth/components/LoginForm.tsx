@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ChevronDown } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { Mail, ArrowRight, ChevronDown, ShieldCheck } from 'lucide-react';
 import { UserRole } from '../../rbac/types';
 import { AuthMode } from '../types/authTypes';
 import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
@@ -8,58 +8,94 @@ import { SINGLE_ROLE_MODE, SINGLE_TEST_ROLE } from '../../rbac/runtimeConfig';
 interface LoginFormProps {
   email: string;
   setEmail: (email: string) => void;
-  password: string;
-  setPassword: (password: string) => void;
-  showPassword: boolean;
-  setShowPassword: (show: boolean) => void;
   rememberMe: boolean;
   setRememberMe: (remember: boolean) => void;
   selectedRole: UserRole;
   setSelectedRole: (role: UserRole) => void;
   loading: boolean;
   onLoginSubmit: (e: React.FormEvent) => void;
-  onForgotPasswordClick: () => void;
   availableRoles?: UserRole[];
   authMode?: AuthMode;
 }
 
+/**
+ * PRODUCTION signs in through the identity provider (Keycloak), which asks for the email,
+ * password and one-time code itself; the user's roles come from the server. So this form only
+ * offers the button. Demo and pre-production use personas, which have no password.
+ */
 export const LoginForm: React.FC<LoginFormProps> = ({
   email,
   setEmail,
-  password,
-  setPassword,
-  showPassword,
-  setShowPassword,
   rememberMe,
   setRememberMe,
   selectedRole,
   setSelectedRole,
   loading,
   onLoginSubmit,
-  onForgotPasswordClick,
   availableRoles,
   authMode = 'DEMO'
 }) => {
+  const isProduction = authMode === 'PRODUCTION';
   const rolesList = SINGLE_ROLE_MODE
     ? [SINGLE_TEST_ROLE]
     : (availableRoles || (Object.keys(ROLE_DEFINITIONS) as UserRole[]));
 
+  // Personas sign in by their own email; start with the selected persona's, never a fixed account.
+  useEffect(() => {
+    if (!isProduction && !email) {
+      const demo = ROLE_DEFINITIONS[selectedRole]?.demoUser;
+      if (demo) setEmail(demo.email);
+    }
+  }, [isProduction]);
+
   const handleRoleSelect = (role: UserRole) => {
     setSelectedRole(role);
     const demo = ROLE_DEFINITIONS[role]?.demoUser;
-    if (demo && authMode === 'DEMO') {
-      setEmail(demo.email);
-    }
+    if (demo && !isProduction) setEmail(demo.email);
   };
+
+  const submitButton = (label: string) => (
+    <button
+      type="submit"
+      disabled={loading}
+      className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+    >
+      {loading ? (
+        <>
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          <span>Opening secure sign-in...</span>
+        </>
+      ) : (
+        <>
+          <span>{label}</span>
+          <ArrowRight className="w-4 h-4" />
+        </>
+      )}
+    </button>
+  );
+
+  if (isProduction) {
+    return (
+      <form onSubmit={onLoginSubmit} className="space-y-4">
+        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-start gap-3">
+          <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+            You will be taken to the secure D-8 sign-in page to enter your email, password and, for staff roles, a one-time code. Your access is set by your organisation's administrator.
+          </p>
+        </div>
+        {submitButton('Continue to secure sign-in')}
+      </form>
+    );
+  }
 
   return (
     <form onSubmit={onLoginSubmit} className="space-y-4">
       {/* Role / Persona Selection */}
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-          <span>{authMode === 'DEMO' ? 'Select Persona / Role:' : 'Select Target Role:'}</span>
+          <span>Select Persona / Role:</span>
           <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 uppercase font-extrabold">
-            {authMode === 'DEMO' ? `${rolesList.length} Personas` : 'Assigned Roles'}
+            {`${rolesList.length} Personas`}
           </span>
         </label>
         <div className="relative">
@@ -81,7 +117,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       {/* Email / Username Input */}
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-          Corporate Email / Username
+          Email
         </label>
         <div className="relative">
           <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
@@ -96,42 +132,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none"
           />
         </div>
-      </div>
-
-      {/* Password Input */}
-      <div className="space-y-1.5">
-        <div className="flex justify-between items-center">
-          <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-            Password
-          </label>
-          <button
-            type="button"
-            onClick={onForgotPasswordClick}
-            className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
-          >
-            Forgot Password?
-          </button>
-        </div>
-        <div className="relative">
-          <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-          <input
-            type={showPassword ? 'text' : 'password'}
-            name="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            placeholder="Enter password"
-            className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-          >
-            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-        </div>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">Demo personas sign in without a password. Real accounts use the secure sign-in page.</p>
       </div>
 
       {/* Remember Me Checkbox */}
@@ -147,24 +148,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         </label>
       </div>
 
-      {/* Submit Button */}
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
-      >
-        {loading ? (
-          <>
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            <span>Authenticating Gateway...</span>
-          </>
-        ) : (
-          <>
-            <span>Sign In & Access Dashboard</span>
-            <ArrowRight className="w-4 h-4" />
-          </>
-        )}
-      </button>
+      {submitButton('Sign In & Access Dashboard')}
     </form>
   );
 };

@@ -24,12 +24,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
   const { filterEnabled } = useRoleAvailability();
 
   const [mode, setMode] = useState<'login' | 'register' | 'mfa' | 'forgot'>('login');
-  const [email, setEmail] = useState('ahmad.razak@felda.gov.my');
-  const [password, setPassword] = useState('••••••••••••');
-  const [showPassword, setShowPassword] = useState(false);
+  // No account or password is filled in: production signs in on the identity provider's page,
+  // and demo personas fill in their own email when chosen.
+  const [email, setEmail] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [selectedRole, setSelectedRole] = useState<UserRole>('Country Admin');
-  const [otp, setOtp] = useState(['4', '8', '2', '9', '1', '0']);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [challengeId, setChallengeId] = useState<string>('');
 
   const [loading, setLoading] = useState(false);
@@ -42,8 +42,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
     e.preventDefault();
     setError(null);
 
-    if (!email || !password) {
-      setError('Please enter both email address and password.');
+    if (authMode !== 'PRODUCTION' && !email) {
+      setError('Please enter your email address.');
       return;
     }
 
@@ -53,7 +53,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
       setLoading(false);
       const res = authService.login({
         email,
-        password,
+        password: '',
         selectedRole,
         rememberMe
       });
@@ -216,17 +216,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
               <LoginForm
                 email={email}
                 setEmail={setEmail}
-                password={password}
-                setPassword={setPassword}
-                showPassword={showPassword}
-                setShowPassword={setShowPassword}
                 rememberMe={rememberMe}
                 setRememberMe={setRememberMe}
                 selectedRole={selectedRole}
                 setSelectedRole={setSelectedRole}
                 loading={loading}
                 onLoginSubmit={handleSubmitLogin}
-                onForgotPasswordClick={() => setMode('forgot')}
                 authMode={authMode}
                 availableRoles={filterEnabled(IS_STATIC_DEMO ? RECORDED_DEMO_ROLES : (Object.keys(ROLE_DEFINITIONS) as UserRole[]))}
               />
