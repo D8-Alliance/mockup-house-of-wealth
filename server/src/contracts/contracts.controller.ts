@@ -1,10 +1,14 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { CreateApprovalDto, CreateContractDto, CreatePartyDto, CreateVersionDto, DecideApprovalDto, TransitionContractDto } from './contracts.dto';
 import { ContractsService } from './contracts.service';
+import { FeatureModuleGuard } from '../modules/feature-module.guard';
+import { RequireFeatureModule } from '../modules/feature-module.decorator';
 
 @Controller('contracts')
+@UseGuards(FeatureModuleGuard)
+@RequireFeatureModule('CONTRACTS')
 export class ContractsController {
   constructor(private readonly contracts: ContractsService) {}
 

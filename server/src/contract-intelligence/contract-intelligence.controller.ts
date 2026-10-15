@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -6,8 +6,12 @@ import { CreateContractClauseDto, CreateContractInputSchemaDto, CreateContractTe
 import { ContractIntelligenceService } from './contract-intelligence.service';
 import { AgreementGenerationService } from './agreement-generation.service';
 import { AgreementReviewDto, AgreementWizardDto } from './agreement.dto';
+import { FeatureModuleGuard } from '../modules/feature-module.guard';
+import { RequireFeatureModule } from '../modules/feature-module.decorator';
 
 @Controller('contract-intelligence')
+@UseGuards(FeatureModuleGuard)
+@RequireFeatureModule('CONTRACTS')
 export class ContractIntelligenceController {
   constructor(private readonly engine: ContractIntelligenceService, private readonly agreements: AgreementGenerationService) {}
 

@@ -16,10 +16,16 @@ const application = { id: 'PDP-1', applicationNumber: 'PDP-APP-2026-001', userId
 
 describe('PdpService.reviewKyb', () => {
   const audit = { recordActor: jest.fn().mockResolvedValue(undefined) };
-  const prisma = { pdpApplication: { findUnique: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn() } };
+  const prisma = { pdpApplication: { findUnique: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn() }, featureModule: { findUnique: jest.fn().mockResolvedValue(null) } };
   const service = new PdpService(prisma as unknown as PrismaService, audit as unknown as AuditService);
 
   beforeEach(() => jest.clearAllMocks());
+
+  it('refuses KYB reviews while the KYB module is disabled', async () => {
+    prisma.featureModule.findUnique.mockResolvedValueOnce({ moduleKey: 'KYB_VERIFICATION', enabled: false, mode: 'DISABLED' });
+    await expect(service.reviewKyb(actor('KYB Officer'), 'PDP-1', 'APPROVED', 'Registry documents match')).rejects.toThrow('KYB verification is currently disabled');
+    expect(prisma.pdpApplication.updateMany).not.toHaveBeenCalled();
+  });
 
   it('approves an application from the reviewer\'s own country', async () => {
     prisma.pdpApplication.findUnique.mockResolvedValueOnce(application);

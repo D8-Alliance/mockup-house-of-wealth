@@ -1,11 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { RequirePermission, Roles } from '../auth/roles.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { InvestmentsService } from './investments.service';
+import { FeatureModuleGuard } from '../modules/feature-module.guard';
+import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { CancelInvestmentOrderDto, CreateInvestmentOrderDto } from './investments.dto';
 
 @Controller('investments')
+@UseGuards(FeatureModuleGuard)
+@RequireFeatureModule('WEALTH_POOLING')
 @RequirePermission('pooling', 'read')
 export class InvestmentsController {
   constructor(private readonly investments: InvestmentsService) {}

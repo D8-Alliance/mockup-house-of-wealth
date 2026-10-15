@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
@@ -6,6 +6,8 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { IsString, MaxLength } from 'class-validator';
 import { ProjectsService } from './projects.service';
+import { FeatureModuleGuard } from '../modules/feature-module.guard';
+import { RequireFeatureModule } from '../modules/feature-module.decorator';
 
 // Declared before the controller: its decorators reference this class at load time.
 export class ReopenProjectDto {
@@ -212,6 +214,8 @@ export class ProjectsController {
   }
 
   @Post(':id/documents')
+  @UseGuards(FeatureModuleGuard)
+  @RequireFeatureModule('DOCUMENT_VAULT')
   @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
   @RequirePermission('assets', 'create')
   @UseInterceptors(FileInterceptor('file', {
@@ -223,6 +227,8 @@ export class ProjectsController {
   }
 
   @Post(':id/evidence/:evidenceType/upload')
+  @UseGuards(FeatureModuleGuard)
+  @RequireFeatureModule('DOCUMENT_VAULT')
   @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
   @RequirePermission('assets', 'create')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 }, fileFilter: uploadFilter(['pdf', 'xlsx', 'csv']) }))

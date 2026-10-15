@@ -2,6 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCw, ShieldCheck } from 'lucide-react';
 import { apiClient, FeatureModule, FeatureModuleMode } from '../../services/apiClient';
 
+/** What each switch actually stops on the server, so the panel does not promise more than it does. */
+const CONTROLS: Record<string, string> = {
+  AI_INTELLIGENCE: 'Controls: every AI feature (advisor, analysis, agreement drafting notes).',
+  KYC_VERIFICATION: 'Controls: identity verification submissions and reviews.',
+  SHARIAH_GOVERNANCE: 'Controls: Shariah reviews and sign-offs.',
+  WEALTH_POOLING: 'Controls: pools, funding requests, investment orders and profit distributions.',
+  KYB_VERIFICATION: 'Controls: submitting and reviewing PDP applications. Manual Review sends each application to a human reviewer.',
+  CONTRACTS: 'Controls: contracts and agreement drafting, review and download.',
+  DOCUMENT_VAULT: 'Controls: project document and evidence uploads.',
+  FINANCIAL_LEDGER: 'Always on: the ledger records every financial movement.',
+};
+
+/** Modules without a server module yet: their switch would change nothing, so it is locked. */
+const NOT_BUILT = new Set(['ASSET_REGISTRATION', 'SECONDARY_MARKET']);
+
 export const FeatureModuleControlPanel: React.FC = () => {
   const [modules, setModules] = useState<FeatureModule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,22 +70,25 @@ export const FeatureModuleControlPanel: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {modules.map(module => {
-          const locked = module.moduleKey === 'FINANCIAL_LEDGER';
+          const notBuilt = NOT_BUILT.has(module.moduleKey);
+          const locked = module.moduleKey === 'FINANCIAL_LEDGER' || notBuilt;
           return (
             <div key={module.moduleKey} className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-purple-500 shrink-0" />
                   <h3 className="text-sm font-black text-slate-900 dark:text-white truncate">{module.name}</h3>
+                  {notBuilt && <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Not built yet</span>}
                 </div>
                 <p className="text-[11px] text-slate-500 mt-1">{module.description}</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-1">{notBuilt ? 'This module has no server part yet, so its switch is locked until it is built.' : CONTROLS[module.moduleKey]}</p>
                 <span className="text-[10px] font-mono text-slate-400">{module.moduleKey}</span>
               </div>
               <select
                 value={module.mode}
                 disabled={locked || updating === module.moduleKey}
                 onChange={event => void updateModule(module, event.target.value as FeatureModuleMode)}
-                title={locked ? 'The financial ledger cannot be disabled' : `Set ${module.name} mode`}
+                title={notBuilt ? 'Not built yet' : locked ? 'The financial ledger cannot be disabled' : `Set ${module.name} mode`}
                 className={`shrink-0 px-2.5 py-2 rounded-xl text-xs font-bold border-0 ${module.mode === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600' : module.mode === 'MANUAL_REVIEW' ? 'bg-amber-500/10 text-amber-600' : 'bg-slate-200 text-slate-500'} disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <option value="ACTIVE">Active</option>

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -86,7 +86,7 @@ export class PdpService {
       throw new BadRequestException('All compliance declarations must be accepted before submission');
     }
 
-    const kybModule = await this.prisma.featureModule.findUnique({ where: { moduleKey: 'KYB_VERIFICATION' } });
+    const kybModule = await this.assertKybAvailable();
     const kybStatus = kybModule?.mode === 'MANUAL_REVIEW' ? 'PENDING_MANUAL_REVIEW' : 'SUBMITTED';
     const submitted = await this.prisma.pdpApplication.update({
       where: { id },
@@ -107,6 +107,7 @@ export class PdpService {
 
   async reviewKyb(actor: AuthenticatedUser, id: string, decision: 'APPROVED' | 'REJECTED', justification: string) {
     if (!justification.trim()) throw new BadRequestException('A manual review justification is required');
+    await this.assertKybAvailable();
     const application = await this.prisma.pdpApplication.findUnique({ where: { id } });
     if (!application) throw new NotFoundException('PDP application not found');
     // countryCode is stored without the CN- prefix (see saveDraft). Super Admin is global and may review any country.
@@ -143,6 +144,15 @@ export class PdpService {
       orderBy: { updatedAt: 'desc' },
     });
     return applications.map((application) => this.toResponse(application));
+  }
+
+  /** PDP applications go through KYB, so a disabled KYB module stops submissions and reviews. */
+  private async assertKybAvailable() {
+    const kybModule = await this.prisma.featureModule.findUnique({ where: { moduleKey: 'KYB_VERIFICATION' } });
+    if (kybModule && (!kybModule.enabled || kybModule.mode === 'DISABLED')) {
+      throw new ServiceUnavailableException('KYB verification is currently disabled, so PDP applications cannot be submitted or reviewed.');
+    }
+    return kybModule;
   }
 
   private async nextApplicationNumber(): Promise<string> {
