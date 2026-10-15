@@ -1,4 +1,4 @@
-import { AssetItem, ContractItem, MarketplaceItem, LedgerTransaction, CodeReviewSection, PaymentAccount, BeneficiaryItem } from '../types';
+import { AssetItem, ContractItem, MarketplaceItem, LedgerTransaction, CodeReviewSection, BeneficiaryItem } from '../types';
 import { INITIAL_ASSETS } from './assetsData';
 import { INITIAL_CONTRACTS } from './contractsData';
 
@@ -124,21 +124,6 @@ export const CODE_REVIEW_FINDINGS: CodeReviewSection[] = [
     strengths: ['Strict tenant isolation', '36 RBAC role definitions', 'Audit log trail'],
     findings: ['Indexed queries support multi-country node filtering'],
     recommendations: ['Enable strict null checks']
-  }
-];
-
-export const INITIAL_PAYMENT_ACCOUNTS: PaymentAccount[] = [
-  {
-    id: 'ACC-MEEZAN-01',
-    type: 'Bank Account',
-    accountName: 'Ahmad bin Razak',
-    institutionName: 'Maybank Islamic Malaysia',
-    accountNumber: 'PK36 MEZN 0001 0892 8374 8291',
-    swiftBic: 'MEZNPKKAXXX',
-    currency: 'USD',
-    isDefault: true,
-    status: 'Verified',
-    isShariahApproved: true
   }
 ];
 

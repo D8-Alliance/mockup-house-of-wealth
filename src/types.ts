@@ -45,19 +45,6 @@ export interface UserProfile {
   timezone?: string;
 }
 
-export interface PaymentAccount {
-  id: string;
-  type: 'Bank Account' | 'E-Wallet';
-  accountName: string;
-  institutionName: string;
-  accountNumber: string;
-  swiftBic?: string;
-  currency: string;
-  isDefault: boolean;
-  status: 'Verified' | 'Pending Verification';
-  isShariahApproved: boolean;
-}
-
 export interface HibahAkad {
   /** When the donor made the offer (ijab), confirming it is voluntary and that they are of age and sound mind. */
   ijabDeclaredAt: string;

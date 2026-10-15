@@ -1,48 +1,35 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  ShieldCheck, 
-  Key, 
-  Lock, 
-  Smartphone, 
-  Bell, 
-  Coins, 
-  Globe, 
-  CheckCircle2, 
-  Save, 
-  Camera, 
-  LogOut, 
-  RefreshCw, 
-  Copy, 
-  ExternalLink, 
-  Sliders, 
-  FileCheck, 
-  Building2, 
-  History, 
+import {
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  ShieldCheck,
+  Lock,
+  Bell,
+  Coins,
+  Globe,
+  CheckCircle2,
+  Save,
+  Camera,
+  Building2,
   AlertCircle,
-  Eye,
-  EyeOff,
-  Upload,
-  Plus,
-  Trash2,
-  Edit3,
-  Star,
-  Wallet,
   HeartHandshake,
-  Users,
-  Percent,
-  Check,
   Sparkles
 } from 'lucide-react';
-import { UserProfile, LanguageCode, PaymentAccount, BeneficiaryItem, NavTab } from '../types';
+import { UserProfile, LanguageCode, BeneficiaryItem, NavTab } from '../types';
 import { AvatarChangeModal } from './AvatarChangeModal';
-import { PaymentAccountModal } from './PaymentAccountModal';
 import { revenueService } from '../revenue/revenueService';
 import { HoWCreditBalance } from '../revenue/revenueTypes';
-import { apiClient, apiErrorMessage, KycApplication } from '../services/apiClient';
+import { apiClient, apiErrorMessage, KycApplication, ProfilePreferences } from '../services/apiClient';
+import { SecuritySettingsPanel } from '../profile/SecuritySettingsPanel';
+import { FinancialPreferencesPanel } from '../profile/FinancialPreferencesPanel';
+import { NotificationPreferencesPanel } from '../profile/NotificationPreferencesPanel';
+
+function readPreferences(profile: Record<string, unknown> | undefined): ProfilePreferences {
+  const value = profile?.preferences;
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as ProfilePreferences : {};
+}
 import { useRBAC } from '../rbac/RBACContext';
 import { authService } from '../auth/services/authService';
 import { displayPhone, phoneFormatFor } from '../countryNodes/countryPhone';
@@ -54,9 +41,6 @@ interface UserProfileSettingsViewProps {
   lang: LanguageCode;
   onUpdateUser?: (updatedUser: UserProfile) => void;
   setUser?: (updatedUser: UserProfile) => void;
-  paymentAccounts: PaymentAccount[];
-  onUpdatePaymentAccounts?: (accounts: PaymentAccount[]) => void;
-  setPaymentAccounts?: React.Dispatch<React.SetStateAction<PaymentAccount[]>>;
   beneficiaries: BeneficiaryItem[];
   onUpdateBeneficiaries?: (beneficiaries: BeneficiaryItem[]) => void;
   setBeneficiaries?: React.Dispatch<React.SetStateAction<BeneficiaryItem[]>>;
@@ -68,24 +52,16 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
   lang,
   onUpdateUser,
   setUser,
-  paymentAccounts,
-  onUpdatePaymentAccounts,
-  setPaymentAccounts,
   beneficiaries,
   onUpdateBeneficiaries,
   setBeneficiaries,
   setTab
 }) => {
-  const { updateBackendUser, canAccessTab, currentRole } = useRBAC();
+  const { updateBackendUser, canAccessTab, currentRole, authMode } = useRBAC();
   const needsKyc = roleNeedsKyc(currentRole);
   const handleUserUpdate = (u: UserProfile) => {
     if (onUpdateUser) onUpdateUser(u);
     if (setUser) setUser(u);
-  };
-
-  const handleAccountsUpdate = (accs: PaymentAccount[]) => {
-    if (onUpdatePaymentAccounts) onUpdatePaymentAccounts(accs);
-    if (setPaymentAccounts) setPaymentAccounts(accs);
   };
 
   const handleBeneficiariesUpdate = (bens: BeneficiaryItem[]) => {
@@ -95,7 +71,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
 
   const userMembership = revenueService.getUserMembership(user.id);
   const [creditBalance, setCreditBalance] = useState<HoWCreditBalance>({ userId: user.id, totalCredits: 0, usedCredits: 0, availableCredits: 0, monthlyAllowance: 0, purchasedCredits: 0, resetDate: '' });
-  const [activeTab, setActiveTab] = useState<'personal' | 'kyc' | 'security' | 'shariah' | 'beneficiary' | 'notifications' | 'api'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'kyc' | 'security' | 'shariah' | 'beneficiary' | 'notifications'>('personal');
   const [kycApplication, setKycApplication] = useState<KycApplication | null>(null);
   const [kycLoading, setKycLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -116,10 +92,6 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
   }, [user.id]);
   const kycBadge = kycBadgeText(kycApplication);
 
-  // Bank & E-Wallet Modal state
-  const [accountModalOpen, setAccountModalOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState<PaymentAccount | null>(null);
-
   // Beneficiary Modal state
   const [beneficiaryModalOpen, setBeneficiaryModalOpen] = useState(false);
   const [editingBeneficiary, setEditingBeneficiary] = useState<BeneficiaryItem | null>(null);
@@ -132,52 +104,17 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
   const userCountryNodeId = authService.getAuthState().session?.user.countryNodeId;
   const phoneFormat = phoneFormatFor(userCountryNodeId);
   const [phoneError, setPhoneError] = useState('');
+  const [preferences, setPreferences] = useState<ProfilePreferences>({});
   useEffect(() => {
     apiClient.getCurrentUser()
       .then((backendUser) => {
+        setPreferences(readPreferences(backendUser.profile));
         const saved = typeof backendUser.profile?.phone === 'string' ? backendUser.profile.phone : '';
         const savedAvatar = typeof backendUser.profile?.avatarUrl === 'string' ? backendUser.profile.avatarUrl : '';
         setFormData((current) => ({ ...current, phone: saved ? displayPhone(saved, userCountryNodeId) : `${phoneFormat.dialCode} `, ...(savedAvatar ? { avatarUrl: savedAvatar } : {}) }));
       })
       .catch(() => setFormData((current) => ({ ...current, phone: current.phone || `${phoneFormat.dialCode} ` })));
   }, [userCountryNodeId, phoneFormat.dialCode]);
-
-  // CRUD Handlers for Bank Accounts / E-Wallets
-  const handleSetDefaultAccount = (id: string) => {
-    const updated = paymentAccounts.map(acc => ({
-      ...acc,
-      isDefault: acc.id === id
-    }));
-    handleAccountsUpdate(updated);
-    showToast('Default payout account set successfully.');
-  };
-
-  const handleDeleteAccount = (id: string) => {
-    if (confirm('Are you sure you want to remove this financial account?')) {
-      const updated = paymentAccounts.filter(acc => acc.id !== id);
-      handleAccountsUpdate(updated);
-      showToast('Account removed.');
-    }
-  };
-
-  const handleSaveAccount = (account: PaymentAccount) => {
-    const exists = paymentAccounts.some(acc => acc.id === account.id);
-    let updated: PaymentAccount[];
-    if (exists) {
-      updated = paymentAccounts.map(acc => acc.id === account.id ? account : acc);
-    } else {
-      updated = [...paymentAccounts, account];
-    }
-
-    if (account.isDefault) {
-      updated = updated.map(acc => ({
-        ...acc,
-        isDefault: acc.id === account.id
-      }));
-    }
-    handleAccountsUpdate(updated);
-    showToast('Financial account saved successfully.');
-  };
 
   // CRUD Handlers for Beneficiaries
   const handleSetPrimaryBeneficiary = (id: string) => {
@@ -230,24 +167,22 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
     }
   };
   
-  // Password State
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPasswords, setShowPasswords] = useState(false);
-
-  // Security 2FA toggle
-  const [twoFactor, setTwoFactor] = useState(user.twoFactorEnabled ?? true);
-  
-  // API Key state
-  const [apiKey, setApiKey] = useState('how_live_8f9a2b710c9d4e5f6a1b2c3d4e5f6a7b');
-  const [apiKeyCopied, setApiKeyCopied] = useState(false);
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
     }, 3500);
+  };
+
+  // Saves part of the preferences; the server keeps the rest. Errors are shown and re-thrown so the panel stays as it was.
+  const savePreferences = async (change: ProfilePreferences) => {
+    try {
+      const saved = await apiClient.updateMyProfile({ preferences: change });
+      setPreferences(readPreferences(saved.profile));
+    } catch (cause) {
+      showToast(apiErrorMessage(cause, 'Unable to save your preferences.'));
+      throw cause;
+    }
   };
 
   const handleSavePersonal = async (e: React.FormEvent) => {
@@ -262,46 +197,12 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
       setFormData((current) => ({ ...current, phone: savedPhone }));
       handleUserUpdate({
         ...formData,
-        phone: savedPhone,
-        twoFactorEnabled: twoFactor
+        phone: savedPhone
       });
       showToast('Personal profile and settings updated successfully.');
     } catch (cause) {
       setPhoneError(apiErrorMessage(cause, 'Unable to save your phone number.'));
     }
-  };
-
-  const handlePasswordChange = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!currentPassword) {
-      alert('Please enter your current password.');
-      return;
-    }
-    if (newPassword.length < 8) {
-      alert('New password must be at least 8 characters.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      alert('New password and confirmation do not match.');
-      return;
-    }
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    showToast('Password changed successfully. Active sessions re-authenticated.');
-  };
-
-  const copyApiKey = () => {
-    navigator.clipboard.writeText(apiKey);
-    setApiKeyCopied(true);
-    setTimeout(() => setApiKeyCopied(false), 2000);
-    showToast('API Key copied to clipboard');
-  };
-
-  const regenerateApiKey = () => {
-    const randomHex = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-    setApiKey(`how_live_${randomHex}`);
-    showToast('New API key generated. Make sure to update your application connections.');
   };
 
   return (
@@ -416,10 +317,9 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
             { id: 'personal', label: 'Personal Info', icon: <User className="w-4 h-4" /> },
             ...(needsKyc ? [{ id: 'kyc', label: 'Identity Verification', icon: <ShieldCheck className="w-4 h-4" /> }] : []),
             { id: 'security', label: 'Security & Auth', icon: <Lock className="w-4 h-4" /> },
-            { id: 'shariah', label: 'Shariah & Financial', icon: <Coins className="w-4 h-4" /> },
+            ...(needsKyc ? [{ id: 'shariah', label: 'Shariah & Financial', icon: <Coins className="w-4 h-4" /> }] : []),
             ...(canAccessTab('beneficiaries') ? [{ id: 'beneficiary', label: 'Beneficiaries', icon: <HeartHandshake className="w-4 h-4" /> }] : []),
-            { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" /> },
-            { id: 'api', label: 'API & Integrations', icon: <Key className="w-4 h-4" /> }
+            { id: 'notifications', label: 'Notifications', icon: <Bell className="w-4 h-4" /> }
           ].map(tab => {
             const active = activeTab === tab.id;
             return (
@@ -610,404 +510,10 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
         </form>
       )}
 
-      {/* TAB 2: SECURITY & AUTHENTICATION */}
-      {activeTab === 'security' && (
-        <div className="space-y-6">
-          
-          {/* Password Change Box */}
-          <form onSubmit={handlePasswordChange} className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-md space-y-5">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <Lock className="w-5 h-5 text-emerald-500" />
-              <span>Password & Access Credentials</span>
-            </h3>
+      {activeTab === 'security' && <SecuritySettingsPanel authMode={authMode} />}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                  Current Password
-                </label>
-                <div className="relative">
-                  <input 
-                    type={showPasswords ? "text" : "password"}
-                    value={currentPassword}
-                    onChange={e => setCurrentPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <button 
-                    type="button"
-                    onClick={() => setShowPasswords(!showPasswords)}
-                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-600"
-                  >
-                    {showPasswords ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                  New Password
-                </label>
-                <input 
-                  type={showPasswords ? "text" : "password"}
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  placeholder="Min 8 chars"
-                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                  Confirm New Password
-                </label>
-                <input 
-                  type={showPasswords ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={e => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter password"
-                  className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-between items-center pt-2">
-              <span className="text-[11px] text-slate-400">
-                Password must contain upper & lower letters, number, and special character.
-              </span>
-              <button
-                type="submit"
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer"
-              >
-                Change Password
-              </button>
-            </div>
-          </form>
-
-          {/* Two-Factor Authentication 2FA */}
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-md space-y-4">
-            <div className="flex justify-between items-start">
-              <div className="space-y-1">
-                <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <Smartphone className="w-5 h-5 text-emerald-500" />
-                  <span>Two-Factor Authentication (2FA - TOTP)</span>
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Protect your Shariah portfolio using Google Authenticator or hardware YubiKey.
-                </p>
-              </div>
-
-              <button
-                onClick={() => {
-                  setTwoFactor(!twoFactor);
-                  showToast(!twoFactor ? 'Two-Factor Authentication Enabled' : '2FA Disabled');
-                }}
-                className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-                  twoFactor ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
-                }`}
-              >
-                <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform absolute top-0.5 ${
-                  twoFactor ? 'translate-x-6' : 'translate-x-0.5'
-                }`} />
-              </button>
-            </div>
-
-            {twoFactor && (
-              <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
-                    <ShieldCheck className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 block">2FA Active & Enforced</span>
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400">Linked to device: Authenticator App (Ending in 9821)</span>
-                  </div>
-                </div>
-
-                <button 
-                  onClick={() => alert("Secret Key: HOW-2FA-8821-X99Z\nUse this secret to setup Google Authenticator or 1Password.")}
-                  className="px-4 py-2 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl hover:bg-slate-50 cursor-pointer"
-                >
-                  View Backup Codes
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Active Sessions */}
-          <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-md space-y-4">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <History className="w-5 h-5 text-emerald-500" />
-              <span>Active Logged-in Devices</span>
-            </h3>
-
-            <div className="space-y-3">
-              <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold">
-                    💻
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-extrabold text-slate-900 dark:text-white">Chrome on macOS (Apple Silicon)</span>
-                      <span className="bg-emerald-500/10 text-emerald-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/20">
-                        Current Session
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-slate-400">Putrajaya, Malaysia • IP 194.187.240.12</span>
-                  </div>
-                </div>
-                <span className="text-xs font-bold text-emerald-500">Active Now</span>
-              </div>
-
-              <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300 font-bold">
-                    📱
-                  </div>
-                  <div>
-                    <span className="text-xs font-extrabold text-slate-900 dark:text-white block">D-8 SuperApp Mobile - iOS 19</span>
-                    <span className="text-[10px] text-slate-400">Kuala Lumpur, Malaysia • IP 210.186.42.10</span>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => showToast('Session revoked.')}
-                  className="px-3 py-1 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 text-xs font-bold rounded-xl transition-colors cursor-pointer"
-                >
-                  Revoke
-                </button>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      )}
-
-      {/* TAB 3: SHARIAH & FINANCIAL PREFERENCES */}
-      {activeTab === 'shariah' && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
-          <div>
-            <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <Coins className="w-5 h-5 text-emerald-500" />
-              <span>Shariah Governance & Portfolio Parameters</span>
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Set auto-Zakat rates, primary display currency, and preferred Islamic contract structures.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div>
-              <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
-                Default Currency Display
-              </label>
-              <select
-                value={formData.preferredCurrency || 'USD'}
-                onChange={e => {
-                  setFormData({ ...formData, preferredCurrency: e.target.value });
-                  showToast(`Default currency switched to ${e.target.value}`);
-                }}
-                className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-              >
-                <option value="USD">USD ($) - United States Dollar</option>
-                <option value="MYR">MYR (₨) - Malaysiai Rupee</option>
-                <option value="MYR">MYR (RM) - Malaysian Ringgit</option>
-                <option value="TRY">TRY (₺) - Turkish Lira</option>
-                <option value="IDR">IDR (Rp) - Indonesian Rupiah</option>
-                <option value="BDT">BDT (৳) - Bangladeshi Taka</option>
-                <option value="EGP">EGP (E£) - Egyptian Pound</option>
-                <option value="NGN">NGN (₦) - Nigerian Naira</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
-                Automatic Zakat Allocation Rate
-              </label>
-              <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-700">
-                <input 
-                  type="range" 
-                  min="2.0" 
-                  max="5.0" 
-                  step="0.1" 
-                  value={formData.autoZakatPercent ?? 2.5}
-                  onChange={e => setFormData({ ...formData, autoZakatPercent: parseFloat(e.target.value) })}
-                  className="w-full accent-emerald-600 cursor-pointer"
-                />
-                <span className="font-mono font-black text-lg text-emerald-600 dark:text-emerald-400 shrink-0">
-                  {formData.autoZakatPercent ?? 2.5}%
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400 mt-1 block">
-                Standard AAOIFI Zakat Nisab calculation is 2.5% of net profit per Hawl (lunar cycle).
-              </span>
-            </div>
-          </div>
-
-          {/* Contract Types Selection */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              Preferred Islamic Contract Types for Investment Matching
-            </h4>
-            
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { type: 'Mudarabah', desc: 'Trust Financing (Capitalist + Manager)' },
-                { type: 'Musharakah', desc: 'Joint Venture Equity Partnership' },
-                { type: 'Ijarah', desc: 'Lease & Rental Yielding Assets' },
-                { type: 'Murabaha', desc: 'Cost-Plus Profit Sales' },
-                { type: 'Wakalah', desc: 'Agency Investment Agreements' },
-                { type: 'Sukuk', desc: 'Shariah Compliant Fixed Income' }
-              ].map(item => (
-                <div key={item.type} className="p-3.5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-start gap-2.5">
-                  <input 
-                    type="checkbox" 
-                    defaultChecked 
-                    className="mt-1 accent-emerald-600 rounded cursor-pointer"
-                  />
-                  <div>
-                    <span className="text-xs font-extrabold text-slate-900 dark:text-white block">{item.type}</span>
-                    <span className="text-[10px] text-slate-400 block">{item.desc}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-center gap-3 text-xs text-emerald-700 dark:text-emerald-400 font-semibold">
-            <ShieldCheck className="w-5 h-5 shrink-0" />
-            <span>Your settings automatically sync with the D-8 Central Shariah Advisory Board for compliance auditing.</span>
-          </div>
-
-          {/* BANK & E-WALLET MANAGEMENT SECTION (CRUD) */}
-          <div className="pt-6 border-t border-slate-100 dark:border-slate-700/60 space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div>
-                <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <Building2 className="w-4 h-4 text-emerald-500" />
-                  <span>Linked Bank Accounts & E-Wallets</span>
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Manage payout and collection accounts for profit distributions and Sukuk redemptions.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingAccount(null);
-                  setAccountModalOpen(true);
-                }}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Add Bank / E-Wallet</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {paymentAccounts.map(account => (
-                <div 
-                  key={account.id}
-                  className={`p-4 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
-                    account.isDefault 
-                      ? 'bg-emerald-500/5 border-emerald-500/40 dark:border-emerald-500/30' 
-                      : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700/60 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${
-                          account.type === 'Bank Account' 
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
-                            : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-                        }`}>
-                          {account.type === 'Bank Account' ? <Building2 className="w-4 h-4" /> : <Wallet className="w-4 h-4" />}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-slate-900 dark:text-white">
-                              {account.institutionName}
-                            </span>
-                            {account.isDefault && (
-                              <span className="bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-extrabold px-2 py-0.5 rounded-md flex items-center gap-1 border border-amber-500/20">
-                                <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-                                Default
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block">
-                            {account.accountName}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingAccount(account);
-                            setAccountModalOpen(true);
-                          }}
-                          className="p-1.5 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg hover:bg-slate-200/60 dark:hover:bg-slate-700 cursor-pointer transition-colors"
-                          title="Edit Account"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteAccount(account.id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer transition-colors"
-                          title="Delete Account"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-xs font-mono">
-                      <span className="text-slate-700 dark:text-slate-300 font-bold truncate">
-                        {account.accountNumber}
-                      </span>
-                      <span className="text-slate-400 text-[11px] shrink-0">
-                        {account.currency}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] pt-1">
-                      <div className="flex items-center gap-1.5">
-                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                          Shariah Screened
-                        </span>
-                      </div>
-                      <span className={`font-bold px-2 py-0.5 rounded-md ${
-                        account.status === 'Verified' 
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
-                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                      }`}>
-                        {account.status}
-                      </span>
-                    </div>
-                  </div>
-
-                  {!account.isDefault && (
-                    <button
-                      type="button"
-                      onClick={() => handleSetDefaultAccount(account.id)}
-                      className="w-full py-1.5 text-[11px] font-extrabold text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 border border-slate-200 dark:border-slate-700 hover:border-emerald-500/40 rounded-xl bg-white dark:bg-slate-800 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <Star className="w-3 h-3 text-amber-500" />
-                      <span>Set as Default Payout Account</span>
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
+      {activeTab === 'shariah' && needsKyc && (
+        <FinancialPreferencesPanel preferences={preferences} onSave={savePreferences} showPayoutAccounts={needsKyc} notify={showToast} />
       )}
 
       {/* TAB 4: BENEFICIARY & DISTRIBUTION PREFERENCES */}
@@ -1030,108 +536,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
         </div>
       )}
 
-      {/* TAB 4: NOTIFICATIONS */}
-      {activeTab === 'notifications' && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
-          <div>
-            <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <Bell className="w-5 h-5 text-emerald-500" />
-              <span>Notification Preferences</span>
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Choose how you want to receive alerts, yield distributions, and governance updates.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            {[
-              { 
-                key: 'notifyEmail', 
-                label: 'Email Notifications', 
-                desc: 'Receive monthly performance reports, tax receipts, and contract maturity alerts via email.',
-                val: formData.notifyEmail ?? true
-              },
-              { 
-                key: 'notifyPush', 
-                label: 'Push Notifications', 
-                desc: 'Get real-time push alerts on mobile/desktop for incoming profit distributions and contract signatures.',
-                val: formData.notifyPush ?? true
-              },
-              { 
-                key: 'notifySMS', 
-                label: 'SMS Security Alerts', 
-                desc: 'Instant SMS codes for high-value transactions exceeding $5,000 USD equivalent.',
-                val: formData.notifySMS ?? false
-              }
-            ].map(item => (
-              <div key={item.key} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                <div>
-                  <span className="text-xs font-extrabold text-slate-900 dark:text-white block">{item.label}</span>
-                  <span className="text-[11px] text-slate-400 block max-w-xl">{item.desc}</span>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setFormData({ ...formData, [item.key]: !item.val });
-                    showToast(`${item.label} ${!item.val ? 'Enabled' : 'Disabled'}`);
-                  }}
-                  className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
-                    item.val ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-700'
-                  }`}
-                >
-                  <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform absolute top-0.5 ${
-                    item.val ? 'translate-x-6' : 'translate-x-0.5'
-                  }`} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: API & INTEGRATIONS */}
-      {activeTab === 'api' && (
-        <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-700 shadow-md space-y-6">
-          <div>
-            <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <Key className="w-5 h-5 text-emerald-500" />
-              <span>Developer API Keys</span>
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Connect external apps, D-8 SuperApp nodes, or automated accounting systems to your Wealth Pooling account.
-            </p>
-          </div>
-
-          {/* API Key */}
-          <div className="p-5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                D-8 Node REST API Secret Token
-              </span>
-              <button 
-                onClick={regenerateApiKey}
-                className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1 hover:underline cursor-pointer"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Regenerate Token</span>
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between gap-3 bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-              <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200 truncate">
-                {apiKey}
-              </span>
-              <button 
-                onClick={copyApiKey}
-                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 text-slate-600 dark:text-slate-300 cursor-pointer shrink-0"
-              >
-                {apiKeyCopied ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-
-        </div>
-      )}
+      {activeTab === 'notifications' && <NotificationPreferencesPanel preferences={preferences} onSave={savePreferences} />}
 
       {/* Avatar Change Modal */}
       {isAvatarModalOpen && (
@@ -1143,17 +548,6 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
         />
       )}
 
-      {/* Payment Account Modal */}
-      {accountModalOpen && (
-        <PaymentAccountModal
-          account={editingAccount}
-          onClose={() => {
-            setAccountModalOpen(false);
-            setEditingAccount(null);
-          }}
-          onSave={handleSaveAccount}
-        />
-      )}
 
 
     </div>

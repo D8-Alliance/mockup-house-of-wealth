@@ -135,12 +135,17 @@
  "GET /users/me": {
   "status": 200,
   "contentType": "application/json; charset=utf-8",
-  "body": "{\"id\":\"USR-INV-MYS-01\",\"email\":\"siti.aminah@investor.my\",\"name\":\"Siti Aminah binti Yusof\",\"isActive\":true,\"profile\":null,\"assignedRoles\":[{\"role\":\"Retail Investor\",\"organisationId\":\"ORG-INV-MYS-01\",\"countryNodeId\":\"CN-MYS\"}],\"createdAt\":\"2026-10-13T07:38:20.162Z\",\"updatedAt\":\"2026-10-13T07:38:20.162Z\"}"
+  "body": "{\"id\":\"USR-INV-MYS-01\",\"email\":\"siti.aminah@investor.my\",\"name\":\"Siti Aminah binti Yusof\",\"isActive\":true,\"profile\":{\"preferences\":{\"currency\":\"MYR\",\"notifications\":{\"sms\":false,\"push\":true,\"email\":true},\"preferredContracts\":[\"Mudarabah\",\"Musharakah\",\"Ijarah\"]}},\"assignedRoles\":[{\"role\":\"Retail Investor\",\"organisationId\":\"ORG-INV-MYS-01\",\"countryNodeId\":\"CN-MYS\"}],\"createdAt\":\"2026-10-13T07:38:20.162Z\",\"updatedAt\":\"2026-10-15T07:04:48.588Z\"}"
  },
  "GET /users/me/access": {
   "status": 200,
   "contentType": "application/json; charset=utf-8",
   "body": "{\"userId\":\"USR-INV-MYS-01\",\"role\":\"Retail Investor\",\"assignedRoles\":[\"Retail Investor\"],\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-INV-MYS-01\"}"
+ },
+ "GET /users/me/payout-accounts": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[{\"id\":\"cmv970x6o0000pja40y5l3q03\",\"ownerUserId\":\"USR-INV-MYS-01\",\"provider\":\"Bank Islam Malaysia\",\"destinationType\":\"BANK_ACCOUNT\",\"destinationHash\":\"44aa64372357449cf9e50c0d161f445f13b7763be7f428b7924fcb1083bf1778\",\"maskedReference\":\"•••• 8291\",\"accountHolder\":\"Siti Aminah binti Yusof\",\"currency\":\"MYR\",\"isDefault\":true,\"status\":\"VERIFIED\",\"verifiedBy\":\"USR-mock-user\",\"verifiedAt\":\"2026-10-15T07:04:48.501Z\",\"cooldownUntil\":\"2026-10-15T07:04:48.501Z\",\"createdAt\":\"2026-10-15T07:04:18.432Z\"}]"
  },
  "GET /zakat/authorities": {
   "status": 200,

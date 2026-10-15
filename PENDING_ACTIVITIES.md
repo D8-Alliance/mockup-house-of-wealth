@@ -361,3 +361,14 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 2. **Senarai aset sebenar:** tab Asset Register dan kad dashboard "Asset Holdings: 4 sample assets" masih data contoh. Baca dari backend mengikut organisasi.
 3. **Kad kontrak:** "Islamic Contracts: 4 active agreements" dan ringkasan My Contracts pelabur masih data contoh; gantikan dengan perjanjian dan pesanan sebenar (rujuk item 18).
 4. **Hubungan aset dengan pool atau projek:** aset yang dipajak (Ijarah) atau disumbang (Musharakah) dipautkan kepada pool atau projek, dengan perjanjian yang telah diluluskan Legal dan Shariah.
+
+## 21. Baki tab Profile & Settings
+
+- **Status:** Sebahagian siap (dicatat 2026-10-15). Tab Security & Auth membuka halaman akaun Keycloak (kata laluan, OTP, peranti). Tetapan pilihan dan notifikasi disimpan dalam profil di server, dan penghantar notifikasi melangkau saluran yang dimatikan. Akaun bank bayaran disimpan dalam `PayoutDestination` (nombor disulitkan, hanya 4 digit akhir dipaparkan). Tab API & Integrations dibuang.
+- **Kawasan:** `src/profile/`, `server/src/distribution/payout-destination.service.ts`, `server/src/distribution/payout-accounts.controller.ts`
+
+**Baki:**
+1. **Skrin pengesahan akaun bank:** endpoint `POST /distributions/payout-destinations/:id/verify` sudah ada, tetapi belum ada skrin untuk Settlement Officer. Akaun baharu kekal "Awaiting verification" sehingga skrin ini dibina.
+2. **Pilihan kontrak Islam:** disimpan dalam profil tetapi belum digunakan untuk menapis atau menyusun pool di Asset Marketplace.
+3. **Mata wang pilihan:** disimpan tetapi paparan amaun belum ditukar mengikut pilihan ini.
+4. **Kunci API:** jika integrasi luar diperlukan, bina kunci API sebenar (dicipta di server, disimpan sebagai hash, boleh dibatalkan, dengan skop terhad).

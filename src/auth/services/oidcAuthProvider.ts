@@ -8,6 +8,14 @@ const storageKey = 'how-oidc-session';
 const transactionKey = 'how-oidc-pkce';
 const refreshKey = 'how-oidc-refresh';
 
+/**
+ * The identity provider's own account pages (Keycloak account console), where users change their
+ * password, set up the one-time code app and sign out other devices. Null when no provider is set.
+ */
+export function accountConsoleUrl(page: 'signing-in' | 'device-activity'): string | null {
+  return issuer ? `${issuer.replace(/\/$/, '')}/account/account-security/${page}` : null;
+}
+
 function encode(value: Uint8Array): string {
   return btoa(String.fromCharCode(...value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }

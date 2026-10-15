@@ -12,6 +12,23 @@ import { normalizePhone } from '../tenancy/country-phone';
 import { tenantScopeFilter } from '../tenancy/tenant-scope';
 import { RoleAvailabilityService } from '../roles/role-availability.service';
 
+export interface ProfilePreferences {
+  currency?: string;
+  preferredContracts?: string[];
+  notifications?: { email?: boolean; push?: boolean; sms?: boolean };
+}
+
+/** Saving one setting keeps the others; notification channels merge one by one. */
+export function mergePreferences(saved: unknown, change: ProfilePreferences): ProfilePreferences {
+  const current = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved as ProfilePreferences : {};
+  const defined = <T extends object>(value: T) => Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>;
+  return {
+    ...current,
+    ...defined({ currency: change.currency, preferredContracts: change.preferredContracts }),
+    ...(change.notifications ? { notifications: { ...current.notifications, ...defined({ ...change.notifications }) } } : {}),
+  };
+}
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -31,14 +48,15 @@ export class UsersService {
   }
 
   /** Self-service profile fields. The phone is stored in E.164 using the user's country code. */
-  async updateMyProfile(actor: AuthenticatedUser, input: { phone?: string; pushToken?: string; avatarUrl?: string }) {
+  async updateMyProfile(actor: AuthenticatedUser, input: { phone?: string; pushToken?: string; avatarUrl?: string; preferences?: ProfilePreferences }) {
     const user = await this.prisma.user.findUnique({ where: { id: actor.userId }, select: { profile: true } });
     if (!user) throw new NotFoundException('User not found');
     const current = user.profile && typeof user.profile === 'object' && !Array.isArray(user.profile) ? user.profile as Record<string, unknown> : {};
     const phone = input.phone === undefined ? current.phone : input.phone.trim() ? normalizePhone(input.phone, actor.countryNodeId) : undefined;
     const pushToken = input.pushToken === undefined ? current.pushToken : input.pushToken.trim() || undefined;
     const avatarUrl = input.avatarUrl === undefined ? current.avatarUrl : input.avatarUrl.trim() || undefined;
-    await this.prisma.user.update({ where: { id: actor.userId }, data: { profile: { ...current, phone, pushToken, avatarUrl } as Prisma.InputJsonObject } });
+    const preferences = input.preferences === undefined ? current.preferences : mergePreferences(current.preferences, input.preferences);
+    await this.prisma.user.update({ where: { id: actor.userId }, data: { profile: { ...current, phone, pushToken, avatarUrl, preferences } as Prisma.InputJsonObject } });
     await this.audit.recordActor(actor, { action: 'user.profile.update', resourceType: 'User', resourceId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { fields: Object.keys(input) } });
     return this.getCurrentUser(actor);
   }

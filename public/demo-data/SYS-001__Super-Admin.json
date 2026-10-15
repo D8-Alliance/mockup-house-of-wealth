@@ -565,7 +565,7 @@
  "GET /users/me": {
   "status": 200,
   "contentType": "application/json; charset=utf-8",
-  "body": "{\"id\":\"USR-SYS-001\",\"email\":\"system@houseofwealth.local\",\"name\":\"House of Wealth System\",\"isActive\":true,\"profile\":null,\"assignedRoles\":[{\"role\":\"Super Admin\",\"organisationId\":\"ORG-D8-GOV\",\"countryNodeId\":\"CN-MYS\"},{\"role\":\"Security Administrator\",\"organisationId\":\"ORG-D8-GOV\",\"countryNodeId\":\"CN-MYS\"},{\"role\":\"Country Admin\",\"organisationId\":\"ORG-D8-GOV\",\"countryNodeId\":\"CN-MYS\"}],\"createdAt\":\"2026-09-30T02:44:55.211Z\",\"updatedAt\":\"2026-10-13T07:38:20.080Z\"}"
+  "body": "{\"id\":\"USR-SYS-001\",\"email\":\"system@houseofwealth.local\",\"name\":\"House of Wealth System\",\"isActive\":true,\"profile\":null,\"assignedRoles\":[{\"role\":\"Super Admin\",\"organisationId\":\"ORG-D8-GOV\",\"countryNodeId\":\"CN-MYS\"},{\"role\":\"Security Administrator\",\"organisationId\":\"ORG-D8-GOV\",\"countryNodeId\":\"CN-MYS\"},{\"role\":\"Country Admin\",\"organisationId\":\"ORG-D8-GOV\",\"countryNodeId\":\"CN-MYS\"}],\"createdAt\":\"2026-09-30T02:44:55.211Z\",\"updatedAt\":\"2026-10-13T08:17:16.445Z\"}"
  },
  "GET /users/me/access": {
   "status": 200,

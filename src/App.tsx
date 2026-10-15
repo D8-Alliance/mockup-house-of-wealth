@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, PaymentAccount, BeneficiaryItem, LedgerTransaction } from './types';
+import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, BeneficiaryItem, LedgerTransaction } from './types';
 import { LANGUAGES } from './data/translations';
 import { 
   INITIAL_ASSETS, 
   INITIAL_CONTRACTS, 
   INITIAL_MARKETPLACE, 
-  INITIAL_PAYMENT_ACCOUNTS,
   INITIAL_BENEFICIARIES
 } from './data/initialData';
 
@@ -46,7 +45,6 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
   const [marketplace] = useState<MarketplaceItem[]>(INITIAL_MARKETPLACE);
   const [ledger, setLedger] = useState<LedgerTransaction[]>([]);
   const [financialAccounts, setFinancialAccounts] = useState<BackendFinancialAccount[]>([]);
-  const [paymentAccounts, setPaymentAccounts] = useState<PaymentAccount[]>(INITIAL_PAYMENT_ACCOUNTS);
   const [beneficiaries, setBeneficiaries] = useState<BeneficiaryItem[]>(INITIAL_BENEFICIARIES);
 
   const refreshFinancialData = async () => {
@@ -124,8 +122,6 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
           ledger={ledger}
           financialAccounts={financialAccounts}
           onFinancialRefresh={refreshFinancialData}
-          paymentAccounts={paymentAccounts}
-          setPaymentAccounts={setPaymentAccounts}
           beneficiaries={beneficiaries}
           setBeneficiaries={setBeneficiaries}
           onOpenAssetRegister={() => setAssetRegisterOpen(true)}

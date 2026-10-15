@@ -1,4 +1,22 @@
-import { IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import 'reflect-metadata';
+import { Type } from 'class-transformer';
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, Matches, MaxLength, ValidateNested } from 'class-validator';
+import { PAYOUT_CURRENCIES } from '../distribution/payout-destination.dto';
+
+export const PREFERRED_CONTRACTS = ['Mudarabah', 'Musharakah', 'Ijarah', 'Murabahah', 'Wakalah', 'Sukuk'] as const;
+
+/** Which delivery channels the user accepts. In-app notifications always arrive. */
+export class NotificationPreferencesDto {
+  @IsOptional() @IsBoolean() email?: boolean;
+  @IsOptional() @IsBoolean() push?: boolean;
+  @IsOptional() @IsBoolean() sms?: boolean;
+}
+
+export class ProfilePreferencesDto {
+  @IsOptional() @IsIn(PAYOUT_CURRENCIES) currency?: string;
+  @IsOptional() @IsArray() @ArrayMaxSize(PREFERRED_CONTRACTS.length) @IsIn(PREFERRED_CONTRACTS, { each: true }) preferredContracts?: string[];
+  @IsOptional() @ValidateNested() @Type(() => NotificationPreferencesDto) notifications?: NotificationPreferencesDto;
+}
 
 /**
  * A profile picture is either an https link or a small inline PNG/JPEG/WEBP image
@@ -19,4 +37,7 @@ export class UpdateMyProfileDto {
   @IsOptional() @IsString() @MaxLength(90_000, { message: 'The picture is too large. Choose a smaller image.' })
   @Matches(AVATAR_URL_PATTERN, { message: 'The picture must be an https link or a PNG, JPEG or WEBP image.' })
   avatarUrl?: string;
+
+  @IsOptional() @ValidateNested() @Type(() => ProfilePreferencesDto)
+  preferences?: ProfilePreferencesDto;
 }

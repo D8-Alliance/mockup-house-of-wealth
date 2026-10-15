@@ -199,7 +199,11 @@ export const apiClient = {
   },
   getCurrentUser: () => request<BackendUser>('/users/me'),
   getCurrentAccess: () => request<BackendAccess>('/users/me/access'),
-  updateMyProfile: (input: { phone?: string; pushToken?: string; avatarUrl?: string }) => request<BackendUser>('/users/me/profile', { method: 'PATCH', body: JSON.stringify(input) }),
+  updateMyProfile: (input: { phone?: string; pushToken?: string; avatarUrl?: string; preferences?: ProfilePreferences }) => request<BackendUser>('/users/me/profile', { method: 'PATCH', body: JSON.stringify(input) }),
+  getMyPayoutAccounts: () => request<PayoutAccount[]>('/users/me/payout-accounts'),
+  addMyPayoutAccount: (input: NewPayoutAccount) => request<PayoutAccount>('/users/me/payout-accounts', { method: 'POST', body: JSON.stringify(input) }),
+  setDefaultPayoutAccount: (id: string) => request<PayoutAccount[]>(`/users/me/payout-accounts/${encodeURIComponent(id)}/default`, { method: 'PATCH' }),
+  removeMyPayoutAccount: (id: string) => request<PayoutAccount[]>(`/users/me/payout-accounts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getUsers: () => request<BackendUser[]>('/users'),
   updateUserStatus: (userId: string, status: string) => request<BackendUser>(`/users/${userId}/status`, {
     method: 'PATCH',
@@ -649,6 +653,36 @@ interface ShariahConfidence {
   level: 'HIGH' | 'MEDIUM' | 'LOW';
   scorePercent: number;
   disclaimer: string;
+}
+
+/** Saved in the user's profile on the server. Unset notification channels count as on. */
+export interface ProfilePreferences {
+  currency?: string;
+  preferredContracts?: string[];
+  notifications?: { email?: boolean; push?: boolean; sms?: boolean };
+}
+
+/** A bank account for receiving money. The full number is encrypted on the server; only the masked form comes back. */
+export interface PayoutAccount {
+  id: string;
+  provider: string;
+  destinationType: 'BANK_ACCOUNT' | 'DUITNOW_PROXY';
+  maskedReference: string | null;
+  accountHolder: string | null;
+  currency: string | null;
+  isDefault: boolean;
+  status: 'PENDING_VERIFICATION' | 'VERIFIED';
+  verifiedAt: string | null;
+  createdAt: string;
+}
+
+export interface NewPayoutAccount {
+  provider: string;
+  destinationType: 'BANK_ACCOUNT' | 'DUITNOW_PROXY';
+  reference: string;
+  accountHolder?: string;
+  currency?: string;
+  isDefault?: boolean;
 }
 
 export interface BackendUser {

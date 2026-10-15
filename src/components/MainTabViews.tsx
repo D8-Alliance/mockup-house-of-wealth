@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, PaymentAccount, BeneficiaryItem, LedgerTransaction } from '../types';
+import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, BeneficiaryItem, LedgerTransaction } from '../types';
 import { RoleGuard } from '../rbac/RoleGuard';
 import { RoleDashboardView } from './dashboards/RoleDashboardView';
 import { MyAssetsView } from './MyAssetsView';
@@ -38,8 +38,6 @@ interface MainTabViewsProps {
   ledger: LedgerTransaction[];
   financialAccounts: BackendFinancialAccount[];
   onFinancialRefresh: () => Promise<void>;
-  paymentAccounts: PaymentAccount[];
-  setPaymentAccounts: React.Dispatch<React.SetStateAction<PaymentAccount[]>>;
   beneficiaries: BeneficiaryItem[];
   setBeneficiaries: React.Dispatch<React.SetStateAction<BeneficiaryItem[]>>;
   onOpenAssetRegister: () => void;
@@ -60,8 +58,6 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
   ledger,
   financialAccounts,
   onFinancialRefresh,
-  paymentAccounts,
-  setPaymentAccounts,
   beneficiaries,
   setBeneficiaries,
   onOpenAssetRegister,
@@ -164,8 +160,6 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
           <UserProfileSettingsView
             user={user}
             setUser={setUser}
-            paymentAccounts={paymentAccounts}
-            setPaymentAccounts={setPaymentAccounts}
             beneficiaries={beneficiaries}
             setBeneficiaries={setBeneficiaries}
             lang={lang}

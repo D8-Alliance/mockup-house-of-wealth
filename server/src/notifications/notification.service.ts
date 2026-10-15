@@ -19,6 +19,18 @@ export interface NotificationInput {
   channels?: string;
 }
 
+const CHANNEL_PREFERENCE: Record<string, 'email' | 'push' | 'sms'> = { EMAIL: 'email', PUSH: 'push', SMS: 'sms' };
+
+/** Drops the channels the recipient switched off in their profile. In-app always stays; unset means on. */
+export function channelsForRecipient(channels: string, profile: Record<string, unknown>): string {
+  const preferences = profile.preferences && typeof profile.preferences === 'object' ? profile.preferences as { notifications?: Record<string, unknown> } : {};
+  const choices = preferences.notifications ?? {};
+  return channels.split(',').map((item) => item.trim()).filter((item) => {
+    const key = CHANNEL_PREFERENCE[item.toUpperCase()];
+    return item && (!key || choices[key] !== false);
+  }).join(',');
+}
+
 @Injectable()
 export class NotificationService {
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly delivery: NotificationDeliveryService) {}
@@ -56,7 +68,7 @@ export class NotificationService {
         const recipient = await this.prisma.user.findUnique({ where: { id: row.recipientUserId }, select: { email: true, profile: true } });
         const profile = recipient?.profile && typeof recipient.profile === 'object' && !Array.isArray(recipient.profile) ? recipient.profile as Record<string, unknown> : {};
         await this.prisma.notification.upsert({ where: { dedupeKey: row.dedupeKey }, update: {}, create: { recipientUserId: row.recipientUserId, organisationId: row.organisationId, countryNodeId: row.countryNodeId, type: row.type, title: row.title, message: row.message, resourceType: row.resourceType, resourceId: row.resourceId, dedupeKey: row.dedupeKey } });
-        await this.delivery.deliver({ channels: row.channels, title: row.title, message: row.message, recipientEmail: recipient?.email, recipientPhone: typeof profile.phone === 'string' ? profile.phone : undefined, pushToken: typeof profile.pushToken === 'string' ? profile.pushToken : undefined });
+        await this.delivery.deliver({ channels: channelsForRecipient(row.channels, profile), title: row.title, message: row.message, recipientEmail: recipient?.email, recipientPhone: typeof profile.phone === 'string' ? profile.phone : undefined, pushToken: typeof profile.pushToken === 'string' ? profile.pushToken : undefined });
         await this.prisma.notificationOutbox.update({ where: { id: row.id }, data: { status: 'PROCESSED', processedAt: new Date(), lastError: null } });
         processed += 1;
       } catch (error) {

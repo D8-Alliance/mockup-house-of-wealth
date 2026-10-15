@@ -158,7 +158,7 @@ model CountryNode {
   documentVersions     DocumentVersion[]
   financialAccounts    FinancialAccount[]
   ledgerTransactions   LedgerTransaction[]
-  zakatAuthorities ZakatAuthority[]
+  zakatAuthorities     ZakatAuthority[]
 }
 
 model Organisation {
@@ -544,12 +544,12 @@ model WealthPool {
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
-  project         Project          @relation(fields: [projectId], references: [projectId])
-  organisation    Organisation     @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode     CountryNode      @relation(fields: [countryNodeId], references: [code])
-  fundingRequests FundingRequest[]
+  project          Project           @relation(fields: [projectId], references: [projectId])
+  organisation     Organisation      @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode      CountryNode       @relation(fields: [countryNodeId], references: [code])
+  fundingRequests  FundingRequest[]
   investmentOrders InvestmentOrder[]
-  akadTerms       PoolAkadTerms[]
+  akadTerms        PoolAkadTerms[]
 
   @@index([countryNodeId])
   @@index([projectId])
@@ -1046,28 +1046,28 @@ model InvestmentContribution {
 }
 
 model InvestmentOrder {
-  id                 String   @id @default(cuid())
-  orderNumber        String   @unique
-  poolId             String
-  projectId          String
-  investorUserId     String
-  organisationId     String
-  countryNodeId      String
-  amount             Decimal  @db.Decimal(18, 2)
-  currency           String   @default("MYR")
-  status             String   @default("PENDING")
-  idempotencyKey     String   @unique
-  createdAt          DateTime @default(now())
-  settledAt          DateTime?
-  cancelledAt        DateTime?
+  id             String    @id @default(cuid())
+  orderNumber    String    @unique
+  poolId         String
+  projectId      String
+  investorUserId String
+  organisationId String
+  countryNodeId  String
+  amount         Decimal   @db.Decimal(18, 2)
+  currency       String    @default("MYR")
+  status         String    @default("PENDING")
+  idempotencyKey String    @unique
+  createdAt      DateTime  @default(now())
+  settledAt      DateTime?
+  cancelledAt    DateTime?
   /// Ijab and qabul: the akad terms the investor accepted, their hash, and when (null for older orders).
-  akadTermsId        String?
-  akadTermsHash      String?
-  akadAcceptedAt     DateTime?
+  akadTermsId    String?
+  akadTermsHash  String?
+  akadAcceptedAt DateTime?
 
-  pool               WealthPool @relation(fields: [poolId], references: [poolId], onDelete: Restrict)
-  akadTerms          PoolAkadTerms? @relation(fields: [akadTermsId], references: [id], onDelete: Restrict)
-  contribution       InvestmentContribution?
+  pool         WealthPool              @relation(fields: [poolId], references: [poolId], onDelete: Restrict)
+  akadTerms    PoolAkadTerms?          @relation(fields: [akadTermsId], references: [id], onDelete: Restrict)
+  contribution InvestmentContribution?
 
   @@index([investorUserId, createdAt])
   @@index([organisationId, countryNodeId, createdAt])
@@ -1134,36 +1134,36 @@ model ZakatPayment {
 }
 
 model Distribution {
-  id             String   @id @default(cuid())
-  projectId      String
-  poolId         String?
-  organisationId String
-  countryNodeId  String
-  totalAmount    Decimal  @db.Decimal(18, 2)
-  currency       String   @default("MYR")
-  status         String   @default("POSTED")
-  periodName     String   @default("Unspecified")
-  grossRevenue   Decimal? @db.Decimal(18, 2)
-  eligibleCosts  Decimal? @db.Decimal(18, 2)
-  netProfit      Decimal? @db.Decimal(18, 2)
-  investorProfit Decimal? @db.Decimal(18, 2)
-  createdBy      String
-  approvedBy     String?
-  approvedAt     DateTime?
-  rejectedBy     String?
-  rejectedAt     DateTime?
-  processedAt    DateTime?
-  settledAt      DateTime?
-  version        Int      @default(0)
-  createdAt      DateTime @default(now())
+  id                     String    @id @default(cuid())
+  projectId              String
+  poolId                 String?
+  organisationId         String
+  countryNodeId          String
+  totalAmount            Decimal   @db.Decimal(18, 2)
+  currency               String    @default("MYR")
+  status                 String    @default("POSTED")
+  periodName             String    @default("Unspecified")
+  grossRevenue           Decimal?  @db.Decimal(18, 2)
+  eligibleCosts          Decimal?  @db.Decimal(18, 2)
+  netProfit              Decimal?  @db.Decimal(18, 2)
+  investorProfit         Decimal?  @db.Decimal(18, 2)
+  createdBy              String
+  approvedBy             String?
+  approvedAt             DateTime?
+  rejectedBy             String?
+  rejectedAt             DateTime?
+  processedAt            DateTime?
+  settledAt              DateTime?
+  version                Int       @default(0)
+  createdAt              DateTime  @default(now())
   /// The akad terms and profit-sharing ratio this distribution used.
   akadTermsId            String?
-  investorProfitSharePct Decimal? @db.Decimal(5, 2)
+  investorProfitSharePct Decimal?  @db.Decimal(5, 2)
   /// PROFIT (paid out), LOSS or ABSORBED (period result recorded, nothing paid).
-  kind                   String   @default("PROFIT")
+  kind                   String    @default("PROFIT")
   /// Net result shared after offsetting earlier unrecovered losses, and the offset applied.
-  distributableNet       Decimal? @db.Decimal(18, 2)
-  lossOffset             Decimal? @db.Decimal(18, 2)
+  distributableNet       Decimal?  @db.Decimal(18, 2)
+  lossOffset             Decimal?  @db.Decimal(18, 2)
 
   akadTerms   PoolAkadTerms?           @relation(fields: [akadTermsId], references: [id], onDelete: Restrict)
   allocations DistributionAllocation[]
@@ -1186,7 +1186,7 @@ model DistributionAllocation {
   ledgerTransactionId String?  @unique
   createdAt           DateTime @default(now())
 
-  distribution      Distribution      @relation(fields: [distributionId], references: [id], onDelete: Restrict)
+  distribution      Distribution       @relation(fields: [distributionId], references: [id], onDelete: Restrict)
   ledgerTransaction LedgerTransaction? @relation(fields: [ledgerTransactionId], references: [id], onDelete: Restrict)
   payoutInstruction PayoutInstruction?
   destination       PayoutDestination? @relation(fields: [destinationId], references: [id], onDelete: Restrict)
@@ -1196,7 +1196,7 @@ model DistributionAllocation {
 }
 
 model PayoutDestination {
-  id                 String   @id @default(cuid())
+  id                 String    @id @default(cuid())
   ownerUserId        String
   organisationId     String
   countryNodeId      String
@@ -1204,14 +1204,20 @@ model PayoutDestination {
   destinationType    String
   encryptedReference String
   destinationHash    String
-  status             String   @default("PENDING_VERIFICATION")
+  /// Shown to the owner instead of the encrypted reference, e.g. "•••• 8291".
+  maskedReference    String?
+  accountHolder      String?
+  currency           String?
+  isDefault          Boolean   @default(false)
+  /// PENDING_VERIFICATION, VERIFIED or REMOVED (kept for past payouts).
+  status             String    @default("PENDING_VERIFICATION")
   verifiedBy         String?
   verifiedAt         DateTime?
   cooldownUntil      DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  allocations DistributionAllocation[]
+  allocations        DistributionAllocation[]
   payoutInstructions PayoutInstruction[]
 
   @@index([ownerUserId, status])
@@ -1232,25 +1238,25 @@ model DistributionApproval {
 }
 
 model PayoutInstruction {
-  id                     String   @id @default(cuid())
-  allocationId           String   @unique
-  beneficiaryUserId      String
-  destinationId          String?
-  provider               String   @default("MANUAL_BANK_FILE")
-  providerReference      String?  @unique
-  amount                 Decimal  @db.Decimal(18, 2)
-  currency               String   @default("MYR")
-  destinationHash        String?
-  status                 String   @default("QUEUED")
-  idempotencyKey         String   @unique
-  failureReason          String?
-  submittedAt            DateTime?
-  settledAt              DateTime?
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  id                String    @id @default(cuid())
+  allocationId      String    @unique
+  beneficiaryUserId String
+  destinationId     String?
+  provider          String    @default("MANUAL_BANK_FILE")
+  providerReference String?   @unique
+  amount            Decimal   @db.Decimal(18, 2)
+  currency          String    @default("MYR")
+  destinationHash   String?
+  status            String    @default("QUEUED")
+  idempotencyKey    String    @unique
+  failureReason     String?
+  submittedAt       DateTime?
+  settledAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
-  allocation DistributionAllocation @relation(fields: [allocationId], references: [id], onDelete: Restrict)
-  destination PayoutDestination? @relation(fields: [destinationId], references: [id], onDelete: Restrict)
+  allocation     DistributionAllocation @relation(fields: [allocationId], references: [id], onDelete: Restrict)
+  destination    PayoutDestination?     @relation(fields: [destinationId], references: [id], onDelete: Restrict)
   providerEvents PayoutProviderEvent[]
 
   @@index([beneficiaryUserId, status])
@@ -1258,14 +1264,14 @@ model PayoutInstruction {
 }
 
 model PayoutProviderEvent {
-  id                String   @id @default(cuid())
-  provider          String
-  providerEventId   String
+  id                  String    @id @default(cuid())
+  provider            String
+  providerEventId     String
   payoutInstructionId String
-  eventType         String
-  payload           Json
-  receivedAt        DateTime @default(now())
-  processedAt       DateTime?
+  eventType           String
+  payload             Json
+  receivedAt          DateTime  @default(now())
+  processedAt         DateTime?
 
   payoutInstruction PayoutInstruction @relation(fields: [payoutInstructionId], references: [id], onDelete: Restrict)
 
@@ -1506,8 +1512,8 @@ model Notification {
 }
 
 model NotificationOutbox {
-  id              String   @id @default(cuid())
-  dedupeKey       String   @unique
+  id              String    @id @default(cuid())
+  dedupeKey       String    @unique
   recipientUserId String
   organisationId  String
   countryNodeId   String
@@ -1516,26 +1522,26 @@ model NotificationOutbox {
   message         String
   resourceType    String?
   resourceId      String?
-  channels        String   @default("IN_APP")
-  status          String   @default("PENDING")
-  attempts        Int      @default(0)
-  nextAttemptAt   DateTime @default(now())
+  channels        String    @default("IN_APP")
+  status          String    @default("PENDING")
+  attempts        Int       @default(0)
+  nextAttemptAt   DateTime  @default(now())
   lastError       String?
   processedAt     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([status, nextAttemptAt])
   @@index([recipientUserId, createdAt])
 }
 
 model JobRun {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   jobName        String
-  idempotencyKey String   @unique
-  status         String   @default("RUNNING")
-  attempts       Int      @default(0)
-  startedAt      DateTime @default(now())
+  idempotencyKey String    @unique
+  status         String    @default("RUNNING")
+  attempts       Int       @default(0)
+  startedAt      DateTime  @default(now())
   finishedAt     DateTime?
   lastError      String?
   metadata       Json?
