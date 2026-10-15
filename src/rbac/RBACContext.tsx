@@ -36,6 +36,9 @@ interface RBACContextType {
   currentCountryNode: string;
   currentOrgId: string;
   currentUserId: string;
+  /** Why the last sign-in was refused (by the identity provider or the API), shown on the public page. */
+  signInError: string | null;
+  clearSignInError: () => void;
   /** Replace the cached backend user after a profile save, so the header shows the new picture at once. */
   updateBackendUser: (user: BackendUser) => void;
 }
@@ -69,6 +72,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
   const [authMode, setAuthModeState] = useState<AuthMode>(authService.getAuthState().mode);
   const [backendAccess, setBackendAccess] = useState<BackendAccess | null>(null);
   const [backendUser, setBackendUser] = useState<BackendUser | null>(null);
+  const [signInError, setSignInError] = useState<string | null>(null);
 
   const syncBackendIdentity = () => Promise.all([apiClient.getCurrentAccess(), apiClient.getCurrentUser()])
     .then(([access, user]) => {
@@ -92,7 +96,9 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
       setAuthState(state);
       if (state.session?.user.activeRole) setCurrentRoleState(state.session.user.activeRole);
       if (state.isAuthenticated) return syncBackendIdentity()
-        .catch(() => {
+        .catch((error: unknown) => {
+          // Keep the reason: without it the user just lands back on the home page.
+          setSignInError(error instanceof Error ? error.message : String(error));
           authService.logout();
           setAuthState(authService.getAuthState());
           setCurrentRoleState('Guest');
@@ -101,6 +107,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
         });
     }).catch((error: unknown) => {
       console.error('OIDC initialization failed:', error);
+      setSignInError(error instanceof Error ? error.message : String(error));
       authService.logout();
       setAuthState(authService.getAuthState());
       setCurrentRoleState('Guest');
@@ -224,6 +231,8 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
         guestBrowsing,
         loginUser,
         updateBackendUser: setBackendUser,
+        signInError,
+        clearSignInError: () => setSignInError(null),
         logoutUser,
         enterGuestMode,
         exitGuestMode,

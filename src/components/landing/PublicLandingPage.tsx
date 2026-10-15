@@ -21,6 +21,7 @@ import { INITIAL_COUNTRY_NODES } from '../../countryNodes/mockCountryNodes';
 import { INITIAL_MARKETPLACE } from '../../data/initialData';
 import { useRBAC } from '../../rbac/RBACContext';
 import { LoginModal } from '../auth/LoginModal';
+import { SignInErrorBanner } from '../auth/SignInErrorBanner';
 import {
   InfoPageLayout,
   AboutD8Page,
@@ -57,6 +58,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
     }[pageId];
     return (
       <>
+        <SignInErrorBanner />
         <InfoPageLayout pageId={pageId} onNavigate={navigate} onSignIn={() => setShowLoginModal(true)}>
           {page}
         </InfoPageLayout>
@@ -77,6 +79,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 font-sans">
+      <SignInErrorBanner />
       {/* Top Utility Bar */}
       <div className="bg-slate-950 text-white border-b border-slate-800 py-2.5 px-4 sm:px-6 lg:px-8">
         <div className="w-full max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
