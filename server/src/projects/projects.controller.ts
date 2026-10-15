@@ -1,10 +1,28 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Res, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
+import { IsString, MaxLength } from 'class-validator';
 import { ProjectsService } from './projects.service';
+import { FeatureModuleGuard } from '../modules/feature-module.guard';
+import { RequireFeatureModule } from '../modules/feature-module.decorator';
+
+// Declared before the controller: its decorators reference this class at load time.
+export class ReopenProjectDto {
+  @IsString()
+  @MaxLength(1000)
+  reason!: string;
+}
+
+// Reject unsupported files with a clear 400 instead of silently dropping them
+// (which surfaced as a misleading 'file is required' error).
+const uploadFilter = (allowed: string[]) => (_request: unknown, file: Express.Multer.File, callback: (error: Error | null, accept: boolean) => void) => {
+  const extension = file.originalname.toLowerCase().split('.').pop() || '';
+  if (allowed.includes(extension)) callback(null, true);
+  else callback(new BadRequestException(`Unsupported file type .${extension}. Allowed: ${allowed.join(', ').toUpperCase()}.`), false);
+};
 
 @Controller('projects')
 export class ProjectsController {
@@ -43,6 +61,12 @@ export class ProjectsController {
     return this.projectsService.updateStatus(id, body, user);
   }
 
+  @Post(':id/reopen')
+  @Roles('Super Admin', 'Country Admin')
+  reopen(@Param('id') id: string, @Body() body: ReopenProjectDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.reopenProject(id, body.reason, user);
+  }
+
   @Post(':id/milestones')
   @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
   @RequirePermission('assets', 'update')
@@ -77,6 +101,13 @@ export class ProjectsController {
   @RequirePermission('marketplace', 'read')
   listDocuments(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.listDocuments(id, user);
+  }
+
+  @Get(':id/evidence/requirements')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee')
+  @RequirePermission('marketplace', 'read')
+  listEvidenceRequirements(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.listEvidenceRequirements(id, user);
   }
 
   @Get(':id/team/candidates')
@@ -183,17 +214,32 @@ export class ProjectsController {
   }
 
   @Post(':id/documents')
+  @UseGuards(FeatureModuleGuard)
+  @RequireFeatureModule('DOCUMENT_VAULT')
   @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
   @RequirePermission('assets', 'create')
   @UseInterceptors(FileInterceptor('file', {
     limits: { fileSize: 25 * 1024 * 1024 },
-    fileFilter: (_request, file, callback) => {
-      const extension = file.originalname.toLowerCase().split('.').pop();
-      callback(null, ['pdf', 'docx', 'xlsx', 'csv'].includes(extension || ''));
-    },
+    fileFilter: uploadFilter(['pdf', 'docx', 'xlsx', 'csv']),
   }))
   uploadDocument(@Param('id') id: string, @UploadedFile() file: Express.Multer.File | undefined, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.uploadDocument(id, file, user);
+  }
+
+  @Post(':id/evidence/:evidenceType/upload')
+  @UseGuards(FeatureModuleGuard)
+  @RequireFeatureModule('DOCUMENT_VAULT')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('assets', 'create')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 25 * 1024 * 1024 }, fileFilter: uploadFilter(['pdf', 'xlsx', 'csv']) }))
+  uploadEvidence(@Param('id') id: string, @Param('evidenceType') evidenceType: string, @UploadedFile() file: Express.Multer.File | undefined, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.uploadEvidence(id, evidenceType.toUpperCase(), file, user);
+  }
+
+  @Post(':id/evidence/:evidenceType/verify')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee')
+  verifyEvidence(@Param('id') id: string, @Param('evidenceType') evidenceType: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.verifyEvidence(id, evidenceType.toUpperCase(), user);
   }
 
   @Get(':id/documents/:documentId/download')

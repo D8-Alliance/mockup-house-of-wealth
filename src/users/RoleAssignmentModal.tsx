@@ -3,6 +3,7 @@ import { AppUser } from './userTypes';
 import { Shield, X, Check, AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { useRBAC } from '../rbac/RBACContext';
 import { apiClient } from '../services/apiClient';
+import { useRoleAvailability } from '../rbac/roleAvailability';
 
 interface RoleAssignmentModalProps {
   user: AppUser | null;
@@ -36,6 +37,7 @@ export const RoleAssignmentModal: React.FC<RoleAssignmentModalProps> = ({
   const [selectedPrimary, setSelectedPrimary] = useState<string>(user?.primaryRole || 'Project Sponsor');
   const [assignedRoles, setAssignedRoles] = useState<string[]>(user?.assignedRoles || ['Project Sponsor']);
   const [reason, setReason] = useState('');
+  const { filterEnabled } = useRoleAvailability();
 
   if (!isOpen || !user) return null;
 
@@ -97,7 +99,7 @@ export const RoleAssignmentModal: React.FC<RoleAssignmentModalProps> = ({
           <div>
             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1.5">Assign Active Roles (Multi-Role Privileges)</label>
             <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto p-1">
-              {AVAILABLE_ROLES.map(r => {
+              {filterEnabled(AVAILABLE_ROLES).map(r => {
                 const isAssigned = assignedRoles.includes(r);
                 return (
                   <button

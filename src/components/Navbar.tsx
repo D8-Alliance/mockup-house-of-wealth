@@ -6,7 +6,7 @@ import {
   Landmark, 
   FileText, 
   Compass, 
-  PiggyBank, 
+  HandCoins, 
   Wallet, 
   Bell, 
   Sun, 
@@ -31,6 +31,7 @@ import {
 import { NavTab, LanguageCode, UserProfile } from '../types';
 import { LANGUAGES, TRANSLATIONS } from '../data/translations';
 import { useRBAC } from '../rbac/RBACContext';
+import { canSeeCodeReview, canSeePdpOnboarding } from '../rbac/menuVisibility';
 import { LogIn, LogOut } from 'lucide-react';
 import { NavLinks } from './navbar/NavLinks';
 
@@ -73,7 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'ai-engine', label: 'AI Wealth Engine', icon: <Sparkles className="w-4 h-4 text-emerald-500 animate-pulse" /> },
     { id: 'admin-center', label: 'Admin Center', icon: <Shield className="w-4 h-4 text-purple-500" /> },
     { id: 'marketplace', label: t.marketplace || 'Marketplace', icon: <Compass className="w-4 h-4" /> },
-    { id: 'pooling', label: t.pooling || 'Pooling', icon: <PiggyBank className="w-4 h-4" /> },
+    { id: 'pooling', label: t.pooling || 'Pooling', icon: <HandCoins className="w-4 h-4" /> },
     { id: 'investments', label: t.investments || 'Investments', icon: <TrendingUp className="w-4 h-4" /> },
     { id: 'assets', label: t.myAssets || 'Assets', icon: <Landmark className="w-4 h-4" /> },
     { id: 'contracts', label: t.myContracts || 'Contracts', icon: <FileText className="w-4 h-4" /> },
@@ -91,8 +92,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16 gap-4">
+      <div className="w-full max-w-full lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 justify-between items-center h-16 gap-4">
           
           {/* Brand Logo */}
           <div className="flex items-center gap-3 cursor-pointer shrink-0" onClick={() => setTab('dashboard')}>
@@ -103,30 +104,34 @@ export const Navbar: React.FC<NavbarProps> = ({
           <NavLinks navItems={navItems} currentTab={currentTab} setTab={setTab} />
 
           {/* Right Controls */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex min-w-0 shrink-0 items-center gap-2.5">
             
-            {/* PDP Register Quick Button */}
+            {/* PDP Register Quick Button: visitors and delivery-partner roles only */}
+            {canSeePdpOnboarding(currentRole) && (
             <button
               onClick={onOpenPdpRegister}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-500 text-white shadow-sm shadow-purple-500/20 transition-all cursor-pointer shrink-0"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-500 text-white shadow-sm shadow-purple-500/20 transition-all cursor-pointer shrink-0"
               title="Register as a Pool / Product / Project Delivery Partner (PDP)"
             >
               <Building2 className="w-3.5 h-3.5" />
               <span className="hidden md:inline">PDP Onboarding</span>
             </button>
+            )}
 
-            {/* Code Review Button */}
-            <button
-              onClick={onOpenCodeReview}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition-all cursor-pointer shrink-0"
+            {/* Code Review Button: internal report for platform administrators */}
+            {canSeeCodeReview(currentRole) && (
+              <button
+                onClick={onOpenCodeReview}
+                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition-all cursor-pointer shrink-0"
               title="Open Architecture & Code Review Report"
             >
               <Code2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span className="hidden sm:inline">{t.codeReview}</span>
             </button>
+            )}
 
             {/* Language Switcher */}
-            <div className="relative">
+            <div className="relative hidden lg:block">
               <button
                 onClick={() => setLangMenuOpen(!langMenuOpen)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
@@ -171,14 +176,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Dark Mode Toggle */}
             <button
               onClick={() => setDarkMode(!darkMode)}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              className="hidden lg:block p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
               title="Toggle theme"
             >
               {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
             </button>
 
             {/* Notification Bell */}
-            <div className="relative">
+            <div className="relative hidden lg:block">
               <button
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
                 className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors relative cursor-pointer"
@@ -210,7 +215,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             {/* Profile Avatar & Account Menu */}
-            <div className="relative">
+            <div className="relative hidden lg:block">
               <button 
                 onClick={() => setUserMenuOpen(!userMenuOpen)}
                 className="flex items-center gap-2 pl-1 border-l border-slate-200 dark:border-slate-700 cursor-pointer hover:opacity-80 transition-opacity"
@@ -302,7 +307,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="lg:hidden border-t border-slate-200 dark:border-slate-800 py-3 space-y-1">
+          <div className="lg:hidden w-full max-w-full overflow-hidden border-t border-slate-200 dark:border-slate-800 py-3 space-y-1">
             {navItems.map(item => (
               <button
                 key={item.id}
@@ -320,6 +325,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>{item.label}</span>
               </button>
             ))}
+            <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-800">
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                {isAuthenticated ? <User className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
+                <span>{isAuthenticated ? 'Account & Role' : 'Sign In'}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>

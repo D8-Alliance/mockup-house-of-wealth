@@ -4,6 +4,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { UsersService } from './users.service';
 import { AssignRoleDto } from './assign-role.dto';
+import { UpdateMyProfileDto } from './update-my-profile.dto';
 import { UserRole, UserRoleEnum } from '../policy/permissions';
 
 @Controller('users')
@@ -13,6 +14,11 @@ export class UsersController {
   @Get('me')
   getCurrentUser(@CurrentUser() actor: AuthenticatedUser) {
     return this.usersService.getCurrentUser(actor);
+  }
+
+  @Patch('me/profile')
+  updateMyProfile(@CurrentUser() actor: AuthenticatedUser, @Body() input: UpdateMyProfileDto) {
+    return this.usersService.updateMyProfile(actor, input);
   }
 
   @Get('me/access')
@@ -87,7 +93,7 @@ export class UsersController {
    */
   @Get(':userId/roles')
   @RequirePermission('users', 'read')
-  async getUserRoles(@Param('userId') userId: string) {
-    return this.usersService.getUserRoles(userId);
+  async getUserRoles(@Param('userId') userId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.usersService.getUserRoles(userId, actor);
   }
 }

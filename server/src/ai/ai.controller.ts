@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Res, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -6,13 +7,39 @@ import { Roles } from '../auth/roles.decorator';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { AiService } from './ai.service';
-import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagSearchDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { CitationAuditService } from './citation-audit.service';
+import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, RagUploadMetadataDto, CitationAuditQueryDto, CitationReviewDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { FeasibilityReviewDto } from './project-feasibility.dto';
 
 @Controller('ai')
 @UseGuards(FeatureModuleGuard)
 @RequireFeatureModule('AI_INTELLIGENCE')
 export class AiController {
-  constructor(private readonly ai: AiService) {}
+  constructor(private readonly ai: AiService, private readonly citations: CitationAuditService) {}
+
+  // Citation Audit (per-role scope and audit logging live in CitationAuditService).
+  @Get('citations')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin', 'Shariah Reviewer', 'Shariah Committee')
+  listCitations(@CurrentUser() actor: AuthenticatedUser, @Query() query: CitationAuditQueryDto) { return this.citations.list(actor, query); }
+
+  @Get('citations/summary')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin', 'Shariah Reviewer', 'Shariah Committee')
+  citationSummary(@CurrentUser() actor: AuthenticatedUser, @Query() query: CitationAuditQueryDto) { return this.citations.summary(actor, query); }
+
+  @Get('citations/export')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin', 'Shariah Reviewer', 'Shariah Committee')
+  async exportCitations(@CurrentUser() actor: AuthenticatedUser, @Query() query: CitationAuditQueryDto, @Res() response: Response) {
+    const result = await this.citations.exportCsv(actor, query);
+    response.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    response.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+    response.setHeader('X-Row-Count', String(result.rowCount));
+    // BOM so spreadsheet apps read UTF-8 (Arabic/Malay text) correctly.
+    response.send(`\uFEFF${result.csv}`);
+  }
+
+  @Post('citations/:id/review')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
+  reviewCitation(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: CitationReviewDto) { return this.citations.review(actor, id, input); }
 
   @Post('chat') chat(@CurrentUser() actor: AuthenticatedUser, @Body() input: ChatDto) { return this.ai.chat(actor, input); }
 
@@ -44,33 +71,69 @@ export class AiController {
   @Roles('Super Admin', 'AI Administrator', 'Compliance Officer', 'KYC Officer', 'KYB Officer', 'AML Officer', 'Risk Officer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office')
   scanProjectDueDiligence(@CurrentUser() actor: AuthenticatedUser, @Body() input: ProjectDueDiligenceDto) { return this.ai.scanProjectDueDiligence(actor, input.projectId); }
 
+  @Post('projects/:projectId/feasibility/analyze')
+  @Roles('Project Sponsor', 'Project Manager', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Country Admin', 'Organization Admin', 'AI Model Reviewer', 'Shariah Reviewer')
+  analyzeProjectFeasibility(@CurrentUser() actor: AuthenticatedUser, @Param('projectId') projectId: string) { return this.ai.runProjectFeasibility(actor, projectId); }
+
+  @Get('projects/:projectId/feasibility/latest')
+  @Roles('Super Admin', 'Project Sponsor', 'Project Manager', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Country Admin', 'Organization Admin', 'AI Model Reviewer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee')
+  latestProjectFeasibility(@CurrentUser() actor: AuthenticatedUser, @Param('projectId') projectId: string) { return this.ai.latestProjectFeasibility(actor, projectId); }
+
+  @Post('projects/:projectId/feasibility/:runId/review')
+  @Roles('Project Sponsor', 'Project Manager', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Country Admin', 'Organization Admin', 'AI Model Reviewer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee')
+  reviewProjectFeasibility(@CurrentUser() actor: AuthenticatedUser, @Param('projectId') projectId: string, @Param('runId') runId: string, @Body() input: FeasibilityReviewDto) { return this.ai.reviewProjectFeasibility(actor, projectId, runId, input); }
+
   @Get('projects/:projectId/due-diligence/latest')
   @Roles('Super Admin', 'AI Administrator', 'Compliance Officer', 'KYC Officer', 'KYB Officer', 'AML Officer', 'Risk Officer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee')
   latestDueDiligence(@CurrentUser() actor: AuthenticatedUser, @Param('projectId') projectId: string) { return this.ai.latestProjectDueDiligence(actor, projectId); }
 
   @Post('projects/:projectId/documents/:documentId/analyze')
-  @Roles('Super Admin', 'AI Administrator', 'Compliance Officer', 'Risk Officer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin', 'Compliance Officer', 'Risk Officer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee')
   analyzeProjectDocument(@CurrentUser() actor: AuthenticatedUser, @Param('projectId') projectId: string, @Param('documentId') documentId: string) { return this.ai.analyzeProjectDocument(actor, projectId, documentId); }
 
   @Post('decisions/:id/review')
   @Roles('Super Admin', 'AI Administrator', 'AI Model Reviewer', 'Shariah Reviewer', 'Shariah Committee', 'Compliance Officer', 'Risk Officer')
   review(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: AiDecisionDto) { return this.ai.reviewDecision(actor, id, input); }
 
-  @Post('rag/documents')
+  @Get('rag/countries')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
+  ragCountries() { return this.ai.listRagCountries(); }
+
+  @Get('rag/documents')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
+  listDocuments(@CurrentUser() actor: AuthenticatedUser, @Query('scope') scope?: string, @Query('projectId') projectId?: string, @Query('approvalStatus') approvalStatus?: string) {
+    return this.ai.listRagDocuments(actor, { scope, projectId, approvalStatus });
+  }
+
+  @Post('rag/documents/:id/supersede')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
+  supersedeDocument(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: RagSupersedeDto) { return this.ai.supersedeRagDocument(actor, id, input); }
+
+  @Post('rag/documents/:id/review')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
+  reviewDocument(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: RagReviewDto) { return this.ai.reviewRagDocument(actor, id, input); }
+
+  @Post('rag/embeddings/backfill')
   @Roles('Super Admin', 'AI Administrator')
+  backfillEmbeddings(@CurrentUser() actor: AuthenticatedUser) { return this.ai.backfillRagEmbeddings(actor); }
+
+  @Post('rag/documents')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
   createDocument(@CurrentUser() actor: AuthenticatedUser, @Body() input: RagDocumentDto) { return this.ai.createDocument(actor, input); }
 
   @Post('rag/documents/upload')
-  @Roles('Super Admin', 'AI Administrator')
+  @Roles('Super Admin', 'AI Administrator', 'Country Admin')
   @UseInterceptors(FileInterceptor('file', {
     limits: { fileSize: 10 * 1024 * 1024 },
     fileFilter: (_request, file, callback) => callback(null, file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf')),
   }))
-  uploadDocument(@CurrentUser() actor: AuthenticatedUser, @Body() metadata: Partial<RagDocumentDto>, @UploadedFile() file?: Express.Multer.File) {
+  uploadDocument(@CurrentUser() actor: AuthenticatedUser, @Body() metadata: RagUploadMetadataDto, @UploadedFile() file?: Express.Multer.File) {
     return this.ai.uploadPdf(actor, metadata, file);
   }
 
   @Post('rag/documents/search') search(@CurrentUser() actor: AuthenticatedUser, @Body() input: RagSearchDto) { return this.ai.searchDocuments(actor, input); }
+
+  @Get('conversations') listConversations(@CurrentUser() actor: AuthenticatedUser) { return this.ai.listConversations(actor); }
 
   @Get('conversations/:id') getConversation(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) {
     return this.ai.getConversation(actor, id);

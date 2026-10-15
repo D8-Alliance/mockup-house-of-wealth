@@ -80,6 +80,24 @@ The backend is responsible for:
 
 The application must not create a second independent authentication system that duplicates Keycloak. `AUTH_MODE=mock` is for local development and tests only.
 
+## Admin Audit Endpoints
+
+Read-only audit access is available to roles granted the `audit_logs:read` permission.
+
+List scoped audit events:
+
+```text
+GET /admin/audit/events?page=1&limit=50&action=payment&from=2026-10-01T00:00:00.000Z
+```
+
+Export up to 10,000 scoped events as CSV:
+
+```text
+GET /admin/audit/events/export?resourceType=PaymentTransaction
+```
+
+Supported filters are `action`, `resourceType`, `userId`, `from`, and `to`. Country Admins and Organization Admins only receive events within their authorized tenant scope. Audit events are read-only; the application does not expose update or delete endpoints.
+
 ## Requirements
 
 Install the following before starting development:
@@ -295,6 +313,43 @@ Current integrated payment flows:
 
 - AI credit top-up.
 - Membership upgrade.
+
+## Financial Ledger Foundation
+
+Financial money movements are separate from the AI credit wallet. The financial ledger contains:
+
+- `FinancialAccount` for tenant-scoped asset, liability, equity, revenue, and expense accounts.
+- `LedgerTransaction` as the immutable transaction header.
+- `LedgerEntry` as immutable debit/credit lines.
+- Investment contribution records.
+- Funding disbursement records.
+- Refund records.
+- Zakat payment records.
+- Distribution and distribution allocation records.
+
+Every posted transaction must have balanced debit and credit entries in one database transaction. Corrections must be represented by a reversal transaction; ledger headers and entries cannot be updated or deleted by database trigger. `FinancialLedgerService` is the only intended posting boundary and supports idempotency keys.
+
+Financial staff settle a refund only after ToyyibPay confirms the provider-side refund:
+
+```text
+POST /membership/me/payments/:id/refund/settle
+```
+
+This endpoint records the verified refund in the ledger; it does not pretend that a provider refund has succeeded.
+
+Investment and pool lifecycle endpoints are server-backed:
+
+```text
+PATCH /pools/:id/status
+POST  /investments/orders
+GET   /investments/orders
+POST  /investments/orders/:id/settle
+PATCH /investments/orders/:id/cancel
+GET   /financial/ledger
+POST  /financial/transfers
+```
+
+Investment settlement creates an immutable ledger contribution and automatically marks an open pool `FULL` when settled capital reaches the project funding target. Distribution allocations must match settled investor capital and are calculated server-side when revenue and eligible costs are supplied.
 
 ## Current Functional Modules
 

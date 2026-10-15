@@ -7,7 +7,7 @@ export const SYSTEM_ROLES: Record<string, RoleDefinition> = {
     category: 'System Executive',
     description: 'Full root authority over all D-8 nodes, system parameters, security policies, and user administration.',
     badgeColor: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30',
-    accessibleTabs: ['dashboard', 'ai-engine', 'admin-center', 'sponsor-portal', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'wallet', 'financials', 'beneficiaries', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'admin-center', 'sponsor-portal', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'wallet', 'financials', 'documents', 'ledger', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['create', 'read', 'update', 'delete', 'approve', 'audit', 'export'],

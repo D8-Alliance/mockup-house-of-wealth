@@ -20,7 +20,8 @@ class PoolService {
   }
 
   public createPool(poolData: Partial<WealthPool>, userId: string, userRole: string): WealthPool {
-    const newId = `POOL-${poolData.countryNodeId || 'MYS'}-${generateNumericId('P', 4)}`;
+    // A pool created on the server keeps the server's id and status.
+    const newId = poolData.poolId || `POOL-${poolData.countryNodeId || 'MYS'}-${generateNumericId('P', 4)}`;
     const newCode = `POOL-${(poolData.poolName || 'SUKUK').toUpperCase().slice(0, 8)}-${Math.floor(100 + Math.random() * 900)}`;
 
     const newPool: WealthPool = {
@@ -46,7 +47,7 @@ class PoolService {
       riskLevel: poolData.riskLevel || 'Medium',
       openingDate: poolData.openingDate || new Date().toISOString().split('T')[0],
       closingDate: poolData.closingDate || '2026-12-31',
-      status: 'DRAFT',
+      status: poolData.status || 'DRAFT',
       investorCount: 0,
       feesDescription: poolData.feesDescription || '1.5% p.a. Mudarib management fee.',
       distributionFrequency: poolData.distributionFrequency || 'Quarterly',
@@ -77,7 +78,7 @@ class PoolService {
 
     notificationService.notify(
       'Wealth Pool Structured',
-      `Wealth Pool "${newPool.poolName}" created in DRAFT status.`,
+      `Wealth Pool "${newPool.poolName}" created in ${newPool.status} status.`,
       'info',
       'pool',
       newId

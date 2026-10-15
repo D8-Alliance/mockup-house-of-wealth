@@ -29,12 +29,12 @@ import { PlanComparisonTable } from './PlanComparisonTable';
 import { FeatureMatrixTable } from './FeatureMatrixTable';
 import { PDPMembershipView } from './PDPMembershipView';
 import { UpgradeModal } from './UpgradeModal';
-import { CancelDowngradeModal } from './CancelDowngradeModal';
 import { CreditBalanceModal } from './CreditBalanceModal';
 import { PremiumReportsCatalog } from './PremiumReportsCatalog';
 import { FutureRevenueSection } from './FutureRevenueSection';
 import { BillingTransactionsView } from './BillingTransactionsView';
-import { apiClient } from '../../services/apiClient';
+import { apiClient, apiErrorMessage, BackendMembershipStatus } from '../../services/apiClient';
+import { formatDate } from './membershipFormat';
 
 interface MembershipViewProps {
   userId?: string;
@@ -47,7 +47,7 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
 }) => {
   const [plans, setPlans] = useState<MembershipPlan[]>(revenueService.getPlans());
   const [membership, setMembership] = useState<UserMembership>(revenueService.getUserMembership(userId));
-  const [creditBalance, setCreditBalance] = useState<HoWCreditBalance>(revenueService.getCreditBalance(userId));
+  const [creditBalance, setCreditBalance] = useState<HoWCreditBalance>({ userId, totalCredits: 0, usedCredits: 0, availableCredits: 0, monthlyAllowance: 0, purchasedCredits: 0, resetDate: '' });
   const [featureUsage, setFeatureUsage] = useState<FeatureUsageStats>(revenueService.getFeatureUsage(userId));
   const [transactions, setTransactions] = useState<CreditTransaction[]>(revenueService.getCreditTransactions(userId));
   const [reports, setReports] = useState<PremiumReportItem[]>(revenueService.getPremiumReports());
@@ -61,14 +61,12 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
   );
 
   const [selectedPlanForUpgrade, setSelectedPlanForUpgrade] = useState<{ plan: MembershipPlan; interval: BillingInterval } | null>(null);
-  const [cancelDowngradeState, setCancelDowngradeState] = useState<'downgrade' | 'cancel' | null>(null);
   const [showCreditModal, setShowCreditModal] = useState(false);
 
   useEffect(() => {
     const unsub = revenueService.subscribe(() => {
       setPlans(revenueService.getPlans());
-      setMembership(revenueService.getUserMembership(userId));
-      setCreditBalance(revenueService.getCreditBalance(userId));
+      // Membership itself comes from the API (refreshMembership), not the local mock store.
       setFeatureUsage(revenueService.getFeatureUsage(userId));
       setTransactions(revenueService.getCreditTransactions(userId));
       setReports(revenueService.getPremiumReports());
@@ -76,6 +74,60 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
     });
     return unsub;
   }, [userId]);
+
+  const refreshCreditBalance = () => apiClient.getMembershipCreditSummary().then(summary => setCreditBalance({
+    userId: summary.userId,
+    totalCredits: summary.totalPoolCredits,
+    usedCredits: summary.usedThisMonth,
+    availableCredits: summary.availableBalance,
+    monthlyAllowance: summary.monthlyAllowance,
+    purchasedCredits: summary.purchasedCredits ?? summary.additionalCredits,
+    resetDate: summary.resetDate,
+  })).catch(() => undefined);
+
+  const [membershipStatus, setMembershipStatus] = useState<BackendMembershipStatus | null>(null);
+  const refreshMembership = () => apiClient.getMembershipStatus().then((status) => {
+    setMembershipStatus(status);
+    setMembership({
+      userId: status.userId,
+      planId: status.planId,
+      tier: status.tier as MembershipTier,
+      billingInterval: status.billingInterval,
+      status: 'Active',
+      currentPeriodStart: status.currentPeriodStart,
+      currentPeriodEnd: status.currentPeriodEnd,
+      autoRenew: status.autoRenew,
+      paymentMethodSummary: status.paymentMethodSummary,
+      aiCreditsRemaining: status.aiCreditsRemaining,
+      aiCreditsTotal: status.aiCreditsTotal,
+    });
+  }).catch(() => undefined);
+
+  useEffect(() => {
+    void refreshCreditBalance();
+    void refreshMembership();
+  }, []);
+
+  // ToyyibPay sends the payer back with ?status_id=&billcode=&order_id=. Confirm the
+  // payment with the API (which re-checks ToyyibPay) instead of trusting the query string.
+  const [paymentNotice, setPaymentNotice] = useState<{ tone: 'success' | 'pending' | 'error'; text: string } | null>(null);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentId = params.get('order_id');
+    if (!paymentId) return;
+    window.history.replaceState(null, '', window.location.pathname);
+    setPaymentNotice({ tone: 'pending', text: 'Confirming your ToyyibPay payment…' });
+    void apiClient.verifyMembershipPayment(paymentId)
+      .then((result) => {
+        const product = result.productType === 'MEMBERSHIP' ? 'membership plan' : 'AI credits';
+        if (result.status === 'PAID') setPaymentNotice({ tone: 'success', text: `Payment received. Your ${product} ${result.productType === 'MEMBERSHIP' ? 'is now active' : 'have been added'}.` });
+        else if (result.status === 'FAILED') setPaymentNotice({ tone: 'error', text: 'ToyyibPay reported the payment as unsuccessful. You have not been charged for this order.' });
+        else setPaymentNotice({ tone: 'pending', text: 'ToyyibPay has not confirmed this payment yet. Refresh this page in a few minutes.' });
+        void refreshCreditBalance();
+        void refreshMembership();
+      })
+      .catch((cause) => setPaymentNotice({ tone: 'error', text: apiErrorMessage(cause, 'Unable to confirm the payment.') }));
+  }, []);
 
   useEffect(() => {
     void apiClient.getFeatureModules()
@@ -106,45 +158,82 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
     setSelectedPlanForUpgrade({ plan: targetPlan, interval: 'monthly' });
   };
 
-  const handleConfirmUpgrade = async (planId: string, interval: BillingInterval, method: string) => {
-    try {
-      const updatedMembership = await apiClient.upgradeMembership({ planId, billingInterval: interval, paymentMethod: method });
-      setMembership(updatedMembership as UserMembership);
-      setSelectedPlanForUpgrade(null);
-    } catch (error) {
-      console.error('Membership upgrade failed', error);
+  // Errors propagate so UpgradeModal can show them to the user.
+  const handleConfirmUpgrade = async (planId: string, interval: BillingInterval, method: string, creditsToApply = 0) => {
+    const result = await apiClient.upgradeMembership({ planId, billingInterval: interval, paymentMethod: method, creditsToApply }) as { paymentUrl?: string };
+    if (result.paymentUrl) {
+      window.location.assign(result.paymentUrl);
+      return;
     }
+    await Promise.all([refreshMembership(), refreshCreditBalance()]);
+    window.dispatchEvent(new Event('ai-credits-changed'));
+    setSelectedPlanForUpgrade(null);
   };
 
-  const handleConfirmCancelDowngrade = () => {
-    if (cancelDowngradeState === 'downgrade') {
-      revenueService.downgradeMembership(userId);
-    } else if (cancelDowngradeState === 'cancel') {
-      revenueService.cancelMembership(userId);
-    }
-    setCancelDowngradeState(null);
+  // Renewal re-buys the current plan and interval; the backend extends from the current end date.
+  const handleRenew = () => {
+    if (currentPlan.tier === 'FREE') return;
+    setSelectedPlanForUpgrade({ plan: currentPlan, interval: membership.billingInterval });
   };
 
   const handleUnlockReport = (reportId: string) => {
     revenueService.unlockPremiumReport(reportId, userId);
   };
 
-  const handleTopUpCredits = (credits: number, priceMYR: number, priceUSD: number, method: string) => {
-    revenueService.topUpCredits(userId, credits, priceMYR, priceUSD, method);
+  const handleTopUpCredits = async (packageId: string, method: string) => {
+    const payment = await apiClient.topUpMembershipCredits(packageId, method);
+    if (payment.paymentUrl) {
+      window.location.assign(payment.paymentUrl);
+      return;
+    }
+    await refreshCreditBalance();
   };
 
   return (
     <div className="space-y-8 animate-fade-in pb-12">
+      {paymentNotice && (
+        <div className={`p-4 rounded-2xl border text-sm font-semibold flex items-start justify-between gap-3 ${
+          paymentNotice.tone === 'success'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800/50 dark:text-emerald-300'
+            : paymentNotice.tone === 'error'
+              ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800/50 dark:text-rose-300'
+              : 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/30 dark:border-amber-800/50 dark:text-amber-300'
+        }`}>
+          <span>{paymentNotice.text}</span>
+          <button onClick={() => setPaymentNotice(null)} className="text-xs font-bold opacity-70 hover:opacity-100 cursor-pointer">Dismiss</button>
+        </div>
+      )}
+      {membershipStatus && (membershipStatus.lifecycleStatus === 'EXPIRING_SOON' || membershipStatus.lifecycleStatus === 'GRACE') && (
+        <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+          membershipStatus.lifecycleStatus === 'GRACE'
+            ? 'bg-rose-50 border-rose-200 text-rose-800 dark:bg-rose-950/30 dark:border-rose-800/50 dark:text-rose-300'
+            : 'bg-amber-50 border-amber-200 text-amber-800 dark:bg-amber-950/30 dark:border-amber-800/50 dark:text-amber-300'
+        }`}>
+          <div className="text-sm">
+            <div className="font-black">
+              {membershipStatus.lifecycleStatus === 'GRACE'
+                ? `Your ${membershipStatus.planName} plan ended on ${formatDate(membershipStatus.currentPeriodEnd)}`
+                : `Your ${membershipStatus.planName} plan ends in ${membershipStatus.daysRemaining} day${membershipStatus.daysRemaining === 1 ? '' : 's'}`}
+            </div>
+            <div className="text-xs mt-0.5 opacity-90">
+              {membershipStatus.lifecycleStatus === 'GRACE'
+                ? `Plan features stay available until ${formatDate(membershipStatus.graceEndsAt)}. After that the account moves to the Free plan.`
+                : `Renew before ${formatDate(membershipStatus.currentPeriodEnd)} to keep your plan. Renewing early adds a full period after the current end date.`}
+            </div>
+          </div>
+          <button onClick={handleRenew} className="shrink-0 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer">Renew now</button>
+        </div>
+      )}
       {/* Membership Dashboard Header Card */}
       <MembershipCard
+        membershipStatus={membershipStatus}
+        onRenew={handleRenew}
         membership={membership}
         currentPlan={currentPlan}
         creditBalance={creditBalance}
         featureUsage={featureUsage}
         onOpenUpgradeModal={() => setSelectedPlanForUpgrade({ plan: currentPlan.tier === 'FREE' ? plans[1] : plans[2], interval: 'monthly' })}
         onOpenCreditModal={() => setShowCreditModal(true)}
-        onOpenDowngradeModal={() => setCancelDowngradeState('downgrade')}
-        onOpenCancelModal={() => setCancelDowngradeState('cancel')}
       />
 
       {/* Sub-Navigation Tabs */}
@@ -263,18 +352,9 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
         <UpgradeModal
           plan={selectedPlanForUpgrade.plan}
           interval={selectedPlanForUpgrade.interval}
+          membershipStatus={membershipStatus}
           onClose={() => setSelectedPlanForUpgrade(null)}
           onConfirm={handleConfirmUpgrade}
-        />
-      )}
-
-      {/* Cancel / Downgrade Modal */}
-      {cancelDowngradeState && (
-        <CancelDowngradeModal
-          membership={membership}
-          mode={cancelDowngradeState}
-          onClose={() => setCancelDowngradeState(null)}
-          onConfirm={handleConfirmCancelDowngrade}
         />
       )}
 

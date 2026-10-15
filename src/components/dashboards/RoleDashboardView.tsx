@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useRBAC } from '../../rbac/RBACContext';
+import { canSeePdpOnboarding } from '../../rbac/menuVisibility';
+import { canDraftAgreement, openAiEngineSection } from '../../ai/aiEngineNavigation';
 import { UserProfile, AssetItem, ContractItem, LanguageCode, NavTab } from '../../types';
 import { 
   Building2, 
@@ -11,7 +13,9 @@ import {
   ChevronRight, 
   Globe2, 
   Award, 
-  Clock 
+  Clock,
+  HandCoins,
+  TrendingUp
 } from 'lucide-react';
 import { MetricCard } from './MetricCard';
 import { ExecutiveDashboardWidgets } from './ExecutiveDashboardWidgets';
@@ -37,7 +41,16 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
   onOpenContractWizard,
   onOpenPdpRegister
 }) => {
-  const { currentRole, roleDef, checkPermission } = useRBAC();
+  const { currentRole, roleDef, checkPermission, canAccessTab } = useRBAC();
+  const quickLinks = ([
+    { tab: 'assets', title: 'Asset Holdings', text: `${assets.length} sample real-world assets listed in the portfolio.`, action: 'View Assets', icon: <Building2 className="w-5 h-5 text-emerald-500" />, linkClass: 'text-emerald-600 dark:text-emerald-400' },
+    { tab: 'contracts', title: 'Islamic Contracts', text: `${contracts.length} active Mudarabah, Musharakah, and Wakalah agreements.`, action: 'View Contracts', icon: <Coins className="w-5 h-5 text-blue-500" />, linkClass: 'text-blue-600 dark:text-blue-400' },
+    { tab: 'pooling', title: 'Wealth Pools', text: 'Browse open Mudarabah and Waqf pools and their funding progress.', action: 'Explore Pools', icon: <HandCoins className="w-5 h-5 text-emerald-500" />, linkClass: 'text-emerald-600 dark:text-emerald-400' },
+    { tab: 'investments', title: 'My Investments', text: 'Track your pool participations, profit distributions and exit requests.', action: 'View Investments', icon: <TrendingUp className="w-5 h-5 text-blue-500" />, linkClass: 'text-blue-600 dark:text-blue-400' },
+    { tab: 'marketplace', title: 'Marketplace & Liquidity', text: 'Discover Sukuk offerings and Waqf pool allocations across D-8 nations.', action: 'Explore Opportunities', icon: <Globe2 className="w-5 h-5 text-purple-500" />, linkClass: 'text-purple-600 dark:text-purple-400' },
+  ] satisfies { tab: NavTab; title: string; text: string; action: string; icon: React.ReactNode; linkClass: string }[]).filter(link => canAccessTab(link.tab)).slice(0, 3);
+  // PDP onboarding is offered only to visitors and the roles that deliver projects, pools or assets.
+  const showPdpOnboarding = !!onOpenPdpRegister && canSeePdpOnboarding(currentRole);
   const [approvalActionDone, setApprovalActionDone] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
@@ -64,7 +77,7 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
                 {roleDef.category} • {currentRole}
               </span>
               <span className="bg-emerald-500/20 text-emerald-400 text-xs font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                AAOIFI Certified Node
+                Shariah Governance
               </span>
             </div>
 
@@ -79,7 +92,7 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
 
           {/* Role Quick Actions */}
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {onOpenPdpRegister && (
+            {showPdpOnboarding && (
               <button
                 type="button"
                 onClick={onOpenPdpRegister}
@@ -101,14 +114,15 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
               </button>
             )}
 
-            {checkPermission('contracts', 'create') && (
+            {/* Agreements go through the real chain (draft, Legal review, Shariah review) in Agreement Generation. */}
+            {canDraftAgreement(currentRole) && canAccessTab('ai-engine') && (
               <button
                 type="button"
-                onClick={onOpenContractWizard}
+                onClick={() => { openAiEngineSection('agreement-generation'); setTab('ai-engine'); }}
                 className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold text-xs rounded-xl border border-slate-600 flex items-center gap-2 cursor-pointer"
               >
                 <Coins className="w-4 h-4 text-emerald-400" />
-                <span>Issue Contract</span>
+                <span>Draft Agreement</span>
               </button>
             )}
 
@@ -127,7 +141,7 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
       </div>
 
       {/* PDP Onboarding Opportunity Banner */}
-      {onOpenPdpRegister && (
+      {showPdpOnboarding && (
         <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-900/40 via-purple-950/20 to-slate-900/60 border border-purple-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -180,59 +194,27 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
         </div>
       )}
 
-      {/* Core Modules Quick Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-md space-y-3">
-          <div className="flex items-center gap-2">
-            <Building2 className="w-5 h-5 text-emerald-500" />
-            <h4 className="font-black text-slate-900 dark:text-white text-sm">Asset Holdings</h4>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {assets.length} Tokenized Real World Assets currently listed in the portfolio.
-          </p>
-          <button 
-            onClick={() => setTab('assets')}
-            className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            <span>View Assets</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+      {/* Core Modules Quick Grid: only modules this role can open, so no link leads to Access Denied */}
+      {quickLinks.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {quickLinks.map(link => (
+            <div key={link.tab} className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-md space-y-3">
+              <div className="flex items-center gap-2">
+                {link.icon}
+                <h4 className="font-black text-slate-900 dark:text-white text-sm">{link.title}</h4>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{link.text}</p>
+              <button
+                onClick={() => setTab(link.tab)}
+                className={`text-xs font-extrabold ${link.linkClass} hover:underline flex items-center gap-1 cursor-pointer`}
+              >
+                <span>{link.action}</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
         </div>
-
-        <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-md space-y-3">
-          <div className="flex items-center gap-2">
-            <Coins className="w-5 h-5 text-blue-500" />
-            <h4 className="font-black text-slate-900 dark:text-white text-sm">Islamic Smart Contracts</h4>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            {contracts.length} Active Mudarabah, Musharakah, and Wakalah agreements.
-          </p>
-          <button 
-            onClick={() => setTab('contracts')}
-            className="text-xs font-extrabold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            <span>View Contracts</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-md space-y-3">
-          <div className="flex items-center gap-2">
-            <Globe2 className="w-5 h-5 text-purple-500" />
-            <h4 className="font-black text-slate-900 dark:text-white text-sm">Marketplace & Liquidity</h4>
-          </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Discover tokenized Sukuk offerings and Waqf pool allocations across D-8 nations.
-          </p>
-          <button 
-            onClick={() => setTab('marketplace')}
-            className="text-xs font-extrabold text-purple-600 dark:text-purple-400 hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            <span>Explore Opportunities</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
+      )}
 
     </div>
   );

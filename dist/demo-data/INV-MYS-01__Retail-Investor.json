@@ -1,0 +1,165 @@
+{
+ "GET /ai/conversations": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /contract-intelligence/agreements": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /dashboard/summary": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"source\":\"database\",\"scope\":{\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-INV-MYS-01\"},\"projectCount\":0,\"totalProjectValue\":0,\"fundingRequired\":0,\"activePoolCount\":0,\"contractCount\":0,\"fundingRequestCount\":0,\"fundingRequested\":0}"
+ },
+ "GET /distributions": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /financial/accounts": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /financial/ledger": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /investments/orders": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /kyc/me": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"id\":\"cmv6dczik0050pjws5c5c8b2k\",\"applicationNumber\":\"KYC-DEMO-USR-INV-MYS-01\",\"userId\":\"USR-INV-MYS-01\",\"userEmail\":\"siti.aminah@investor.my\",\"organisationId\":\"ORG-INV-MYS-01\",\"countryNodeId\":\"CN-MYS\",\"fullName\":\"Siti Aminah binti Yusof\",\"dateOfBirth\":null,\"nationality\":\"MY\",\"idDocumentType\":\"NATIONAL_ID\",\"idDocumentNumber\":\"900101-14-0000 (demo)\",\"idDocumentExpiry\":null,\"residentialAddress\":\"Kuala Lumpur (demo address)\",\"status\":\"APPROVED\",\"kycLevel\":\"LEVEL_2\",\"submittedAt\":\"2026-10-13T07:38:20.491Z\",\"reviewedAt\":\"2026-10-13T07:38:20.491Z\",\"reviewedBy\":\"SEED\",\"reviewComment\":\"Demo persona: approved for the investment demo.\",\"createdAt\":\"2026-10-13T07:38:20.492Z\",\"updatedAt\":\"2026-10-13T07:38:20.492Z\",\"documents\":[],\"requiredDocuments\":[\"ID_FRONT\",\"ID_BACK\",\"SELFIE\",\"PROOF_OF_ADDRESS\"],\"missing\":[\"Date of birth\",\"Document: ID_FRONT\",\"Document: ID_BACK\",\"Document: SELFIE\",\"Document: PROOF_OF_ADDRESS\"]}"
+ },
+ "GET /kyc/me/liveness": {
+  "status": 200,
+  "contentType": "application/json",
+  "body": ""
+ },
+ "GET /membership/me": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"id\":\"cmv6de5v00006pj28ch8jc7le\",\"userId\":\"USR-INV-MYS-01\",\"planId\":\"plan_free\",\"tier\":\"FREE\",\"billingInterval\":\"monthly\",\"status\":\"Active\",\"currentPeriodStart\":\"2026-10-13T07:39:15.370Z\",\"currentPeriodEnd\":\"2026-11-12T07:39:15.370Z\",\"autoRenew\":false,\"paymentMethodSummary\":\"None (Free Plan)\",\"aiCreditsRemaining\":20,\"aiCreditsTotal\":20,\"createdAt\":\"2026-10-13T07:39:15.373Z\",\"updatedAt\":\"2026-10-13T07:39:15.373Z\",\"planName\":\"Wealth Pooling Free\",\"lifecycleStatus\":\"FREE\",\"daysRemaining\":30,\"graceEndsAt\":null,\"graceDays\":7,\"renewalMode\":\"NONE\",\"redeemableCredits\":0,\"creditValueMYR\":0.2,\"fpxFeeMYR\":1,\"toyyibPayMinimumMYR\":1,\"pendingMembershipPayments\":0}"
+ },
+ "GET /membership/me/credits": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"userId\":\"USR-INV-MYS-01\",\"monthlyAllowance\":20,\"purchasedCredits\":0,\"bonusCredits\":0,\"usedCredits\":0,\"availableBalance\":20,\"remainingCredits\":20,\"usedThisMonth\":0,\"additionalCredits\":0,\"allowanceRemaining\":20,\"totalPoolCredits\":20,\"resetDate\":\"2026-11-12T07:39:15.370Z\",\"userTier\":\"FREE\",\"creditExempt\":false}"
+ },
+ "GET /membership/me/credits/usage": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /membership/me/transactions": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /membership/payment-options": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"simulatedPaymentsAllowed\":true}"
+ },
+ "GET /notifications": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /notifications/unread-count": {
+  "status": 200,
+  "contentType": "text/html; charset=utf-8",
+  "body": "0"
+ },
+ "GET /pools": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[{\"poolId\":\"POOL-MYS-001\",\"poolName\":\"FELDA Smart Agri Sukuk Pool A\",\"currency\":\"MYR\",\"investmentStructure\":\"Mudarabah\",\"indicativeExpectedReturn\":\"8.5\",\"status\":\"OPEN\",\"projectId\":\"PROJ-MYS-001\",\"organisationId\":\"ORG-FELDA-MYS\",\"countryNodeId\":\"CN-MYS\",\"createdAt\":\"2026-06-25T10:00:00.000Z\",\"updatedAt\":\"2026-08-10T12:00:00.000Z\"}]"
+ },
+ "GET /pools/POOL-MYS-001/akad-terms": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"current\":{\"id\":\"cmv6d69lu0003pjhog0eysv0m\",\"poolId\":\"POOL-MYS-001\",\"version\":1,\"akadType\":\"MUDARABAH\",\"investorProfitSharePct\":\"70\",\"termsText\":\"AKAD TERMS: FELDA Smart Agri Sukuk Pool A (version 1)\\nContract: Mudarabah. Project: FELDA Agri-Smart Oil Palm & Tech Expansion. Currency: MYR.\\n\\n1. Parties. Investors act as capital provider (rabb al-mal); the pool operator acts as manager (mudarib).\\n2. Profit. Net profit is shared 70% to investors and 30% to the manager (mudarib), as a ratio of actual profit, never as a fixed amount.\\n3. Loss. Capital losses are borne by investors in proportion to their capital. The manager bears the loss only if it results from negligence, misconduct or breach of these terms. The manager does not guarantee capital or returns.\\n4. Returns are not guaranteed. The indicative expected return of 8.5% a year is a projection only; actual returns depend on the project's actual results and may be lower, or a loss.\\n5. Capital is not guaranteed by the operator, the project sponsor or the platform.\\n6. Distributions are calculated from the project's reported gross revenue and eligible costs, using the ratio above, and require approval before payment.\\n7. Zakat and tax are the investor's own responsibility. Statements from the platform are provided to help, not as zakat or tax advice.\\n8. By accepting, the investor agrees to these terms for this version. If the terms change, a new version is published and must be accepted again.\",\"termsHash\":\"af6934ebdcfd1a190af0ec49fd38676ea4283fee12585f20711fc48d43ab45df\",\"createdBy\":\"SEED\",\"createdAt\":\"2026-10-13T07:33:06.978Z\"},\"versions\":[{\"id\":\"cmv6d69lu0003pjhog0eysv0m\",\"poolId\":\"POOL-MYS-001\",\"version\":1,\"akadType\":\"MUDARABAH\",\"investorProfitSharePct\":\"70\",\"termsText\":\"AKAD TERMS: FELDA Smart Agri Sukuk Pool A (version 1)\\nContract: Mudarabah. Project: FELDA Agri-Smart Oil Palm & Tech Expansion. Currency: MYR.\\n\\n1. Parties. Investors act as capital provider (rabb al-mal); the pool operator acts as manager (mudarib).\\n2. Profit. Net profit is shared 70% to investors and 30% to the manager (mudarib), as a ratio of actual profit, never as a fixed amount.\\n3. Loss. Capital losses are borne by investors in proportion to their capital. The manager bears the loss only if it results from negligence, misconduct or breach of these terms. The manager does not guarantee capital or returns.\\n4. Returns are not guaranteed. The indicative expected return of 8.5% a year is a projection only; actual returns depend on the project's actual results and may be lower, or a loss.\\n5. Capital is not guaranteed by the operator, the project sponsor or the platform.\\n6. Distributions are calculated from the project's reported gross revenue and eligible costs, using the ratio above, and require approval before payment.\\n7. Zakat and tax are the investor's own responsibility. Statements from the platform are provided to help, not as zakat or tax advice.\\n8. By accepting, the investor agrees to these terms for this version. If the terms change, a new version is published and must be accepted again.\",\"termsHash\":\"af6934ebdcfd1a190af0ec49fd38676ea4283fee12585f20711fc48d43ab45df\",\"createdBy\":\"SEED\",\"createdAt\":\"2026-10-13T07:33:06.978Z\"}]}"
+ },
+ "GET /projects": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
+ "GET /roles/availability": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[{\"role\":\"Super Admin\",\"enabled\":true,\"locked\":true},{\"role\":\"Country Admin\",\"enabled\":true,\"locked\":false},{\"role\":\"Organization Admin\",\"enabled\":false,\"locked\":false},{\"role\":\"Project Sponsor\",\"enabled\":true,\"locked\":false},{\"role\":\"Project Manager\",\"enabled\":false,\"locked\":false},{\"role\":\"Asset Owner\",\"enabled\":true,\"locked\":false},{\"role\":\"Asset Manager\",\"enabled\":false,\"locked\":false},{\"role\":\"Pool Manager\",\"enabled\":false,\"locked\":false},{\"role\":\"Retail Investor\",\"enabled\":true,\"locked\":false},{\"role\":\"HNWI Investor\",\"enabled\":false,\"locked\":false},{\"role\":\"Institutional Investor\",\"enabled\":false,\"locked\":false},{\"role\":\"Corporate Investor\",\"enabled\":false,\"locked\":false},{\"role\":\"Family Office\",\"enabled\":false,\"locked\":false},{\"role\":\"Portfolio Manager\",\"enabled\":false,\"locked\":false},{\"role\":\"Shariah Advisor\",\"enabled\":false,\"locked\":false},{\"role\":\"Shariah Reviewer\",\"enabled\":false,\"locked\":false},{\"role\":\"Shariah Committee\",\"enabled\":false,\"locked\":false},{\"role\":\"Compliance Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"KYC Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"KYB Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"AML Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Risk Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Fraud Analyst\",\"enabled\":false,\"locked\":false},{\"role\":\"Legal Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Finance Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Treasury Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Settlement Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Reconciliation Officer\",\"enabled\":false,\"locked\":false},{\"role\":\"Auditor\",\"enabled\":false,\"locked\":false},{\"role\":\"Customer Support\",\"enabled\":false,\"locked\":false},{\"role\":\"System Administrator\",\"enabled\":false,\"locked\":false},{\"role\":\"Security Administrator\",\"enabled\":false,\"locked\":false},{\"role\":\"Data Administrator\",\"enabled\":false,\"locked\":false},{\"role\":\"AI Administrator\",\"enabled\":false,\"locked\":false},{\"role\":\"AI Model Reviewer\",\"enabled\":false,\"locked\":false},{\"role\":\"Guest\",\"enabled\":true,\"locked\":true}]"
+ },
+ "GET /statements/investor/tax?year=2026&format=json": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"kind\":\"INVESTOR_TAX\",\"title\":\"Annual Investment Income Statement 2026\",\"reference\":\"HOW-STMT-TAX-SRINVMYS01-2026\",\"generatedAt\":\"13 Oct 2026, 3:42 pm (GMT+8)\",\"period\":{\"from\":\"2026-01-01\",\"to\":\"2026-12-31\",\"timezone\":\"Asia/Kuala_Lumpur\"},\"subject\":[[\"Investor\",\"Siti Aminah binti Yusof\"],[\"Investor ID\",\"USR-INV-MYS-01\"],[\"Tax residence (declared)\",\"Not provided\"],[\"Entity type\",\"Not provided\"],[\"Tax identification number\",\"Not provided\"]],\"summary\":[[\"Investment income paid out in the year\",\"0.00\"],[\"Tax withheld by the platform\",\"0.00\"],[\"Capital invested in the year (not income)\",\"0.00\"]],\"sections\":[{\"title\":\"Income by type\",\"columns\":[\"Income type\",\"Currency\",\"Gross amount\",\"Tax withheld\",\"Net received\"],\"rows\":[],\"note\":\"No investment income was paid out in this year.\"},{\"title\":\"Income received\",\"columns\":[\"Date paid\",\"Pool\",\"Distribution period\",\"Income type\",\"Currency\",\"Gross\",\"Tax withheld\",\"Net\"],\"rows\":[]},{\"title\":\"Capital invested in the year (not income)\",\"columns\":[\"Date\",\"Pool\",\"Akad\",\"Currency\",\"Amount\"],\"rows\":[],\"note\":\"No capital invested in this year.\"}],\"notes\":[\"Income is counted when it was paid out to you (payout settled), in your country's time zone.\",\"The platform has not withheld tax. How this income is taxed (for example as profit from a financing arrangement or as dividends) depends on the legal structure of each pool and on your residency; non-residents may be subject to withholding tax. Confirm with a tax adviser.\",\"Tax incentives for equity crowdfunding apply only to investments made through an offering registered with the Securities Commission Malaysia.\",\"Zakat paid to a state zakat authority can be claimed as a tax rebate (individuals) with the authority's official receipt; the platform does not collect zakat.\",\"This statement is generated from the platform ledger and records. It is not a tax or zakat assessment. Returns are not guaranteed. Zakat and tax remain the responsibility of each investor; consult the state zakat authority and a tax adviser.\"]}"
+ },
+ "GET /statements/investor/tax?year=2026&format=pdf": {
+  "status": 200,
+  "contentType": "application/pdf",
+  "contentDisposition": "attachment; filename=\"HOW-STMT-TAX-SRINVMYS01-2026.pdf\"",
+  "bodyBase64": "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bmcKPj4KZW5kb2JqCjEwIDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhLU9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCj4+CmVuZG9iago0IDAgb2JqCjw8Cj4+CmVuZG9iagozIDAgb2JqCjw8Ci9UeXBlIC9DYXRhbG9nCi9QYWdlcyAxIDAgUgovTmFtZXMgMiAwIFIKPj4KZW5kb2JqCjEgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9Db3VudCAxCi9LaWRzIFs3IDAgUl0KPj4KZW5kb2JqCjIgMCBvYmoKPDwKL0Rlc3RzIDw8CiAgL05hbWVzIFsKXQo+Pgo+PgplbmRvYmoKeHJlZgowIDE3CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMjkwMiAwMDAwMCBuIAowMDAwMDAyOTU5IDAwMDAwIG4gCjAwMDAwMDI4NDAgMDAwMDAgbiAKMDAwMDAwMjgxOSAwMDAwMCBuIAowMDAwMDAwMjY1IDAwMDAwIG4gCjAwMDAwMDAxMzcgMDAwMDAgbiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAyNjExIDAwMDAwIG4gCjAwMDAwMDI1MTQgMDAwMDAgbiAKMDAwMDAwMjcxMyAwMDAwMCBuIAowMDAwMDAyNDA5IDAwMDAwIG4gCjAwMDAwMDIyMDMgMDAwMDAgbiAKMDAwMDAwMjIyOCAwMDAwMCBuIAowMDAwMDAyMjUzIDAwMDAwIG4gCjAwMDAwMDIyODkgMDAwMDAgbiAKMDAwMDAwMjM3NiAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDE3Ci9Sb290IDMgMCBSCi9JbmZvIDExIDAgUgovSUQgWzw2NDI0ZmYxNzM4OWFhMGI0MTA5Mzk3MmEzZjkzOTFmND4gPDY0MjRmZjE3Mzg5YWEwYjQxMDkzOTcyYTNmOTM5MWY0Pl0KPj4Kc3RhcnR4cmVmCjMwMDYKJSVFT0YK"
+ },
+ "GET /statements/investor?from=2026-01-01&to=2026-10-13&format=csv": {
+  "status": 200,
+  "contentType": "text/csv; charset=utf-8",
+  "contentDisposition": "attachment; filename=\"HOW-STMT-INV-SRINVMYS01-20260101-20261013.csv\"",
+  "body": "﻿Investor Statement\r\nReference,HOW-STMT-INV-SRINVMYS01-20260101-20261013\r\nPeriod,2026-01-01 to 2026-10-13 (Asia/Kuala_Lumpur)\r\nGenerated,\"13 Oct 2026, 3:42 pm (GMT+8)\"\r\nInvestor,Siti Aminah binti Yusof\r\nEmail,siti.aminah@investor.my\r\nInvestor ID,USR-INV-MYS-01\r\n\r\nSummary\r\nCurrency,'-\r\nCapital contributed in period,0.00\r\nCapital held at period end,0.00\r\nProfit distributions in period,0.00\r\nof which paid out,0.00\r\n\r\nHoldings at period end\r\nPool,Akad,Investor profit share,Currency,Capital\r\nNo settled investments.\r\n\r\nInvestment orders in period\r\nDate,Order,Pool,Akad (version),Akad accepted,Status,Currency,Amount\r\nNo orders in this period.\r\n\r\nProfit distributions in period\r\nDate,Pool,Distribution period,Akad,Profit share,Status,Currency,Amount\r\nNo distributions in this period.\r\n\r\nNotes\r\n\"Profit distributions are income from Shariah contracts (profit share), not interest. Their tax treatment depends on the pool's legal structure and your residency.\"\r\nThis statement is generated from the platform ledger and records. It is not a tax or zakat assessment. Returns are not guaranteed. Zakat and tax remain the responsibility of each investor; consult the state zakat authority and a tax adviser.\r\n"
+ },
+ "GET /statements/investor?from=2026-01-01&to=2026-10-13&format=json": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"kind\":\"INVESTOR\",\"title\":\"Investor Statement\",\"reference\":\"HOW-STMT-INV-SRINVMYS01-20260101-20261013\",\"generatedAt\":\"13 Oct 2026, 3:42 pm (GMT+8)\",\"period\":{\"from\":\"2026-01-01\",\"to\":\"2026-10-13\",\"timezone\":\"Asia/Kuala_Lumpur\"},\"subject\":[[\"Investor\",\"Siti Aminah binti Yusof\"],[\"Email\",\"siti.aminah@investor.my\"],[\"Investor ID\",\"USR-INV-MYS-01\"]],\"summary\":[[\"Currency\",\"-\"],[\"Capital contributed in period\",\"0.00\"],[\"Capital held at period end\",\"0.00\"],[\"Profit distributions in period\",\"0.00\"],[\"of which paid out\",\"0.00\"]],\"sections\":[{\"title\":\"Holdings at period end\",\"columns\":[\"Pool\",\"Akad\",\"Investor profit share\",\"Currency\",\"Capital\"],\"rows\":[],\"note\":\"No settled investments.\"},{\"title\":\"Investment orders in period\",\"columns\":[\"Date\",\"Order\",\"Pool\",\"Akad (version)\",\"Akad accepted\",\"Status\",\"Currency\",\"Amount\"],\"rows\":[],\"note\":\"No orders in this period.\"},{\"title\":\"Profit distributions in period\",\"columns\":[\"Date\",\"Pool\",\"Distribution period\",\"Akad\",\"Profit share\",\"Status\",\"Currency\",\"Amount\"],\"rows\":[],\"note\":\"No distributions in this period.\"}],\"notes\":[\"Profit distributions are income from Shariah contracts (profit share), not interest. Their tax treatment depends on the pool's legal structure and your residency.\",\"This statement is generated from the platform ledger and records. It is not a tax or zakat assessment. Returns are not guaranteed. Zakat and tax remain the responsibility of each investor; consult the state zakat authority and a tax adviser.\"]}"
+ },
+ "GET /statements/investor?from=2026-01-01&to=2026-10-13&format=pdf": {
+  "status": 200,
+  "contentType": "application/pdf",
+  "contentDisposition": "attachment; filename=\"HOW-STMT-INV-SRINVMYS01-20260101-20261013.pdf\"",
+  "bodyBase64": "JVBERi0xLjMKJf////8KNyAwIG9iago8PAovVHlwZSAvUGFnZQovUGFyZW50IDEgMCBSCi9NZWRpYUJveCBbMCAwIDg0MS44OSA1OTUuMjhdCi9Db250ZW50cyA1IDAgUgovUmVzb3VyY2VzIDYgMCBSCi9Vc2VyVW5pdCAxCj4+CmVuZG9iago2IDAgb2JqCjw8Ci9Qcm9jU2V0IFsvUERGIC9UZXh0IC9JbWFnZUIgL0ltYWdlQyAvSW1hZ2VJXQovRm9udCA8PAovRjIgOCAwIFIKL0YxIDkgMCBSCi9GMyAxMCAwIFIKPj4KL0NvbG9yU3BhY2UgPDwKPj4KPj4KZW5kb2JqCjUgMCBvYmoKPDwKL0xlbmd0aCAxNDcxCi9GaWx0ZXIgL0ZsYXRlRGVjb2RlCj4+CnN0cmVhbQp4nMVZS4vjRhC++1f0H5je6np2w+DDbh6QQyDZuYUcdiQbAtlAWMjvD9UtWbJsTWzNhPHBjFtMPb/6uqqUAgQIDylAkCIRc+i+7v7epWvHH5+G8xQYgjBGEg1PX3cffsCQcng67n575KKHvT9/NFUxMtajIYL4X8lYRXsVPRjvA/wenn7aff+0+2X34bvDP390h19//Bi6bzuItPiE246+dX/daD1apJKb9SmUZrygiuo+EIRHFfNfByUVBM58bOdizT3shYS5F96H1A648EF0H/L4GNsJ91KECChhT0hASOq/Fif1NxECgnX+LbAPMpiyDw9JwqMWPSojjP+E/SDEv8GDffYsEdRvF5o5GWnRhEd+br6YaNJOkxy5M9HewMQQy2QCW41BNSC5KS2FbkGVykclm9vTIRDRF2JCBAPtq2bzOOEzZSwvpb3m5/YcJohANEEQXoIgfRnyBmcW/LemzBGhlFIWCtNJoZAWYy0InLTXogdNmhEU/e/2ZB+Kg6fsQ0o18kZ6dKzdZQtD4JIj2xWvvbCSFu02e2oYKVdPz5VMntroqXt48pRBa8ixhnwfUCpmh8A3DONB+31wCFvZ4HTWWNKtqUbgwrw5DEVj8TDkhdpZwsWLe1nwrcxbLW5wUV1tmlzEEVxemZ7bRgKwMYLCMZFduMLkJT9S3f2SC8UMvCoe+w2mMkaxa6ZqMqgATNohqFfQwXhOjjigUEaacmRWIlpy6L12mUU1XjWOAA8EdC/W3F1KEdIN7mYV7apPySn3ik8INY2bfVux5BW+pRJZLiUKGDr9uXcIylq8dtcSWWqe6X9I5op5r3AYLOZyKdGdRTDTrEXJLweDytbu/tG93OrCisLtLlCWqEIXRMRZj46/yvpW0zHD4esACIEMI/LUT+YRKI3E9ejK7xSbCkayvCabkz5ruttYYo4muip15UoysAHTE/CNNDuvq9xNuxYT8aoNZ6TeOre7qV25REm4rmNOT2eyGQJiiViAw9ddhhRzmU7+nHd9nz7vIGY9+1i47ejzp593n29El2hUGy9XGvt9Pni/bKRibKzddGVcbWaGwcWoNTJ42ABzkmgehWVxXaJm0Fb5YUQOD524t1ELPtxGhBAIvetDXqZ3mNbuLTmS6GOArMq9cOYu+UgQ2dbFv4ovCCUaZFs3fmAMn2lqnk65aHcU3t0+IcTCN+jTpOSTqEFrbO7UI0ljyumFuA3juc8l9/JESpHTC0F7CzIyUL+UXkxN7xfpxWbBychKTH6jTWQ0nrwLGYHGDJmvkpEXe6uMWYGztw3++1rPt4GFMEssaHgxa1y5o6bm7JaubCsLoWGUVPCtWWhF7qto4sRB60a/ELFXRWpiqDXd23qakYdWw/WGvcvERWva3oCL1sLztly0noRVLiIsEZLmiYtOJ+/BRSjqicfrXHTnXPbmNEUW5WLlc9CjU8ICG8sFMuriE249u3n/iGgRpuVQHjcevrjdNt7WcmrhrMuNvv7SKszFDiU3iWlrxtkepO1ofSdrdedrZ5ZMNYvFN7VaY9kU1phi6z09WTqsznx5J1yXD6XOMV6bPr9yLaN01qm6jGEErA4dT7iQiopKt9iGR++2ra02zqJjUs2XIRbJhSF4lTYCqitqaKb6AD1trhLARVf+HrhIFi3nK7iYRbPVycVLEc9Fjc7q3n2CwyyuXX0+vrmoLfZDHVz6IdDsAj1up3h68qh1G/OBpqWdy8yUESRpSv4w0n7Ret20p0Z1kPLv0ZmTPH+x0nI6GnYO+FGF+RuJGY4rKqvfk6gzpYMzIyZRxy34HHcN1dDKzIvPt+ReEVYqRrWuLVLby7y8yn7wANPzsNMeS89XtJ3xTOUpsedR2sCBkKPwAkuaKnHkwaZGBoM7Q0jOspWUzSmAGqDkv8tELl+23XJ0W41Iwag5B8RY7OSbjWumd3rTxg1y5jnzl2kNGItV/r/3pBOiCmVuZHN0cmVhbQplbmRvYmoKMTIgMCBvYmoKKFBERktpdCkKZW5kb2JqCjEzIDAgb2JqCihQREZLaXQpCmVuZG9iagoxNCAwIG9iagooRDoyMDI2MTAxMzA3NDI0OVopCmVuZG9iagoxNSAwIG9iagooSW52ZXN0b3IgU3RhdGVtZW50IEhPVy1TVE1ULUlOVi1TUklOVk1ZUzAxLTIwMjYwMTAxLTIwMjYxMDEzKQplbmRvYmoKMTYgMCBvYmoKKFdlYWx0aCBQb29saW5nKQplbmRvYmoKMTEgMCBvYmoKPDwKL1Byb2R1Y2VyIDEyIDAgUgovQ3JlYXRvciAxMyAwIFIKL0NyZWF0aW9uRGF0ZSAxNCAwIFIKL1RpdGxlIDE1IDAgUgovQXV0aG9yIDE2IDAgUgo+PgplbmRvYmoKOSAwIG9iago8PAovVHlwZSAvRm9udAovQmFzZUZvbnQgL0hlbHZldGljYQovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKPj4KZW5kb2JqCjggMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL0Jhc2VGb250IC9IZWx2ZXRpY2EtQm9sZAovU3VidHlwZSAvVHlwZTEKL0VuY29kaW5nIC9XaW5BbnNpRW5jb2RpbmcKPj4KZW5kb2JqCjEwIDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9CYXNlRm9udCAvSGVsdmV0aWNhLU9ibGlxdWUKL1N1YnR5cGUgL1R5cGUxCi9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nCj4+CmVuZG9iago0IDAgb2JqCjw8Cj4+CmVuZG9iagozIDAgb2JqCjw8Ci9UeXBlIC9DYXRhbG9nCi9QYWdlcyAxIDAgUgovTmFtZXMgMiAwIFIKPj4KZW5kb2JqCjEgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9Db3VudCAxCi9LaWRzIFs3IDAgUl0KPj4KZW5kb2JqCjIgMCBvYmoKPDwKL0Rlc3RzIDw8CiAgL05hbWVzIFsKXQo+Pgo+PgplbmRvYmoKeHJlZgowIDE3CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMjUwMCAwMDAwMCBuIAowMDAwMDAyNTU3IDAwMDAwIG4gCjAwMDAwMDI0MzggMDAwMDAgbiAKMDAwMDAwMjQxNyAwMDAwMCBuIAowMDAwMDAwMjY1IDAwMDAwIG4gCjAwMDAwMDAxMzcgMDAwMDAgbiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAyMjA5IDAwMDAwIG4gCjAwMDAwMDIxMTIgMDAwMDAgbiAKMDAwMDAwMjMxMSAwMDAwMCBuIAowMDAwMDAyMDA3IDAwMDAwIG4gCjAwMDAwMDE4MDkgMDAwMDAgbiAKMDAwMDAwMTgzNCAwMDAwMCBuIAowMDAwMDAxODU5IDAwMDAwIG4gCjAwMDAwMDE4OTUgMDAwMDAgbiAKMDAwMDAwMTk3NCAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDE3Ci9Sb290IDMgMCBSCi9JbmZvIDExIDAgUgovSUQgWzxiMWYyYWY3ZmYzMDc4YTA1YTI3NjIyM2U5ZGQxMzZmNj4gPGIxZjJhZjdmZjMwNzhhMDVhMjc2MjIzZTlkZDEzNmY2Pl0KPj4Kc3RhcnR4cmVmCjI2MDQKJSVFT0YK"
+ },
+ "GET /tax/profile": {
+  "status": 200,
+  "contentType": "application/json",
+  "body": ""
+ },
+ "GET /users/me": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"id\":\"USR-INV-MYS-01\",\"email\":\"siti.aminah@investor.my\",\"name\":\"Siti Aminah binti Yusof\",\"isActive\":true,\"profile\":{\"preferences\":{\"currency\":\"MYR\",\"notifications\":{\"sms\":false,\"push\":true,\"email\":true},\"preferredContracts\":[\"Mudarabah\",\"Musharakah\",\"Ijarah\"]}},\"assignedRoles\":[{\"role\":\"Retail Investor\",\"organisationId\":\"ORG-INV-MYS-01\",\"countryNodeId\":\"CN-MYS\"}],\"createdAt\":\"2026-10-13T07:38:20.162Z\",\"updatedAt\":\"2026-10-15T07:04:48.588Z\"}"
+ },
+ "GET /users/me/access": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"userId\":\"USR-INV-MYS-01\",\"role\":\"Retail Investor\",\"assignedRoles\":[\"Retail Investor\"],\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-INV-MYS-01\"}"
+ },
+ "GET /users/me/payout-accounts": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[{\"id\":\"cmv970x6o0000pja40y5l3q03\",\"ownerUserId\":\"USR-INV-MYS-01\",\"provider\":\"Bank Islam Malaysia\",\"destinationType\":\"BANK_ACCOUNT\",\"destinationHash\":\"44aa64372357449cf9e50c0d161f445f13b7763be7f428b7924fcb1083bf1778\",\"maskedReference\":\"•••• 8291\",\"accountHolder\":\"Siti Aminah binti Yusof\",\"currency\":\"MYR\",\"isDefault\":true,\"status\":\"VERIFIED\",\"verifiedBy\":\"USR-mock-user\",\"verifiedAt\":\"2026-10-15T07:04:48.501Z\",\"cooldownUntil\":\"2026-10-15T07:04:48.501Z\",\"createdAt\":\"2026-10-15T07:04:18.432Z\"}]"
+ },
+ "GET /zakat/authorities": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[{\"code\":\"MY-JHR\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Johor\",\"name\":\"Majlis Agama Islam Negeri Johor (MAIJ)\",\"website\":\"https://www.maij.gov.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T02:02:12.849Z\",\"nisabRates\":[],\"isHomeCountry\":true},{\"code\":\"MY-KDH\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Kedah\",\"name\":\"Lembaga Zakat Negeri Kedah (LZNK)\",\"website\":\"https://www.lznk.com.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T01:44:49.623Z\",\"nisabRates\":[],\"isHomeCountry\":true},{\"code\":\"MY-KTN\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Kelantan\",\"name\":\"Majlis Agama Islam dan Adat Istiadat Melayu Kelantan (MAIK)\",\"website\":\"https://www.e-maik.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T02:02:12.849Z\",\"nisabRates\":[],\"isHomeCountry\":true},{\"code\":\"MY-MLK\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Melaka\",\"name\":\"Majlis Agama Islam Melaka (MAIM)\",\"website\":\"https://www.maim.gov.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T02:02:12.849Z\",\"nisabRates\":[],\"isHomeCountry\":true},{\"code\":\"MY-NSN\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Negeri Sembilan\",\"name\":\"Majlis Agama Islam Negeri Sembilan (MAINS)\",\"website\":\"https://www.mains.gov.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T02:02:12.849Z\",\"nisabRates\":[],\"isHomeCountry\":true},{\"code\":\"MY-PHG\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Pahang\",\"name\":\"Pusat Kutipan Zakat Pahang\",\"website\":\"https://zakatpahang.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T01:44:49.623Z\",\"nisabRates\":[],\"isHomeCountry\":true},{\"code\":\"MY-PRK\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Perak\",\"name\":\"Zakat Perak (MAIPk)\",\"website\":\"https://zapar.com.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T01:44:49.623Z\",\"nisabRates\":[],\"isHomeCountry\":true},{\"code\":\"MY-PLS\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Perlis\",\"name\":\"Majlis Agama Islam dan Adat Istiadat Melayu Perlis (MAIPs)\",\"website\":\"https://www.maips.gov.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T02:02:12.849Z\",\"nisabRates\":[],\"isHomeCountry\":true},{\"code\":\"MY-PNG\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Pulau Pinang\",\"name\":\"Zakat Majlis Agama Islam Negeri Pulau Pinang (MAINPP)\",\"website\":\"https://zakat.mainpp.gov.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T02:02:12.849Z\",\"nisabRates\":[],\"isHomeCountry\":true},{\"code\":\"MY-SBH\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Sabah\",\"name\":\"Majlis Ugama Islam Sabah (MUIS)\",\"website\":\"https://muis.sabah.gov.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T02:02:12.849Z\",\"nisabRates\":[],\"isHomeCountry\":true},{\"code\":\"MY-SWK\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Sarawak\",\"name\":\"Tabung Baitulmal Sarawak\",\"website\":\"https://www.tbs.org.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T01:44:49.623Z\",\"nisabRates\":[{\"id\":\"nisab-my-swk-2026-09\",\"authorityCode\":\"MY-SWK\",\"amount\":\"46294.89\",\"currency\":\"MYR\",\"effectiveFrom\":\"2026-09-01T00:00:00.000Z\",\"effectiveTo\":\"2026-09-30T00:00:00.000Z\",\"source\":\"Tabung Baitulmal Sarawak, kadar nisab zakat semasa September 2026 RM46,294.89 (tbs.org.my, 24 Sep 2026)\",\"createdBy\":\"SYSTEM-MIGRATION\",\"createdAt\":\"2026-10-06T02:02:12.849Z\"}],\"isHomeCountry\":true},{\"code\":\"MY-SGR\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Selangor\",\"name\":\"Lembaga Zakat Selangor (LZS)\",\"website\":\"https://www.zakatselangor.com.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T01:44:49.623Z\",\"nisabRates\":[{\"id\":\"nisab-my-sgr-2026h2\",\"authorityCode\":\"MY-SGR\",\"amount\":\"38748\",\"currency\":\"MYR\",\"effectiveFrom\":\"2026-07-01T00:00:00.000Z\",\"effectiveTo\":\"2026-12-31T00:00:00.000Z\",\"source\":\"Lembaga Zakat Selangor, kadar nisab Julai-Disember 2026 (RM38,748)\",\"createdBy\":\"SYSTEM-MIGRATION\",\"createdAt\":\"2026-10-06T01:44:49.623Z\"},{\"id\":\"nisab-my-sgr-2026h1\",\"authorityCode\":\"MY-SGR\",\"amount\":\"42047\",\"currency\":\"MYR\",\"effectiveFrom\":\"2026-01-01T00:00:00.000Z\",\"effectiveTo\":\"2026-06-30T00:00:00.000Z\",\"source\":\"Lembaga Zakat Selangor, kadar nisab Januari-Jun 2026 (RM42,047)\",\"createdBy\":\"SYSTEM-MIGRATION\",\"createdAt\":\"2026-10-06T01:44:49.623Z\"}],\"isHomeCountry\":true},{\"code\":\"MY-TRG\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Terengganu\",\"name\":\"Majlis Agama Islam dan Adat Melayu Terengganu (MAIDAM)\",\"website\":\"https://www.maidam.gov.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T02:02:12.849Z\",\"nisabRates\":[],\"isHomeCountry\":true},{\"code\":\"MY-WP\",\"countryNodeId\":\"CN-MYS\",\"region\":\"Wilayah Persekutuan\",\"name\":\"Pusat Pungutan Zakat MAIWP (PPZ-MAIWP)\",\"website\":\"https://www.zakat.com.my\",\"isActive\":true,\"createdAt\":\"2026-10-06T01:44:49.623Z\",\"nisabRates\":[{\"id\":\"nisab-my-wp-2026\",\"authorityCode\":\"MY-WP\",\"amount\":\"33996\",\"currency\":\"MYR\",\"effectiveFrom\":\"2026-01-01T00:00:00.000Z\",\"effectiveTo\":\"2026-12-31T00:00:00.000Z\",\"source\":\"PPZ-MAIWP, Arkib Nisab Tahunan: nisab emas 2026 RM33,996.00 (zakat.com.my)\",\"createdBy\":\"SYSTEM-MIGRATION\",\"createdAt\":\"2026-10-06T02:02:12.849Z\"}],\"isHomeCountry\":true}]"
+ },
+ "GET /zakat/calculations/latest": {
+  "status": 200,
+  "contentType": "application/json",
+  "body": ""
+ },
+ "GET /zakat/preference": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "{\"enabled\":false}"
+ }
+}

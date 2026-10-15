@@ -49,6 +49,7 @@ import { AdminShariahContentManager } from './info/AdminShariahContentManager';
 import { AdminPageContentManager } from './info/AdminPageContentManager';
 import { useRBAC } from '../rbac/RBACContext';
 import { FeatureModuleControlPanel } from './admin/FeatureModuleControlPanel';
+import { RoleAvailabilityPanel } from './admin/RoleAvailabilityPanel';
 
 export const AdminCenterView: React.FC = () => {
   const { currentRole } = useRBAC();
@@ -96,7 +97,8 @@ export const AdminCenterView: React.FC = () => {
         { id: 'sys_permissions', label: 'Permission Matrix', icon: <KeyRound className="w-4 h-4" /> },
         { id: 'sys_workflow', label: 'Workflow Engine', icon: <GitPullRequest className="w-4 h-4" /> },
         { id: 'sys_approvalmatrix', label: 'Approval Matrix', icon: <CheckSquare className="w-4 h-4" /> },
-        { id: 'sys_modules', label: 'Module Availability', icon: <Power className="w-4 h-4" /> }
+        { id: 'sys_modules', label: 'Module Availability', icon: <Power className="w-4 h-4" /> },
+        { id: 'sys_role_availability', label: 'Role Availability', icon: <UserCheck className="w-4 h-4" /> }
       ]
     },
     {
@@ -249,6 +251,8 @@ export const AdminCenterView: React.FC = () => {
 
           {activeSection === 'sys_modules' && <FeatureModuleControlPanel />}
 
+          {activeSection === 'sys_role_availability' && <RoleAvailabilityPanel />}
+
           {['content_about', 'content_members', 'content_news', 'content_contact'].includes(activeSection) && (
             <AdminPageContentManager />
           )}
@@ -268,7 +272,7 @@ export const AdminCenterView: React.FC = () => {
             />
           )}
 
-          {activeSection !== 'scoped_dashboard' && activeSection !== 'pdp_applications' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'sys_modules' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && (
+          {activeSection !== 'scoped_dashboard' && activeSection !== 'pdp_applications' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'sys_modules' && activeSection !== 'sys_role_availability' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && (
             <AdminFinanceTemplates section={activeSection as any} />
           )}
         </div>

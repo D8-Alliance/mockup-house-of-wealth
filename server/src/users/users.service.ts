@@ -1,10 +1,33 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
-import { UserRole as PrismaUserRole } from '@prisma/client';
+import { Prisma, UserRole as PrismaUserRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { UserRole, PRIVILEGED_ROLES } from '../policy/permissions';
+
+/** Not privileged in the system-admin sense, but only a Super Admin may grant or revoke them: a Country Admin must not create peers. */
+const SUPER_ADMIN_GRANTED_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Country Admin']);
 import { PolicyService } from '../policy/policy.service';
+import { normalizePhone } from '../tenancy/country-phone';
+import { tenantScopeFilter } from '../tenancy/tenant-scope';
+import { RoleAvailabilityService } from '../roles/role-availability.service';
+
+export interface ProfilePreferences {
+  currency?: string;
+  preferredContracts?: string[];
+  notifications?: { email?: boolean; push?: boolean; sms?: boolean };
+}
+
+/** Saving one setting keeps the others; notification channels merge one by one. */
+export function mergePreferences(saved: unknown, change: ProfilePreferences): ProfilePreferences {
+  const current = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved as ProfilePreferences : {};
+  const defined = <T extends object>(value: T) => Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>;
+  return {
+    ...current,
+    ...defined({ currency: change.currency, preferredContracts: change.preferredContracts }),
+    ...(change.notifications ? { notifications: { ...current.notifications, ...defined({ ...change.notifications }) } } : {}),
+  };
+}
 
 @Injectable()
 export class UsersService {
@@ -12,15 +35,30 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly policy: PolicyService,
+    private readonly roleAvailability: RoleAvailabilityService,
   ) {}
 
   async getCurrentUser(actor: AuthenticatedUser) {
     const user = await this.prisma.user.findUnique({
       where: { id: actor.userId },
-      include: { roleAssignments: { where: { isActive: true } } },
+      include: { roleAssignments: { where: { ...tenantScopeFilter(actor), isActive: true } } },
     });
     if (!user) throw new NotFoundException('User not found');
     return this.toDirectoryUser(user);
+  }
+
+  /** Self-service profile fields. The phone is stored in E.164 using the user's country code. */
+  async updateMyProfile(actor: AuthenticatedUser, input: { phone?: string; pushToken?: string; avatarUrl?: string; preferences?: ProfilePreferences }) {
+    const user = await this.prisma.user.findUnique({ where: { id: actor.userId }, select: { profile: true } });
+    if (!user) throw new NotFoundException('User not found');
+    const current = user.profile && typeof user.profile === 'object' && !Array.isArray(user.profile) ? user.profile as Record<string, unknown> : {};
+    const phone = input.phone === undefined ? current.phone : input.phone.trim() ? normalizePhone(input.phone, actor.countryNodeId) : undefined;
+    const pushToken = input.pushToken === undefined ? current.pushToken : input.pushToken.trim() || undefined;
+    const avatarUrl = input.avatarUrl === undefined ? current.avatarUrl : input.avatarUrl.trim() || undefined;
+    const preferences = input.preferences === undefined ? current.preferences : mergePreferences(current.preferences, input.preferences);
+    await this.prisma.user.update({ where: { id: actor.userId }, data: { profile: { ...current, phone, pushToken, avatarUrl, preferences } as Prisma.InputJsonObject } });
+    await this.audit.recordActor(actor, { action: 'user.profile.update', resourceType: 'User', resourceId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { fields: Object.keys(input) } });
+    return this.getCurrentUser(actor);
   }
 
   async listUsers(actor: AuthenticatedUser) {
@@ -32,7 +70,7 @@ export class UsersService {
 
     const users = await this.prisma.user.findMany({
       where,
-      include: { roleAssignments: { where: { isActive: true } } },
+      include: { roleAssignments: { where: { ...tenantScopeFilter(actor), isActive: true } } },
       orderBy: { name: 'asc' },
     });
     return users.map((user) => this.toDirectoryUser(user));
@@ -56,6 +94,7 @@ export class UsersService {
       throw new ForbiddenException(this.policy.evaluate(actor.role, 'users', 'update').reason);
     }
 
+    if (userId === actor.userId) throw new ForbiddenException('You cannot change the status of your own account.');
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
     if (actor.role === 'Country Admin' && !(await this.hasTenantAssignment(userId, actor.countryNodeId))) {
@@ -100,9 +139,17 @@ export class UsersService {
       throw new ForbiddenException('Only Super Admin or Country Admin can assign roles');
     }
 
-    // Escalation guard: privileged roles can only be granted by a Super Admin.
-    if (PRIVILEGED_ROLES.has(role) && actor.role !== 'Super Admin') {
-      throw new ForbiddenException(`Only Super Admin can assign the privileged role "${role}"`);
+    // Nobody changes their own roles: otherwise a Country Admin could give themselves
+    // Shariah Committee and approve a project alone.
+    if (userId === actor.userId) throw new ForbiddenException('You cannot change your own roles. Ask another administrator.');
+
+    // Escalation guard: privileged roles, and Country Admin itself, can only be granted by a Super Admin.
+    if ((PRIVILEGED_ROLES.has(role) || SUPER_ADMIN_GRANTED_ROLES.has(role)) && actor.role !== 'Super Admin') {
+      throw new ForbiddenException(`Only Super Admin can assign the role "${role}"`);
+    }
+
+    if (!(await this.roleAvailability.isEnabled(role))) {
+      throw new BadRequestException(`The role "${role}" is disabled on this platform. A Super Admin can enable it under Role Availability.`);
     }
 
     // Tenant check: Country Admin can only assign roles in their own country node
@@ -118,6 +165,8 @@ export class UsersService {
 
     const countryNode = await this.prisma.countryNode.findUnique({ where: { code: countryNodeId } });
     if (!countryNode) throw new NotFoundException('Country node not found');
+    if (org.countryNodeId !== countryNodeId) throw new BadRequestException('Organisation does not belong to the requested country node');
+    if (org.status !== 'ACTIVE' || countryNode.status !== 'ACTIVE') throw new BadRequestException('Roles can only be assigned inside active tenants');
 
     // Check if assignment already exists
     const existing = await this.prisma.userRoleAssignment.findUnique({
@@ -187,9 +236,11 @@ export class UsersService {
       throw new ForbiddenException('Only Super Admin or Country Admin can revoke roles');
     }
 
-    // Escalation guard: privileged roles can only be revoked by a Super Admin.
-    if (PRIVILEGED_ROLES.has(role) && actor.role !== 'Super Admin') {
-      throw new ForbiddenException(`Only Super Admin can revoke the privileged role "${role}"`);
+    if (userId === actor.userId) throw new ForbiddenException('You cannot change your own roles. Ask another administrator.');
+
+    // Escalation guard: privileged roles, and Country Admin itself, can only be revoked by a Super Admin.
+    if ((PRIVILEGED_ROLES.has(role) || SUPER_ADMIN_GRANTED_ROLES.has(role)) && actor.role !== 'Super Admin') {
+      throw new ForbiddenException(`Only Super Admin can revoke the role "${role}"`);
     }
 
     // Tenant check
@@ -238,9 +289,9 @@ export class UsersService {
   /**
    * List all active roles for a user.
    */
-  async getUserRoles(userId: string): Promise<Array<{ role: UserRole; organisationId: string; countryNodeId: string }>> {
+  async getUserRoles(userId: string, actor: AuthenticatedUser): Promise<Array<{ role: UserRole; organisationId: string; countryNodeId: string }>> {
     const assignments = await this.prisma.userRoleAssignment.findMany({
-      where: { userId, isActive: true },
+      where: { userId, isActive: true, ...tenantScopeFilter(actor) },
       select: { role: true, organisationId: true, countryNodeId: true },
     });
 

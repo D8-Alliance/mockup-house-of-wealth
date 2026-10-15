@@ -4,6 +4,7 @@ import { PolicyService } from '../policy/policy.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
+import { FinancialLedgerService } from '../financial/financial-ledger.service';
 
 jest.mock('../prisma.service', () => ({ PrismaService: class {} }));
 jest.mock('../audit/audit.service', () => ({ AuditService: class {} }));
@@ -13,6 +14,10 @@ const auditMock = {
 };
 
 const policy = new PolicyService();
+const ledgerMock = {
+  ensureAccount: jest.fn(),
+  recordFundingDisbursementInTransaction: jest.fn(),
+};
 
 function actor(
   role: AuthenticatedUser['role'],
@@ -33,14 +38,19 @@ function actor(
 
 const prismaMock = {
   project: { findUnique: jest.fn() },
+  projectFeasibilityRevision: { findFirst: jest.fn() },
+  projectApproval: { findFirst: jest.fn() },
   wealthPool: { findFirst: jest.fn() },
   fundingRequest: {
     findUnique: jest.fn(),
     findMany: jest.fn(),
     update: jest.fn(),
+    updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    findUniqueOrThrow: jest.fn().mockResolvedValue({ fundingRequestId: 'FRQ-1', status: 'APPROVED' }),
     create: jest.fn(),
   },
 };
+(prismaMock as any).$transaction = jest.fn(async (callback: (tx: any) => unknown) => callback(prismaMock));
 
 const request = {
   fundingRequestId: 'FRQ-1',
@@ -53,7 +63,7 @@ const request = {
 };
 
 describe('FundingService approval', () => {
-  const service = new FundingService(prismaMock as unknown as PrismaService, auditMock as unknown as AuditService, policy);
+  const service = new FundingService(prismaMock as unknown as PrismaService, auditMock as unknown as AuditService, policy, ledgerMock as unknown as FinancialLedgerService);
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -64,7 +74,7 @@ describe('FundingService approval', () => {
     const result = await service.approve('FRQ-1', actor('Country Admin'));
 
     expect(result.status).toBe('APPROVED');
-    expect(prismaMock.fundingRequest.update).toHaveBeenCalledWith(
+    expect(prismaMock.fundingRequest.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: 'APPROVED' }) }),
     );
     expect(auditMock.recordActor).toHaveBeenCalled();
@@ -77,7 +87,7 @@ describe('FundingService approval', () => {
     const result = await service.approve('FRQ-1', actor('Organization Admin', 'CN-MYS', 'ORG-A'));
 
     expect(result.status).toBe('APPROVED');
-    expect(prismaMock.fundingRequest.update).toHaveBeenCalled();
+    expect(prismaMock.fundingRequest.updateMany).toHaveBeenCalled();
   });
 
   it('rejects cross-country-node approval (cross-tenant access)', async () => {
@@ -111,6 +121,18 @@ describe('FundingService approval', () => {
     expect(prismaMock.fundingRequest.update).not.toHaveBeenCalled();
   });
 
+  it('separates duties: the requester cannot approve, and neither requester nor approver can disburse', async () => {
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'PENDING', requestedBy: 'USR-A' });
+    await expect(service.approve('FRQ-1', actor('Country Admin'))).rejects.toThrow('another person must approve');
+
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'APPROVED', requestedBy: 'USR-SPONSOR', approvedBy: 'USR-A' });
+    await expect(service.disburse('FRQ-1', actor('Country Admin'))).rejects.toThrow('You approved this funding request');
+
+    prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'APPROVED', requestedBy: 'USR-A', approvedBy: 'USR-OTHER' });
+    await expect(service.disburse('FRQ-1', actor('Country Admin'))).rejects.toThrow('You submitted this funding request');
+    expect(prismaMock.fundingRequest.updateMany).not.toHaveBeenCalled();
+  });
+
   it('only disburses an already-approved request', async () => {
     prismaMock.fundingRequest.findUnique.mockResolvedValue({ ...request, status: 'PENDING' });
 
@@ -119,7 +141,7 @@ describe('FundingService approval', () => {
 });
 
 describe('FundingService sponsor request access', () => {
-  const service = new FundingService(prismaMock as unknown as PrismaService, auditMock as unknown as AuditService, policy);
+  const service = new FundingService(prismaMock as unknown as PrismaService, auditMock as unknown as AuditService, policy, ledgerMock as unknown as FinancialLedgerService);
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -129,9 +151,12 @@ describe('FundingService sponsor request access', () => {
       projectSponsorId: 'USR-A',
       organisationId: 'ORG-A',
       countryNodeId: 'CN-MYS',
+      status: 'APPROVED',
       fundingRequired: { lte: () => false },
     });
-    prismaMock.wealthPool.findFirst.mockResolvedValue({ poolId: 'POOL-1' });
+    prismaMock.projectFeasibilityRevision.findFirst.mockResolvedValue({ id: 'REV-1' });
+    prismaMock.projectApproval.findFirst.mockResolvedValue({ id: 'APR-1' });
+    prismaMock.wealthPool.findFirst.mockResolvedValue({ poolId: 'POOL-1', status: 'OPEN', currency: 'USD' });
     prismaMock.fundingRequest.create.mockResolvedValue({
       fundingRequestId: 'FRQ-NEW',
       status: 'PENDING',
@@ -147,6 +172,25 @@ describe('FundingService sponsor request access', () => {
     }));
   });
 
+  it('keeps accepting requests once an approved project has moved on to pooling', async () => {
+    prismaMock.project.findUnique.mockResolvedValue({ projectId: 'PRJ-1', projectSponsorId: 'USR-A', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', status: 'POOLING', fundingRequired: { lte: () => false } });
+    prismaMock.projectFeasibilityRevision.findFirst.mockResolvedValue({ id: 'REV-1' });
+    prismaMock.projectApproval.findFirst.mockResolvedValue({ id: 'APR-1' });
+    prismaMock.wealthPool.findFirst.mockResolvedValue({ poolId: 'POOL-1', status: 'OPEN', currency: 'USD' });
+    prismaMock.fundingRequest.create.mockResolvedValue({ fundingRequestId: 'FRQ-2', status: 'PENDING', requestedAmount: '1000000' });
+
+    await expect(service.request('PRJ-1', actor('Project Sponsor'))).resolves.toEqual({ requestId: 'FRQ-2', status: 'PENDING' });
+  });
+
+  it('rejects funding for a project that was reopened to due diligence', async () => {
+    prismaMock.project.findUnique.mockResolvedValue({ projectId: 'PRJ-1', projectSponsorId: 'USR-A', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', status: 'DUE_DILIGENCE', fundingRequired: { lte: () => false } });
+    prismaMock.projectFeasibilityRevision.findFirst.mockResolvedValue({ id: 'REV-1' });
+    prismaMock.projectApproval.findFirst.mockResolvedValue({ id: 'APR-1' });
+
+    await expect(service.request('PRJ-1', actor('Project Sponsor'))).rejects.toBeInstanceOf(BadRequestException);
+    expect(prismaMock.fundingRequest.create).not.toHaveBeenCalled();
+  });
+
   it('rejects a Project Sponsor requesting funding for another sponsor project', async () => {
     prismaMock.project.findUnique.mockResolvedValue({
       projectId: 'PRJ-OTHER',
@@ -158,5 +202,21 @@ describe('FundingService sponsor request access', () => {
 
     await expect(service.request('PRJ-OTHER', actor('Project Sponsor'))).rejects.toBeInstanceOf(ForbiddenException);
     expect(prismaMock.fundingRequest.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('FundingService sponsor visibility of funding requests', () => {
+  const service = new FundingService(prismaMock as unknown as PrismaService, auditMock as unknown as AuditService, policy, ledgerMock as unknown as FinancialLedgerService);
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('lets a Project Sponsor read the funding requests of their own project, and no other', async () => {
+    expect(policy.can('Project Sponsor', 'approvals', 'read')).toBe(true);
+    prismaMock.project.findUnique.mockResolvedValue({ projectId: 'PRJ-1', projectSponsorId: 'USR-A', organisationId: 'ORG-A', countryNodeId: 'CN-MYS' });
+    prismaMock.fundingRequest.findMany.mockResolvedValue([{ fundingRequestId: 'FRQ-1' }]);
+    await expect(service.list('PRJ-1', actor('Project Sponsor'))).resolves.toHaveLength(1);
+
+    prismaMock.project.findUnique.mockResolvedValue({ projectId: 'PRJ-2', projectSponsorId: 'USR-B', organisationId: 'ORG-A', countryNodeId: 'CN-MYS' });
+    await expect(service.list('PRJ-2', actor('Project Sponsor'))).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

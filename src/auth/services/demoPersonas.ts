@@ -71,12 +71,13 @@ export const DEMO_PERSONAS: Record<string, AuthUser> = {
     mfaStatus: 'Enabled',
     avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80'
   },
+  // An asset owner is their own entity, separate from delivery partners, investors and platform staff.
   'Asset Owner': {
     userId: 'USR-AO-005',
     name: 'Rashid Al-Nuaimi',
     email: 'rashid.assets@mycapital.my',
-    organisationId: 'ORG-MYS-P2-CAP',
-    organisationName: 'Malaysian Sovereign Capital Assets',
+    organisationId: 'ORG-AO-MYS-01',
+    organisationName: 'Rashid Al-Nuaimi (asset owner)',
     countryNodeId: 'CN-MYS',
     countryName: 'Malaysia Node',
     assignedRoles: ['Asset Owner'],
@@ -99,14 +100,16 @@ export const DEMO_PERSONAS: Record<string, AuthUser> = {
     mfaStatus: 'Enabled',
     avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80'
   },
+  // A Malaysian individual investor with approved KYC, so the demo can invest in the Malaysian pools.
+  // An individual is their own entity (own organisation), separate from the delivery partners.
   'Retail Investor': {
-    userId: 'USR-INV-007',
-    name: 'Nurul Huda',
-    email: 'nurul.investor@gmail.com',
-    organisationId: 'ORG-NUSA-DEV',
-    organisationName: 'Nusa Capital Retail Pool',
-    countryNodeId: 'CN-IDN',
-    countryName: 'Indonesia Node',
+    userId: 'USR-INV-MYS-01',
+    name: 'Siti Aminah binti Yusof',
+    email: 'siti.aminah@investor.my',
+    organisationId: 'ORG-INV-MYS-01',
+    organisationName: 'Siti Aminah (individual investor)',
+    countryNodeId: 'CN-MYS',
+    countryName: 'Malaysia Node',
     assignedRoles: ['Retail Investor'],
     activeRole: 'Retail Investor',
     status: 'ACTIVE',
@@ -127,8 +130,39 @@ export const DEMO_PERSONAS: Record<string, AuthUser> = {
     mfaStatus: 'Enforced',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
   },
+  // USR-MYS-004 holds Shariah Advisor and Shariah Reviewer in ORG-D8-GOV in the seed database
+  // (USR-MYS-002 has no Shariah role there, so the backend refused this persona).
+  'Shariah Reviewer': {
+    userId: 'USR-MYS-004',
+    name: 'Ustadh Bilal Al-Azhari',
+    email: 'bilal.reviewer@shariah-audit.org',
+    organisationId: 'ORG-D8-GOV',
+    organisationName: 'D-8 Shariah Executive Review Committee',
+    countryNodeId: 'CN-MYS',
+    countryName: 'Malaysia Node',
+    assignedRoles: ['Shariah Reviewer', 'Shariah Advisor'],
+    activeRole: 'Shariah Reviewer',
+    status: 'ACTIVE',
+    mfaStatus: 'Enforced',
+    avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80'
+  },
+  // USR-IDN-004 holds Legal Officer (and Compliance Officer) in ORG-FELDA-MYS in the seed database.
+  'Legal Officer': {
+    userId: 'USR-IDN-004',
+    name: 'Advocate Tariq Mahmud',
+    email: 'tariq.legal@d8law.com',
+    organisationId: 'ORG-FELDA-MYS',
+    organisationName: 'FELDA Legal Department',
+    countryNodeId: 'CN-MYS',
+    countryName: 'Malaysia Node',
+    assignedRoles: ['Legal Officer', 'Compliance Officer'],
+    activeRole: 'Legal Officer',
+    status: 'ACTIVE',
+    mfaStatus: 'Enforced',
+    avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'
+  },
   'Shariah Advisor': {
-    userId: 'USR-MYS-002',
+    userId: 'USR-MYS-004',
     name: 'Tengku Dr. Hasmadi',
     email: 'hasmadi@shariahboard.d8.org',
     organisationId: 'ORG-D8-GOV',
@@ -224,6 +258,22 @@ export const DEMO_PERSONAS: Record<string, AuthUser> = {
     status: 'ACTIVE',
     mfaStatus: 'Enforced',
     avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80'
+  },
+  // Dedicated KYC reviewer for the Malaysia node. KYC review is scoped to the reviewer's
+  // country, so this persona sees Malaysian applications only.
+  'KYC Officer': {
+    userId: 'USR-KYC-013',
+    name: 'Aisyah binti Kamal',
+    email: 'aisyah.kamal@sc.my',
+    organisationId: 'ORG-D8-GOV',
+    organisationName: 'D-8 Secretariat',
+    countryNodeId: 'CN-MYS',
+    countryName: 'Malaysia Node',
+    assignedRoles: ['KYC Officer'],
+    activeRole: 'KYC Officer',
+    status: 'ACTIVE',
+    mfaStatus: 'Enforced',
+    avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80'
   },
   'Guest': {
     userId: 'GUEST-001',

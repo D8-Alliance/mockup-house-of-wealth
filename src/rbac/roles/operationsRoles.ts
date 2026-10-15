@@ -4,8 +4,8 @@ export const OPERATIONS_ROLES: Record<string, RoleDefinition> = {
   'Project Sponsor': {
     role: 'Project Sponsor',
     title: 'Project Originator & Sponsor (PDP)',
-    category: 'Operational Management',
-    description: 'Submits and manages large-scale green infrastructure, trade finance, and industrial capital projects for tokenization.',
+    category: 'Delivery Partner (PDP)',
+    description: 'Delivery partner (typically a GLC or development agency) that submits and runs large agriculture, infrastructure and industrial projects for pooled Islamic financing.',
     badgeColor: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30',
     accessibleTabs: ['dashboard', 'sponsor-portal', 'ai-engine', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'documents', 'ledger', 'profile'],
     permissions: {
@@ -45,7 +45,7 @@ export const OPERATIONS_ROLES: Record<string, RoleDefinition> = {
   'Project Manager': {
     role: 'Project Manager',
     title: 'Infrastructure Execution & Milestone Manager',
-    category: 'Operational Management',
+    category: 'Delivery Partner (PDP)',
     description: 'Tracks on-ground construction, supply chain procurement, site inspections, and verifies milestone deliverables.',
     badgeColor: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30',
     accessibleTabs: ['dashboard', 'sponsor-portal', 'ai-engine', 'documents', 'ledger', 'profile'],
@@ -76,11 +76,11 @@ export const OPERATIONS_ROLES: Record<string, RoleDefinition> = {
 
   'Asset Owner': {
     role: 'Asset Owner',
-    title: 'Real World Asset (RWA) Tokenizer & Owner',
-    category: 'Operational Management',
-    description: 'Registers physical & digital assets for tokenization, fractionalization, collateralization, and yield generation.',
+    title: 'Real-World Asset Owner',
+    category: 'Asset Owner',
+    description: 'Owns land, buildings, machinery or other real assets and offers them for Shariah-compliant financing, leasing or pooling.',
     badgeColor: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/30',
-    accessibleTabs: ['dashboard', 'ai-engine', 'admin-center', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'wallet', 'financials', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'wallet', 'financials', 'documents', 'beneficiaries', 'ledger', 'profile'],
     permissions: {
       dashboard: ['read'],
       assets: ['create', 'read', 'update', 'delete', 'export'],
@@ -119,7 +119,7 @@ export const OPERATIONS_ROLES: Record<string, RoleDefinition> = {
   'Asset Manager': {
     role: 'Asset Manager',
     title: 'RWA Portfolio Yield & Facility Manager',
-    category: 'Operational Management',
+    category: 'Asset Owner',
     description: 'Oversees day-to-day facility operations, tenant lease collection, maintenance budgets, and net operating income (NOI).',
     badgeColor: 'bg-emerald-600/10 text-emerald-700 dark:text-emerald-300 border-emerald-600/30',
     accessibleTabs: ['dashboard', 'assets', 'financials', 'documents', 'profile'],

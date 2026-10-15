@@ -27,6 +27,7 @@ import {
   AI_INFORMATIONAL_DISCLAIMER, 
   AI_NON_ADVICE_DISCLAIMER 
 } from './aiCreditPricingConfig';
+import { formatDateTime } from '../../utils/platformTime';
 
 interface AIUsageDashboardProps {
   userId?: string;
@@ -37,7 +38,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
   userId = 'USR-8821',
   onNavigateToMembership
 }) => {
-  const [balance, setBalance] = useState<AICreditBalanceBreakdown>({ userId, remainingCredits: 0, usedThisMonth: 0, monthlyAllowance: 0, additionalCredits: 0, totalPoolCredits: 0, resetDate: '', userTier: 'FREE' });
+  const [balance, setBalance] = useState<AICreditBalanceBreakdown>({ userId, availableBalance: 0, usedCredits: 0, remainingCredits: 0, usedThisMonth: 0, monthlyAllowance: 0, additionalCredits: 0, totalPoolCredits: 0, resetDate: '', userTier: 'FREE' });
   const [history, setHistory] = useState<AIUsageLogEntry[]>([]);
   const [operations] = useState<AIOperationConfig[]>(aiMonetisationService.getAIOperations());
   const [activeTestOp, setActiveTestOp] = useState<AIOperationKey | null>(null);
@@ -52,6 +53,11 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
   };
 
   useEffect(() => { refresh().catch(() => undefined); }, [userId]);
+  useEffect(() => {
+    const onCreditsChanged = () => { refresh().catch(() => undefined); };
+    window.addEventListener('ai-credits-changed', onCreditsChanged);
+    return () => window.removeEventListener('ai-credits-changed', onCreditsChanged);
+  }, [userId]);
 
   const usedPercent = Math.min(100, Math.round((balance.usedThisMonth / (balance.monthlyAllowance || 1)) * 100));
 
@@ -94,7 +100,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
           </div>
           <div className="my-2">
             <div className="text-3xl font-black font-mono tracking-tight text-white">
-              {balance.remainingCredits}
+              {balance.availableBalance}
             </div>
             <span className="text-[10px] text-purple-200">AI Credits Available</span>
           </div>
@@ -144,7 +150,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
             <span className="text-[10px] text-slate-400">Granted automatically each cycle</span>
           </div>
           <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex items-center justify-between text-[10.5px] text-slate-500">
-            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Resets: {balance.resetDate}</span>
+            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Resets: {formatDateTime(balance.resetDate)}</span>
           </div>
         </div>
 
@@ -206,7 +212,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {operations.map(op => {
-            const hasCredits = balance.remainingCredits >= op.creditCost;
+            const hasCredits = balance.availableBalance >= op.creditCost;
             return (
               <div
                 key={op.key}

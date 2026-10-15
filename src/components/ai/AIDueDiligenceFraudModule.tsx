@@ -32,7 +32,7 @@ export const AIDueDiligenceFraudModule: React.FC = () => {
       entity: 'Auditor Certificate PDF',
       severity: 'Critical',
       timestamp: '2026-08-04 11:20',
-      details: 'Digital signature metadata does not match AAOIFI certified public key registry.',
+      details: 'Digital signature metadata does not match the published signing key of the issuer.',
       status: 'Flagged'
     }
   ]);

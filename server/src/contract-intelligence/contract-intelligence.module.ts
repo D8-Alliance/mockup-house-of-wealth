@@ -1,3 +1,4 @@
+import { FeatureModuleModule } from '../modules/feature-module.module';
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { AiModule } from '../ai/ai.module';
@@ -7,7 +8,7 @@ import { ContractIntelligenceService } from './contract-intelligence.service';
 import { AgreementGenerationService } from './agreement-generation.service';
 
 @Module({
-  imports: [AuditModule, PolicyModule, AiModule],
+  imports: [AuditModule, PolicyModule, AiModule, FeatureModuleModule],
   controllers: [ContractIntelligenceController],
   providers: [ContractIntelligenceService, AgreementGenerationService],
   exports: [AgreementGenerationService],

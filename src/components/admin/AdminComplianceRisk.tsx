@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { 
   Building2
 } from 'lucide-react';
+import { KycReviewQueue } from '../../kyc/KycReviewQueue';
 
 interface AdminComplianceRiskProps {
   section: 'compliance_kyc' | 'compliance_kyb' | 'compliance_aml' | 'compliance_pep' | 'compliance_sanctions' | 'risk_register' | 'risk_incidents' | 'sys_auditlogs';
@@ -16,18 +17,10 @@ const auditLogRows = [
 ];
 
 export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ section }) => {
-  // KYC Queue State
-  const [kycList, setKycList] = useState([
-    { id: 'KYC-1092', name: 'Zaid Al-Mansoor', country: 'Malaysia', docType: 'CNIC & Passport', livenessScore: 98, status: 'Pending Review', submittedDate: '2026-08-05 14:10' },
-    { id: 'KYC-1091', name: 'Siti Nurhaliza', country: 'Malaysia', docType: 'MyKad National ID', livenessScore: 99, status: 'Verified', submittedDate: '2026-08-05 11:30' },
-    { id: 'KYC-1090', name: 'Bambang Soetjipto', country: 'Indonesia', docType: 'KTP ID Card', livenessScore: 84, status: 'Re-upload Requested', submittedDate: '2026-08-04 18:45' },
-    { id: 'KYC-1089', name: 'Ahmad bin Razak', country: 'Malaysia', docType: 'Malaysian MyKad', livenessScore: 96, status: 'Verified', submittedDate: '2026-08-04 15:20' }
-  ]);
-
   // KYB Queue State
   const [kybList, setKybList] = useState([
     { id: 'KYB-302', companyName: 'Bosphorus Cold Chain Logistics A.S.', country: 'Turkey', tradeLicense: 'TR-IST-884920', uboName: 'Ahmet Yilmaz (85% Owner)', leiCode: '2549008892110034', status: 'Pending Approval', riskGrade: 'Low Risk' },
-    { id: 'KYB-301', companyName: 'Nusantara Halal Export Group Pt.', country: 'Indonesia', tradeLicense: 'ID-JKT-119283', uboName: 'Dian Sastro (100% Owner)', leiCode: '5493003310022394', status: 'Verified', riskGrade: 'Low Risk' },
+    { id: 'KYB-301', companyName: 'Nusantara Halal Export Group Pt.', country: 'Indonesia', tradeLicense: 'ID-JKT-119283', uboName: 'Rina Wulandari (100% Owner)', leiCode: '5493003310022394', status: 'Verified', riskGrade: 'Low Risk' },
     { id: 'KYB-300', companyName: 'D-8 Agritech Ventures Ltd.', country: 'Malaysia', tradeLicense: 'MY-KL-998231', uboName: 'Tariq Al-Mansoor (60% Owner)', leiCode: '9845001192837482', status: 'Verified', riskGrade: 'Low Risk' }
   ]);
 
@@ -40,7 +33,7 @@ export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ sectio
   // PEP Matches State
   const [pepMatches, setPepMatches] = useState([
     { id: 'PEP-104', subjectName: 'Hassan Al-Attas', country: 'Malaysia', politicalRole: 'Deputy Minister of Trade & Industry', matchScore: 92, status: 'Enhanced Due Diligence (EDD) Required' },
-    { id: 'PEP-103', subjectName: 'General Ibrahim Babangida', country: 'Nigeria', politicalRole: 'Former State Executive Member', matchScore: 89, status: 'Whitelisted / Cleared' }
+    { id: 'PEP-103', subjectName: 'Ibrahim Danjuma Okafor', country: 'Nigeria', politicalRole: 'Former State Executive Member', matchScore: 89, status: 'Whitelisted / Cleared' }
   ]);
 
   // Sanctions Matches State
@@ -62,10 +55,6 @@ export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ sectio
     { id: 'INC-2026-08', title: 'Failed Webhook Notification Relay for KYC Approval', priority: 'P3 - Low', status: 'Resolved', impact: 'Delayed SMS Confirmation for 14 Users', timestamp: '2026-08-04 11:30' }
   ]);
 
-  const handleApproveKyc = (id: string) => {
-    setKycList(kycList.map(k => k.id === id ? { ...k, status: 'Verified' } : k));
-  };
-
   const handleApproveKyb = (id: string) => {
     setKybList(kybList.map(k => k.id === id ? { ...k, status: 'Verified' } : k));
   };
@@ -74,67 +63,7 @@ export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ sectio
     <div className="space-y-6">
       
       {/* KYC VERIFICATION MODULE */}
-      {section === 'compliance_kyc' && (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700">
-            <div>
-              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">KYC Individual Verification Queue</h3>
-              <p className="text-xs text-slate-500">National ID, Passport, Liveness Check, and Biometric Identity Verification Queue.</p>
-            </div>
-            <span className="text-xs font-bold bg-purple-500/10 text-purple-600 px-3 py-1 rounded-full border border-purple-500/20">
-              1 Pending Verification
-            </span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-900/60 font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-200/60 dark:border-slate-700/60 text-[11px]">
-                  <th className="p-3.5">Ref ID</th>
-                  <th className="p-3.5">Full Name</th>
-                  <th className="p-3.5">Jurisdiction</th>
-                  <th className="p-3.5">Document Type</th>
-                  <th className="p-3.5">Biometric Liveness</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                {kycList.map(k => (
-                  <tr key={k.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30">
-                    <td className="p-3.5 font-bold font-mono text-purple-600">{k.id}</td>
-                    <td className="p-3.5 font-bold text-slate-900 dark:text-white">{k.name}</td>
-                    <td className="p-3.5 text-slate-600 dark:text-slate-300">{k.country}</td>
-                    <td className="p-3.5 text-slate-500">{k.docType}</td>
-                    <td className="p-3.5 font-bold font-mono text-emerald-600">{k.livenessScore}% Match</td>
-                    <td className="p-3.5">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black ${
-                        k.status === 'Verified' 
-                          ? 'bg-emerald-500/10 text-emerald-600' 
-                          : k.status === 'Re-upload Requested' 
-                          ? 'bg-amber-500/10 text-amber-600' 
-                          : 'bg-purple-500/10 text-purple-600'
-                      }`}>
-                        {k.status}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-right">
-                      {k.status === 'Pending Review' && (
-                        <button 
-                          onClick={() => handleApproveKyc(k.id)}
-                          className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-extrabold text-[11px] shadow cursor-pointer hover:bg-emerald-500"
-                        >
-                          Approve KYC
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {section === 'compliance_kyc' && <KycReviewQueue />}
 
       {/* KYB VERIFICATION MODULE */}
       {section === 'compliance_kyb' && (

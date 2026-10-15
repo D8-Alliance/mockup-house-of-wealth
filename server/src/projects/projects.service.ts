@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -6,8 +6,12 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PolicyService } from '../policy/policy.service';
 import { AddProjectTeamMemberDto, CreateProjectAnnouncementDto, CreateProjectPromotionDto, CreateProjectDto, CreateProjectMilestoneDto, UpdateProjectMilestoneDto, UpdateProjectStatusDto } from './projects.controller';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
+import { assertProjectUnlocked, hasCurrentFinalApproval, isProjectLocked, REOPENABLE_PROJECT_STATUSES } from './project-lock';
+import { formatLocalDateTime } from '../tenancy/country-time';
+import { inspectDocument, sha256Hex, withStoredChecks } from './document-integrity';
 import { BadRequestException } from '@nestjs/common';
 import pdfParse from 'pdf-parse';
+import * as XLSX from 'xlsx';
 
 const PROJECT_PROMOTION_PACKAGES = [
   { id: 'pkg_free_listing', title: 'Free Project Listing', badgeType: 'Promoted', durationDays: 0, priceMYR: 0, creditsCost: 0 },
@@ -15,6 +19,15 @@ const PROJECT_PROMOTION_PACKAGES = [
   { id: 'pkg_featured_30d', title: 'Featured Project (30 Days)', badgeType: 'Featured', durationDays: 30, priceMYR: 299, creditsCost: 150 },
   { id: 'pkg_sponsored_30d', title: 'Sponsored Project Spotlight (30 Days)', badgeType: 'Sponsored', durationDays: 30, priceMYR: 499, creditsCost: 250 },
 ] as const;
+
+const EVIDENCE_REQUIREMENTS = [
+  { evidenceType: 'FINANCIAL_MODEL', description: 'Historical and projected financial model with assumptions, revenue, costs, and profitability.', requiredFormat: 'PDF, XLSX, CSV', priority: 'CRITICAL' },
+  { evidenceType: 'CASHFLOW_FORECAST', description: 'Five-year cashflow projection with monthly or annual assumptions and funding drawdown schedule.', requiredFormat: 'PDF, XLSX, CSV', priority: 'CRITICAL' },
+  { evidenceType: 'ASSET_VALUATION', description: 'Independent valuation or appraisal supporting the project assets and their stated value.', requiredFormat: 'PDF', priority: 'HIGH' },
+  { evidenceType: 'LEGAL_OWNERSHIP', description: 'Title, ownership, registration, permit, or other legal documents proving control of the relevant assets.', requiredFormat: 'PDF', priority: 'HIGH' },
+] as const;
+
+const EVIDENCE_DOCUMENT_SELECT = { id: true, fileName: true, mimeType: true, extractionStatus: true, createdAt: true, sha256: true, integrity: true } as const;
 
 @Injectable()
 export class ProjectsService {
@@ -58,12 +71,15 @@ export class ProjectsService {
     const project = await this.get(projectId, user);
     const allowed = ['DRAFT', 'DUE_DILIGENCE', 'APPROVED', 'FUNDING_OPEN', 'POOLING', 'FUNDED', 'EXECUTION', 'PROFIT_DISTRIBUTION', 'COMPLETED', 'REJECTED'];
     if (!allowed.includes(dto.status)) throw new BadRequestException('Unsupported project lifecycle status.');
+    // Approval and reopening have their own governed paths; a plain status change must not bypass them.
+    if (isProjectLocked(project.status) && ['DRAFT', 'DUE_DILIGENCE'].includes(dto.status)) throw new ConflictException('An approved or rejected project can only return to due diligence through Reopen project.');
+    if (dto.status === 'APPROVED' && project.status !== 'APPROVED' && !(await hasCurrentFinalApproval(this.prisma, project))) throw new ConflictException('A project becomes APPROVED only through the final committee decision on its current feasibility revision.');
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.project.update({ where: { projectId }, data: { status: dto.status, lifecycleVersion: { increment: 1 } } });
       await tx.projectLifecycleEvent.create({ data: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, fromStatus: project.status, toStatus: dto.status, note: dto.note, actorId: user.userId } });
+      await this.audit.recordActor(user, { action: 'project.lifecycle.status_change', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { fromStatus: project.status, toStatus: dto.status, note: dto.note } }, tx);
       return result;
     });
-    await this.audit.recordActor(user, { action: 'project.lifecycle.status_change', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { fromStatus: project.status, toStatus: dto.status, note: dto.note } });
     return updated;
   }
 
@@ -111,14 +127,99 @@ export class ProjectsService {
     });
   }
 
+  // Read-only: requirement rows are only written when evidence is uploaded.
+  // Types without a stored row are returned as MISSING placeholders.
+  async listEvidenceRequirements(projectId: string, user: AuthenticatedUser) {
+    const project = await this.get(projectId, user);
+    const stored = await this.prisma.projectEvidenceRequirement.findMany({ where: { projectId: project.projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId }, include: { uploadedDocument: { select: EVIDENCE_DOCUMENT_SELECT } } });
+    return EVIDENCE_REQUIREMENTS.map((requirement) => stored.find((item) => item.evidenceType === requirement.evidenceType) ?? {
+      id: `${project.projectId}:${requirement.evidenceType}`,
+      projectId: project.projectId,
+      organisationId: project.organisationId,
+      countryNodeId: project.countryNodeId,
+      ...requirement,
+      status: 'MISSING',
+      uploadedDocumentId: null,
+      verificationStatus: 'NOT_STARTED',
+      verificationResult: null,
+      confidenceScore: 0,
+      uploadedDocument: null,
+    });
+  }
+
+  async uploadEvidence(projectId: string, evidenceType: string, file: Express.Multer.File | undefined, user: AuthenticatedUser) {
+    const requirement = EVIDENCE_REQUIREMENTS.find((item) => item.evidenceType === evidenceType);
+    if (!requirement) throw new BadRequestException('Unsupported evidence type.');
+    if (!file) throw new BadRequestException('An evidence file is required.');
+    const allowedExtensions = requirement.requiredFormat.split(',').map((format) => format.trim().toLowerCase());
+    const extension = file.originalname.toLowerCase().split('.').pop() || '';
+    if (!allowedExtensions.includes(extension)) throw new BadRequestException(`${evidenceType.replaceAll('_', ' ')} must be uploaded as ${requirement.requiredFormat}.`);
+    const project = await this.get(projectId, user);
+    assertProjectUnlocked(project, 'Evidence upload');
+    const previous = await this.prisma.projectEvidenceRequirement.findUnique({ where: { projectId_evidenceType: { projectId: project.projectId, evidenceType } }, select: { uploadedDocumentId: true } });
+    // The previous document is kept (not deleted) as part of the evidence audit trail.
+    const document = await this.storeDocument(project, file, user);
+    const reset = { uploadedDocumentId: document.id, status: 'UPLOADED', verificationStatus: 'NOT_STARTED', confidenceScore: 0, verificationResult: Prisma.JsonNull };
+    const updated = await this.prisma.projectEvidenceRequirement.upsert({
+      where: { projectId_evidenceType: { projectId: project.projectId, evidenceType } },
+      update: reset,
+      create: { projectId: project.projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, ...requirement, ...reset },
+      include: { uploadedDocument: { select: EVIDENCE_DOCUMENT_SELECT } },
+    });
+    await this.audit.recordActor(user, { action: 'project.evidence.upload', resourceType: 'ProjectEvidenceRequirement', resourceId: updated.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId: project.projectId, evidenceType, documentId: document.id, previousDocumentId: previous?.uploadedDocumentId ?? null, status: updated.status } });
+    return updated;
+  }
+
+  /**
+   * Formal route back from a final decision: the project returns to DUE_DILIGENCE, every
+   * outstanding feasibility approval is superseded (so funding and pooling stop), and
+   * evidence and AI analysis unlock again. Only allowed before investor money is committed.
+   */
+  async reopenProject(projectId: string, reason: string | undefined, user: AuthenticatedUser) {
+    if (!reason?.trim()) throw new BadRequestException('A reason is required to reopen a project.');
+    const project = await this.get(projectId, user);
+    if (!REOPENABLE_PROJECT_STATUSES.includes(project.status)) {
+      throw new ConflictException(`A ${project.status.replaceAll('_', ' ')} project cannot be reopened. Reopening is allowed only from ${REOPENABLE_PROJECT_STATUSES.join(', ')}, before funds are committed.`);
+    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Conditional on the status we checked, so a concurrent change is not overwritten.
+      const claimed = await tx.project.updateMany({ where: { projectId, status: project.status }, data: { status: 'DUE_DILIGENCE', lifecycleVersion: { increment: 1 } } });
+      if (!claimed.count) throw new ConflictException('The project status changed; reload and try again.');
+      await tx.projectApproval.updateMany({ where: { projectId, status: { in: ['PENDING', 'APPROVED', 'REJECTED', 'REQUEST_CHANGES'] } }, data: { status: 'SUPERSEDED', supersededAt: new Date() } });
+      await tx.projectLifecycleEvent.create({ data: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, fromStatus: project.status, toStatus: 'DUE_DILIGENCE', note: `Reopened: ${reason.trim()}`, actorId: user.userId } });
+      return tx.project.findUniqueOrThrow({ where: { projectId } });
+    });
+    await this.audit.recordActor(user, { action: 'project.reopened', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { fromStatus: project.status, toStatus: 'DUE_DILIGENCE', reason: reason.trim() } });
+    return updated;
+  }
+
+  async verifyEvidence(projectId: string, evidenceType: string, user: AuthenticatedUser) {
+    const reviewerRoles = ['Finance Officer', 'Risk Officer', 'Compliance Officer', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee', 'Country Admin', 'Organization Admin', 'Super Admin'];
+    if (!reviewerRoles.includes(user.role)) throw new ForbiddenException('Only an authorised human reviewer can verify evidence.');
+    const project = await this.get(projectId, user);
+    assertProjectUnlocked(project, 'Evidence verification');
+    const requirement = await this.prisma.projectEvidenceRequirement.findFirst({ where: { projectId: project.projectId, evidenceType, organisationId: project.organisationId, countryNodeId: project.countryNodeId } });
+    if (!requirement?.uploadedDocumentId) throw new BadRequestException('Evidence must be uploaded before human verification.');
+    if (!['AI_PRECHECKED', 'REQUIRES_REVIEW', 'UPLOADED'].includes(requirement.status)) throw new BadRequestException(`Evidence cannot be verified from state "${requirement.status}".`);
+    const previousResult = requirement.verificationResult && typeof requirement.verificationResult === 'object' && !Array.isArray(requirement.verificationResult) ? requirement.verificationResult as Record<string, unknown> : {};
+    const updated = await this.prisma.projectEvidenceRequirement.update({ where: { id: requirement.id }, data: { status: 'VERIFIED', verificationStatus: 'VERIFIED', verificationResult: { ...previousResult, humanVerifiedBy: user.userId, humanVerifiedAt: new Date().toISOString(), validationResult: 'Verified by an authorised human reviewer.' } }, include: { uploadedDocument: { select: { id: true, fileName: true, mimeType: true, extractionStatus: true, createdAt: true } } } });
+    await this.audit.recordActor(user, { action: 'project.evidence.human_verified', resourceType: 'ProjectEvidenceRequirement', resourceId: requirement.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId: project.projectId, evidenceType, documentId: requirement.uploadedDocumentId, reviewerId: user.userId, reviewerRole: user.role } });
+    return updated;
+  }
+
   async uploadDocument(projectId: string, file: Express.Multer.File | undefined, user: AuthenticatedUser) {
     const project = await this.get(projectId, user);
-    if (!file) throw new BadRequestException('A PDF file is required');
+    if (!file) throw new BadRequestException('A PDF, DOCX, XLSX, or CSV file is required.');
+    return this.storeDocument(project, file, user);
+  }
+
+  private async storeDocument(project: { projectId: string; organisationId: string; countryNodeId: string }, file: Express.Multer.File, user: AuthenticatedUser) {
 
     let extractedText = '';
     let extractionStatus = 'NOT_APPLICABLE';
     let extractionError: string | null = null;
-    if (file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf')) {
+    const extension = file.originalname.toLowerCase().split('.').pop();
+    if (file.mimetype === 'application/pdf' || extension === 'pdf') {
       extractionStatus = 'EXTRACTED';
       try {
         const parsed = await pdfParse(file.buffer);
@@ -131,8 +232,25 @@ export class ProjectsService {
         extractionStatus = 'FAILED';
         extractionError = error instanceof Error ? error.message.slice(0, 500) : 'PDF text extraction failed';
       }
+    } else if (extension === 'csv') {
+      extractedText = file.buffer.toString('utf8').trim();
+      extractionStatus = extractedText.length >= 20 ? 'EXTRACTED' : 'FAILED';
+      extractionError = extractionStatus === 'FAILED' ? 'The CSV contains insufficient extractable content.' : null;
+    } else if (extension === 'xlsx' || extension === 'xls') {
+      try {
+        const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+        extractedText = workbook.SheetNames.map((sheetName) => `Sheet: ${sheetName}\n${XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName])}`).join('\n').trim();
+        extractionStatus = extractedText.length >= 20 ? 'EXTRACTED' : 'FAILED';
+        extractionError = extractionStatus === 'FAILED' ? 'The spreadsheet contains insufficient extractable content.' : null;
+      } catch (error) {
+        extractionStatus = 'FAILED';
+        extractionError = error instanceof Error ? error.message.slice(0, 500) : 'Spreadsheet extraction failed';
+      }
     }
 
+    const sha256 = sha256Hex(file.buffer);
+    const otherProjectCount = (await this.prisma.projectDocument.findMany({ where: { sha256, projectId: { not: project.projectId } }, select: { projectId: true }, distinct: ['projectId'] })).length;
+    const integrity = withStoredChecks(inspectDocument(file.buffer), { otherProjectCount });
     const document = await this.prisma.projectDocument.create({
       data: {
         projectId: project.projectId,
@@ -146,8 +264,10 @@ export class ProjectsService {
         extractedText,
         extractionStatus,
         extractionError,
+        sha256,
+        integrity: integrity as unknown as Prisma.InputJsonValue,
       },
-      select: { id: true, projectId: true, fileName: true, mimeType: true, fileSize: true, extractionStatus: true, extractionError: true, extractedText: true, uploadedBy: true, createdAt: true, updatedAt: true },
+      select: { id: true, projectId: true, fileName: true, mimeType: true, fileSize: true, extractionStatus: true, extractionError: true, extractedText: true, uploadedBy: true, createdAt: true, updatedAt: true, sha256: true, integrity: true },
     });
     await this.audit.recordActor(user, {
       action: 'project.document.upload',
@@ -155,7 +275,7 @@ export class ProjectsService {
       resourceId: document.id,
       organisationId: project.organisationId,
       countryNodeId: project.countryNodeId,
-      metadata: { projectId: project.projectId, fileName: document.fileName, extractionStatus },
+      metadata: { projectId: project.projectId, fileName: document.fileName, extractionStatus, sha256, integrityFlags: integrity.flags.map((flag) => flag.code) },
     });
     return document;
   }
@@ -335,7 +455,7 @@ export class ProjectsService {
     if (!campaign?.payment || campaign.payment.userId !== user.userId) throw new NotFoundException('Promotion receipt not found');
     if (campaign.payment.status !== 'PAID') throw new BadRequestException('Receipt is available after payment confirmation.');
     const receiptNumber = `HOW-PROMO-${campaign.payment.id.slice(-10).toUpperCase()}`;
-    return { receiptNumber, content: ['WEALTH POOLING PROMOTION RECEIPT', `Receipt: ${receiptNumber}`, `Project: ${project.projectName}`, `Campaign: ${campaign.packageName}`, `Amount: MYR ${campaign.payment.amountMYR.toString()}`, `Payment method: ${campaign.payment.method}`, `Payment status: ${campaign.payment.status}`, `Provider reference: ${campaign.payment.providerRef || 'N/A'}`, `Paid at: ${campaign.payment.updatedAt.toISOString()}`, '', 'This receipt confirms payment for promotional placement. It is not an investment recommendation.'].join('\n') };
+    return { receiptNumber, content: ['WEALTH POOLING PROMOTION RECEIPT', `Receipt: ${receiptNumber}`, `Project: ${project.projectName}`, `Campaign: ${campaign.packageName}`, `Amount: MYR ${campaign.payment.amountMYR.toString()}`, `Payment method: ${campaign.payment.method}`, `Payment status: ${campaign.payment.status}`, `Provider reference: ${campaign.payment.providerRef || 'N/A'}`, `Paid at: ${formatLocalDateTime(campaign.payment.updatedAt, project.countryNodeId)}`, '', 'This receipt confirms payment for promotional placement. It is not an investment recommendation.'].join('\n') };
   }
 
   async createPromotion(projectId: string, dto: CreateProjectPromotionDto, user: AuthenticatedUser) {

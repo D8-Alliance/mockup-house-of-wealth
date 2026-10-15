@@ -1,9 +1,10 @@
 import React from 'react';
-import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, PaymentAccount, BeneficiaryItem, LedgerTransaction } from '../types';
+import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, BeneficiaryItem, LedgerTransaction } from '../types';
 import { RoleGuard } from '../rbac/RoleGuard';
 import { RoleDashboardView } from './dashboards/RoleDashboardView';
 import { MyAssetsView } from './MyAssetsView';
 import { MyContractsView } from './MyContractsView';
+import { AgreementReviewPanel } from '../ai/features/contract/AgreementReviewPanel';
 import { AssetDiscoveryView } from './AssetDiscoveryView';
 import { PoolingView } from './PoolingView';
 import { LedgerView } from './LedgerView';
@@ -21,6 +22,10 @@ import { ProjectSponsorView } from './sponsor/ProjectSponsorView';
 import { MembershipView } from './revenue/MembershipView';
 import { BeneficiariesView } from './BeneficiariesView';
 import { BillingTransactionsView } from './revenue/BillingTransactionsView';
+import { BackendFinancialAccount } from '../services/apiClient';
+import { SponsorAgreementsView } from './sponsor/SponsorAgreementsView';
+import { useRBAC } from '../rbac/RBACContext';
+import { isDeliveryPartner } from '../rbac/menuVisibility';
 
 interface MainTabViewsProps {
   currentTab: NavTab;
@@ -31,8 +36,8 @@ interface MainTabViewsProps {
   contracts: ContractItem[];
   marketplace: MarketplaceItem[];
   ledger: LedgerTransaction[];
-  paymentAccounts: PaymentAccount[];
-  setPaymentAccounts: React.Dispatch<React.SetStateAction<PaymentAccount[]>>;
+  financialAccounts: BackendFinancialAccount[];
+  onFinancialRefresh: () => Promise<void>;
   beneficiaries: BeneficiaryItem[];
   setBeneficiaries: React.Dispatch<React.SetStateAction<BeneficiaryItem[]>>;
   onOpenAssetRegister: () => void;
@@ -51,8 +56,8 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
   contracts,
   marketplace,
   ledger,
-  paymentAccounts,
-  setPaymentAccounts,
+  financialAccounts,
+  onFinancialRefresh,
   beneficiaries,
   setBeneficiaries,
   onOpenAssetRegister,
@@ -61,6 +66,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
   onOpenPdpRegister,
   setUser
 }) => {
+  const { currentRole } = useRBAC();
   return (
     <>
       {currentTab === 'dashboard' && (
@@ -109,12 +115,18 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'contracts' && (
         <RoleGuard tab="contracts">
-          <MyContractsView
-            contracts={contracts}
-            lang={lang}
-            onOpenContractWizard={onOpenContractWizard}
-            onOpenFinancialPerf={onOpenFinancialPerf}
-          />
+          <div className="mb-6"><AgreementReviewPanel /></div>
+          {/* A delivery partner receives funding and owes profit, so it sees its pool agreements from the server. */}
+          {isDeliveryPartner(currentRole) ? (
+            <SponsorAgreementsView />
+          ) : (
+            <MyContractsView
+              contracts={contracts}
+              lang={lang}
+              onOpenContractWizard={onOpenContractWizard}
+              onOpenFinancialPerf={onOpenFinancialPerf}
+            />
+          )}
         </RoleGuard>
       )}
 
@@ -148,11 +160,10 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
           <UserProfileSettingsView
             user={user}
             setUser={setUser}
-            paymentAccounts={paymentAccounts}
-            setPaymentAccounts={setPaymentAccounts}
             beneficiaries={beneficiaries}
             setBeneficiaries={setBeneficiaries}
             lang={lang}
+            setTab={setTab}
           />
         </RoleGuard>
       )}
@@ -168,7 +179,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'wallet' && (
         <RoleGuard tab="wallet">
-          <WalletView />
+          <WalletView accounts={financialAccounts} onRefresh={onFinancialRefresh} />
         </RoleGuard>
       )}
 

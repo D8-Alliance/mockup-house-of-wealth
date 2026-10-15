@@ -76,7 +76,7 @@ export const ProfitDistributionView: React.FC<ProfitDistributionViewProps> = ({
               Mudarabah & Musharakah Payout History
             </h4>
             <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
-              AAOIFI Certified Yield Ledger
+              Profit Distribution Ledger
             </span>
           </div>
 

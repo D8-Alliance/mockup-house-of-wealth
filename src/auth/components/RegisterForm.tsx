@@ -3,9 +3,11 @@ import { Building2, ChevronDown, Globe2, Mail, User as UserIcon, Lock, ShieldChe
 import { UserRole } from '../../rbac/types';
 import { AuthMode } from '../types/authTypes';
 import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
+import { useRoleAvailability } from '../../rbac/roleAvailability';
 import { INITIAL_COUNTRY_NODES } from '../../countryNodes/mockCountryNodes';
 import { authService } from '../../auth/services/authService';
 import { RegisterCredentials } from '../../auth/types/authTypes';
+import { apiClient, apiErrorMessage } from '../../services/apiClient';
 
 interface RegisterFormProps {
   authMode?: AuthMode;
@@ -16,13 +18,13 @@ interface RegisterFormProps {
   onLoginClick: () => void;
 }
 
+// Roles a member of the public may choose; staff roles are assigned by an administrator.
+// Mirrors SELF_REGISTRATION_ROLES in server/src/auth/demo-registration.service.ts.
 const REGISTRABLE_ROLES: UserRole[] = [
   'Retail Investor',
   'Institutional Investor',
   'Project Sponsor',
-  'Asset Owner',
-  'Pool Manager',
-  'Finance Officer'
+  'Asset Owner'
 ];
 
 export const RegisterForm: React.FC<RegisterFormProps> = ({
@@ -42,6 +44,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   });
   const [countryNodeId, setCountryNodeId] = useState<string>('CN-MYS');
   const [selectedRole, setSelectedRole] = useState<UserRole>('Retail Investor');
+  // Only roles a Super Admin has left enabled can be chosen at sign-up.
+  const { filterEnabled } = useRoleAvailability();
+  const registrableRoles = filterEnabled(REGISTRABLE_ROLES);
   const [agree, setAgree] = useState(true);
 
   const countries = INITIAL_COUNTRY_NODES;
@@ -50,7 +55,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   const inputCls =
     'w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none';
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.organisation || !form.password) {
       onError('Please complete all required fields.');
@@ -80,19 +85,29 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     };
 
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    try {
+      if (authMode !== 'PRODUCTION') {
+        // Demo/local mode: create the user, organisation and role in the backend first,
+        // otherwise every API call (KYC, membership, ...) rejects the new account.
+        const created = await apiClient.registerDemoUser({ name: form.name, email: form.email, organisation: form.organisation, countryNodeId: country.countryNodeId, role: selectedRole });
+        credentials.userId = created.userId;
+        credentials.organisationId = created.organisationId;
+      }
       const res = authService.register(credentials);
       if (res.success) {
         onRegistered(selectedRole, form.email);
       } else {
         onError(res.error || 'Registration failed. Please try again.');
       }
-    }, 700);
+    } catch (cause) {
+      onError(apiErrorMessage(cause, 'Registration failed. Please try again.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
       {/* Name */}
       <div className="space-y-1.5">
         <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Full Name</label>
@@ -100,6 +115,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <UserIcon className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="text"
+            name="name"
+            autoComplete="name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             required
@@ -116,6 +133,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="email"
+            name="email"
+            autoComplete="username"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             required
@@ -132,6 +151,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="text"
+            name="organization"
+            autoComplete="organization"
             value={form.organisation}
             onChange={(e) => setForm({ ...form, organisation: e.target.value })}
             required
@@ -168,6 +189,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="password"
+            name="new-password"
+            autoComplete="new-password"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             required
@@ -184,6 +207,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
             type="password"
+            name="confirm-password"
+            autoComplete="new-password"
             value={form.confirm}
             onChange={(e) => setForm({ ...form, confirm: e.target.value })}
             required
@@ -203,7 +228,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             onChange={(e) => setSelectedRole(e.target.value as UserRole)}
             className="w-full pl-9 pr-8 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 outline-none appearance-none cursor-pointer"
           >
-            {REGISTRABLE_ROLES.map((r) => (
+            {registrableRoles.map((r) => (
               <option key={r} value={r}>
                 {r} {ROLE_DEFINITIONS[r]?.category ? `(${ROLE_DEFINITIONS[r].category})` : ''}
               </option>

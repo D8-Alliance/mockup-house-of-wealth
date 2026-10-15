@@ -21,7 +21,13 @@ interface TenancyContextType {
   filterTenantData: <T extends Record<string, any>>(items: T[]) => T[];
 }
 
-const TenancyContext = createContext<TenancyContextType | undefined>(undefined);
+// Stable across Vite HMR re-evaluations (see RBACContext for rationale).
+const tenancyContextGlobal = globalThis as typeof globalThis & {
+  __TENANCY_CONTEXT__?: React.Context<TenancyContextType | undefined>;
+};
+const TenancyContext =
+  tenancyContextGlobal.__TENANCY_CONTEXT__ ??
+  (tenancyContextGlobal.__TENANCY_CONTEXT__ = createContext<TenancyContextType | undefined>(undefined));
 
 export const TenancyProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentRole, activeUser } = useRBAC();

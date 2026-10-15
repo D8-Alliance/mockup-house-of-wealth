@@ -44,7 +44,7 @@ export const AICreditConfirmationModal: React.FC<AICreditConfirmationModalProps>
   const [creditBreakdown, setCreditBreakdown] = useState<BackendCreditSummary | null>(null);
 
   const op: AIOperationConfig = aiMonetisationService.getOperationConfig(operationKey);
-  const balanceCheck = { remaining: creditBreakdown?.remainingCredits ?? 0, allowed: (creditBreakdown?.remainingCredits ?? 0) >= op.creditCost, shortfall: Math.max(0, op.creditCost - (creditBreakdown?.remainingCredits ?? 0)) };
+  const balanceCheck = { remaining: creditBreakdown?.availableBalance ?? 0, allowed: (creditBreakdown?.availableBalance ?? 0) >= op.creditCost, shortfall: Math.max(0, op.creditCost - (creditBreakdown?.availableBalance ?? 0)) };
 
   React.useEffect(() => { apiClient.getMembershipCreditSummary().then(setCreditBreakdown).catch(() => undefined); }, []);
 

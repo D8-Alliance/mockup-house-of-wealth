@@ -1,4 +1,4 @@
-import { AssetItem, ContractItem, MarketplaceItem, LedgerTransaction, CodeReviewSection, PaymentAccount, BeneficiaryItem } from '../types';
+import { AssetItem, ContractItem, MarketplaceItem, LedgerTransaction, CodeReviewSection, BeneficiaryItem } from '../types';
 import { INITIAL_ASSETS } from './assetsData';
 import { INITIAL_CONTRACTS } from './contractsData';
 
@@ -127,31 +127,20 @@ export const CODE_REVIEW_FINDINGS: CodeReviewSection[] = [
   }
 ];
 
-export const INITIAL_PAYMENT_ACCOUNTS: PaymentAccount[] = [
-  {
-    id: 'ACC-MEEZAN-01',
-    type: 'Bank Account',
-    accountName: 'Ahmad bin Razak',
-    institutionName: 'Maybank Islamic Malaysia',
-    accountNumber: 'PK36 MEZN 0001 0892 8374 8291',
-    swiftBic: 'MEZNPKKAXXX',
-    currency: 'USD',
-    isDefault: true,
-    status: 'Verified',
-    isShariahApproved: true
-  }
-];
-
+// Sample beneficiaries for an individual Muslim investor (fictional people and contact details).
+// Valid under faraid: the spouse receives a hibah during life, the children inherit by faraid,
+// and the bequest (wasiyyah) goes to a waqf, a non-heir, within the one-third limit.
 export const INITIAL_BENEFICIARIES: BeneficiaryItem[] = [
   {
     id: 'BEN-001',
     name: 'Noraini Ahmad',
     relation: 'Spouse',
     allocationPercent: 40,
-    distributionType: 'Profit Share',
-    email: 'noraini.ahmad@felda.gov.my',
-    phone: '+60 12 998 1122',
-    identityNumber: '820101-10-1234',
+    distributionType: 'Hibah Amanah',
+    hibahAkad: { ijabDeclaredAt: '2026-08-01T09:00:00Z', qabulStatus: 'Accepted', qabulAt: '2026-08-03T10:30:00Z' },
+    email: 'noraini.ahmad@example.com',
+    phone: '+60 12 000 1122',
+    identityNumber: '820101-10-0000 (sample)',
     payoutMethod: 'Bank Transfer (Maybank Islamic Malaysia)',
     isPrimary: true
   },
@@ -159,36 +148,36 @@ export const INITIAL_BENEFICIARIES: BeneficiaryItem[] = [
     id: 'BEN-002',
     name: 'Muhammad Hakim Hassan',
     relation: 'Child',
-    allocationPercent: 30,
-    distributionType: 'Estate / Wasiyyah',
-    email: 'hakim.hassan@wealthpooling.my',
-    phone: '+60 12 345 6789',
-    identityNumber: '960412-14-5561',
+    allocationPercent: 0,
+    distributionType: 'Faraid Heir',
+    email: 'hakim.hassan@example.com',
+    phone: '+60 12 000 6789',
+    identityNumber: '960412-14-0000 (sample)',
     payoutMethod: 'Maybank Islamic Berhad (MYR Settlement)',
     isPrimary: false
   },
   {
     id: 'BEN-003',
-    name: 'Maryam Binti Hassan',
+    name: 'Maryam binti Hassan',
     relation: 'Child',
-    allocationPercent: 15,
-    distributionType: 'Estate / Wasiyyah',
-    email: 'maryam.hassan@maybank.com.my',
-    phone: '+60 13 456 7890',
-    identityNumber: '900412-14-5567',
+    allocationPercent: 0,
+    distributionType: 'Faraid Heir',
+    email: 'maryam.hassan@example.com',
+    phone: '+60 13 000 7890',
+    identityNumber: '000412-14-0000 (sample)',
     payoutMethod: 'Maybank Islamic Berhad (MYR Settlement)',
     isPrimary: false
   },
   {
     id: 'BEN-004',
-    name: 'D-8 Global Waqf & Sadaqah Endowment Trust',
+    name: 'D-8 Waqf & Sadaqah Endowment Trust (sample)',
     relation: 'Waqf Foundation',
     allocationPercent: 15,
-    distributionType: 'Zakat & Sadaqah',
-    email: 'waqf-endowment@d8wealth.org',
-    phone: '+92 21 555 0192',
-    identityNumber: 'PK-WAQF-992019-ISB',
-    payoutMethod: 'Meezan Bank Islamic Trust Escrow',
+    distributionType: 'Wasiyyah',
+    email: 'waqf-trust@example.org',
+    phone: '+60 3 0000 0192',
+    identityNumber: 'WAQF-REG-0000 (sample)',
+    payoutMethod: 'Direct Waqf Endowment Smart Wallet',
     isPrimary: false
   }
 ];

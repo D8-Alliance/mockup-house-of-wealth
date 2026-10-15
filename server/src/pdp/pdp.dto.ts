@@ -1,4 +1,4 @@
-import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsObject, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class SavePdpApplicationDto {
   @IsOptional()
@@ -33,4 +33,14 @@ export class SavePdpApplicationDto {
 
   @IsObject()
   payload!: Record<string, unknown>;
+}
+
+export class KybReviewDto {
+  @IsIn(['APPROVED', 'REJECTED'])
+  decision!: 'APPROVED' | 'REJECTED';
+
+  @IsString()
+  @MinLength(1)
+  @MaxLength(2000)
+  justification!: string;
 }

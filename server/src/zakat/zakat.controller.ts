@@ -1,12 +1,44 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
-import { CalculateZakatDto } from './zakat.dto';
+import { AddNisabRateDto, CalculateZakatDto, CreateZakatAuthorityDto, UpdateZakatAuthorityDto, ZakatPreferenceDto } from './zakat.dto';
 import { ZakatService } from './zakat.service';
 
 @Controller('zakat')
 export class ZakatController {
   constructor(private readonly zakatService: ZakatService) {}
+
+  @Get('preference')
+  preference(@CurrentUser() actor: AuthenticatedUser) {
+    return this.zakatService.getPreference(actor);
+  }
+
+  @Put('preference')
+  setPreference(@CurrentUser() actor: AuthenticatedUser, @Body() input: ZakatPreferenceDto) {
+    return this.zakatService.setPreference(actor, input.enabled);
+  }
+
+  @Get('authorities')
+  authorities(@CurrentUser() actor: AuthenticatedUser) {
+    return this.zakatService.authorities(actor);
+  }
+
+  /** Super Admin only (checked in the service). */
+  @Post('authorities')
+  createAuthority(@CurrentUser() actor: AuthenticatedUser, @Body() input: CreateZakatAuthorityDto) {
+    return this.zakatService.createAuthority(actor, input);
+  }
+
+  @Put('authorities/:code')
+  updateAuthority(@CurrentUser() actor: AuthenticatedUser, @Param('code') code: string, @Body() input: UpdateZakatAuthorityDto) {
+    return this.zakatService.updateAuthority(actor, code, input);
+  }
+
+  /** Records an authority's published nisab (role check in the service). */
+  @Post('authorities/:code/nisab')
+  addNisab(@CurrentUser() actor: AuthenticatedUser, @Param('code') code: string, @Body() input: AddNisabRateDto) {
+    return this.zakatService.addNisabRate(actor, code, input);
+  }
 
   @Post('calculations')
   calculate(@CurrentUser() actor: AuthenticatedUser, @Body() input: CalculateZakatDto) {
@@ -16,5 +48,10 @@ export class ZakatController {
   @Get('calculations/latest')
   latest(@CurrentUser() actor: AuthenticatedUser) {
     return this.zakatService.latest(actor);
+  }
+
+  @Post('calculations/:id/payment')
+  createPayment(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) {
+    return this.zakatService.createPaymentBill(actor, id);
   }
 }

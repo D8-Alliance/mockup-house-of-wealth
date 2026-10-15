@@ -3,7 +3,6 @@ import {
   TrendingUp, 
   ArrowUpRight, 
   ArrowDownLeft, 
-  PiggyBank, 
   ShieldCheck, 
   Clock, 
   DollarSign, 

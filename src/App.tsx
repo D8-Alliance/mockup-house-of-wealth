@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, PaymentAccount, BeneficiaryItem } from './types';
+import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, BeneficiaryItem, LedgerTransaction } from './types';
 import { LANGUAGES } from './data/translations';
 import { 
   INITIAL_ASSETS, 
   INITIAL_CONTRACTS, 
   INITIAL_MARKETPLACE, 
-  INITIAL_LEDGER,
-  INITIAL_PAYMENT_ACCOUNTS,
   INITIAL_BENEFICIARIES
 } from './data/initialData';
 
@@ -26,20 +24,40 @@ import { ContractFinancialPerfModal } from './components/ContractFinancialPerfMo
 import { AssetRegistrationWizardModal } from './components/AssetRegistrationWizardModal';
 import { PDPRegistrationModal } from './pdp/components/PDPRegistrationModal';
 import { LoginModal } from './components/auth/LoginModal';
+import { MembershipExpiryBanner } from './components/revenue/MembershipExpiryBanner';
+import { apiClient, BackendFinancialAccount, BackendLedgerTransaction } from './services/apiClient';
 
 function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.Dispatch<React.SetStateAction<UserProfile>> }) {
-  const [currentTab, setTab] = useState<NavTab>('dashboard');
+  // Returning from ToyyibPay checkout lands on /membership?order_id=…; open that tab so the payment is confirmed.
+  const [currentTab, setTab] = useState<NavTab>(() => new URLSearchParams(window.location.search).has('order_id') ? 'membership' : 'dashboard');
   const [lang, setLang] = useState<LanguageCode>('en');
   const [darkMode, setDarkMode] = useState<boolean>(false);
 
-  const { showLoginModal, setShowLoginModal } = useRBAC();
+  const { showLoginModal, setShowLoginModal, currentRole, canAccessTab } = useRBAC();
+
+  // After signing in as someone else or switching role, leave a tab the new role cannot open.
+  useEffect(() => {
+    if (!canAccessTab(currentTab)) setTab('dashboard');
+  }, [currentRole]);
 
   const [assets, setAssets] = useState<AssetItem[]>(INITIAL_ASSETS);
   const [contracts, setContracts] = useState<ContractItem[]>(INITIAL_CONTRACTS);
   const [marketplace] = useState<MarketplaceItem[]>(INITIAL_MARKETPLACE);
-  const [ledger] = useState(INITIAL_LEDGER);
-  const [paymentAccounts, setPaymentAccounts] = useState<PaymentAccount[]>(INITIAL_PAYMENT_ACCOUNTS);
+  const [ledger, setLedger] = useState<LedgerTransaction[]>([]);
+  const [financialAccounts, setFinancialAccounts] = useState<BackendFinancialAccount[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<BeneficiaryItem[]>(INITIAL_BENEFICIARIES);
+
+  const refreshFinancialData = async () => {
+    const [accounts, transactions] = await Promise.all([apiClient.getFinancialAccounts(), apiClient.getFinancialLedger()]);
+    setFinancialAccounts(accounts);
+    setLedger(transactions.map((transaction: BackendLedgerTransaction) => {
+      const amount = transaction.entries.reduce((sum, entry) => sum + Number(entry.amount), 0) / Math.max(1, transaction.entries.length);
+      const isPositive = !['DISTRIBUTION', 'REFUND', 'INTERNAL_TRANSFER'].includes(transaction.transactionType);
+      return { id: transaction.id, hash: transaction.transactionNumber, date: new Date(transaction.createdAt).toLocaleDateString(), time: new Date(transaction.createdAt).toLocaleTimeString(), type: isPositive ? 'Inflow' : 'Outflow', description: transaction.description, amount, isPositive, balanceAfter: 0, status: transaction.status === 'POSTED' ? 'Completed' : 'Pending', createdAt: transaction.createdAt };
+    }));
+  };
+
+  useEffect(() => { void refreshFinancialData().catch(() => undefined); }, [user.id]);
 
   // Modal controls
   const [codeReviewOpen, setCodeReviewOpen] = useState(false);
@@ -75,7 +93,7 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
     <ErrorBoundary>
       <div 
         dir={isRtl ? 'rtl' : 'ltr'} 
-        className="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200"
+        className="min-h-screen min-w-0 max-w-full overflow-x-hidden bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200"
       >
       <RoleSwitcherBar />
 
@@ -91,7 +109,8 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
         onOpenPdpRegister={() => setPdpRegisterOpen(true)}
       />
 
-      <main className="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-grow min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {currentTab === 'dashboard' && <MembershipExpiryBanner onRenew={() => setTab('membership')} />}
         <MainTabViews
           currentTab={currentTab}
           setTab={setTab}
@@ -101,8 +120,8 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
           contracts={contracts}
           marketplace={marketplace}
           ledger={ledger}
-          paymentAccounts={paymentAccounts}
-          setPaymentAccounts={setPaymentAccounts}
+          financialAccounts={financialAccounts}
+          onFinancialRefresh={refreshFinancialData}
           beneficiaries={beneficiaries}
           setBeneficiaries={setBeneficiaries}
           onOpenAssetRegister={() => setAssetRegisterOpen(true)}

@@ -1,0 +1,10 @@
+
+# Face models for KYC liveness (download with: npm run models:download)
+models/
+
+# Deployment secrets and generated TLS material.
+.env.production
+ops/secrets/*
+ops/redis/certs/*
+!ops/secrets/.gitkeep
+!ops/redis/certs/.gitkeep

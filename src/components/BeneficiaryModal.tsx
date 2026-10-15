@@ -15,11 +15,18 @@ import {
   Wallet
 } from 'lucide-react';
 import { BeneficiaryItem } from '../types';
+import { authService } from '../auth/services/authService';
+import { phoneFormatFor } from '../countryNodes/countryPhone';
+import { EstateFramework, estateRuleError, hasOwnerSetShare, TYPES_BY_FRAMEWORK } from '../beneficiaries/estateRules';
 
 interface BeneficiaryModalProps {
   beneficiary: BeneficiaryItem | null; // null for Create
   onClose: () => void;
   onSave: (item: BeneficiaryItem) => void;
+  /** Islamic (faraid, hibah, wasiyyah) or civil (will); decides which purposes are offered. */
+  framework: EstateFramework;
+  /** The owner's other beneficiaries, for the one-third wasiyyah limit. */
+  others: BeneficiaryItem[];
 }
 
 const RELATIONS = [
@@ -30,13 +37,6 @@ const RELATIONS = [
   'Waqf Foundation',
   'Zakat Institution',
   'Other'
-];
-
-const DISTRIBUTION_TYPES: Array<'Profit Share' | 'Estate / Wasiyyah' | 'Zakat & Sadaqah' | 'All Proceeds'> = [
-  'Profit Share',
-  'Estate / Wasiyyah',
-  'Zakat & Sadaqah',
-  'All Proceeds'
 ];
 
 const PAYOUT_METHODS = [
@@ -52,20 +52,27 @@ const PAYOUT_METHODS = [
 export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
   beneficiary,
   onClose,
-  onSave
+  onSave,
+  framework,
+  others
 }) => {
   const isEditing = !!beneficiary;
 
   const [name, setName] = useState(beneficiary?.name || '');
   const [relation, setRelation] = useState<BeneficiaryItem['relation']>(beneficiary?.relation || 'Spouse');
   const [allocationPercent, setAllocationPercent] = useState<number>(beneficiary?.allocationPercent ?? 25);
-  const [distributionType, setDistributionType] = useState<BeneficiaryItem['distributionType']>(beneficiary?.distributionType || 'Profit Share');
+  const [distributionType, setDistributionType] = useState<BeneficiaryItem['distributionType']>(beneficiary?.distributionType || TYPES_BY_FRAMEWORK[framework][0]);
+  const distributionTypes = TYPES_BY_FRAMEWORK[framework];
+  const ownerSetsShare = hasOwnerSetShare(distributionType);
   const [email, setEmail] = useState(beneficiary?.email || '');
   const [phone, setPhone] = useState(beneficiary?.phone || '');
   const [identityNumber, setIdentityNumber] = useState(beneficiary?.identityNumber || '');
   const [payoutMethod, setPayoutMethod] = useState(beneficiary?.payoutMethod || PAYOUT_METHODS[0]);
   const [isPrimary, setIsPrimary] = useState(beneficiary?.isPrimary || false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Hibah Amanah: the donor's offer (ijab). Already made when editing an existing hibah.
+  const [ijabConfirmed, setIjabConfirmed] = useState<boolean>(!!beneficiary?.hibahAkad);
+  const isHibah = distributionType === 'Hibah Amanah';
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,22 +83,50 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
       return;
     }
 
-    if (allocationPercent <= 0 || allocationPercent > 100) {
+    if (ownerSetsShare && (allocationPercent <= 0 || allocationPercent > 100)) {
       setErrorMsg('Allocation percentage must be between 1% and 100%.');
       return;
     }
+
+    const shareToSave = ownerSetsShare ? Number(allocationPercent) : 0;
+    const ruleError = estateRuleError({ relation, distributionType, allocationPercent: shareToSave }, others);
+    if (ruleError) {
+      setErrorMsg(ruleError);
+      return;
+    }
+
+    // A hibah is an akad: the recipient must be identified and reachable to give acceptance (qabul),
+    // and the donor must make the offer (ijab) knowingly.
+    if (isHibah) {
+      if (!email.trim()) {
+        setErrorMsg('Hibah Amanah needs the recipient’s email address, so they can accept the hibah (qabul).');
+        return;
+      }
+      if (!identityNumber.trim()) {
+        setErrorMsg('Hibah Amanah needs the recipient’s national ID or passport number.');
+        return;
+      }
+      if (!ijabConfirmed) {
+        setErrorMsg('Please confirm the hibah offer (ijab) to continue.');
+        return;
+      }
+    }
+    const hibahAkad = !isHibah
+      ? undefined
+      : beneficiary?.hibahAkad ?? { ijabDeclaredAt: new Date().toISOString(), qabulStatus: 'Awaiting acceptance' as const };
 
     const savedItem: BeneficiaryItem = {
       id: beneficiary?.id || `BEN-${Math.floor(100 + Math.random() * 900)}`,
       name: name.trim(),
       relation,
-      allocationPercent: Number(allocationPercent),
+      allocationPercent: shareToSave,
       distributionType,
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
       identityNumber: identityNumber.trim() || undefined,
       payoutMethod,
-      isPrimary
+      isPrimary,
+      hibahAkad
     };
 
     onSave(savedItem);
@@ -113,7 +148,7 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
                 {isEditing ? 'Edit Beneficiary & Wasiyyah' : 'Add New Beneficiary'}
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Define profit distribution, Wasiyyah (will), or Waqf allocation
+                Define profit distribution, Wasiyyah (will), Hibah Amanah, or Waqf allocation
               </p>
             </div>
           </div>
@@ -169,14 +204,19 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
                 onChange={e => setDistributionType(e.target.value as any)}
                 className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
-                {DISTRIBUTION_TYPES.map(d => (
+                {distributionTypes.map(d => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Allocation Percentage Slider/Input */}
+          {/* Allocation Percentage Slider/Input (not for a faraid heir, whose share is fixed by law) */}
+          {!ownerSetsShare ? (
+            <p className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700/60 text-[11px] text-slate-600 dark:text-slate-300">
+              <strong>Share fixed by faraid.</strong> A faraid heir&rsquo;s share is set by Islamic law and confirmed by the Syariah court&rsquo;s faraid certificate, so you do not choose a percentage. Listing the heir here helps the estate officer reach them.
+            </p>
+          ) : (
           <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700/60 space-y-2">
             <div className="flex justify-between items-center">
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -197,9 +237,10 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
               className="w-full accent-emerald-600 cursor-pointer"
             />
             <p className="text-[11px] text-slate-400">
-              Specify proportion of returns or estate allocated to this beneficiary under Shariah guidelines.
+              {distributionType === 'Wasiyyah' ? 'Share of your estate. All wasiyyah together may not exceed one-third (33.33%).' : distributionType === 'Hibah Amanah' ? 'Share of your investments given by hibah.' : 'Share of the returns or estate for this beneficiary.'}
             </p>
           </div>
+          )}
 
           {/* Grid: Email + Phone */}
           <div className="grid grid-cols-2 gap-3">
@@ -224,7 +265,7 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
                 type="tel"
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
-                placeholder="+971 50 123 4567"
+                placeholder={phoneFormatFor(authService.getAuthState().session?.user.countryNodeId).example}
                 className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
@@ -259,6 +300,38 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
               ))}
             </select>
           </div>
+
+          {/* Hibah Amanah akad: the donor's offer (ijab) here, the recipient's acceptance (qabul) later */}
+          {isHibah && (
+            <div className="p-4 rounded-2xl border border-emerald-500/30 bg-emerald-50/60 dark:bg-emerald-950/20 space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span className="text-xs font-black text-slate-900 dark:text-white">Hibah Amanah akad (contract)</span>
+              </div>
+              <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+                <li><strong>Offer (ijab):</strong> you, the donor (penghibah), give the share above to the recipient (penerima hibah) voluntarily and without any payment in return.</li>
+                <li><strong>Acceptance (qabul):</strong> the hibah takes effect only after the recipient accepts it. They will be asked to accept using the email address above.</li>
+                <li><strong>Trust (amanah):</strong> the share is held in trust for the recipient, and passes to them on the terms of the hibah trust deed (for example, on the donor&rsquo;s death).</li>
+                <li><strong>Conditions:</strong> the donor is of age and of sound mind, the gifted share is identified, and the recipient is identified by name and ID number.</li>
+              </ol>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">The final akad and trust deed are subject to review by the Shariah adviser and the appointed trustee.</p>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={ijabConfirmed}
+                  disabled={!!beneficiary?.hibahAkad}
+                  onChange={e => setIjabConfirmed(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-emerald-600"
+                />
+                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                  I make this offer of hibah (ijab) voluntarily, and I confirm that I am of age and of sound mind.
+                </span>
+              </label>
+              <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                Recipient&rsquo;s acceptance (qabul): {beneficiary?.hibahAkad?.qabulStatus ?? 'Awaiting acceptance'}
+              </p>
+            </div>
+          )}
 
           {/* Primary Beneficiary Toggle */}
           <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700/60">

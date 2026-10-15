@@ -51,6 +51,9 @@ export interface RegisterCredentials {
   countryNodeId: string;
   countryName: string;
   selectedRole: UserRole;
+  /** IDs created by the backend sign-up (demo mode); when set the session uses them. */
+  userId?: string;
+  organisationId?: string;
 }
 
 export interface MfaChallenge {

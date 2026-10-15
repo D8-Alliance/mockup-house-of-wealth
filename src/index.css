@@ -1,6 +1,19 @@
 @import "tailwindcss";
 
 @layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   body {
     font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
   }
@@ -52,4 +65,19 @@
     #0f172a 85% 95%,
     #e2e8f0 95% 100%
   );
+}
+
+/* Keeps AI feasibility sections aligned without changing their existing colour system. */
+.ai-section-container > .rounded-2xl,
+.ai-section-container > .grid > .rounded-2xl {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 1rem;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.ai-section-container > .rounded-2xl h3,
+.ai-section-container > .grid > .rounded-2xl h3 {
+  margin-top: 0;
 }

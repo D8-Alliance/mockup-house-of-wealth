@@ -1,4 +1,6 @@
-import { IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsArray, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, MinLength, ValidateIf } from 'class-validator';
+import { RAG_REVIEW_DECISIONS, RAG_SCOPES, RagReviewDecision, RagScope } from './rag-scope';
+import { CITATION_REVIEW_STATUSES, CitationReviewStatus, GROUNDING_STATUSES } from './citation-audit';
 
 export class ChatDto {
   @IsString()
@@ -8,6 +10,11 @@ export class ChatDto {
   @IsOptional()
   @IsString()
   conversationId?: string;
+
+  // Adds that project's approved documents to the retrieval scope (access is checked).
+  @IsOptional()
+  @IsString()
+  projectId?: string;
 }
 
 export class ContractAdvisorDto {
@@ -76,6 +83,15 @@ export class AiDecisionDto {
 }
 
 export class RagDocumentDto {
+  // GLOBAL = all D-8 country nodes, COUNTRY = one country node, PROJECT = one project. Defaults to PROJECT with a projectId, else COUNTRY.
+  @IsOptional() @IsIn(RAG_SCOPES) scope?: RagScope;
+
+  // COUNTRY scope only; defaults to the actor's country node.
+  @IsOptional() @IsString() countryNodeId?: string;
+
+  // Date from which the standard or regulation applies (ISO 8601).
+  @IsOptional() @IsDateString() effectiveFrom?: string;
+
   @IsOptional()
   @IsString()
   @MinLength(1)
@@ -94,11 +110,25 @@ export class RagDocumentDto {
   @IsOptional() @IsString() authority?: string;
   @IsOptional() @IsString() jurisdiction?: string;
   @IsOptional() @IsString() industry?: string;
-  @IsOptional() @IsIn(['DRAFT', 'REVIEWED', 'APPROVED']) approvalStatus?: 'DRAFT' | 'REVIEWED' | 'APPROVED';
 
   @IsString()
   @MinLength(1)
   content!: string;
+}
+
+// Multipart fields sent with a PDF upload; content comes from the file, and title/sourceType have file-based defaults.
+export class RagUploadMetadataDto {
+  @IsOptional() @IsIn(RAG_SCOPES) scope?: RagScope;
+  @IsOptional() @IsString() countryNodeId?: string;
+  @IsOptional() @IsDateString() effectiveFrom?: string;
+  @IsOptional() @IsString() @MinLength(1) projectId?: string;
+  @IsOptional() @IsString() title?: string;
+  @IsOptional() @IsString() sourceType?: string;
+  @IsOptional() @IsString() documentCategory?: string;
+  @IsOptional() @IsString() contractType?: string;
+  @IsOptional() @IsString() authority?: string;
+  @IsOptional() @IsString() jurisdiction?: string;
+  @IsOptional() @IsString() industry?: string;
 }
 
 export class RagSearchDto {
@@ -125,7 +155,35 @@ export class RagSearchDto {
   @IsOptional() @IsString() authority?: string;
   @IsOptional() @IsString() jurisdiction?: string;
   @IsOptional() @IsString() industry?: string;
-  @IsOptional() @IsIn(['DRAFT', 'REVIEWED', 'APPROVED']) approvalStatus?: 'DRAFT' | 'REVIEWED' | 'APPROVED';
+}
+
+export class CitationAuditQueryDto {
+  @IsOptional() @IsString() documentId?: string;
+  @IsOptional() @IsIn(RAG_SCOPES) scope?: string;
+  @IsOptional() @IsString() countryNodeId?: string;
+  @IsOptional() @IsIn(GROUNDING_STATUSES) groundingStatus?: string;
+  @IsOptional() @IsIn(['true', 'false']) quoteVerified?: 'true' | 'false';
+  @IsOptional() @IsIn(CITATION_REVIEW_STATUSES) reviewStatus?: string;
+  @IsOptional() @IsDateString() from?: string;
+  @IsOptional() @IsDateString() to?: string;
+  @IsOptional() @IsString() search?: string;
+  @IsOptional() @IsString() page?: string;
+  @IsOptional() @IsString() pageSize?: string;
+}
+
+export class CitationReviewDto {
+  @IsIn(CITATION_REVIEW_STATUSES) status!: CitationReviewStatus;
+  @IsOptional() @IsString() comment?: string;
+}
+
+export class RagSupersedeDto {
+  // Replacement document id, or null to restore the document as current.
+  @ValidateIf((_object, value) => value !== null) @IsString() supersededById!: string | null;
+}
+
+export class RagReviewDto {
+  @IsIn(RAG_REVIEW_DECISIONS) decision!: RagReviewDecision;
+  @IsOptional() @IsString() comment?: string;
 }
 
 export class ContractRetrievalDto {

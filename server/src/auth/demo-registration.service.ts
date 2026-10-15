@@ -1,0 +1,74 @@
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { UserRole as PrismaUserRole } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { Transform } from 'class-transformer';
+import { IsEmail, IsIn, IsString, MaxLength, MinLength, NotContains } from 'class-validator';
+import { PrismaService } from '../prisma.service';
+import { AuditService } from '../audit/audit.service';
+import { RoleAvailabilityService } from '../roles/role-availability.service';
+
+/**
+ * Roles a member of the public may give themselves when signing up. Staff roles
+ * (Finance Officer, Pool Manager, reviewers, admins) are assigned by an administrator.
+ */
+export const SELF_REGISTRATION_ROLES = ['Retail Investor', 'Institutional Investor', 'Project Sponsor', 'Asset Owner'] as const;
+
+const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
+
+export class DemoRegisterDto {
+  // Trimmed before validation, so a name of only spaces fails MinLength instead of being saved empty.
+  @Transform(trim) @IsString() @MinLength(2) @MaxLength(200) name!: string;
+  @Transform(trim) @IsEmail() @MaxLength(200) email!: string;
+  // Browser autofill can put the sign-in email into this field; an organisation is a name, not an address.
+  @Transform(trim) @IsString() @MinLength(2) @MaxLength(200)
+  @NotContains('@', { message: 'Organisation must be a company or institution name, not an email address.' })
+  organisation!: string;
+  @IsString() @MaxLength(20) countryNodeId!: string;
+  @IsIn(SELF_REGISTRATION_ROLES) role!: (typeof SELF_REGISTRATION_ROLES)[number];
+}
+
+/**
+ * Sign-up for local/demo use (AUTH_MODE=mock). Real deployments register users in
+ * Keycloak, so this is refused in any other mode. No password is stored: mock mode
+ * has no passwords, and the frontend keeps the demo session in the browser.
+ */
+@Injectable()
+export class DemoRegistrationService {
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly roleAvailability: RoleAvailabilityService) {}
+
+  async register(input: DemoRegisterDto) {
+    if (process.env.AUTH_MODE !== 'mock') {
+      throw new ForbiddenException('Self-registration here is only available in demo mode. Use the identity provider sign-up.');
+    }
+    if (!(await this.roleAvailability.isEnabled(input.role))) {
+      throw new ForbiddenException(`Sign-up as "${input.role}" is not open at the moment. Choose another role.`);
+    }
+    const email = input.email.trim().toLowerCase();
+    const country = await this.prisma.countryNode.findUnique({ where: { code: input.countryNodeId } });
+    if (!country) throw new NotFoundException('Unknown country node.');
+    if (await this.prisma.user.findUnique({ where: { email } })) {
+      throw new ConflictException('An account with this email address already exists. Sign in instead.');
+    }
+
+    const suffix = randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase();
+    const userId = `USR-REG-${suffix}`;
+    const organisationId = `ORG-REG-${suffix}`;
+    const role = input.role.replace(/ /g, '_') as PrismaUserRole;
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // Each sign-up gets its own organisation, so new users never join an existing tenant.
+        await tx.organisation.create({ data: { id: organisationId, name: input.organisation.trim(), countryNodeId: country.code } });
+        await tx.user.create({ data: { id: userId, idpProvider: 'mock', idpSubjectId: userId, email, name: input.name.trim(), isActive: true } });
+        await tx.userRoleAssignment.create({ data: { userId, role, organisationId, countryNodeId: country.code, assignedBy: 'SELF_REGISTRATION' } });
+      });
+    } catch (error) {
+      // Two sign-ups with the same email at the same moment: the unique index decides, report it as a conflict.
+      if ((error as { code?: string }).code === 'P2002') throw new ConflictException('An account with this email address already exists. Sign in instead.');
+      throw error;
+    }
+    await this.audit.record({ userId, userEmail: email, action: 'auth.self_register', resourceType: 'User', resourceId: userId, organisationId, countryNodeId: country.code, metadata: { role: input.role, mode: 'demo' } });
+
+    return { userId, organisationId, organisationName: input.organisation.trim(), countryNodeId: country.code, role: input.role, email, name: input.name.trim() };
+  }
+}

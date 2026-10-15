@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { marketplaceMonetisationService } from '../../revenue/marketplaceMonetisationService';
 import { PromotionCampaign } from '../../revenue/marketplaceMonetisationTypes';
+import { formatDateTime } from '../../utils/platformTime';
 
 export const PromotionHistoryTable: React.FC = () => {
   const [campaigns, setCampaigns] = useState<PromotionCampaign[]>(
@@ -128,7 +129,7 @@ export const PromotionHistoryTable: React.FC = () => {
                   <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="p-4 font-mono font-bold text-slate-900 dark:text-white">
                       {c.id}
-                      <span className="block text-[10px] text-slate-400 font-normal">{c.createdAt}</span>
+                      <span className="block text-[10px] text-slate-400 font-normal">{formatDateTime(c.createdAt)}</span>
                     </td>
 
                     <td className="p-4 max-w-xs">

@@ -18,6 +18,8 @@ import {
 import { LanguageCode } from '../types';
 import { TRANSLATIONS } from '../data/translations';
 import { ZakatCalculatorCard } from './financials/ZakatCalculatorCard';
+import { StatementsPanel } from './financials/StatementsPanel';
+import { TaxStatementPanel } from './financials/TaxStatementPanel';
 
 interface FinancialTransaction {
   id: string;
@@ -33,14 +35,6 @@ export const FinancialsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'transactions' | 'statements' | 'profit' | 'zakat' | 'settlement'>('transactions');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Zakat Calculator state
-  const [investedCapital, setInvestedCapital] = useState('1000000');
-  const [liquidCash, setLiquidCash] = useState('150000');
-  const [debtsOwed, setDebtsOwed] = useState('20000');
-
-  const totalWealth = (parseFloat(investedCapital) || 0) + (parseFloat(liquidCash) || 0) - (parseFloat(debtsOwed) || 0);
-  const nisabThreshold = 6120; // 85g gold equivalent in USD
-  const zakatDue = totalWealth >= nisabThreshold ? Math.round(totalWealth * 0.025) : 0;
 
   // Transactions list
   const [transactions] = useState<FinancialTransaction[]>([
@@ -107,7 +101,7 @@ export const FinancialsView: React.FC = () => {
 
         <div className="flex gap-3">
           <button
-            onClick={() => alert("Downloading Official Financial & Audit Statement (PDF)...")}
+            onClick={() => setActiveTab('statements')}
             className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl shadow-md text-white bg-emerald-600 hover:bg-emerald-700 transition-colors cursor-pointer"
           >
             <Download className="w-4 h-4" />
@@ -132,7 +126,7 @@ export const FinancialsView: React.FC = () => {
             activeTab === 'zakat' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
           }`}
         >
-          Zakat & Tax Report
+          Zakat
         </button>
         <button
           onClick={() => setActiveTab('profit')}
@@ -156,7 +150,7 @@ export const FinancialsView: React.FC = () => {
             activeTab === 'statements' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
           }`}
         >
-          Monthly Statements
+          Statements
         </button>
       </div>
 
@@ -253,24 +247,7 @@ export const FinancialsView: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'statements' && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-sm space-y-4">
-          <h3 className="text-lg font-black text-slate-900 dark:text-white">Monthly Financial Statements Archive</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            {['July 2026 Statement', 'June 2026 Statement', 'May 2026 Statement', 'Q2 2026 Audit Summary'].map(st => (
-              <div key={st} className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center hover:bg-slate-50 dark:hover:bg-slate-700/40">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-emerald-500" />
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{st}</span>
-                </div>
-                <button onClick={() => alert(`Downloading ${st}...`)} className="text-emerald-600 font-bold hover:underline cursor-pointer">
-                  Download
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {activeTab === 'statements' && <div className="space-y-6"><StatementsPanel /><TaxStatementPanel /></div>}
 
     </div>
   );

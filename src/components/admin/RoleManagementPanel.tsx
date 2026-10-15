@@ -8,7 +8,7 @@ import {
   KeyRound, 
   CheckCircle2
 } from 'lucide-react';
-import { UserRole, RoleDefinition, ResourceModule } from '../../rbac/types';
+import { UserRole, RoleDefinition, ResourceModule, ROLE_CATEGORIES } from '../../rbac/types';
 import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
 import { userService } from '../../users/userService';
 import { useRBAC } from '../../rbac/RBACContext';
@@ -32,7 +32,7 @@ export const RoleManagementPanel: React.FC<RoleManagementPanelProps> = ({
   const allRolesList = Object.values(ROLE_DEFINITIONS) as RoleDefinition[];
   const allUsers = userService.getAllUsers();
 
-  const categories = ['ALL', 'System Executive', 'Governance & Risk', 'Operational Management', 'Participant & User'];
+  const categories = ['ALL', ...ROLE_CATEGORIES];
 
   const filteredRoles = allRolesList.filter(role => {
     const matchesSearch = role.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -393,6 +393,8 @@ export const RoleManagementPanel: React.FC<RoleManagementPanelProps> = ({
                 <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Role Category</label>
                 <select className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white">
                   <option value="Operational Management">Operational Management</option>
+                  <option value="Delivery Partner (PDP)">Delivery Partner (PDP)</option>
+                  <option value="Asset Owner">Asset Owner</option>
                   <option value="Governance & Risk">Governance & Risk</option>
                   <option value="Participant & User">Participant & User</option>
                 </select>

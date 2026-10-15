@@ -38,6 +38,16 @@ export type UserRole =
   | 'AI Model Reviewer'
   | 'Guest';
 
+/**
+ * Display groups, in the order screens list them. Labels only: permissions come from each role.
+ * Delivery partners (PDP, mostly GLCs and companies such as land and plantation development
+ * agencies) and asset owners (holders of land, buildings, machinery and other real assets) are
+ * separate client groups, apart from platform staff. Investors, from individuals to investment
+ * companies and GLCs, are Participant & User.
+ */
+export const ROLE_CATEGORIES = ['System Executive', 'Operational Management', 'Delivery Partner (PDP)', 'Asset Owner', 'Governance & Risk', 'Participant & User'] as const;
+export type RoleCategory = typeof ROLE_CATEGORIES[number];
+
 export type PermissionAction = 'create' | 'read' | 'update' | 'delete' | 'approve' | 'audit' | 'export';
 
 export type ResourceModule = 
@@ -57,7 +67,7 @@ export type ResourceModule =
 export interface RoleDefinition {
   role: UserRole;
   title: string;
-  category: 'System Executive' | 'Operational Management' | 'Governance & Risk' | 'Participant & User';
+  category: RoleCategory;
   description: string;
   badgeColor: string; // Tailwind class string for badge
   accessibleTabs: NavTab[];

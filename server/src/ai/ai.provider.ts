@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { AiProviderRequest, AiProviderResponse } from './ai.types';
+import { AiChatRequest, AiChatResponse, AiProviderRequest, AiProviderResponse } from './ai.types';
 
 type JsonObject = Record<string, unknown>;
 
@@ -61,6 +61,60 @@ export interface AiProvider {
   readonly providerName: string;
   readonly modelName: string;
   generate(request: AiProviderRequest): Promise<AiProviderResponse>;
+  /** Grounded knowledge-base answer citing the supplied [S#] sources. */
+  chat(request: AiChatRequest): Promise<AiChatResponse>;
+}
+
+const CHAT_SYSTEM_PROMPT = [
+  'You are the House of Wealth knowledge assistant for Islamic finance on the D-8 platform.',
+  'Answer ONLY from the SOURCES supplied in the user message. Do not use outside knowledge.',
+  'Put the source label in square brackets after every factual sentence, e.g. [S1] or [S1][S3].',
+  'For every source you cite, add a citation with a short quote (at most 30 words) copied exactly, word for word, from that source text.',
+  'If the sources do not answer the question, say that the approved knowledge base does not cover it and do not guess.',
+  'Mention page numbers when useful. When sources conflict, prefer the most recent effective source and say so.',
+  'Never give a Shariah ruling, fatwa, legal, financial or investment advice, or an approval; recommend review by qualified people where relevant.',
+  'Reply in the language of the question. Keep the answer under 180 words, cite at most 4 sources, and keep each quote under 25 words.',
+  'Return JSON only: {"answer": string, "citations": [{"source": "S1", "quote": string}], "confidence": {"level": "LOW"|"MEDIUM"|"HIGH", "scorePercent": number}, "limitations": string[]}.',
+].join(' ');
+
+/**
+ * Recovers what it can from JSON cut off at the token limit: the (possibly
+ * unterminated) answer string and every complete citation object. Safe
+ * because citations are re-validated against the sources by the caller.
+ */
+function salvageTruncatedChat(content: string): AiChatResponse | null {
+  const answerMatch = content.match(/"answer"\s*:\s*"((?:[^"\\]|\\.)*)/);
+  if (!answerMatch) return null;
+  const unescape = (value: string) => { try { return JSON.parse(`"${value.replace(/\\$/, '')}"`) as string; } catch { return value; } };
+  const citations = [...content.matchAll(/\{\s*"source"\s*:\s*"([^"]+)"\s*(?:,\s*"quote"\s*:\s*"((?:[^"\\]|\\.)*)")?\s*\}/g)]
+    .map((match) => ({ source: match[1], quote: match[2] !== undefined ? unescape(match[2]) : undefined }));
+  return { answer: unescape(answerMatch[1]).trim(), citations, limitations: ['The model response was cut off at the output limit; only its complete parts are shown.'] };
+}
+
+export function parseChatResponse(content: string): AiChatResponse {
+  const cleaned = content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch (error) {
+    const salvaged = salvageTruncatedChat(cleaned);
+    if (salvaged?.answer) return salvaged;
+    throw error;
+  }
+  const value = asObject(parsed);
+  const citations = Array.isArray(value.citations)
+    ? value.citations.map((item) => {
+      const citation = asObject(item);
+      return { source: asString(citation.source) || asString(citation.label) || '', quote: asString(citation.quote) };
+    }).filter((citation) => citation.source)
+    : [];
+  const confidence = asObject(value.confidence);
+  return {
+    answer: asString(value.answer) || '',
+    citations,
+    confidence: { level: asString(confidence.level), scorePercent: typeof confidence.scorePercent === 'number' ? confidence.scorePercent : undefined },
+    limitations: asStringArray(value.limitations),
+  };
 }
 
 @Injectable()
@@ -112,6 +166,19 @@ export class SandboxAiProvider implements AiProvider {
       requiresHumanReview: true,
     };
   }
+
+  /** Deterministic: quotes the first sentence of the top retrieved source. */
+  async chat(request: AiChatRequest): Promise<AiChatResponse> {
+    const [top] = request.sources;
+    if (!top) return { answer: 'The approved knowledge base does not cover this question.', citations: [], confidence: { level: 'LOW', scorePercent: 0 }, limitations: ['Sandbox provider.'] };
+    const sentence = (top.text.replace(/\s+/g, ' ').match(/[^.!?]{20,300}[.!?]/) || [top.text.slice(0, 200)])[0].trim();
+    return {
+      answer: `According to ${top.title}${top.pages ? ` (p. ${top.pages})` : ''}: "${sentence}" [${top.label}]. Sandbox provider: connect a production model for a full answer.`,
+      citations: [{ source: top.label, quote: sentence }],
+      confidence: { level: 'LOW', scorePercent: 30 },
+      limitations: ['Sandbox provider quotes the top retrieved source only.'],
+    };
+  }
 }
 
 @Injectable()
@@ -142,5 +209,33 @@ export class OpenAiProvider implements AiProvider {
     if (!content) throw new Error('OpenAI returned an empty response');
     const parsed = JSON.parse(content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')) as JsonObject;
     return normaliseProviderResponse(parsed, request);
+  }
+
+  async chat(request: AiChatRequest): Promise<AiChatResponse> {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error('OPENAI_API_KEY is not configured');
+    const response = await fetch(process.env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      // Fail clearly before Node's 300 s header timeout; local CPU models can be slow.
+      signal: AbortSignal.timeout(Number(process.env.AI_CHAT_TIMEOUT_MS) || 240_000),
+      body: JSON.stringify({
+        model: this.modelName,
+        temperature: 0,
+        // Caps runaway JSON-mode generation (small local models can pad with whitespace until the limit).
+        max_tokens: Number(process.env.AI_CHAT_MAX_TOKENS) || 800,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: CHAT_SYSTEM_PROMPT },
+          ...request.history.map((turn) => ({ role: turn.role, content: turn.content })),
+          { role: 'user', content: JSON.stringify({ question: request.question, sources: request.sources }) },
+        ],
+      }),
+    });
+    if (!response.ok) throw new Error(`OpenAI request failed with status ${response.status}`);
+    const payload = await response.json() as { choices?: { message?: { content?: string } }[] };
+    const content = payload.choices?.[0]?.message?.content;
+    if (!content) throw new Error('OpenAI returned an empty response');
+    return parseChatResponse(content);
   }
 }

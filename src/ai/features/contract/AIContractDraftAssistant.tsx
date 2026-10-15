@@ -4,6 +4,7 @@ import { ContractDraftParams } from '../../types/aiCoreTypes';
 import { AIConfidenceBadge } from '../../components/AIConfidenceBadge';
 import { FileText, Sparkles, Copy, Download, RefreshCw, Send, AlertTriangle } from 'lucide-react';
 import { apiClient, BackendProject, ShariahReview } from '../../../services/apiClient';
+import { isProjectLocked } from '../../../services/projectLock';
 import { ProjectProgressVisual } from '../../../components/projects/ProjectProgressVisual';
 import { WorkflowStage } from '../../../components/sponsor/SponsorTypes';
 
@@ -182,13 +183,16 @@ export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> =
 
         {project && <ProjectProgressVisual stage={projectStage} />}
 
+        {project && isProjectLocked(project.status) && (
+          <p className="text-[11px] text-slate-500">Locked after approval: this project is {project.status.replaceAll('_', ' ')}, so its contract structure can no longer be redrafted. A Country Admin can reopen it before funds are committed.</p>
+        )}
         <button
           onClick={handleGenerateDraft}
-          disabled={loading || !project}
+          disabled={loading || !project || isProjectLocked(project.status)}
           className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 cursor-pointer"
         >
           <Sparkles className="w-4 h-4" />
-          {loading ? 'Drafting Agreement...' : 'Generate Draft Term Sheet'}
+          {project && isProjectLocked(project.status) ? 'Locked after approval' : loading ? 'Drafting Agreement...' : 'Generate Draft Term Sheet'}
         </button>
       </div>
 
@@ -225,6 +229,7 @@ export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> =
               </button>
               <button
                 onClick={() => handleGenerateDraft()}
+                disabled={!project || isProjectLocked(project.status)}
                 className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> Regenerate

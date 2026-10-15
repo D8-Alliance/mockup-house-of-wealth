@@ -1,3 +1,4 @@
+import { RoleCategory } from '../rbac/types';
 export interface PermissionModel {
   id: string;
   module: string;
@@ -8,7 +9,7 @@ export interface PermissionModel {
 export interface RoleModel {
   id: string;
   name: string;
-  category: 'System Executive' | 'Operational Management' | 'Governance & Risk' | 'Participant & User';
+  category: RoleCategory;
   description: string;
   permissions: PermissionModel[];
 }

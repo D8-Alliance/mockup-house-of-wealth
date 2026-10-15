@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
-import { UserRole, ResourceModule, PermissionAction, RoleDefinition } from '../../rbac/types';
+import { UserRole, ResourceModule, PermissionAction, RoleDefinition, ROLE_CATEGORIES } from '../../rbac/types';
 import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
 import { hasPermission } from '../../rbac/rbacEngine';
 import { useRBAC } from '../../rbac/RBACContext';
@@ -42,7 +42,7 @@ export const PermissionMatrixPanel: React.FC = () => {
 
   const allRolesList = Object.values(ROLE_DEFINITIONS) as RoleDefinition[];
 
-  const categories = ['ALL', 'System Executive', 'Governance & Risk', 'Operational Management', 'Participant & User'];
+  const categories = ['ALL', ...ROLE_CATEGORIES];
 
   const filteredRoles = allRolesList.filter(role => {
     const matchesSearch = role.role.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -372,7 +372,7 @@ export const MyAssetsView: React.FC<MyAssetsViewProps> = ({
               <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-700/60">
                 <span className="text-slate-400 block mb-0.5">Shariah Governance</span>
                 <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <ShieldCheck className="w-4 h-4" /> AAOIFI Certified
+                  <ShieldCheck className="w-4 h-4" /> Shariah review required
                 </span>
               </div>
             </div>
@@ -391,7 +391,7 @@ export const MyAssetsView: React.FC<MyAssetsViewProps> = ({
                 }}
                 className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white shadow-md shadow-emerald-600/20"
               >
-                Create Smart Contract
+                Create Contract
               </button>
             </div>
 

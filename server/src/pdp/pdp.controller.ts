@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
-import { SavePdpApplicationDto } from './pdp.dto';
+import { KybReviewDto, SavePdpApplicationDto } from './pdp.dto';
 import { PdpService } from './pdp.service';
 
 @Controller('pdp/applications')
@@ -35,7 +35,7 @@ export class PdpController {
   reviewKyb(
     @CurrentUser() actor: AuthenticatedUser,
     @Param('id') id: string,
-    @Body() input: { decision: 'APPROVED' | 'REJECTED'; justification: string },
+    @Body() input: KybReviewDto,
   ) {
     return this.pdpService.reviewKyb(actor, id, input.decision, input.justification);
   }

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { OidcGuard } from './auth/oidc.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { AuthModule } from './auth/auth.module';
@@ -13,16 +14,27 @@ import { FundingModule } from './funding/funding.module';
 import { UsersModule } from './users/users.module';
 import { HealthModule } from './health/health.module';
 import { ZakatModule } from './zakat/zakat.module';
+import { StatementsModule } from './statements/statements.module';
+import { TaxModule } from './tax/tax.module';
 import { MembershipModule } from './membership/membership.module';
 import { PdpModule } from './pdp/pdp.module';
 import { ContractsModule } from './contracts/contracts.module';
 import { ShariahModule } from './shariah/shariah.module';
 import { FeatureModuleModule } from './modules/feature-module.module';
+import { RoleAvailabilityModule } from './roles/role-availability.module';
 import { AiModule } from './ai/ai.module';
 import { ContractIntelligenceModule } from './contract-intelligence/contract-intelligence.module';
+import { KycModule } from './kyc/kyc.module';
+import { FinancialLedgerModule } from './financial/financial-ledger.module';
+import { DistributionModule } from './distribution/distribution.module';
+import { InvestmentsModule } from './investments/investments.module';
+import { NotificationModule } from './notifications/notification.module';
+import { JobsModule } from './jobs/jobs.module';
 
 @Module({
   imports: [
+    // Requests per client IP per minute (RATE_LIMIT_PER_MINUTE, default 120); stricter limits on public sign-up.
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: Number(process.env.RATE_LIMIT_PER_MINUTE || 120) }]),
     PrismaModule,
     AuthModule,
     PolicyModule,
@@ -34,15 +46,26 @@ import { ContractIntelligenceModule } from './contract-intelligence/contract-int
     UsersModule,
     HealthModule,
     ZakatModule,
+    StatementsModule,
+    TaxModule,
     MembershipModule,
     PdpModule,
     ContractsModule,
     ShariahModule,
     FeatureModuleModule,
+    RoleAvailabilityModule,
     AiModule,
     ContractIntelligenceModule,
+    KycModule,
+    FinancialLedgerModule,
+    DistributionModule,
+    InvestmentsModule,
+    NotificationModule,
+    JobsModule,
   ],
   providers: [
+    // First, so a flood is refused before any token check or database lookup.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: OidcGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

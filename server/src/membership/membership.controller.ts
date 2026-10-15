@@ -1,10 +1,12 @@
+import { SkipThrottle } from '@nestjs/throttler';
 import { Body, Controller, Get, Param, Post, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
-import { Roles } from '../auth/roles.decorator';
+import { Public, RequirePermission, Roles } from '../auth/roles.decorator';
 import { MembershipService } from './membership.service';
-import { ConsumeCreditsDto, TopUpCreditsDto, UpgradeMembershipDto } from './membership.dto';
+import { ConsumeCreditsDto, ReconcilePaymentsDto, TopUpCreditsDto, UpgradeMembershipDto } from './membership.dto';
+import { SettleRefundDto } from './refund.dto';
 
 @Controller('membership')
 export class MembershipController {
@@ -15,14 +17,24 @@ export class MembershipController {
     return this.membershipService.getPlans();
   }
 
+  @Get('payment-options')
+  paymentOptions() {
+    return this.membershipService.getPaymentOptions();
+  }
+
   @Get('me')
   current(@CurrentUser() actor: AuthenticatedUser) {
-    return this.membershipService.getCurrent(actor);
+    return this.membershipService.getMembershipStatus(actor);
   }
 
   @Get('me/billing')
   billing(@CurrentUser() actor: AuthenticatedUser) {
     return this.membershipService.billing(actor);
+  }
+
+  @Get('ai-capabilities')
+  capabilities() {
+    return this.membershipService.getCapabilityPricing();
   }
 
   @Get('me/credits')
@@ -58,14 +70,45 @@ export class MembershipController {
     return this.membershipService.topUpCredits(actor, input.packageId, input.paymentMethod);
   }
 
+  @Post('me/payments/:id/verify')
+  verifyPayment(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) {
+    return this.membershipService.verifyToyyibPayPayment(actor, id);
+  }
+
+  @Post('me/payments/:id/refund/settle')
+  @Roles('Super Admin', 'Settlement Officer')
+  @RequirePermission('ledger', 'update')
+  settleRefund(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: SettleRefundDto) {
+    return this.membershipService.settleVerifiedRefund(actor, id, input.amount, input.reason);
+  }
+
+  @Post('admin/payments/reconcile')
+  @Roles('Super Admin', 'Settlement Officer')
+  @RequirePermission('ledger', 'update')
+  reconcilePayments(@CurrentUser() actor: AuthenticatedUser, @Body() input: ReconcilePaymentsDto) {
+    return this.membershipService.reconcileOpenPayments(actor, input.limit);
+  }
+
+  @Post('me/payments/:id/cancel')
+  cancelPayment(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) {
+    return this.membershipService.cancelToyyibPayPayment(actor, id);
+  }
+
   @Get('admin/credits/analytics')
   @Roles('Super Admin', 'AI Administrator', 'Organization Admin', 'Country Admin')
-  adminCreditAnalytics() {
-    return this.membershipService.getAdminCreditAnalytics();
+  adminCreditAnalytics(@CurrentUser() actor: AuthenticatedUser) {
+    return this.membershipService.getAdminCreditAnalytics(actor);
   }
 
   @Post('me/upgrade')
   upgrade(@CurrentUser() actor: AuthenticatedUser, @Body() input: UpgradeMembershipDto) {
     return this.membershipService.upgrade(actor, input);
+  }
+
+  @SkipThrottle()
+  @Public()
+  @Post('payments/toyyibpay/callback')
+  toyyibPayCallback(@Body() input: Record<string, unknown>) {
+    return this.membershipService.handleToyyibPayCallback(input);
   }
 }

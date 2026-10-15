@@ -265,3 +265,7 @@ export const FUTURE_REVENUE_CONFIG: FutureRevenueItem[] = [
     targetJurisdictions: ['Labuan FSA', 'Bursa Malaysia', 'Borsa Istanbul']
   }
 ];
+
+// ToyyibPay charges its FPX fee to the payer (server sets billChargeToCustomer=0).
+// Keep in sync with TOYYIBPAY_FPX_FEE_MYR in server/src/membership/membership.service.ts.
+export const TOYYIBPAY_FPX_FEE_MYR = 1;

@@ -206,7 +206,7 @@ export function InfoPageLayout({ children, pageId, onNavigate, onSignIn }: InfoP
             <span>·</span>
             <span>Shariah Governance</span>
             <span>·</span>
-            <span>AAOIFI Certified</span>
+            <span>AAOIFI standards referenced</span>
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 text-[10px] text-slate-600">
@@ -487,7 +487,7 @@ export function ShariahGovernancePage() {
   const reassurance = [
     { step: '01', icon: <CheckCircle2 className="w-6 h-6" />, title: 'Instrument Screening', detail: 'Every structure is screened at origination by the issuer and validated against AAOIFI standards before listing.' },
     { step: '02', icon: <ShieldCheck className="w-6 h-6" />, title: 'Independent Supervisory Council', detail: 'Each country node maintains an independent Shariah Supervisory Council that reviews contracts, structures, and fatwa conformity.' },
-    { step: '03', icon: <ScrollText className="w-6 h-6" />, title: 'Automated Purification & Audit', detail: 'The platform auto-deducts Zakat and any impermissible income for purification, with every step logged on an immutable audit ledger.' }
+    { step: '03', icon: <ScrollText className="w-6 h-6" />, title: 'Automated Purification & Audit', detail: 'The platform auto-deducts Zakat and any impermissible income for purification, with every step logged on an append-only, hash-chained audit ledger.' }
   ];
 
   return (
@@ -596,7 +596,7 @@ export function ShariahGovernancePage() {
         <SectionHeading
           icon={<BookOpen className="w-4 h-4" />}
           title="Shariah-Compliant Structures"
-          subtitle="The building blocks powering every tokenized asset and wealth pool on the platform."
+          subtitle="The building blocks behind every registered asset and wealth pool on the platform."
         />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {structures.map((s) => (

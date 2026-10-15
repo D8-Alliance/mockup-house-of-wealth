@@ -13,8 +13,12 @@
       "protocol": "openid-connect",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "redirectUris": ["http://localhost:3000/*"],
-      "webOrigins": ["http://localhost:3000"],
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
       "protocolMappers": [
         {
           "name": "api-audience",
@@ -67,28 +71,6 @@
             "id.token.claim": "true",
             "userinfo.token.claim": "true"
           }
-        }
-      ]
-    }
-  ],
-  "users": [
-    {
-      "username": "demo-admin",
-      "enabled": true,
-      "email": "demo-admin@houseofwealth.local",
-      "emailVerified": true,
-      "firstName": "Demo",
-      "lastName": "Admin",
-      "attributes": {
-        "country_node_id": ["CN-MYS"],
-        "organisation_id": ["ORG-PUBLIC"],
-        "app_role": ["Super Admin"]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "ChangeMe-123!",
-          "temporary": true
         }
       ]
     }

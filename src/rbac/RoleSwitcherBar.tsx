@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useRBAC } from './RBACContext';
 import { ROLE_DEFINITIONS } from './roleDefinitions';
-import { UserRole } from './types';
+import { ROLE_CATEGORIES, UserRole } from './types';
 import { SINGLE_ROLE_MODE, SINGLE_TEST_ROLE } from './runtimeConfig';
+import { useRoleAvailability } from './roleAvailability';
 import { 
   ChevronDown, 
   Check, 
@@ -21,17 +22,14 @@ export const RoleSwitcherBar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const { filterEnabled } = useRoleAvailability();
 
+  // Roles a Super Admin has disabled are not offered (Admin Center > Role Availability).
   const rolesList = SINGLE_ROLE_MODE
     ? [SINGLE_TEST_ROLE]
-    : (authMode === 'DEMO' ? (Object.keys(ROLE_DEFINITIONS) as UserRole[]) : assignedRoles);
+    : filterEnabled(authMode === 'DEMO' ? (Object.keys(ROLE_DEFINITIONS) as UserRole[]) : assignedRoles);
 
-  const categories = [
-    'System Executive',
-    'Operational Management',
-    'Governance & Risk',
-    'Participant & User'
-  ] as const;
+  const categories = ROLE_CATEGORIES;
 
   const filteredRoles = rolesList.filter(r => 
     r.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -40,8 +38,8 @@ export const RoleSwitcherBar: React.FC = () => {
   );
 
   return (
-    <div className="bg-slate-950 text-white border-b border-slate-800 py-2.5 px-4 sm:px-6 lg:px-8 shadow-inner">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+    <div className="hidden lg:block relative z-50 w-full max-w-full bg-slate-950 text-white border-b border-slate-800 py-2.5 px-4 sm:px-6 lg:px-8 shadow-inner">
+      <div className="w-full max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
         
         {/* Left Info Pill */}
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -81,7 +79,7 @@ export const RoleSwitcherBar: React.FC = () => {
                   <div className="flex items-center justify-between">
                     <span className="font-extrabold text-white text-xs flex items-center gap-1.5">
                       <Layers className="w-4 h-4 text-emerald-400" />
-                      {authMode === 'DEMO' ? 'Select Demo Persona Persona' : 'Assigned Roles'}
+                      {authMode === 'DEMO' ? 'Select Demo Persona' : 'Assigned Roles'}
                     </span>
                     <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white">
                       <X className="w-4 h-4" />

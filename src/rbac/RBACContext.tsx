@@ -36,9 +36,23 @@ interface RBACContextType {
   currentCountryNode: string;
   currentOrgId: string;
   currentUserId: string;
+  /** Why the last sign-in was refused (by the identity provider or the API), shown on the public page. */
+  signInError: string | null;
+  clearSignInError: () => void;
+  /** Replace the cached backend user after a profile save, so the header shows the new picture at once. */
+  updateBackendUser: (user: BackendUser) => void;
 }
 
-const RBACContext = createContext<RBACContextType | undefined>(undefined);
+// Keep a single context instance across Vite HMR re-evaluations of this module
+// (e.g. when apiClient/authService change). Otherwise consumers pick up a fresh
+// context object while the mounted provider still serves the old one, and
+// useRBAC throws "must be used within an RBACProvider".
+const rbacContextGlobal = globalThis as typeof globalThis & {
+  __RBAC_CONTEXT__?: React.Context<RBACContextType | undefined>;
+};
+const RBACContext =
+  rbacContextGlobal.__RBAC_CONTEXT__ ??
+  (rbacContextGlobal.__RBAC_CONTEXT__ = createContext<RBACContextType | undefined>(undefined));
 
 interface RBACProviderProps {
   children: ReactNode;
@@ -58,6 +72,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
   const [authMode, setAuthModeState] = useState<AuthMode>(authService.getAuthState().mode);
   const [backendAccess, setBackendAccess] = useState<BackendAccess | null>(null);
   const [backendUser, setBackendUser] = useState<BackendUser | null>(null);
+  const [signInError, setSignInError] = useState<string | null>(null);
 
   const syncBackendIdentity = () => Promise.all([apiClient.getCurrentAccess(), apiClient.getCurrentUser()])
     .then(([access, user]) => {
@@ -81,7 +96,9 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
       setAuthState(state);
       if (state.session?.user.activeRole) setCurrentRoleState(state.session.user.activeRole);
       if (state.isAuthenticated) return syncBackendIdentity()
-        .catch(() => {
+        .catch((error: unknown) => {
+          // Keep the reason: without it the user just lands back on the home page.
+          setSignInError(error instanceof Error ? error.message : String(error));
           authService.logout();
           setAuthState(authService.getAuthState());
           setCurrentRoleState('Guest');
@@ -90,6 +107,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
         });
     }).catch((error: unknown) => {
       console.error('OIDC initialization failed:', error);
+      setSignInError(error instanceof Error ? error.message : String(error));
       authService.logout();
       setAuthState(authService.getAuthState());
       setCurrentRoleState('Guest');
@@ -187,7 +205,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
     name: isAuthenticated ? (backendUser?.name || sessionUser?.name || roleDef.demoUser.name) : 'Guest Visitor',
     email: isAuthenticated ? (backendUser?.email || sessionUser?.email || roleDef.demoUser.email) : 'visitor@public-d8.org',
     organization: isAuthenticated ? (sessionUser?.organisationName || roleDef.demoUser.organization) : 'Public Visitor',
-    avatarUrl: isAuthenticated ? (sessionUser?.avatarUrl || roleDef.demoUser.avatarUrl) : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
+    avatarUrl: isAuthenticated ? ((typeof backendUser?.profile?.avatarUrl === 'string' && backendUser.profile.avatarUrl) || sessionUser?.avatarUrl || roleDef.demoUser.avatarUrl) : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'
   };
 
   const tenantContext = {
@@ -212,6 +230,9 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
         isAuthenticated,
         guestBrowsing,
         loginUser,
+        updateBackendUser: setBackendUser,
+        signInError,
+        clearSignInError: () => setSignInError(null),
         logoutUser,
         enterGuestMode,
         exitGuestMode,

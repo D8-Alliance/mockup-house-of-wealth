@@ -59,7 +59,7 @@ export const SponsorKPICards: React.FC<SponsorKPICardsProps> = ({ projects }) =>
           9.55% p.a.
         </div>
         <div className="flex items-center gap-2 mt-2 text-xs text-slate-500">
-          <span className="text-indigo-600 dark:text-indigo-400 font-semibold">AAOIFI Compliant</span>
+          <span className="text-indigo-600 dark:text-indigo-400 font-semibold">Shariah reviewed</span>
           <span>(Ijarah & Mudarabah)</span>
         </div>
       </div>

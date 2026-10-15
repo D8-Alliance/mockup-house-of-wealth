@@ -7,7 +7,7 @@ export const COMPLIANCE_ROLES: Record<string, RoleDefinition> = {
     category: 'Governance & Risk',
     description: 'Monitors anti-money laundering (AML), sanctions list checking, KYC verification levels, and regulatory reporting.',
     badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30',
-    accessibleTabs: ['dashboard', 'ai-engine', 'admin-center', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'wallet', 'financials', 'beneficiaries', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'admin-center', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'wallet', 'financials', 'documents', 'ledger', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['read', 'audit'],
@@ -68,10 +68,11 @@ export const COMPLIANCE_ROLES: Record<string, RoleDefinition> = {
     approvalRights: ['Individual Identity Level 1/2/3 Approval', 'Document Resubmission Request'],
     reportsAvailable: ['KYC Queue Processing Time Metrics', 'Document Fraud Flag Rate'],
     notifications: ['18 Individual identity documents waiting in queue', 'Biometric match passed for user #USR-4401'],
+    // Matches the 'KYC Officer' persona in src/auth/services/demoPersonas.ts (USR-KYC-013).
     demoUser: {
-      name: 'NURUL HIDAYAH',
-      email: 'nurul.kyc@compliance.how.org',
-      organization: 'Identity Verification Operations',
+      name: 'Aisyah binti Kamal',
+      email: 'aisyah.kamal@sc.my',
+      organization: 'D-8 Secretariat',
       avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=200&q=80'
     }
   },

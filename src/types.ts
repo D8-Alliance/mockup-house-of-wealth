@@ -45,17 +45,12 @@ export interface UserProfile {
   timezone?: string;
 }
 
-export interface PaymentAccount {
-  id: string;
-  type: 'Bank Account' | 'E-Wallet';
-  accountName: string;
-  institutionName: string;
-  accountNumber: string;
-  swiftBic?: string;
-  currency: string;
-  isDefault: boolean;
-  status: 'Verified' | 'Pending Verification';
-  isShariahApproved: boolean;
+export interface HibahAkad {
+  /** When the donor made the offer (ijab), confirming it is voluntary and that they are of age and sound mind. */
+  ijabDeclaredAt: string;
+  /** The recipient's acceptance (qabul). Until 'Accepted', the hibah has no effect. */
+  qabulStatus: 'Awaiting acceptance' | 'Accepted' | 'Declined';
+  qabulAt?: string;
 }
 
 export interface BeneficiaryItem {
@@ -63,7 +58,18 @@ export interface BeneficiaryItem {
   name: string;
   relation: 'Spouse' | 'Child' | 'Parent' | 'Sibling' | 'Waqf Foundation' | 'Zakat Institution' | 'Other';
   allocationPercent: number;
-  distributionType: 'Profit Share' | 'Estate / Wasiyyah' | 'Zakat & Sadaqah' | 'All Proceeds';
+  /**
+   * What the beneficiary receives, and how:
+   * - Profit Share: lifetime routing of profit payouts (not an estate instruction).
+   * - Hibah Amanah: a gift made during life by akad (ijab and qabul).
+   * - Wasiyyah: a Muslim's bequest, at most one-third of the estate, and not to a faraid heir.
+   * - Faraid Heir: listed for the record; the share is fixed by faraid (Syariah court certificate), not by the user.
+   * - Will Beneficiary: a non-Muslim's will (Wills Act 1959); shares are set freely.
+   * - Zakat & Sadaqah: charitable giving.
+   */
+  distributionType: 'Profit Share' | 'Hibah Amanah' | 'Wasiyyah' | 'Faraid Heir' | 'Will Beneficiary' | 'Zakat & Sadaqah';
+  /** Hibah Amanah only: the akad. The donor's offer (ijab) is recorded here; the gift takes effect only after the recipient accepts (qabul). */
+  hibahAkad?: HibahAkad;
   email?: string;
   phone?: string;
   identityNumber?: string;

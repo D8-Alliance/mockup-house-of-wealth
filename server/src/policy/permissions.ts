@@ -177,7 +177,8 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
     assets: ['create', 'read'],
     marketplace: ['read'],
     pooling: ['read'],
-    approvals: ['create'],
+    // read: their own projects' funding requests (FundingService limits a sponsor to projects they sponsor).
+    approvals: ['create', 'read'],
     governance: ['create', 'read'],
     profile: ['read', 'update'],
   },
