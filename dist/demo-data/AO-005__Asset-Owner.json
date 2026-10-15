@@ -107,6 +107,11 @@
   "contentType": "application/json; charset=utf-8",
   "body": "{\"userId\":\"USR-AO-005\",\"role\":\"Asset Owner\",\"assignedRoles\":[\"Asset Owner\"],\"countryNodeId\":\"CN-MYS\",\"organisationId\":\"ORG-AO-MYS-01\"}"
  },
+ "GET /users/me/payout-accounts": {
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": "[]"
+ },
  "GET /zakat/authorities": {
   "status": 200,
   "contentType": "application/json; charset=utf-8",
