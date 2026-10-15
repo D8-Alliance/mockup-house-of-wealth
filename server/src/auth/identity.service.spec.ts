@@ -160,3 +160,31 @@ describe('assertAuthConfig', () => {
     expect(allowedJwtAlgorithms({ NODE_ENV: 'production' } as NodeJS.ProcessEnv)).toEqual(['RS256']);
   });
 });
+
+describe('IdentityService name and email from the identity provider', () => {
+  const prisma = { user: { update: jest.fn() } };
+  const service = new IdentityService(prisma as unknown as PrismaService, roleAvailabilityStub as unknown as RoleAvailabilityService);
+  const identity = { userId: 'USR-SYS-002', idpSubjectId: 'kc-sub', email: 'admin.demo@wealthpooling.my', name: 'Dr. Farid Hakim', role: 'Super Admin' as const, countryNodeId: 'CN-MYS', organisationId: 'ORG-PUBLIC', assignedRoles: ['Super Admin' as const] };
+  const sync = (payload: Record<string, unknown>) => (service as unknown as { syncNameAndEmail: (i: typeof identity, p: Record<string, unknown>) => Promise<typeof identity> }).syncNameAndEmail(identity, payload);
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('copies a changed name and email from the token into the database', async () => {
+    const result = await sync({ sub: 'kc-sub', email: 'IT.Manager@Example.com', name: 'Anuar bin Jamin' });
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'USR-SYS-002' }, data: { email: 'it.manager@example.com', name: 'Anuar bin Jamin' } });
+    expect(result).toMatchObject({ email: 'it.manager@example.com', name: 'Anuar bin Jamin' });
+  });
+
+  it('writes nothing when they already match', async () => {
+    await sync({ sub: 'kc-sub', email: identity.email, name: identity.name });
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('keeps the email when another account already uses it, but still updates the name', async () => {
+    const { Prisma } = jest.requireActual('@prisma/client');
+    prisma.user.update.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: 'test' }));
+    const result = await sync({ sub: 'kc-sub', email: 'taken@example.com', name: 'Anuar bin Jamin' });
+    expect(prisma.user.update).toHaveBeenLastCalledWith({ where: { id: 'USR-SYS-002' }, data: { name: 'Anuar bin Jamin' } });
+    expect(result).toMatchObject({ email: identity.email, name: 'Anuar bin Jamin' });
+  });
+});

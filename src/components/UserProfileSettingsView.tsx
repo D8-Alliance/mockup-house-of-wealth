@@ -23,6 +23,7 @@ import { revenueService } from '../revenue/revenueService';
 import { HoWCreditBalance } from '../revenue/revenueTypes';
 import { apiClient, apiErrorMessage, KycApplication, ProfilePreferences } from '../services/apiClient';
 import { SecuritySettingsPanel } from '../profile/SecuritySettingsPanel';
+import { accountConsoleUrl } from '../auth/services/oidcAuthProvider';
 import { FinancialPreferencesPanel } from '../profile/FinancialPreferencesPanel';
 import { NotificationPreferencesPanel } from '../profile/NotificationPreferencesPanel';
 
@@ -59,6 +60,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
 }) => {
   const { updateBackendUser, canAccessTab, currentRole, authMode } = useRBAC();
   const needsKyc = roleNeedsKyc(currentRole);
+  const signInAccountUrl = authMode === 'PRODUCTION' ? accountConsoleUrl('personal-info') : null;
   const handleUserUpdate = (u: UserProfile) => {
     if (onUpdateUser) onUpdateUser(u);
     if (setUser) setUser(u);
@@ -109,6 +111,14 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
     apiClient.getCurrentUser()
       .then((backendUser) => {
         setPreferences(readPreferences(backendUser.profile));
+        const profile = backendUser.profile ?? {};
+        setFormData((current) => ({
+          ...current,
+          name: backendUser.name,
+          email: backendUser.email,
+          ...(typeof profile.timezone === 'string' ? { timezone: profile.timezone } : {}),
+          bio: typeof profile.bio === 'string' ? profile.bio : '',
+        }));
         const saved = typeof backendUser.profile?.phone === 'string' ? backendUser.profile.phone : '';
         const savedAvatar = typeof backendUser.profile?.avatarUrl === 'string' ? backendUser.profile.avatarUrl : '';
         setFormData((current) => ({ ...current, phone: saved ? displayPhone(saved, userCountryNodeId) : `${phoneFormat.dialCode} `, ...(savedAvatar ? { avatarUrl: savedAvatar } : {}) }));
@@ -192,7 +202,7 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
     const typedPhone = (formData.phone || '').trim();
     const phone = typedPhone === phoneFormat.dialCode ? '' : typedPhone;
     try {
-      const saved = await apiClient.updateMyProfile({ phone });
+      const saved = await apiClient.updateMyProfile({ phone, timezone: formData.timezone || 'Asia/Kuala_Lumpur', bio: formData.bio ?? '' });
       const savedPhone = typeof saved.profile?.phone === 'string' ? displayPhone(saved.profile.phone, userCountryNodeId) : `${phoneFormat.dialCode} `;
       setFormData((current) => ({ ...current, phone: savedPhone }));
       handleUserUpdate({
@@ -389,8 +399,9 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
                 <input 
                   type="text"
                   value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  readOnly
+                  aria-label="Full legal name"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-700 dark:text-slate-300 cursor-not-allowed"
                 />
                 <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               </div>
@@ -404,8 +415,9 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
                 <input 
                   type="email"
                   value={formData.email}
-                  onChange={e => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full pl-10 pr-24 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  readOnly
+                  aria-label="Official email address"
+                  className="w-full pl-10 pr-24 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-700 dark:text-slate-300 cursor-not-allowed"
                 />
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <span className="absolute right-3 top-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/20">
@@ -439,9 +451,10 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
               <div className="relative">
                 <input 
                   type="text"
-                  value={formData.organization || 'Malaysia Central Islamic Fund'}
-                  onChange={e => setFormData({ ...formData, organization: e.target.value })}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  value={formData.organization || ''}
+                  readOnly
+                  aria-label="Organisation"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-700 dark:text-slate-300 cursor-not-allowed"
                 />
                 <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
               </div>
@@ -451,20 +464,16 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
               <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
                 Primary D-8 Member Country
               </label>
-              <select
-                value={formData.country}
-                onChange={e => setFormData({ ...formData, country: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-              >
-                <option value="Malaysia">Malaysia (🇲🇾)</option>
-                <option value="Malaysia">Malaysia (🇲🇾)</option>
-                <option value="Turkey">Turkey (🇹🇷)</option>
-                <option value="Indonesia">Indonesia (🇮🇩)</option>
-                <option value="Bangladesh">Bangladesh (🇧🇩)</option>
-                <option value="Egypt">Egypt (🇪🇬)</option>
-                <option value="Nigeria">Nigeria (🇳🇬)</option>
-                <option value="Iran">Iran (🇮🇷)</option>
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  aria-label="Primary D-8 member country"
+                  value={formData.countryCode ? `${formData.country} (${formData.countryCode})` : formData.country}
+                  readOnly
+                  className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-700 dark:text-slate-300 cursor-not-allowed"
+                />
+                <MapPin className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              </div>
             </div>
 
             <div>
@@ -486,13 +495,19 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
             </div>
           </div>
 
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-2">
+            Your name and email come from your sign-in account{signInAccountUrl ? <>: change them on the <a href={signInAccountUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-emerald-600 dark:text-emerald-400 hover:underline">secure sign-in service</a> and they update here at your next sign-in</> : null}. Your organisation and country are set by your administrator.
+          </p>
+
           <div>
             <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
               Professional & Shariah Mandate Bio
             </label>
             <textarea
               rows={3}
-              value={formData.bio || 'Managing Country Node investments and asset allocation across real estate, agriculture, and Waqf pooling initiatives within the D-8 Islamic Circular Economy.'}
+              value={formData.bio || ''}
+              maxLength={1000}
+              placeholder="A short description of your role, shown to colleagues on the platform."
               onChange={e => setFormData({ ...formData, bio: e.target.value })}
               className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />

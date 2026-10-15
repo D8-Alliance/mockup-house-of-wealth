@@ -12,8 +12,10 @@ const refreshKey = 'how-oidc-refresh';
  * The identity provider's own account pages (Keycloak account console), where users change their
  * password, set up the one-time code app and sign out other devices. Null when no provider is set.
  */
-export function accountConsoleUrl(page: 'signing-in' | 'device-activity'): string | null {
-  return issuer ? `${issuer.replace(/\/$/, '')}/account/account-security/${page}` : null;
+export function accountConsoleUrl(page: 'personal-info' | 'signing-in' | 'device-activity'): string | null {
+  if (!issuer) return null;
+  const base = `${issuer.replace(/\/$/, '')}/account`;
+  return page === 'personal-info' ? `${base}/` : `${base}/account-security/${page}`;
 }
 
 function encode(value: Uint8Array): string {

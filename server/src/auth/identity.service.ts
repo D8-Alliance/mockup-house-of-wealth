@@ -1,7 +1,7 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { createPublicKey, createHmac, createVerify, KeyObject, timingSafeEqual, createHash } from 'node:crypto';
 import { PRIVILEGED_ROLES, UserRole } from '../policy/permissions';
-import { UserRole as PrismaUserRole } from '@prisma/client';
+import { Prisma, UserRole as PrismaUserRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { RoleAvailabilityService } from '../roles/role-availability.service';
 
@@ -99,7 +99,32 @@ export class IdentityService {
       throw new UnauthorizedException('MFA is required for this role');
     }
     await this.ensureSession(token, payload, identity);
-    return identity;
+    return this.syncNameAndEmail(identity, payload);
+  }
+
+  /**
+   * The identity provider owns the name and email: a user changes them there, and the next
+   * sign-in copies them here. An email already used by another account is left unchanged.
+   */
+  private async syncNameAndEmail(identity: AuthenticatedUser, payload: JwtPayload): Promise<AuthenticatedUser> {
+    const email = typeof payload.email === 'string' ? payload.email.trim().toLowerCase() : '';
+    const name = typeof payload.name === 'string' ? payload.name.trim() : '';
+    const changes: { email?: string; name?: string } = {};
+    if (email && email !== identity.email.toLowerCase()) changes.email = email;
+    if (name && name !== identity.name) changes.name = name;
+    if (!changes.email && !changes.name) return identity;
+    try {
+      await this.prisma.user.update({ where: { id: identity.userId }, data: changes });
+      return { ...identity, ...changes };
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') || !changes.name) {
+        this.logger.warn(`Could not update ${identity.userId} from the identity provider: ${error instanceof Error ? error.message : error}`);
+        return identity;
+      }
+      this.logger.warn(`The new email of ${identity.userId} belongs to another account; only the name is updated.`);
+      await this.prisma.user.update({ where: { id: identity.userId }, data: { name: changes.name } });
+      return { ...identity, name: changes.name };
+    }
   }
 
   private async resolveDatabaseIdentity(subject: string, claims: Omit<AuthenticatedUser, 'userId' | 'idpSubjectId' | 'assignedRoles' | 'role'>, preferredRole?: UserRole): Promise<AuthenticatedUser> {

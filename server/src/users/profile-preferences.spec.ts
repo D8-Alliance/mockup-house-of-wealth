@@ -25,3 +25,17 @@ describe('profile preferences', () => {
     expect(errors({ preferences: { notifications: { email: 'yes' } } })).not.toHaveLength(0);
   });
 });
+
+describe('profile timezone and bio', () => {
+  const errors = (body: object) => validateSync(plainToInstance(UpdateMyProfileDto, body), { whitelist: true });
+
+  it('accepts an IANA time zone and a short bio', () => {
+    expect(errors({ timezone: 'Asia/Kuala_Lumpur', bio: 'Head of IT, Al-Hidayah Group.' })).toHaveLength(0);
+    expect(errors({ timezone: 'America/Argentina/Buenos_Aires' })).toHaveLength(0);
+  });
+
+  it('refuses anything that is not a time zone, and an overlong bio', () => {
+    expect(errors({ timezone: 'GMT+8; DROP TABLE' })).not.toHaveLength(0);
+    expect(errors({ bio: 'x'.repeat(1001) })).not.toHaveLength(0);
+  });
+});

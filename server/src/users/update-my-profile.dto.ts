@@ -38,6 +38,13 @@ export class UpdateMyProfileDto {
   @Matches(AVATAR_URL_PATTERN, { message: 'The picture must be an https link or a PNG, JPEG or WEBP image.' })
   avatarUrl?: string;
 
+  // An IANA time zone such as Asia/Kuala_Lumpur.
+  @IsOptional() @IsString() @MaxLength(60) @Matches(/^[A-Za-z]+(\/[A-Za-z_-]+)+$/, { message: 'Choose a time zone from the list.' })
+  timezone?: string;
+
+  @IsOptional() @IsString() @MaxLength(1000, { message: 'Keep the bio under 1,000 characters.' })
+  bio?: string;
+
   @IsOptional() @ValidateNested() @Type(() => ProfilePreferencesDto)
   preferences?: ProfilePreferencesDto;
 }

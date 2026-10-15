@@ -48,15 +48,17 @@ export class UsersService {
   }
 
   /** Self-service profile fields. The phone is stored in E.164 using the user's country code. */
-  async updateMyProfile(actor: AuthenticatedUser, input: { phone?: string; pushToken?: string; avatarUrl?: string; preferences?: ProfilePreferences }) {
+  async updateMyProfile(actor: AuthenticatedUser, input: { phone?: string; pushToken?: string; avatarUrl?: string; timezone?: string; bio?: string; preferences?: ProfilePreferences }) {
     const user = await this.prisma.user.findUnique({ where: { id: actor.userId }, select: { profile: true } });
     if (!user) throw new NotFoundException('User not found');
     const current = user.profile && typeof user.profile === 'object' && !Array.isArray(user.profile) ? user.profile as Record<string, unknown> : {};
     const phone = input.phone === undefined ? current.phone : input.phone.trim() ? normalizePhone(input.phone, actor.countryNodeId) : undefined;
     const pushToken = input.pushToken === undefined ? current.pushToken : input.pushToken.trim() || undefined;
     const avatarUrl = input.avatarUrl === undefined ? current.avatarUrl : input.avatarUrl.trim() || undefined;
+    const timezone = input.timezone === undefined ? current.timezone : input.timezone || undefined;
+    const bio = input.bio === undefined ? current.bio : input.bio.trim() || undefined;
     const preferences = input.preferences === undefined ? current.preferences : mergePreferences(current.preferences, input.preferences);
-    await this.prisma.user.update({ where: { id: actor.userId }, data: { profile: { ...current, phone, pushToken, avatarUrl, preferences } as Prisma.InputJsonObject } });
+    await this.prisma.user.update({ where: { id: actor.userId }, data: { profile: { ...current, phone, pushToken, avatarUrl, timezone, bio, preferences } as Prisma.InputJsonObject } });
     await this.audit.recordActor(actor, { action: 'user.profile.update', resourceType: 'User', resourceId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { fields: Object.keys(input) } });
     return this.getCurrentUser(actor);
   }
