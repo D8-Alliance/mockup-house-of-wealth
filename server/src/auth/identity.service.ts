@@ -186,15 +186,18 @@ export class IdentityService {
       throw new UnauthorizedException('Session is revoked or expired');
     }
     if (!existing) {
-      await this.prisma.session.create({
-        data: {
+      // Right after sign-in the app sends several requests with the same new token at once;
+      // each may find no session yet, so a duplicate insert is skipped rather than failing.
+      await this.prisma.session.createMany({
+        data: [{
           userId: identity.userId,
           tokenHash,
           activeRole: this.toPrismaRole(identity.role),
           countryNodeId: identity.countryNodeId,
           organisationId: identity.organisationId,
           expiresAt,
-        },
+        }],
+        skipDuplicates: true,
       });
     }
   }
