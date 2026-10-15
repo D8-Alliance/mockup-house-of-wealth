@@ -11,6 +11,7 @@ jest.mock('../prisma.service', () => ({
 
 const prismaMock = {
   user: { findFirst: jest.fn() },
+  userRoleAssignment: { findMany: jest.fn().mockResolvedValue([]) },
 };
 
 const roleAvailabilityStub = { disabledRoles: jest.fn(async () => new Set<string>()), isEnabled: jest.fn(async () => true) };
@@ -186,5 +187,38 @@ describe('IdentityService name and email from the identity provider', () => {
     const result = await sync({ sub: 'kc-sub', email: 'taken@example.com', name: 'Anuar bin Jamin' });
     expect(prisma.user.update).toHaveBeenLastCalledWith({ where: { id: 'USR-SYS-002' }, data: { name: 'Anuar bin Jamin' } });
     expect(result).toMatchObject({ email: identity.email, name: 'Anuar bin Jamin' });
+  });
+});
+
+describe('IdentityService organisation and country for a sign-in', () => {
+  const prisma = { userRoleAssignment: { findMany: jest.fn() } };
+  const service = new IdentityService(prisma as unknown as PrismaService, roleAvailabilityStub as unknown as RoleAvailabilityService);
+  const tenantFor = (country?: string, org?: string) => (service as unknown as { tenantFor: (s: string, c?: string, o?: string) => Promise<{ countryNodeId: string; organisationId: string }> }).tenantFor('kc-sub', country, org);
+  const originalCell = process.env.COUNTRY_NODE_ID;
+
+  beforeEach(() => { jest.clearAllMocks(); delete process.env.COUNTRY_NODE_ID; });
+  afterAll(() => { process.env.COUNTRY_NODE_ID = originalCell; });
+
+  it('uses the organisation and country named in the token', async () => {
+    await expect(tenantFor('CN-MYS', 'ORG-INV-MYS-01')).resolves.toEqual({ countryNodeId: 'CN-MYS', organisationId: 'ORG-INV-MYS-01' });
+    expect(prisma.userRoleAssignment.findMany).not.toHaveBeenCalled();
+  });
+
+  it('takes them from the user\'s roles when the token has none, instead of a default', async () => {
+    prisma.userRoleAssignment.findMany.mockResolvedValueOnce([{ countryNodeId: 'CN-MYS', organisationId: 'ORG-PUBLIC' }, { countryNodeId: 'CN-MYS', organisationId: 'ORG-PUBLIC' }]);
+    await expect(tenantFor()).resolves.toEqual({ countryNodeId: 'CN-MYS', organisationId: 'ORG-PUBLIC' });
+  });
+
+  it('refuses to guess when the user belongs to more than one organisation', async () => {
+    prisma.userRoleAssignment.findMany.mockResolvedValueOnce([{ countryNodeId: 'CN-MYS', organisationId: 'ORG-A' }, { countryNodeId: 'CN-MYS', organisationId: 'ORG-B' }]);
+    await expect(tenantFor()).rejects.toThrow('more than one organisation');
+    prisma.userRoleAssignment.findMany.mockResolvedValueOnce([]);
+    await expect(tenantFor()).rejects.toThrow('not provisioned or has no active role');
+  });
+
+  it('refuses another country when the deployment serves one country', async () => {
+    process.env.COUNTRY_NODE_ID = 'CN-MYS';
+    await expect(tenantFor('CN-IDN', 'ORG-IDN-1')).rejects.toThrow('This platform serves CN-MYS');
+    await expect(tenantFor('CN-MYS', 'ORG-A')).resolves.toEqual({ countryNodeId: 'CN-MYS', organisationId: 'ORG-A' });
   });
 });

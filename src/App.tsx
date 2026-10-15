@@ -1,3 +1,4 @@
+import { IS_STATIC_DEMO } from './services/apiFetch';
 import React, { useState, useEffect } from 'react';
 import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, BeneficiaryItem, LedgerTransaction } from './types';
 import { LANGUAGES } from './data/translations';
@@ -9,6 +10,7 @@ import {
 } from './data/initialData';
 
 import { RBACProvider, useRBAC } from './rbac/RBACContext';
+import { PrivacyConsentGate } from './legal/PrivacyConsentGate';
 import { TenancyProvider } from './tenancy/TenancyContext';
 import { RoleSwitcherBar } from './rbac/RoleSwitcherBar';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -221,5 +223,7 @@ function AppGate({ children }: { children: React.ReactNode }) {
     return <PublicLandingPage onEnterPublicGuest={enterGuestMode} />;
   }
 
+  // Signed-in users accept the privacy notice (PDPA) before using the app; the static demo has no server to record it.
+  if (isAuthenticated && !IS_STATIC_DEMO) return <PrivacyConsentGate>{children}</PrivacyConsentGate>;
   return <>{children}</>;
 }

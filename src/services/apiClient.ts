@@ -200,6 +200,8 @@ export const apiClient = {
   getCurrentUser: () => request<BackendUser>('/users/me'),
   getCurrentAccess: () => request<BackendAccess>('/users/me/access'),
   updateMyProfile: (input: { phone?: string; pushToken?: string; avatarUrl?: string; timezone?: string; bio?: string; preferences?: ProfilePreferences }) => request<BackendUser>('/users/me/profile', { method: 'PATCH', body: JSON.stringify(input) }),
+  getPrivacyConsent: () => request<{ currentVersion: string; accepted: boolean; acceptedAt: string | null }>('/users/me/privacy-consent'),
+  acceptPrivacyNotice: (version: string) => request<{ currentVersion: string; accepted: boolean; acceptedAt: string | null }>('/users/me/privacy-consent', { method: 'POST', body: JSON.stringify({ version }) }),
   getMyPayoutAccounts: () => request<PayoutAccount[]>('/users/me/payout-accounts'),
   addMyPayoutAccount: (input: NewPayoutAccount) => request<PayoutAccount>('/users/me/payout-accounts', { method: 'POST', body: JSON.stringify(input) }),
   setDefaultPayoutAccount: (id: string) => request<PayoutAccount[]>(`/users/me/payout-accounts/${encodeURIComponent(id)}/default`, { method: 'PATCH' }),
@@ -691,7 +693,11 @@ export interface BackendUser {
   name: string;
   isActive: boolean;
   profile?: Record<string, unknown>;
-  assignedRoles: { role: string; organisationId: string; countryNodeId: string }[];
+  /** INDIVIDUAL, INSTITUTION, BANK, GOVERNMENT_AGENCY, REGULATOR or PLATFORM_STAFF. */
+  userType?: string;
+  /** The country the account was registered in; it never changes. */
+  homeCountryNodeId?: string | null;
+  assignedRoles: { role: string; organisationId: string; organisationName?: string; countryNodeId: string }[];
   createdAt: string;
   updatedAt: string;
 }

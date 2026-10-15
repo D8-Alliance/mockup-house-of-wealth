@@ -59,15 +59,19 @@ enum UserRole {
 // via their OIDC subject identifier. This table stores the server-side profile and
 // role mapping only; authentication is delegated to the IdP.
 model User {
-  id           String   @id @default(cuid())
-  idpProvider  String // 'auth0' | 'azure' | 'keycloak' | 'okta'
-  idpSubjectId String // OIDC `sub` claim
-  email        String   @unique
-  name         String
-  isActive     Boolean  @default(true)
-  profile      Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(cuid())
+  idpProvider       String // 'auth0' | 'azure' | 'keycloak' | 'okta'
+  idpSubjectId      String // OIDC `sub` claim
+  email             String   @unique
+  name              String
+  isActive          Boolean  @default(true)
+  profile           Json?
+  /// INDIVIDUAL, INSTITUTION, BANK, GOVERNMENT_AGENCY, REGULATOR or PLATFORM_STAFF (Master Architecture §6).
+  userType          String   @default("INDIVIDUAL")
+  /// The country the account was registered in. Fixed: moving country means registering in that country.
+  homeCountryNodeId String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // User can have multiple roles per organisation/country node
   roleAssignments             UserRoleAssignment[]
@@ -77,6 +81,7 @@ model User {
   promotionCampaigns          ProjectPromotionCampaign[]
   promotionPayments           PromotionPayment[]
   sessions                    Session[]
+  privacyConsents             PrivacyConsent[]
   createdContractTemplates    ContractTemplate[]
   createdContractClauses      ContractClause[]
   createdContractInputSchemas ContractInputSchema[]
@@ -1767,6 +1772,20 @@ model ContractEvent {
   contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
   @@index([contractId, createdAt])
+}
+
+/// Evidence that a user accepted a version of the privacy notice (PDPA). One row per user and version.
+model PrivacyConsent {
+  id            String   @id @default(cuid())
+  userId        String
+  noticeVersion String
+  acceptedAt    DateTime @default(now())
+  ipAddress     String?
+  userAgent     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, noticeVersion])
 }
 
 model Session {

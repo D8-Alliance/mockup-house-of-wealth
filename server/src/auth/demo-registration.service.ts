@@ -1,11 +1,11 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRole as PrismaUserRole } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
 import { Transform } from 'class-transformer';
 import { IsEmail, IsIn, IsString, MaxLength, MinLength, NotContains } from 'class-validator';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { RoleAvailabilityService } from '../roles/role-availability.service';
+import { newUserId, personalOrganisationId, userTypeForRoles } from '../users/user-identity';
 
 /**
  * Roles a member of the public may give themselves when signing up. Staff roles
@@ -50,16 +50,18 @@ export class DemoRegistrationService {
       throw new ConflictException('An account with this email address already exists. Sign in instead.');
     }
 
-    const suffix = randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase();
-    const userId = `USR-REG-${suffix}`;
-    const organisationId = `ORG-REG-${suffix}`;
+    // Member ID and home country are set here once and never change (registration standard, phase 1).
+    const userId = newUserId(country.code);
+    const userType = userTypeForRoles([input.role]);
+    // An individual's records sit in a private organisation of their own; an institution gets a new organisation for its entity.
+    const organisationId = userType === 'INDIVIDUAL' ? personalOrganisationId(userId) : userId.replace(/^USR-/, 'ORG-');
     const role = input.role.replace(/ /g, '_') as PrismaUserRole;
 
     try {
       await this.prisma.$transaction(async (tx) => {
         // Each sign-up gets its own organisation, so new users never join an existing tenant.
         await tx.organisation.create({ data: { id: organisationId, name: input.organisation.trim(), countryNodeId: country.code } });
-        await tx.user.create({ data: { id: userId, idpProvider: 'mock', idpSubjectId: userId, email, name: input.name.trim(), isActive: true } });
+        await tx.user.create({ data: { id: userId, idpProvider: 'mock', idpSubjectId: userId, email, name: input.name.trim(), isActive: true, userType, homeCountryNodeId: country.code } });
         await tx.userRoleAssignment.create({ data: { userId, role, organisationId, countryNodeId: country.code, assignedBy: 'SELF_REGISTRATION' } });
       });
     } catch (error) {

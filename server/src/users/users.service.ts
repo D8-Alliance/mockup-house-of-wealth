@@ -1,9 +1,12 @@
-import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { Prisma, UserRole as PrismaUserRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { UserRole, PRIVILEGED_ROLES } from '../policy/permissions';
+
+/** There is one Super Admin for the whole platform; it is set up at installation, never granted or removed here. */
+const ONE_SUPER_ADMIN = 'The platform has one Super Admin, set up at installation. The Super Admin role cannot be granted or removed here.';
 
 /** Not privileged in the system-admin sense, but only a Super Admin may grant or revoke them: a Country Admin must not create peers. */
 const SUPER_ADMIN_GRANTED_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Country Admin']);
@@ -11,6 +14,7 @@ import { PolicyService } from '../policy/policy.service';
 import { normalizePhone } from '../tenancy/country-phone';
 import { tenantScopeFilter } from '../tenancy/tenant-scope';
 import { RoleAvailabilityService } from '../roles/role-availability.service';
+import { PRIVACY_NOTICE_VERSION } from './privacy-notice';
 
 export interface ProfilePreferences {
   currency?: string;
@@ -41,10 +45,28 @@ export class UsersService {
   async getCurrentUser(actor: AuthenticatedUser) {
     const user = await this.prisma.user.findUnique({
       where: { id: actor.userId },
-      include: { roleAssignments: { where: { ...tenantScopeFilter(actor), isActive: true } } },
+      include: { roleAssignments: { where: { ...tenantScopeFilter(actor), isActive: true }, include: { organisation: { select: { name: true } } } } },
     });
     if (!user) throw new NotFoundException('User not found');
     return this.toDirectoryUser(user);
+  }
+
+  /** Which privacy notice version is current, and whether this user has accepted it. */
+  async getPrivacyConsent(actor: AuthenticatedUser) {
+    const consent = await this.prisma.privacyConsent.findUnique({ where: { userId_noticeVersion: { userId: actor.userId, noticeVersion: PRIVACY_NOTICE_VERSION } } });
+    return { currentVersion: PRIVACY_NOTICE_VERSION, accepted: Boolean(consent), acceptedAt: consent?.acceptedAt ?? null };
+  }
+
+  /** Records acceptance of the current notice, with when and from where, as evidence of consent. */
+  async acceptPrivacyNotice(actor: AuthenticatedUser, version: string, ipAddress?: string, userAgent?: string) {
+    if (version !== PRIVACY_NOTICE_VERSION) throw new ConflictException('The privacy notice has changed. Reload the page and read the current version.');
+    await this.prisma.privacyConsent.upsert({
+      where: { userId_noticeVersion: { userId: actor.userId, noticeVersion: version } },
+      update: {},
+      create: { userId: actor.userId, noticeVersion: version, ipAddress: ipAddress?.slice(0, 64), userAgent: userAgent?.slice(0, 300) },
+    });
+    await this.audit.recordActor(actor, { action: 'user.privacy_notice.accept', resourceType: 'User', resourceId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { noticeVersion: version } });
+    return this.getPrivacyConsent(actor);
   }
 
   /** Self-service profile fields. The phone is stored in E.164 using the user's country code. */
@@ -145,6 +167,9 @@ export class UsersService {
     // Shariah Committee and approve a project alone.
     if (userId === actor.userId) throw new ForbiddenException('You cannot change your own roles. Ask another administrator.');
 
+    // The platform has exactly one Super Admin, set up at installation (owner decision 2026-10-15).
+    if (role === 'Super Admin') throw new ForbiddenException(ONE_SUPER_ADMIN);
+
     // Escalation guard: privileged roles, and Country Admin itself, can only be granted by a Super Admin.
     if ((PRIVILEGED_ROLES.has(role) || SUPER_ADMIN_GRANTED_ROLES.has(role)) && actor.role !== 'Super Admin') {
       throw new ForbiddenException(`Only Super Admin can assign the role "${role}"`);
@@ -240,6 +265,8 @@ export class UsersService {
 
     if (userId === actor.userId) throw new ForbiddenException('You cannot change your own roles. Ask another administrator.');
 
+    if (role === 'Super Admin') throw new ForbiddenException(ONE_SUPER_ADMIN);
+
     // Escalation guard: privileged roles, and Country Admin itself, can only be revoked by a Super Admin.
     if ((PRIVILEGED_ROLES.has(role) || SUPER_ADMIN_GRANTED_ROLES.has(role)) && actor.role !== 'Super Admin') {
       throw new ForbiddenException(`Only Super Admin can revoke the role "${role}"`);
@@ -324,9 +351,12 @@ export class UsersService {
       name: user.name,
       isActive: user.isActive,
       profile: user.profile,
-      assignedRoles: user.roleAssignments.map((assignment: { role: PrismaUserRole; organisationId: string; countryNodeId: string }) => ({
+      userType: user.userType,
+      homeCountryNodeId: user.homeCountryNodeId,
+      assignedRoles: user.roleAssignments.map((assignment: { role: PrismaUserRole; organisationId: string; countryNodeId: string; organisation?: { name: string } }) => ({
         role: this.fromPrismaRole(assignment.role),
         organisationId: assignment.organisationId,
+        ...(assignment.organisation ? { organisationName: assignment.organisation.name } : {}),
         countryNodeId: assignment.countryNodeId,
       })),
       createdAt: user.createdAt,

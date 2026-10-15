@@ -40,10 +40,18 @@ describe('DemoRegistrationService', () => {
   it('creates the user, a new organisation and the chosen role in one transaction', async () => {
     const result = await service.register(input);
 
-    expect(result.userId).toMatch(/^USR-REG-/);
-    expect(result.organisationId).toMatch(/^ORG-REG-/);
+    // Member ID: country of registration plus 8 Crockford characters; an individual gets a private organisation.
+    expect(result.userId).toMatch(/^USR-MYS-[0-9A-HJKMNP-TV-Z]{8}$/);
+    expect(result.organisationId).toBe(result.userId.replace('USR-MYS-', 'ORG-MYS-IND-'));
+    expect(tx.user.create).toHaveBeenCalledWith({ data: expect.objectContaining({ userType: 'INDIVIDUAL', homeCountryNodeId: 'CN-MYS' }) });
     expect(result.email).toBe('aminah@example.com');
     expect(tx.userRoleAssignment.create).toHaveBeenCalledWith({ data: expect.objectContaining({ role: 'Retail_Investor', organisationId: result.organisationId, countryNodeId: 'CN-MYS' }) });
+  });
+
+  it('gives an institution its own organisation and marks the user as an institution', async () => {
+    const result = await service.register({ ...input, role: 'Project Sponsor' });
+    expect(result.organisationId).toBe(result.userId.replace(/^USR-/, 'ORG-'));
+    expect(tx.user.create).toHaveBeenCalledWith({ data: expect.objectContaining({ userType: 'INSTITUTION' }) });
   });
 
   it('refuses sign-up with a role that is disabled on the platform', async () => {

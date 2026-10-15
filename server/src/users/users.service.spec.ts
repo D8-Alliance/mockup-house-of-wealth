@@ -56,7 +56,7 @@ describe('UsersService role assignment', () => {
 
   it('rejects a Country Admin assigning a privileged role (role escalation)', async () => {
     await expect(
-      service.assignRole('USR-TARGET', 'Super Admin', 'ORG-A', 'CN-MYS', actor('Country Admin')),
+      service.assignRole('USR-TARGET', 'System Administrator', 'ORG-A', 'CN-MYS', actor('Country Admin')),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(prismaMock.userRoleAssignment.create).not.toHaveBeenCalled();
   });
@@ -126,10 +126,20 @@ describe('UsersService role assignment', () => {
     prismaMock.userRoleAssignment.findUnique.mockResolvedValue(null);
     prismaMock.userRoleAssignment.create.mockResolvedValue({ id: 'assignment-2' });
 
-    const result = await service.assignRole('USR-TARGET', 'Super Admin', 'ORG-A', 'CN-MYS', actor('Super Admin'));
+    const result = await service.assignRole('USR-TARGET', 'System Administrator', 'ORG-A', 'CN-MYS', actor('Super Admin'));
 
     expect(result.success).toBe(true);
     expect(prismaMock.userRoleAssignment.create).toHaveBeenCalled();
+  });
+
+  it('never grants or removes Super Admin: the platform has exactly one', async () => {
+    await expect(service.assignRole('USR-TARGET', 'Super Admin', 'ORG-A', 'CN-MYS', actor('Super Admin'))).rejects.toThrow('one Super Admin');
+    await expect(service.revokeRole('USR-TARGET', 'Super Admin', 'ORG-A', 'CN-MYS', actor('Super Admin'))).rejects.toThrow('one Super Admin');
+    expect(prismaMock.userRoleAssignment.create).not.toHaveBeenCalled();
+  });
+
+  it('lets only the Super Admin make someone a Country Admin', async () => {
+    await expect(service.assignRole('USR-TARGET', 'Country Admin', 'ORG-A', 'CN-MYS', actor('Country Admin'))).rejects.toThrow('Only Super Admin');
   });
 
   describe('updateStatus (matrix-driven users.update)', () => {

@@ -107,10 +107,13 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
   const phoneFormat = phoneFormatFor(userCountryNodeId);
   const [phoneError, setPhoneError] = useState('');
   const [preferences, setPreferences] = useState<ProfilePreferences>({});
+  const [organisationName, setOrganisationName] = useState('');
+  const organisationLabel = organisationName && organisationName !== formData.organization ? `${organisationName} (${formData.organization})` : formData.organization || '';
   useEffect(() => {
     apiClient.getCurrentUser()
       .then((backendUser) => {
         setPreferences(readPreferences(backendUser.profile));
+        setOrganisationName(backendUser.assignedRoles.find((assignment) => assignment.organisationName)?.organisationName ?? '');
         const profile = backendUser.profile ?? {};
         setFormData((current) => ({
           ...current,
@@ -446,12 +449,12 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
 
             <div>
               <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
-                Organization / Masjid Node
+                Organisation
               </label>
               <div className="relative">
                 <input 
                   type="text"
-                  value={formData.organization || ''}
+                  value={organisationLabel}
                   readOnly
                   aria-label="Organisation"
                   className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-700 dark:text-slate-300 cursor-not-allowed"

@@ -1,4 +1,6 @@
-import { Controller, Post, Delete, Get, Patch, Param, Body, ParseEnumPipe } from '@nestjs/common';
+import { Controller, Post, Delete, Get, Patch, Param, Body, ParseEnumPipe, Req } from '@nestjs/common';
+import type { Request } from 'express';
+import { AcceptPrivacyNoticeDto } from './privacy-consent.dto';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -19,6 +21,16 @@ export class UsersController {
   @Patch('me/profile')
   updateMyProfile(@CurrentUser() actor: AuthenticatedUser, @Body() input: UpdateMyProfileDto) {
     return this.usersService.updateMyProfile(actor, input);
+  }
+
+  @Get('me/privacy-consent')
+  getPrivacyConsent(@CurrentUser() actor: AuthenticatedUser) {
+    return this.usersService.getPrivacyConsent(actor);
+  }
+
+  @Post('me/privacy-consent')
+  acceptPrivacyNotice(@CurrentUser() actor: AuthenticatedUser, @Body() input: AcceptPrivacyNoticeDto, @Req() req: Request) {
+    return this.usersService.acceptPrivacyNotice(actor, input.version, req.ip, req.get('user-agent'));
   }
 
   @Get('me/access')

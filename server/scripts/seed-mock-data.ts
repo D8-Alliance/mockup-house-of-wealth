@@ -5,6 +5,7 @@ import { INITIAL_AUDIT_EVENTS } from '../../src/audit/mockAuditEvents';
 import { INITIAL_COUNTRY_NODES } from '../../src/countryNodes/mockCountryNodes';
 import { INITIAL_ORGANISATIONS } from '../../src/organisations/mockOrganisations';
 import { INITIAL_APP_USERS } from '../../src/users/mockUsers';
+import { userTypeForRoles } from '../src/users/user-identity';
 import { DEMO_PERSONAS } from '../../src/auth/services/demoPersonas';
 import { INITIAL_PROJECTS } from '../../src/data/mockPoolingWorkflowData';
 import {
@@ -285,6 +286,8 @@ async function seed(): Promise<void> {
         email: 'admin.demo@wealthpooling.my',
         name: 'Dr. Farid Hakim',
         isActive: true,
+        userType: 'PLATFORM_STAFF',
+        homeCountryNodeId: 'CN-MYS',
       },
       create: {
         id: 'USR-mock-user',
@@ -293,6 +296,8 @@ async function seed(): Promise<void> {
         email: 'admin.demo@wealthpooling.my',
         name: 'Dr. Farid Hakim',
         isActive: true,
+        userType: 'PLATFORM_STAFF',
+        homeCountryNodeId: 'CN-MYS',
       },
     });
     await tx.userRoleAssignment.upsert({
@@ -336,6 +341,8 @@ async function seed(): Promise<void> {
         email: user.email,
         name: user.fullName,
         isActive: user.status === 'ACTIVE',
+        userType: userTypeForRoles(user.assignedRoles),
+        homeCountryNodeId: user.countryNodeId,
         profile: user as unknown as Prisma.InputJsonValue,
         updatedAt: date(user.updatedAt),
       };

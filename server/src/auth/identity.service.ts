@@ -89,17 +89,41 @@ export class IdentityService {
     // resolved exclusively from the database (resolveDatabaseIdentity); token
     // role claims are deliberately ignored so a forged or claim-stripped token
     // escalates nothing and there is never an implicit default role.
+    const tenant = await this.tenantFor(payload.sub, (payload as any)?.country_node_id, (payload as any)?.organisation_id);
     const identity = await this.resolveDatabaseIdentity(payload.sub, {
       email: (payload.email as string) ?? `${payload.sub}@internal`,
       name: (payload.name as string) ?? payload.sub,
-      countryNodeId: (payload as any)?.country_node_id || process.env.DEFAULT_COUNTRY_NODE || 'CN-MYS',
-      organisationId: (payload as any)?.organisation_id || process.env.DEFAULT_ORGANISATION || 'ORG-PUBLIC',
+      ...tenant,
     });
     if (this.requiresMfa(identity.role) && !payload.amr?.some((method: string) => method === 'otp' || method === 'webauthn')) {
       throw new UnauthorizedException('MFA is required for this role');
     }
     await this.ensureSession(token, payload, identity);
     return this.syncNameAndEmail(identity, payload);
+  }
+
+  /**
+   * Which organisation and country the sign-in is for. The token may name them (Keycloak
+   * attributes); otherwise they come from the user's own active roles, and only when those are
+   * all in one organisation, so there is no silent default. When COUNTRY_NODE_ID is set (one
+   * country per deployment), any other country is refused.
+   */
+  private async tenantFor(subject: string, claimedCountry?: unknown, claimedOrganisation?: unknown): Promise<{ countryNodeId: string; organisationId: string }> {
+    let countryNodeId = typeof claimedCountry === 'string' && claimedCountry ? claimedCountry : '';
+    let organisationId = typeof claimedOrganisation === 'string' && claimedOrganisation ? claimedOrganisation : '';
+    if (!countryNodeId || !organisationId) {
+      const assignments = await this.prisma.userRoleAssignment.findMany({
+        where: { isActive: true, user: { OR: [{ id: subject }, { idpSubjectId: subject }] }, ...(countryNodeId ? { countryNodeId } : {}), ...(organisationId ? { organisationId } : {}) },
+        select: { countryNodeId: true, organisationId: true },
+      });
+      const tenants = [...new Set(assignments.map((a) => `${a.countryNodeId}|${a.organisationId}`))];
+      if (tenants.length === 0) throw new UnauthorizedException('User is not provisioned or has no active role in this organisation and country');
+      if (tenants.length > 1) throw new UnauthorizedException('Your account belongs to more than one organisation. Ask your administrator to set your organisation on the sign-in account.');
+      [countryNodeId, organisationId] = tenants[0].split('|');
+    }
+    const cell = process.env.COUNTRY_NODE_ID;
+    if (cell && countryNodeId !== cell) throw new UnauthorizedException(`This platform serves ${cell}; your account is registered in ${countryNodeId}.`);
+    return { countryNodeId, organisationId };
   }
 
   /**

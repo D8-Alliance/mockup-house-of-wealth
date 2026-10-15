@@ -372,3 +372,23 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 2. **Pilihan kontrak Islam:** disimpan dalam profil tetapi belum digunakan untuk menapis atau menyusun pool di Asset Marketplace.
 3. **Mata wang pilihan:** disimpan tetapi paparan amaun belum ditukar mengikut pilihan ini.
 4. **Kunci API:** jika integrasi luar diperlukan, bina kunci API sebenar (dicipta di server, disimpan sebagai hash, boleh dibatalkan, dengan skop terhad).
+
+## 22. Standard pendaftaran dan pengurusan pengguna
+
+- **Status:** Fasa 1 siap (2026-10-15). Keputusan pemilik: **hanya satu Super Admin** untuk seluruh sistem; Country Admin ialah tahap tertinggi setiap negara dan hanya dicipta oleh Super Admin. Negara akaun ditetapkan semasa pendaftaran dan tidak boleh ditukar (negara = Country Cell, rujuk Master Architecture v1.0).
+- **Fasa 1 (siap):**
+  - Member ID baharu `USR-MYS-XXXXXXXX`; individu mendapat organisasi peribadi `ORG-MYS-IND-…`.
+  - Medan `userType` dan `homeCountryNodeId`.
+  - Rekod persetujuan notis privasi PDPA (`PrivacyConsent`), dengan notis dwibahasa.
+  - Super Admin tidak boleh diberi atau ditarik melalui sistem.
+  - Organisasi dan negara diambil daripada peranan pengguna (tiada lagi lalai `CN-MYS`/`ORG-PUBLIC`); `COUNTRY_NODE_ID` pilihan menolak negara lain.
+  - Skrip `ensure-single-super-admin.ts`.
+- **Kawasan:** `server/src/users/user-identity.ts`, `server/src/users/privacy-notice.ts`, `src/legal/`, `server/src/auth/identity.service.ts`
+
+**Baki:**
+1. **Notis privasi:** deraf `MYS-2026-10-DRAFT-1` perlu disemak peguam. Isi nama syarikat pengendali, nombor SSM, pegawai perlindungan data, lokasi pusat data dan tempoh simpanan, kemudian terbitkan versi baharu di frontend dan backend (semua pengguna akan diminta bersetuju semula).
+2. **Fasa 2:** `RoleGrantRequest` (pemohon dan pelulus berbeza) untuk peranan admin, dan skrin Users untuk Country Admin dan Super Admin (tambah/buang peranan dengan sebab, pindah organisasi dalam negara yang sama, gantung akaun).
+3. **Fasa 3:** daftar sendiri melalui realm Keycloak; pengguna dicipta secara automatik pada log masuk pertama dengan Member ID standard.
+4. **Fasa 4:** model organisasi lengkap (jenis, nombor pendaftaran, syarikat induk) dan KYB (rujuk item 17); penyulitan medan KYC.
+5. **Penguatkuasaan di server:** persetujuan PDPA kini diminta di frontend; pertimbangkan menyekat API (kecuali log masuk dan notis) sehingga persetujuan direkod.
+6. **`COUNTRY_NODE_ID`:** tetapkan `CN-MYS` di production Malaysia. Staging belum menetapkannya kerana masih ada persona Indonesia.
