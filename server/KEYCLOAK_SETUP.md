@@ -22,9 +22,10 @@ This makes the OIDC issuer use the same public hostname as the browser. This
 HTTP setup is for testing only; production must use a DNS name and HTTPS.
 
 Keycloak will be available at `http://localhost:8080`. The imported realm is
-`house-of-wealth`; the temporary demo user is `demo-admin` with password
-`ChangeMe-123!`. Change that password on first login and never use this realm
-configuration in production.
+`house-of-wealth`. It contains no users: create your own user in the admin console
+(Users > Add user, set a password with Temporary off, and add the Configure OTP
+required action), then link it to a database user by its Keycloak user ID. The
+import only runs when the realm does not exist yet.
 
 ## Realm and client
 

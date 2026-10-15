@@ -136,10 +136,10 @@ house-of-wealth-api
 Dalam Keycloak:
 
 ```text
-Users → demo-admin
+Users → Add user
 ```
 
-Tetapkan password dan matikan `Temporary`. Catat **User ID** Keycloak.
+Cipta pengguna dengan e-mel anda sendiri, kemudian di tab Credentials tetapkan password dan matikan `Temporary`. Catat **User ID** Keycloak (tab Details). Realm yang diimport tidak lagi mengandungi pengguna `demo-admin`; jika Keycloak lama masih mempunyai pengguna itu, padamkannya kerana kata laluannya pernah tertulis dalam repo.
 
 Padankan user itu dalam database HOW:
 
@@ -160,7 +160,7 @@ mempunyai role `Super_Admin`, organisasi `ORG-PUBLIC`, dan country `CN-MYS`.
 Dalam Keycloak:
 
 ```text
-Users → demo-admin → Required actions → Configure OTP
+Users → (pengguna anda) → Required actions → Configure OTP
 ```
 
 Semasa login pertama:

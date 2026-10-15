@@ -164,6 +164,18 @@ docker compose -f docker-compose.staging.yml logs -f keycloak
 
 Tunggu sehingga log menunjukkan `Keycloak ... started`, kemudian tekan Ctrl+C. Realm `house-of-wealth` diimport secara automatik daripada `realm-export.json`.
 
+Semak bahawa Keycloak sedia (mesti `200`):
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8080/realms/house-of-wealth/.well-known/openid-configuration
+```
+
+**Kata laluan database:** masukkan kata laluan tanpa memaparkannya, dan ujinya terus dengan database sebelum memulakan Keycloak:
+```bash
+read -rsp "Kata laluan doadmin: " PW; echo; sed -i "s|^KC_DB_PASSWORD=.*|KC_DB_PASSWORD=${PW}|" .env; unset PW
+PGPASSWORD="$(grep '^KC_DB_PASSWORD=' .env | cut -d= -f2-)" psql "host=HOST_DB port=25060 user=doadmin dbname=defaultdb sslmode=require" -c "select 1"
+```
+Keycloak hanya membaca `.env` semasa container dicipta. Setiap kali kata laluan ditukar, jalankan `docker compose -f docker-compose.staging.yml up -d --force-recreate`; jika tidak, Keycloak terus menggunakan kata laluan lama dan memaparkan ralat 500. Jangan *reset* kata laluan `doadmin` tanpa sebab: ia juga digunakan dalam `DATABASE_URL` backend (langkah 8), jadi kedua-dua fail dan kedua-dua perkhidmatan (`pm2 restart how-api`) perlu dikemas kini.
+
 ## Langkah 8: Backend
 
 ### 8.1 Fail `server/.env`
@@ -313,22 +325,20 @@ Buka https://how-staging-auth.alhidayahgroup.com.my/admin dan log masuk dengan `
    - Valid redirect URIs: tambah `https://how-staging.alhidayahgroup.com.my/*`
    - Web origins: tambah `https://how-staging.alhidayahgroup.com.my`
    - Valid post logout redirect URIs: `https://how-staging.alhidayahgroup.com.my/*`
-4. **Users → Create user** untuk diri anda. Tetapkan password dan matikan `Temporary`. Catat **User ID**.
-5. Padankan pengguna Keycloak itu dengan pengguna dalam database. Di droplet:
+4. **Users:** realm yang diimport tidak mengandungi pengguna. Jika anda nampak pengguna lama `demo-admin`, **padamkannya** (kata laluannya pernah tertulis dalam repo).
+5. **Users → Add user** untuk diri anda: Username dan Email ialah e-mel anda sendiri, **Email verified** ON. Di tab **Credentials**, tetapkan password dan matikan `Temporary`. Di tab **Details**, tambah **Required user actions → Configure OTP**, kemudian salin **ID** pengguna.
+6. **Penanda OTP dalam token (wajib, Keycloak 26):** **Authentication → browser**. Pada baris **OTP Form**, klik ⚙️ dan isi Alias `otp-amr`, **Authenticator Reference** `otp`. Pada **Username Password Form**, Alias `pwd-amr`, Authenticator Reference `pwd`. Tanpa ini, token tidak mencatat OTP dan backend menolak Super Admin dengan `MFA is required for this role`, walaupun OTP sudah dimasukkan. Jika ikon ⚙️ tiada, **Action → Duplicate** aliran itu, tetapkan pada salinan, kemudian **Action → Bind flow → Browser flow**.
+7. Padankan pengguna Keycloak dengan pengguna dalam database. Di droplet (kata laluan diambil dari fail Keycloak, jadi tidak perlu ditaip):
    ```bash
-   psql "postgresql://doadmin:PASSWORD_DB@HOST_DB:25060/house_of_wealth?sslmode=require"
+   cd /opt/how/server
+   PGPASSWORD="$(grep '^KC_DB_PASSWORD=' keycloak/.env | cut -d= -f2-)" psql "host=HOST_DB port=25060 user=doadmin dbname=house_of_wealth sslmode=require" -c "UPDATE \"User\" SET \"idpProvider\"='keycloak', \"idpSubjectId\"='KEYCLOAK_USER_ID', \"isActive\"=true WHERE id='USR-mock-user';"
    ```
-   ```sql
-   UPDATE "User"
-   SET "idpProvider" = 'keycloak', "idpSubjectId" = 'KEYCLOAK_USER_ID', "isActive" = true
-   WHERE "id" = 'USR-mock-user';
-   ```
-   `USR-mock-user` ialah Super Admin (`ORG-PUBLIC`, `CN-MYS`) daripada data seed.
-6. **MFA:** peranan admin, kewangan, compliance dan Shariah **wajib** OTP. Tanpa OTP, backend menolak dengan mesej `MFA is required for this role`. Dalam **Users → (pengguna) → Required user actions**, pilih `Configure OTP`. Imbas kod QR dengan Google Authenticator semasa log masuk pertama. Butiran ada dalam [PANDUAN_LENGKAP_VPS.md](PANDUAN_LENGKAP_VPS.md) bahagian 7.
-
+   Mesti keluar `UPDATE 1`. `USR-mock-user` ialah Super Admin (`ORG-PUBLIC`, `CN-MYS`) daripada data seed; organisasi itu sama dengan nilai lalai backend, jadi pengguna Keycloak tidak memerlukan atribut tambahan.
 Buka https://how-staging.alhidayahgroup.com.my dan log masuk.
 
-Untuk pengguna lain (Investor, Project Sponsor, Shariah Reviewer dan lain-lain), ulang langkah 4 dan 5 dengan ID pengguna seed yang berkenaan. Pengguna juga boleh mendaftar sendiri melalui Keycloak; mereka akan bermula sebagai peranan asas.
+Log masuk dalam tetingkap **Incognito** baharu, supaya sesi lama Keycloak tidak digunakan semula. Jika log masuk ditolak, halaman utama kini memaparkan sebabnya (contohnya `MFA is required for this role`).
+
+Untuk pengguna lain (Investor, Project Sponsor, Shariah Reviewer dan lain-lain), ulang langkah 5 dan 7 dengan ID pengguna seed yang berkenaan. Kebanyakan persona berada dalam organisasi lain (contohnya Siti Aminah dalam `ORG-INV-MYS-01`), jadi pada pengguna Keycloak itu tambah juga **Attributes**: `organisation_id` dan `country_node_id` (contohnya `ORG-INV-MYS-01` dan `CN-MYS`). Pengguna juga boleh mendaftar sendiri melalui Keycloak; mereka akan bermula sebagai peranan asas.
 
 ## Langkah 12 (pilihan): AI sebenar
 
@@ -370,9 +380,11 @@ Plesk (demo statik awam) dikemas kini seperti biasa: **Pull Updates**, kemudian 
 | Frontend: ralat CORS dalam console pelayar | `CORS_ORIGINS` tidak sama dengan URL frontend (http/https, garis miring) | Samakan dengan tepat, kemudian `pm2 restart how-api` |
 | `Can't reach database server` | Droplet belum dalam Trusted Sources, atau tiada `sslmode=require` | Langkah 3 dan 8.1 |
 | `Token issuer mismatch` | `OIDC_ISSUER` tidak sama dengan `KC_HOSTNAME` + `/realms/house-of-wealth` | Samakan dengan tepat |
-| `User is not provisioned or is inactive` | Pengguna Keycloak belum dipadankan dengan database | Langkah 11.5 |
-| `MFA is required for this role` | OTP belum disediakan | Langkah 11.6 |
-| Keycloak: `Invalid redirect uri` | Redirect URI staging belum ditambah | Langkah 11.3 |
+| `User is not provisioned or is inactive` | Pengguna Keycloak belum dipadankan dengan database | Langkah 11, perkara 7 |
+| `User has no active role in this organisation and country` | Atribut `organisation_id` pengguna Keycloak tidak sepadan | Tambah atribut (langkah 11) |
+| `MFA is required for this role` (selepas OTP dimasukkan) | Token tidak mencatat OTP | Langkah 11, perkara 6 (Authenticator Reference) |
+| Keycloak: *We are sorry… An internal server error* | Kata laluan database lama masih digunakan | `up -d --force-recreate` (langkah 7) |
+| Keycloak: `Invalid parameter: redirect_uri` | Redirect URI staging belum ditambah, atau ditambah dalam realm master | Langkah 11, perkara 3 |
 | Build frontend terhenti (`Killed`) | Kehabisan memori | Pastikan swap aktif (`swapon --show`) |
 
 ## Keselamatan staging
