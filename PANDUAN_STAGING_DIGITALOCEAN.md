@@ -34,7 +34,7 @@ Harga ialah anggaran. Sahkan di halaman harga DigitalOcean. Spaces belum diperlu
 ## Langkah 1: Akaun dan projek DigitalOcean
 
 1. Daftar di https://cloud.digitalocean.com dan masukkan kad pembayaran.
-2. Cipta **Project** baharu bernama `wealth-pooling-staging`.
+2. Cipta **Project** baharu bernama `how-staging`.
 3. Tambah kunci SSH anda di **Settings → Security → SSH Keys**. Jika belum ada kunci, jana di Windows (PowerShell):
    ```
    ssh-keygen -t ed25519 -C "how-staging"
@@ -47,12 +47,12 @@ Harga ialah anggaran. Sahkan di halaman harga DigitalOcean. Spaces belum diperlu
 1. **Create → Databases → PostgreSQL 16**.
 2. Region: **Singapore (SGP1)**.
 3. Plan: **Basic, 1 GB RAM / 1 vCPU / 10 GB**, satu nod (tanpa standby).
-4. Nama: `how-staging-db`. Pilih projek `house-of-wealth-staging`.
+4. Nama: `how-staging-db`. Pilih projek `how-staging`.
 5. Selepas siap (lebih kurang 5 minit), buka tab **Users & Databases**:
    - Cipta database `house_of_wealth`.
    - Cipta database `keycloak`.
 6. Buka tab **Overview → Connection Details**. Pilih **Connection string**, kemudian catat:
-   - host (contoh `how-staging-db-do-user-xxxx.k.db.ondigitalocean.com`)
+   - host (contoh `how-staging-db-do-user-43776556-0.i.db.ondigitalocean.com`)
    - port (biasanya `25060`)
    - user `doadmin` dan password
 
@@ -68,16 +68,16 @@ pgvector disokong oleh Managed PostgreSQL DigitalOcean. Migrasi Prisma akan menj
 4. Size: **Basic → Regular → 4 GB / 2 vCPU / 80 GB** ($24).
 5. Authentication: **SSH Key** (pilih kunci dari langkah 1).
 6. Tandakan **Monitoring**. Sandaran (Backups) pilihan.
-7. Hostname: `wealth-pooling-staging`.
+7. Hostname: `how-staging`.
 8. Catat **alamat IP awam** droplet.
 
 ### Firewall
 1. **Networking → Firewalls → Create Firewall** bernama `how-staging-fw`.
 2. Inbound: benarkan **SSH (22)**, **HTTP (80)** dan **HTTPS (443)** sahaja.
-3. Apply to droplet `wealth-pooling-staging`.
+3. Apply to droplet `how-staging`.
 
 ### Benarkan droplet sahaja masuk ke database
-Dalam database `how-staging-db`: **Settings → Trusted Sources**, tambah droplet `wealth-pooling-staging`. Selepas ini hanya droplet boleh menyambung ke database.
+Dalam database `how-staging-db`: **Settings → Trusted Sources**, tambah droplet `how-staging/wp1-tags`. Selepas ini hanya droplet boleh menyambung ke database.
 
 ## Langkah 4: DNS (subdomain)
 
@@ -85,9 +85,9 @@ Di tempat DNS `alhidayahgroup.com.my` diuruskan (Plesk **DNS Settings** atau pen
 
 | Nama | Jenis | Nilai |
 |---|---|---|
-| `how-staging` | A | IP droplet |
-| `how-staging-api` | A | IP droplet |
-| `how-staging-auth` | A | IP droplet |
+| `how-staging` | A | 152.42.232.149 |
+| `how-staging-api` | A | 152.42.232.149|
+| `how-staging-auth` | A | 152.42.232.149|
 
 Semak dari komputer anda (mungkin ambil masa sehingga 1 jam):
 ```
@@ -99,6 +99,7 @@ nslookup how-staging-api.alhidayahgroup.com.my
 Log masuk dari PowerShell:
 ```
 ssh root@IP_DROPLET
+ssh root@152.42.232.149
 ```
 
 Jalankan arahan berikut di droplet:
@@ -151,10 +152,10 @@ cd /opt/how/server/keycloak
 cat > .env <<'EOF'
 KC_DB_URL=jdbc:postgresql://HOST_DB:25060/keycloak?sslmode=require
 KC_DB_USERNAME=doadmin
-KC_DB_PASSWORD=PASSWORD_DB
+KC_DB_PASSWORD=akucuba@123
 KC_HOSTNAME=https://how-staging-auth.alhidayahgroup.com.my
 KC_ADMIN_USERNAME=admin
-KC_ADMIN_PASSWORD=GANTI_DENGAN_PASSWORD_KUAT
+KC_ADMIN_PASSWORD=akucuba@123
 EOF
 chmod 600 .env
 docker compose -f docker-compose.staging.yml up -d
@@ -245,10 +246,10 @@ VITE_AUTH_MODE=PRODUCTION
 VITE_SINGLE_ROLE_MODE=false
 EOF
 npm ci
-npm run build        # bukan build:demo
+npx vite build --outDir /opt/how-web --emptyOutDir   # bukan build:demo, dan bukan ke /opt/how/dist
 ```
 
-Fail siap berada dalam `/opt/how/dist`.
+Fail siap berada dalam `/opt/how-web`. Jangan bina ke `/opt/how/dist`: folder itu dijejak oleh Git untuk demo Plesk, dan mengubahnya akan menyebabkan `git pull` gagal. Folder `/opt/how-web` dicipta oleh root sebelum ini (`mkdir -p /opt/how-web && chown how:how /opt/how-web`).
 
 ## Langkah 10: nginx dan HTTPS
 
@@ -259,7 +260,7 @@ cat > /etc/nginx/sites-available/how-staging <<'EOF'
 server {
     listen 80;
     server_name how-staging.alhidayahgroup.com.my;
-    root /opt/how/dist;
+    root /opt/how-web;
     index index.html;
     location / { try_files $uri $uri/ /index.html; }
 }
@@ -293,7 +294,7 @@ server {
 EOF
 ln -s /etc/nginx/sites-available/how-staging /etc/nginx/sites-enabled/
 rm -f /etc/nginx/sites-enabled/default
-chmod o+x /opt/how && chmod -R o+rX /opt/how/dist
+chmod -R o+rX /opt/how-web
 nginx -t && systemctl reload nginx
 
 # Sijil SSL percuma (Let's Encrypt), diperbaharui automatik
@@ -355,7 +356,7 @@ git pull
 # Backend
 cd server && npm ci && npm run prisma:generate && npm run build && npm run prisma:migrate:deploy && pm2 restart how-api && cd ..
 # Frontend
-npm ci && npm run build
+npm ci && npx vite build --outDir /opt/how-web --emptyOutDir
 ```
 
 Plesk (demo statik awam) dikemas kini seperti biasa: **Pull Updates**, kemudian `run build:demo`.
