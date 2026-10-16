@@ -2,30 +2,34 @@
 
 Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila kerja dimulakan, dan buang item apabila selesai. Penerangan sistem semasa ada dalam [DOKUMENTASI_SISTEM.md](DOKUMENTASI_SISTEM.md).
 
-## Ringkasan: apa yang belum siap (disemak 2026-10-08)
+## Ringkasan: apa yang belum siap (disemak 2026-10-16)
 
 | # | Item | Yang belum siap | Menunggu |
 |---|---|---|---|
 | 1 | Tamper detection | Tandatangan PAdES, OCR lawan lapisan teks, semakan dengan pengeluar dokumen | Boleh dibuat bila diminta |
 | 2 | Penyedia eKYC luar | Anti-spoofing, pemalsuan dokumen, REGISTRY, AML/PEP | Keputusan penyedia dan compliance (BNM e-KYC) |
-| 3 | Liveness | Penalaan dengan kamera sebenar, kelip mata/senyum, semakan kad fizikal, ujian telefon, jalan alternatif | Ujian kamera oleh pemilik projek |
-| 4 | Data biometrik (PDPA) | Tempoh simpanan, pemadaman automatik, rekod persetujuan formal | Keputusan tempoh simpanan |
+| 3 | Liveness | Penalaan pada lebih banyak peranti, kelip mata/senyum, semakan kad fizikal, jalan alternatif | Ujian telefon sudah bermula (2026-10-16) |
+| 4 | Data biometrik (PDPA) | Tempoh simpanan, pemadaman automatik | Keputusan tempoh simpanan |
 | 5 | Emel peringatan membership | Job peringatan harian dan rekod emel dihantar | Akaun Resend dan alamat penghantar |
 | 6 | Contract Advisory/Agreement ikut projek | `projectId` pada kontrak, versi v2/v3, wizard pilih projek | Boleh dibuat bila diminta (kerja besar) |
-| 7 | Perkara kecil pembayaran | Kredit bonus, Project Promotion ke ToyyibPay, go-live ToyyibPay, akaun lejar lama | Keputusan kredit bonus; akaun ToyyibPay live dan domain |
+| 7 | Pembayaran | Sahkan aktivasi pelan selepas bayaran sandbox di staging; kredit bonus; Project Promotion ke ToyyibPay; go-live ToyyibPay | Ujian di staging; akaun ToyyibPay live |
 | 8 | Payout provider | Adapter bank/DuitNow, validation sebelum SETTLED, dual approval ikut had amaun | Pilihan provider; nilai had amaun |
-| 9 | Background jobs dan notifikasi | Uji token push di browser sebenar, sijil TLS Redis (production), akaun Resend/Twilio, integration test dalam CI | Akaun Resend/Twilio; penyediaan secret production |
-| 10 | Blockchain dan smart contract | Fasa 2: anchoring hash ke blockchain awam dan halaman Ketelusan Zakat. Fasa 3: tokenisasi dan smart contract escrow. Baki perkataan "tokenization" dalam tajuk data contoh (dakwaan awam sudah dibuang 2026-10-12) | Fasa 2: pilihan rangkaian dan dompet operasi. Fasa 3: nasihat undang-undang SC dan resolusi Shariah |
-| 11 | Akad, zakat, cukai dan penyata kewangan | Nisab Kedah/Pahang/Perak; cukai pegangan, cukai perkhidmatan, e-invois; caj kerugian ke atas modal dan perkiraan akhir pool | Penasihat cukai; penasihat Shariah; keputusan pelantikan ejen kutipan zakat |
-| 12 | Dokumentasi | README.md bahasa Inggeris masih lapuk; pastikan `DOKUMENTASI_SISTEM.md` dikemas kini setiap kali sistem berubah | Keputusan: kemas kini atau ringkaskan README |
-| 13 | Fasa 0: keselamatan sebelum pilot | Baki pengasingan tugas (feasibility), tahap KYC minimum, pelulus kedua Country Admin (pilihan) | Boleh dimulakan sekarang (penghalang pilot Malaysia) |
-| 14 | Keputusan kecil 2026-10-08 | Organization Admin dalam pengecualian kredit AI, pengesahan jadual tarikh tamat kad 9 negara, data ujian local | Keputusan pemilik projek |
-| 15 | Pembantu dokumen AI (KYC/KYB/PDP) | Smart upload (kenal pasti jenis, isi automatik, semakan awal), chatbot tahu status dokumen, lampiran fail dalam chat | Keputusan untuk mula Fasa A; model AI tempatan yang lebih kuat untuk Fasa C |
-| 16 | Pemindahan ke DigitalOcean | Simpan fail di Spaces (bukan dalam database), konfigurasi deploy, staging di DO, kemudian pilot production | Keputusan bajet dan lokasi data (Singapura) oleh compliance |
-| 17 | Entiti berasingan dan pihak berkaitan | No. SSM, jenis entiti dan kumpulan induk pada organisasi; penanda transaksi pihak berkaitan | Boleh dimulakan |
-| 18 | Prestasi projek PDP dan baki skrin kontrak | Laporan prestasi berkala (KPI kewangan dan sektor), "My Contracts" pelabur masih data contoh | Keputusan senarai KPI; boleh dimulakan |
-| 19 | Benefisiari dan pusaka (backend dan aliran kematian) | Simpanan di backend, peranan Estate Officer, laporan kematian dan pembekuan akaun, penyaluran pelaburan dan aset kepada waris | Keputusan proses dan pemegang amanah (contoh Amanah Raya); nasihat Shariah dan undang-undang |
-| 20 | Modul aset (Asset Owner) | Daftar aset di backend, senarai aset sebenar, kad dashboard dan My Contracts pelabur masih data contoh | Boleh dimulakan; keputusan medan aset dan dokumen bukti |
+| 9 | Background jobs dan notifikasi | Uji token push, TLS Redis, akaun Resend/Twilio, integration test dalam CI | Akaun Resend/Twilio |
+| 10 | Blockchain dan smart contract | Fasa 2 anchoring hash; Fasa 3 tokenisasi | Keputusan rangkaian; nasihat SC dan Shariah |
+| 11 | Akad, zakat, cukai dan penyata | Nisab beberapa negeri; cukai pegangan, cukai perkhidmatan, e-invois; perkiraan akhir pool | Penasihat cukai dan Shariah |
+| 12 | Dokumentasi | README lapuk; `DOKUMENTASI_SISTEM.md` belum merangkumi kerja 2026-10-14 hingga 16 | Boleh dibuat |
+| 13 | Fasa 0: keselamatan sebelum pilot | Had amaun ikut tahap KYC, pengasingan tugas feasibility | Boleh dimulakan |
+| 14 | Keputusan kecil 2026-10-08 | Organization Admin dan kredit AI, jadual tarikh tamat kad 9 negara, data ujian local | Keputusan pemilik projek |
+| 15 | Pembantu dokumen AI (KYC/KYB/PDP) | Smart upload, chatbot tahu status dokumen | Keputusan; model AI yang lebih kuat |
+| 16 | DigitalOcean (staging siap) | Fail ke Spaces, model AI sebenar di staging, tetapan Keycloak, sandaran, pilot production | Bajet; lokasi data; tindakan Keycloak oleh pemilik |
+| 17 | Entiti berasingan dan pihak berkaitan | No. SSM, jenis entiti, syarikat induk; skrin cipta organisasi | Boleh dimulakan |
+| 18 | Prestasi projek PDP dan kontrak | Laporan KPI berkala; "My Contracts" masih data contoh | Keputusan senarai KPI |
+| 19 | Benefisiari dan pusaka | Simpanan backend, Estate Officer, aliran kematian | Keputusan proses; nasihat Shariah dan undang-undang |
+| 20 | Modul aset | Pengesahan tanah (Fasa A dan B sedang dibuat), kemudian bangunan, mesin dan kenderaan; pautan aset ke pool | Sedang dibuat |
+| 21 | Profile & Settings | Skrin pengesahan akaun bank (Settlement Officer); kontrak dan mata wang pilihan belum digunakan | Boleh dimulakan |
+| 22 | Pendaftaran dan pengurusan pengguna | Notis privasi rasmi; Fasa 2 (RoleGrantRequest, skrin Users); Fasa 3 (daftar sendiri) | Butiran syarikat dan semakan peguam |
+| 23 | Skrin yang masih data contoh | Lihat senarai penuh dalam item 23 | Boleh dimulakan mengikut keutamaan |
+| 24 | Perkara teknikal kecil | Saiz bundle frontend, AiRun tergantung, kebersihan data local | Boleh dimulakan |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -61,14 +65,14 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 
 ## 3. Pengesahan wajah (liveness): penalaan dan pelancaran
 
-- **Status:** Prototaip siap (2026-10-02). Belum diuji dengan kamera sebenar oleh pengguna.
+- **Status:** Prototaip siap (2026-10-02). Ujian pertama di telefon oleh pemilik projek pada 2026-10-16: oval panduan kini kekal berbentuk wajah di skrin potret, ambang dongak diturunkan ke 0.06, dan setiap pergerakan kepala menunjukkan bar kemajuan.
 - **Dikemas kini 2026-10-08 (commit `b2a4d2c`):** langkah kad kini **wajib** membaca nombor ID daripada kad dan memadankannya dengan borang (laluan alternatif "wajah + 20 huruf" dibuang). Kawasan kad dipotong, dibesarkan dan ditajamkan sebelum OCR; kamera 1920×1080; had masa langkah kad 90 saat; mesej punca (gelap, silau, kabur, tidak sepadan). Ambang kecerahan/silau/ketajaman dalam `card-quality.ts` hanya memilih mesej dan belum ditala dengan kamera sebenar. **Risiko:** tiada laluan alternatif lagi, jadi pengguna dengan webcam lemah mungkin gagal berulang kali; perkara 5 di bawah menjadi lebih penting.
 - **Kawasan:** `server/src/kyc/liveness/`, `src/kyc/KycLivenessCapture.tsx`, `src/kyc/KycLivenessReviewPanel.tsx`
 
-1. **Uji dan tala ambang dengan kamera sebenar:** saiz/kedudukan muka, pusing kiri/kanan (`turnYaw` 0.22), dongak (`lookUpPitch` 0.08) dan face match (0.363), pada pelbagai peranti, cahaya dan pengguna. Nilai sekarang disahkan dengan gambar sampel dan titik muka sintetik sahaja.
+1. **Uji dan tala ambang dengan kamera sebenar:** saiz/kedudukan muka, pusing kiri/kanan (`turnYaw` 0.22), dongak (`lookUpPitch` 0.06, diturunkan 2026-10-16) dan face match (0.363; pegawai kini melihat tahap kuat, sederhana atau tidak sepadan), pada pelbagai peranti, cahaya dan pengguna. Nilai sekarang disahkan dengan gambar sampel dan titik muka sintetik sahaja.
 2. **Arahan tambahan:** kelip mata dan senyum. Ini memerlukan model titik muka yang lebih lengkap; model sekarang hanya ada 5 titik.
 3. **Semakan kad fizikal:** arahan "condongkan kad" untuk melihat pantulan hologram, dan pengesanan kad yang dipaparkan di skrin.
-4. **Pengalaman telefon:** uji di telefon (kamera depan, putaran skrin); kamera hanya berfungsi pada `https://` atau `localhost`.
+4. **Pengalaman telefon:** ujian pertama dibuat (2026-10-16). Baki: uji pada lebih banyak telefon dan putaran skrin; kamera hanya berfungsi pada `https://` atau `localhost`.
 5. **Pelancaran:** bila sedia, tetapkan `KYC_REQUIRE_LIVENESS=true`. Sebelum itu, sediakan jalan alternatif untuk pengguna tanpa kamera, atau yang gagal berulang kali (contohnya semakan manual atau panggilan video).
 
 ## 4. Data biometrik (PDPA 2010)
@@ -114,7 +118,8 @@ Bingkai kamera dan dokumen KYC disimpan dalam database tanpa had masa. Perlu dip
 
 ## 7. Perkara kecil berkaitan pembayaran
 
-- **Status:** Dicatat 2026-10-01.
+- **Status:** Dicatat 2026-10-01. Dikemas kini 2026-10-16: ToyyibPay sandbox dikonfigurasi di staging; bil berjaya dicipta selepas dua pembetulan (e-mel bertanda "+" ditolak ToyyibPay, dan yuran FPX RM 1 yang dibayar pelanggan dianggap tidak sepadan).
+- **Sahkan di staging:** selepas bayaran sandbox, "Check status" atau callback ToyyibPay mesti menukar status kepada PAID dan mengaktifkan pelan. Uji juga tambah nilai kredit AI.
 - **Kredit bonus:** dianggap sama seperti kredit dibeli (tidak tamat, boleh ditebus untuk membership). Sahkan sama ada bonus patut dikira sebagai kredit percuma.
 - **Project Promotion:** `promotionPayment` masih guna aliran bayaran sendiri, bukan ToyyibPay.
 - **ToyyibPay go-live:** akaun live, kunci dan kategori dari akaun live, `TOYYIBPAY_BASE_URL=https://toyyibpay.com/`, `NODE_ENV=production`, dan sign-in melalui Keycloak (bukan `AUTH_MODE=mock`). Buat satu bayaran kecil dahulu sebelum dibuka kepada pengguna.
@@ -266,7 +271,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 1. **Tahap KYC minimum:** pesanan pelaburan kini memerlukan KYC berstatus APPROVED (2026-10-13). Baki: had amaun mengikut tahap KYC (LEVEL_1, LEVEL_2, LEVEL_3).
 2. **Pengasingan tugas (baki):** Organization/Country Admin masih penyemak lalai bagi lima peringkat feasibility dalam `ai.service.ts`. (Funding dan destinasi payout siap 2026-10-12.)
-3. **Pelulus kedua untuk peranan Country Admin** (pilihan): kini hanya Super Admin boleh memberi atau menarik Country Admin; aliran pelulus kedua (`RoleGrantRequest`) belum dibina.
+3. **Pelulus kedua:** keputusan 2026-10-15: hanya satu Super Admin untuk seluruh sistem, dan hanya dia mencipta Country Admin. `RoleGrantRequest` untuk peranan admin lain dipindahkan ke item 22 (Fasa 2).
 
 ## 14. Keputusan kecil daripada kerja 2026-10-08
 
@@ -278,7 +283,12 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 ## 15. Pembantu dokumen AI untuk muat naik KYC, KYB dan PDP
 
-- **Status:** Cadangan (2026-10-12). Belum dimulakan.
+- **Status:** Staging **berjalan** sejak 2026-10-15: droplet 152.42.232.149 (Singapura), Managed PostgreSQL, Keycloak dalam Docker, nginx dengan Let's Encrypt untuk how-staging, how-staging-api dan how-staging-auth.alhidayahgroup.com.my. Panduan: `PANDUAN_STAGING_DIGITALOCEAN.md`.
+- **Baki untuk staging:**
+  - Model AI sebenar: staging masih `AI_PROVIDER=sandbox`, jadi jawapan AI hanya teks contoh (langkah 12 panduan).
+  - Tetapan Keycloak oleh pemilik: Unmanaged attributes = "Only administrators can edit"; Authenticator Reference Max Age 36000 pada OTP Form dan Username Password Form.
+  - Sandaran database berjadual dan ujian pemulihan.
+  - Panduan staging belum mencatat pengalaman 2026-10-15 dan 16 (arahan mesti dijalankan sebagai `how`, kunci rahsia tidak di-commit, `.env` mesti disalin dengan tangan).
 - **Kawasan:** `server/src/kyc/checks/document-text-reader.ts` (OCR sedia ada), `server/src/kyc/kyc.controller.ts`, `server/src/pdp/`, `server/src/projects/projects.controller.ts` (muat naik bukti), `server/src/ai/ai.service.ts` (`/ai/chat`), `src/ai/components/AIAssistant.tsx`
 
 **Sudah ada:** OCR tesseract di dalam pelayan, semakan pengubahsuaian dokumen dan liveness untuk KYC, analisis AI untuk dokumen bukti projek, chatbot RAG (hanya menjawab soalan, tiada lampiran fail atau tindakan).
@@ -306,7 +316,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 **Langkah:**
 1. **Simpan fail di DigitalOcean Spaces (serasi S3)** dan bukan dalam database. Database hanya simpan kunci objek, hash SHA-256 dan metadata. Pindahkan fail sedia ada dengan skrip migrasi. Fail KYC mesti peribadi (tiada akses awam) dan dicapai melalui URL bertandatangan yang singkat tempohnya.
 2. **Konfigurasi deploy:** App Platform spec atau Docker Compose untuk API, worker dan Keycloak; secret dalam pengurus secret, bukan dalam Git.
-3. **Staging (anggaran $50–65 sebulan):** Droplet 4 GB, Managed PostgreSQL 1 GB dengan pgvector, Spaces, LLM serverless ikut penggunaan. Frontend dibina dengan `VITE_API_BASE_URL` ke API staging.
+3. **Staging:** siap 2026-10-15 (Droplet 4 GB dan Managed PostgreSQL). Belum: Spaces untuk fail, dan LLM serverless.
 4. **Pilot production (anggaran $160–240 sebulan):** Droplet 8 GB, PostgreSQL dengan standby HA, Redis, sandaran. Selepas baki item 13 siap.
 
 **Keputusan diperlukan:**
@@ -359,7 +369,11 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 **Baki:**
 1. **Kad kontrak:** ringkasan My Contracts masih data contoh; gantikan dengan perjanjian dan pesanan sebenar (rujuk item 18).
 2. **Hubungan aset dengan pool atau projek:** hanya aset berstatus VERIFIED boleh dipautkan kepada pool atau projek (Ijarah atau Musharakah), dengan perjanjian yang telah diluluskan Legal dan Shariah.
-3. **Semakan dokumen hak milik:** OCR geran atau perjanjian jual beli dan bandingkan nama pemilik dengan organisasi, serta nombor hak milik dengan rujukan yang dimasukkan (seperti semakan dokumen KYC).
+3. **Pengesahan mengikut jenis aset (dipersetujui 2026-10-16):**
+   - **Fasa A** (tiada pihak luar): borang dan senarai dokumen mengikut jenis; pengesanan pendaftaran berganda (hak milik/lot, no. casis, no. siri); pin peta dan gambar tapak dengan GPS; tarikh luput (pajakan, insurans, cukai jalan, sijil JKKP).
+   - **Fasa B** (OCR dalam pelayan sendiri): geran dan Carian Rasmi (pemilik, bahagian, gadaian/kaveat), cukai pintu dan CCC (bangunan), VOC JPJ dan PUSPAKOM (kenderaan berat), invois dan plat nombor siri, sijil PMA JKKP (mesin).
+   - **Fasa C** (pihak luar): integrasi e-Tanah, JPJ atau JKKP; memerlukan perjanjian dengan agensi atau penyedia.
+   - **Susunan:** tanah dahulu (Carian Rasmi **wajib** untuk tanah, kerana hanya ia menunjukkan pemilik dan bebanan semasa), kemudian kenderaan berat dan mesin, kemudian bangunan.
 4. **Penilaian:** amaran jika laporan penilaian lebih lama daripada 12 bulan, atau nilai yang dimasukkan jauh berbeza daripada laporan.
 5. **Aset yang sudah disahkan:** cara mengemas kini nilai atau menarik balik aset VERIFIED (kini perlu melalui Country Admin).
 6. **Skrin lama:** Asset Marketplace dan dashboard eksekutif masih menggunakan senarai aset contoh (`INITIAL_ASSETS`).
@@ -395,3 +409,27 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 4. **Fasa 4:** model organisasi lengkap (jenis, nombor pendaftaran, syarikat induk) dan KYB (rujuk item 17); penyulitan medan KYC.
 5. **Penguatkuasaan di server:** persetujuan PDPA kini diminta di frontend; pertimbangkan menyekat API (kecuali log masuk dan notis) sehingga persetujuan direkod.
 6. **`COUNTRY_NODE_ID`:** tetapkan `CN-MYS` di production Malaysia. Staging belum menetapkannya kerana masih ada persona Indonesia.
+
+## 23. Skrin yang masih menggunakan data contoh
+
+- **Status:** Senarai disemak 2026-10-16. Skrin ini kelihatan berfungsi tetapi tidak membaca atau menyimpan data di server, jadi ia boleh mengelirukan dalam staging atau pilot.
+
+| Skrin | Data sekarang | Rujukan |
+|---|---|---|
+| Investments (posisi pelaburan pelabur) | Senarai contoh dalam `InvestmentsView.tsx` | Pesanan pelaburan sebenar sudah ada di server |
+| My Contracts | `INITIAL_CONTRACTS` | Item 18 |
+| Document Vault | Contoh | Dokumen projek sebenar sudah ada di server |
+| Asset Marketplace dan dashboard eksekutif | `INITIAL_ASSETS` | Item 20 |
+| Beneficiaries | Disimpan dalam pelayar sahaja | Item 19 |
+| Angka dashboard Super Admin | Contoh | Boleh diganti dengan ringkasan server |
+| AI: Pool Matcher, Portfolio Health, Risk & Early Warning, Stress Scenarios, Pool Sizing Optimizer | Contoh (tiada panggilan server) | Disembunyikan untuk Asset Owner sahaja |
+
+**Cadangan:** ganti mengikut keutamaan pilot (Investments dan My Contracts dahulu), atau tandakan skrin contoh dengan label "Contoh" sehingga diganti.
+
+## 24. Perkara teknikal kecil
+
+- **Status:** Dicatat 2026-10-16.
+
+1. **Saiz bundle frontend:** satu fail JavaScript kira-kira 1.9 MB (430 KB selepas gzip). Pecahkan dengan `import()` dinamik untuk skrin besar (AI Wealth Engine, Admin Center) supaya muat pertama lebih pantas, terutamanya di telefon.
+2. **AiRun tergantung:** permintaan AI yang terputus kerana pelayan dimulakan semula kekal `RUNNING` selama-lamanya. Tambah job pembersihan yang menandakannya FAILED dan memulangkan kredit (pemulangan kredit untuk kegagalan biasa sudah ada sejak 2026-10-16).
+3. **Data ujian local:** aset ujian `ASSET-MYS-JZW65Y19` dan rekod AiRun ujian dalam database local; bersihkan jika perlu (data demo Plesk dirakam daripadanya).
