@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   X, 
   Upload, 
@@ -9,7 +9,8 @@ import {
   Image as ImageIcon, 
   Trash2, 
   RotateCcw,
-  CheckCircle2
+  CheckCircle2,
+  Video
 } from 'lucide-react';
 
 interface AvatarChangeModalProps {
@@ -17,6 +18,38 @@ interface AvatarChangeModalProps {
   userName: string;
   onClose: () => void;
   onSaveAvatar: (newAvatarUrl: string) => void;
+}
+
+/**
+ * The server stores the picture in the user profile, so every source is cropped to the centre
+ * square and shrunk to a 256x256 JPEG (a few tens of KB). Drawing onto a canvas also turns SVG
+ * into a plain image. Returns null when the source has no size.
+ */
+function squareJpeg(source: CanvasImageSource, width: number, height: number, mirror = false): string | null {
+  const size = 256;
+  const side = Math.min(width, height);
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext('2d');
+  if (!context || !side) return null;
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, size, size);
+  if (mirror) {
+    // Keep the photo as the person saw it in the mirrored camera preview.
+    context.translate(size, 0);
+    context.scale(-1, 1);
+  }
+  context.drawImage(source, (width - side) / 2, (height - side) / 2, side, side, 0, 0, size, size);
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+function cameraErrorMessage(error: unknown): string {
+  const name = error instanceof DOMException ? error.name : '';
+  if (name === 'NotAllowedError' || name === 'SecurityError') return 'Camera access was blocked. Allow the camera for this site in your browser settings, then try again.';
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'No camera was found on this device.';
+  if (name === 'NotReadableError') return 'The camera is being used by another app. Close it and try again.';
+  return 'The camera could not be started. Use Upload Photo instead.';
 }
 
 const PRESET_AVATARS = [
@@ -36,13 +69,52 @@ export const AvatarChangeModal: React.FC<AvatarChangeModalProps> = ({
   onClose,
   onSaveAvatar
 }) => {
-  const [activeTab, setActiveTab] = useState<'upload' | 'preset' | 'url'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'camera' | 'preset' | 'url'>('upload');
   const [previewUrl, setPreviewUrl] = useState<string>(currentAvatar);
   const [customUrl, setCustomUrl] = useState<string>('');
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setCameraReady(false);
+  };
+
+  // The camera runs only while its tab is open, and is switched off when leaving it or closing the window.
+  useEffect(() => {
+    if (activeTab !== 'camera') return undefined;
+    let cancelled = false;
+    setErrorMsg(null);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setErrorMsg(window.isSecureContext ? 'This browser cannot use the camera. Use Upload Photo instead.' : 'The camera only works on a secure (https) page.');
+      return undefined;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } }, audio: false })
+      .then((stream) => {
+        if (cancelled) { stream.getTracks().forEach((track) => track.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          void videoRef.current.play().then(() => setCameraReady(true)).catch(() => setCameraReady(true));
+        }
+      })
+      .catch((error) => { if (!cancelled) setErrorMsg(cameraErrorMessage(error)); });
+    return () => { cancelled = true; stopCamera(); };
+  }, [activeTab]);
+
+  const takePhoto = () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth) return;
+    const photo = squareJpeg(video, video.videoWidth, video.videoHeight, true);
+    if (photo) setPreviewUrl(photo);
+    else setErrorMsg('The photo could not be taken. Try again.');
+  };
 
   const handleFileSelect = (file: File) => {
     setErrorMsg(null);
@@ -56,25 +128,12 @@ export const AvatarChangeModal: React.FC<AvatarChangeModalProps> = ({
       return;
     }
 
-    // The server stores the picture in the user profile, so it is shrunk here to a 256x256
-    // JPEG (a few tens of KB). Drawing onto a canvas also turns SVG into a plain image.
     const objectUrl = URL.createObjectURL(file);
     const image = new Image();
     image.onload = () => {
-      const size = 256;
-      const side = Math.min(image.naturalWidth, image.naturalHeight);
-      const canvas = document.createElement('canvas');
-      canvas.width = size;
-      canvas.height = size;
-      const context = canvas.getContext('2d');
-      if (!context || !side) {
-        setErrorMsg('This image could not be read. Try another file.');
-      } else {
-        context.fillStyle = '#ffffff';
-        context.fillRect(0, 0, size, size);
-        context.drawImage(image, (image.naturalWidth - side) / 2, (image.naturalHeight - side) / 2, side, side, 0, 0, size, size);
-        setPreviewUrl(canvas.toDataURL('image/jpeg', 0.85));
-      }
+      const photo = squareJpeg(image, image.naturalWidth, image.naturalHeight);
+      if (photo) setPreviewUrl(photo);
+      else setErrorMsg('This image could not be read. Try another file.');
       URL.revokeObjectURL(objectUrl);
     };
     image.onerror = () => {
@@ -170,6 +229,7 @@ export const AvatarChangeModal: React.FC<AvatarChangeModalProps> = ({
         <div className="flex rounded-2xl bg-slate-100 dark:bg-slate-900 p-1 border border-slate-200 dark:border-slate-700/60">
           {[
             { id: 'upload', label: 'Upload Photo', icon: <Upload className="w-3.5 h-3.5" /> },
+            { id: 'camera', label: 'Take Photo', icon: <Video className="w-3.5 h-3.5" /> },
             { id: 'preset', label: 'Preset Gallery', icon: <ImageIcon className="w-3.5 h-3.5" /> },
             { id: 'url', label: 'Image URL', icon: <LinkIcon className="w-3.5 h-3.5" /> }
           ].map(t => (
@@ -221,6 +281,30 @@ export const AvatarChangeModal: React.FC<AvatarChangeModalProps> = ({
                 Supports JPG, PNG, WEBP, or SVG (Up to 10MB)
               </p>
             </div>
+          </div>
+        )}
+
+        {/* TAB: CAMERA */}
+        {activeTab === 'camera' && (
+          <div className="space-y-3">
+            <div className="relative mx-auto w-full max-w-xs aspect-square rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 dark:border-slate-700">
+              <video ref={videoRef} playsInline muted className="w-full h-full object-cover -scale-x-100" aria-label="Camera preview" />
+              {!cameraReady && !errorMsg && (
+                <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-slate-300">Starting camera… allow access if your browser asks.</div>
+              )}
+            </div>
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={takePhoto}
+                disabled={!cameraReady}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-2xl shadow-md flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Camera className="w-4 h-4" />
+                <span>Take Photo</span>
+              </button>
+            </div>
+            <p className="text-[11px] text-center text-slate-400">The photo appears in the preview above. Take it again until you are happy, then press Save.</p>
           </div>
         )}
 
