@@ -5,6 +5,7 @@ import { apiClient, FeatureModule, FeatureModuleMode } from '../../services/apiC
 /** What each switch actually stops on the server, so the panel does not promise more than it does. */
 const CONTROLS: Record<string, string> = {
   AI_INTELLIGENCE: 'Controls: every AI feature (advisor, analysis, agreement drafting notes).',
+  ASSET_REGISTRATION: 'Controls: registering assets, their documents, and their verification.',
   KYC_VERIFICATION: 'Controls: identity verification submissions and reviews.',
   SHARIAH_GOVERNANCE: 'Controls: Shariah reviews and sign-offs.',
   WEALTH_POOLING: 'Controls: pools, funding requests, investment orders and profit distributions.',
@@ -15,7 +16,7 @@ const CONTROLS: Record<string, string> = {
 };
 
 /** Modules without a server module yet: their switch would change nothing, so it is locked. */
-const NOT_BUILT = new Set(['ASSET_REGISTRATION', 'SECONDARY_MARKET']);
+const NOT_BUILT = new Set(['SECONDARY_MARKET']);
 
 export const FeatureModuleControlPanel: React.FC = () => {
   const [modules, setModules] = useState<FeatureModule[]>([]);

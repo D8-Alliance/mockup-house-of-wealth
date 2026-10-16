@@ -97,7 +97,7 @@ export const GOVERNANCE_ROLES: Record<string, RoleDefinition> = {
     category: 'Governance & Risk',
     description: 'Drafts and reviews legal prospectuses, cross-border jurisdiction agreements, and dispute resolution frameworks.',
     badgeColor: 'bg-indigo-600/10 text-indigo-700 dark:text-indigo-300 border-indigo-600/30',
-    accessibleTabs: ['dashboard', 'contracts', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'contracts', 'assets', 'documents', 'ledger', 'profile'],
     permissions: {
       dashboard: ['read'],
       assets: ['read'],

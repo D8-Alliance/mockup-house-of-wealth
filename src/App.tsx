@@ -23,7 +23,6 @@ import { MainTabViews } from './components/MainTabViews';
 import { CodeReviewModal } from './components/CodeReviewModal';
 import { ContractWizardModal } from './components/ContractWizardModal';
 import { ContractFinancialPerfModal } from './components/ContractFinancialPerfModal';
-import { AssetRegistrationWizardModal } from './components/AssetRegistrationWizardModal';
 import { PDPRegistrationModal } from './pdp/components/PDPRegistrationModal';
 import { LoginModal } from './components/auth/LoginModal';
 import { MembershipExpiryBanner } from './components/revenue/MembershipExpiryBanner';
@@ -79,12 +78,6 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
     }
   }, [darkMode]);
 
-  const handleAddAsset = (newAsset: AssetItem) => {
-    setAssets(prev => [newAsset, ...prev]);
-    setAssetRegisterOpen(false);
-    setTab('assets');
-  };
-
   const handleAddContract = (newContract: ContractItem) => {
     setContracts(prev => [newContract, ...prev]);
     setContractWizardOpen(false);
@@ -126,7 +119,9 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
           onFinancialRefresh={refreshFinancialData}
           beneficiaries={beneficiaries}
           setBeneficiaries={setBeneficiaries}
-          onOpenAssetRegister={() => setAssetRegisterOpen(true)}
+          onOpenAssetRegister={() => { setAssetRegisterOpen(true); setTab('assets'); }}
+          assetRegisterRequested={assetRegisterOpen}
+          onAssetRegisterStarted={() => setAssetRegisterOpen(false)}
           onOpenContractWizard={() => setContractWizardOpen(true)}
           onOpenFinancialPerf={(c) => setSelectedContractPerf(c)}
           onOpenPdpRegister={() => setPdpRegisterOpen(true)}
@@ -141,12 +136,6 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
         <ContractWizardModal 
           onClose={() => setContractWizardOpen(false)} 
           onComplete={handleAddContract}
-        />
-      )}
-      {assetRegisterOpen && (
-        <AssetRegistrationWizardModal 
-          onClose={() => setAssetRegisterOpen(false)} 
-          onAddAsset={handleAddAsset}
         />
       )}
       {pdpRegisterOpen && (

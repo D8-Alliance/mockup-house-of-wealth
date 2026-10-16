@@ -164,6 +164,7 @@ model CountryNode {
   financialAccounts    FinancialAccount[]
   ledgerTransactions   LedgerTransaction[]
   zakatAuthorities     ZakatAuthority[]
+  assets               Asset[]
 }
 
 model Organisation {
@@ -200,6 +201,7 @@ model Organisation {
   approvals            ProjectApproval[]
   financialAccounts    FinancialAccount[]
   ledgerTransactions   LedgerTransaction[]
+  assets               Asset[]
 
   @@unique([id, countryNodeId])
   @@index([countryNodeId])
@@ -1885,4 +1887,70 @@ model RoleAvailability {
   updatedBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// A real asset an Asset Owner offers for Shariah-compliant leasing, partnership or sale: land, a building, machinery...
+/// Registered as DRAFT, submitted with proof of ownership, then verified by a Country Admin or Legal Officer.
+model Asset {
+  /// ASSET-<country>-XXXXXXXX
+  id              String    @id
+  organisationId  String
+  countryNodeId   String
+  ownerUserId     String
+  /// LAND, BUILDING, MACHINERY, VEHICLE, EQUIPMENT or OTHER
+  assetType       String
+  name            String
+  description     String    @default("")
+  location        String    @default("")
+  /// Land title or lot number, vehicle registration, machine serial number.
+  titleReference  String?
+  estimatedValue  Decimal   @db.Decimal(18, 2)
+  currency        String
+  valuationDate   DateTime?
+  valuerName      String?
+  /// Charged to a bank or otherwise pledged; Shariah review needs to know.
+  isEncumbered    Boolean   @default(false)
+  encumbranceNote String?
+  /// IJARAH (lease), MUSHARAKAH (partnership contribution), MURABAHAH (sale) or UNDECIDED
+  intendedUse     String    @default("UNDECIDED")
+  /// DRAFT, SUBMITTED, CHANGES_REQUESTED, VERIFIED, REJECTED or WITHDRAWN
+  status          String    @default("DRAFT")
+  /// The owner's declarations at submission (ownership, halal use, accuracy).
+  declarations    Json?
+  submittedAt     DateTime?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  reviewNote      String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organisation Organisation    @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode  CountryNode     @relation(fields: [countryNodeId], references: [code])
+  documents    AssetDocument[]
+
+  @@index([organisationId, countryNodeId])
+  @@index([countryNodeId, status])
+}
+
+/// Evidence for an asset: proof of ownership, valuation report, insurance, photos.
+model AssetDocument {
+  id           String   @id @default(cuid())
+  assetId      String
+  /// OWNERSHIP, VALUATION, INSURANCE, PHOTO or OTHER
+  documentType String
+  fileName     String
+  mimeType     String
+  fileSize     Int
+  fileContent  Bytes
+  /// SHA-256 recorded at upload; also used to spot the same file on another owner's asset.
+  sha256       String
+  /// Advisory tamper signals (see src/projects/document-integrity.ts).
+  integrity    Json?
+  uploadedBy   String
+  createdAt    DateTime @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId])
+  @@index([sha256])
 }

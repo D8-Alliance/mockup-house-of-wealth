@@ -25,6 +25,7 @@ import { RoleAvailabilityModule } from './roles/role-availability.module';
 import { AiModule } from './ai/ai.module';
 import { ContractIntelligenceModule } from './contract-intelligence/contract-intelligence.module';
 import { KycModule } from './kyc/kyc.module';
+import { AssetsModule } from './assets/assets.module';
 import { FinancialLedgerModule } from './financial/financial-ledger.module';
 import { DistributionModule } from './distribution/distribution.module';
 import { InvestmentsModule } from './investments/investments.module';
@@ -57,6 +58,7 @@ import { JobsModule } from './jobs/jobs.module';
     AiModule,
     ContractIntelligenceModule,
     KycModule,
+    AssetsModule,
     FinancialLedgerModule,
     DistributionModule,
     InvestmentsModule,

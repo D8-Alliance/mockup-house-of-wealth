@@ -353,14 +353,16 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 ## 20. Modul aset untuk Asset Owner
 
-- **Status:** Belum dimulakan (dicatat 2026-10-13). Asset Owner kini mempunyai organisasi sendiri dan boleh menggubal perjanjian Ijarah atau Musharakah melalui Agreement Generation (butang "Draft Agreement" menggantikan wizard contoh "Issue Contract"; jenis akad dihadkan mengikut peranan di frontend dan backend).
-- **Kawasan:** `src/components/AssetRegistrationWizardModal.tsx`, `src/components/MyAssetsView.tsx`, `src/components/dashboards/RoleDashboardView.tsx`, backend baharu
+- **Status:** Sebahagian siap (2026-10-16). Pendaftaran aset kini di server (model `Asset` dan `AssetDocument`, modul `ASSET_REGISTRATION`): Asset Owner atau Asset Manager mendaftar aset sebagai draf, memuat naik dokumen (bukti hak milik wajib; PDF/JPG/PNG disemak jenis sebenar, hash SHA-256, isyarat pengubahsuaian dan fail yang sama pada aset pemilik lain), membuat tiga pengakuan (hak milik, kegunaan halal, ketepatan) lalu menghantar. Country Admin atau Legal Officer negara itu mengesahkan, meminta perubahan atau menolak, tidak boleh untuk organisasi sendiri. Tab Asset Register dan kad dashboard "Asset Holdings" kini data sebenar; tab Investments dibuang untuk Asset Owner.
+- **Kawasan:** `server/src/assets/`, `src/assets/`, `src/components/dashboards/RoleDashboardView.tsx`
 
 **Baki:**
-1. **Daftar aset di backend:** "Register Asset" masih wizard contoh yang tidak disimpan. Bina model aset (jenis: tanah, bangunan, jentera; lokasi; nilai dan penilai; hak milik; dokumen bukti seperti geran atau invois) dengan semakan pengubahsuaian dokumen yang sedia ada.
-2. **Senarai aset sebenar:** tab Asset Register dan kad dashboard "Asset Holdings: 4 sample assets" masih data contoh. Baca dari backend mengikut organisasi.
-3. **Kad kontrak:** "Islamic Contracts: 4 active agreements" dan ringkasan My Contracts pelabur masih data contoh; gantikan dengan perjanjian dan pesanan sebenar (rujuk item 18).
-4. **Hubungan aset dengan pool atau projek:** aset yang dipajak (Ijarah) atau disumbang (Musharakah) dipautkan kepada pool atau projek, dengan perjanjian yang telah diluluskan Legal dan Shariah.
+1. **Kad kontrak:** ringkasan My Contracts masih data contoh; gantikan dengan perjanjian dan pesanan sebenar (rujuk item 18).
+2. **Hubungan aset dengan pool atau projek:** hanya aset berstatus VERIFIED boleh dipautkan kepada pool atau projek (Ijarah atau Musharakah), dengan perjanjian yang telah diluluskan Legal dan Shariah.
+3. **Semakan dokumen hak milik:** OCR geran atau perjanjian jual beli dan bandingkan nama pemilik dengan organisasi, serta nombor hak milik dengan rujukan yang dimasukkan (seperti semakan dokumen KYC).
+4. **Penilaian:** amaran jika laporan penilaian lebih lama daripada 12 bulan, atau nilai yang dimasukkan jauh berbeza daripada laporan.
+5. **Aset yang sudah disahkan:** cara mengemas kini nilai atau menarik balik aset VERIFIED (kini perlu melalui Country Admin).
+6. **Skrin lama:** Asset Marketplace dan dashboard eksekutif masih menggunakan senarai aset contoh (`INITIAL_ASSETS`).
 
 ## 21. Baki tab Profile & Settings
 

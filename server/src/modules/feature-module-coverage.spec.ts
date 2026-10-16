@@ -4,6 +4,7 @@ import { ContractsController } from '../contracts/contracts.controller';
 import { ContractIntelligenceController } from '../contract-intelligence/contract-intelligence.controller';
 import { ProjectsController } from '../projects/projects.controller';
 import { PoolsController } from '../pools/pools.controller';
+import { AssetsController } from '../assets/assets.controller';
 
 jest.mock('../prisma.service', () => ({ PrismaService: class {} }));
 
@@ -14,6 +15,7 @@ describe('feature module switches guard their APIs', () => {
     expect(Reflect.getMetadata(FEATURE_MODULE_KEY, PoolsController)).toBe('WEALTH_POOLING');
     expect(Reflect.getMetadata(FEATURE_MODULE_KEY, ContractsController)).toBe('CONTRACTS');
     expect(Reflect.getMetadata(FEATURE_MODULE_KEY, ContractIntelligenceController)).toBe('CONTRACTS');
+    expect(Reflect.getMetadata(FEATURE_MODULE_KEY, AssetsController)).toBe('ASSET_REGISTRATION');
   });
 
   it('guards project document and evidence uploads with Document Vault', () => {

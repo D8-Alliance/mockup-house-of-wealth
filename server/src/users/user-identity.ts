@@ -30,9 +30,14 @@ export function cellCode(countryNodeId: string): string {
   return code;
 }
 
+/** A record ID of the form PREFIX-MYS-7K4Q2M9X: the kind of record, its country and 8 random characters. */
+export function newCountryScopedId(prefix: string, countryNodeId: string): string {
+  return `${prefix}-${cellCode(countryNodeId)}-${randomCode(8)}`;
+}
+
 /** A new Member ID such as USR-MYS-7K4Q2M9X. Set once at registration and never changed. */
 export function newUserId(countryNodeId: string): string {
-  return `USR-${cellCode(countryNodeId)}-${randomCode(8)}`;
+  return newCountryScopedId('USR', countryNodeId);
 }
 
 /** The private organisation that holds an individual's own records, e.g. ORG-MYS-IND-7K4Q2M9X. */

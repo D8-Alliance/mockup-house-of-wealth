@@ -80,7 +80,7 @@ export const OPERATIONS_ROLES: Record<string, RoleDefinition> = {
     category: 'Asset Owner',
     description: 'Owns land, buildings, machinery or other real assets and offers them for Shariah-compliant financing, leasing or pooling.',
     badgeColor: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/30',
-    accessibleTabs: ['dashboard', 'ai-engine', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'wallet', 'financials', 'documents', 'beneficiaries', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'marketplace', 'pooling', 'assets', 'contracts', 'wallet', 'financials', 'documents', 'beneficiaries', 'ledger', 'profile'],
     permissions: {
       dashboard: ['read'],
       assets: ['create', 'read', 'update', 'delete', 'export'],

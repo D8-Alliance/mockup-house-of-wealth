@@ -42,9 +42,22 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
   onOpenPdpRegister
 }) => {
   const { currentRole, roleDef, checkPermission, canAccessTab } = useRBAC();
+  // Real counts for the asset card, for the roles that register or verify assets.
+  const [assetSummary, setAssetSummary] = useState<string | null>(null);
+  React.useEffect(() => {
+    if (!['Asset Owner', 'Asset Manager', 'Country Admin', 'Legal Officer', 'Super Admin'].includes(currentRole)) { setAssetSummary(null); return; }
+    void apiClient.getAssets()
+      .then((list) => {
+        const active = list.filter((asset) => asset.status !== 'WITHDRAWN');
+        const verified = active.filter((asset) => asset.status === 'VERIFIED').length;
+        const waiting = active.filter((asset) => asset.status === 'SUBMITTED').length;
+        setAssetSummary(`${active.length} asset${active.length === 1 ? '' : 's'} registered: ${verified} verified, ${waiting} awaiting verification.`);
+      })
+      .catch(() => setAssetSummary(null));
+  }, [currentRole]);
   const quickLinks = ([
-    { tab: 'assets', title: 'Asset Holdings', text: `${assets.length} sample real-world assets listed in the portfolio.`, action: 'View Assets', icon: <Building2 className="w-5 h-5 text-emerald-500" />, linkClass: 'text-emerald-600 dark:text-emerald-400' },
-    { tab: 'contracts', title: 'Islamic Contracts', text: `${contracts.length} active Mudarabah, Musharakah, and Wakalah agreements.`, action: 'View Contracts', icon: <Coins className="w-5 h-5 text-blue-500" />, linkClass: 'text-blue-600 dark:text-blue-400' },
+    { tab: 'assets', title: 'Asset Holdings', text: assetSummary ?? 'Land, buildings and machinery registered for Shariah-compliant use.', action: 'View Assets', icon: <Building2 className="w-5 h-5 text-emerald-500" />, linkClass: 'text-emerald-600 dark:text-emerald-400' },
+    { tab: 'contracts', title: 'Islamic Contracts', text: 'Your Islamic agreements and where each one is in Legal and Shariah review.', action: 'View Contracts', icon: <Coins className="w-5 h-5 text-blue-500" />, linkClass: 'text-blue-600 dark:text-blue-400' },
     { tab: 'pooling', title: 'Wealth Pools', text: 'Browse open Mudarabah and Waqf pools and their funding progress.', action: 'Explore Pools', icon: <HandCoins className="w-5 h-5 text-emerald-500" />, linkClass: 'text-emerald-600 dark:text-emerald-400' },
     { tab: 'investments', title: 'My Investments', text: 'Track your pool participations, profit distributions and exit requests.', action: 'View Investments', icon: <TrendingUp className="w-5 h-5 text-blue-500" />, linkClass: 'text-blue-600 dark:text-blue-400' },
     { tab: 'marketplace', title: 'Marketplace & Liquidity', text: 'Discover Sukuk offerings and Waqf pool allocations across D-8 nations.', action: 'Explore Opportunities', icon: <Globe2 className="w-5 h-5 text-purple-500" />, linkClass: 'text-purple-600 dark:text-purple-400' },
@@ -103,7 +116,7 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
               </button>
             )}
 
-            {checkPermission('assets', 'create') && (
+            {(currentRole === 'Asset Owner' || currentRole === 'Asset Manager') && (
               <button
                 type="button"
                 onClick={onOpenAssetRegister}

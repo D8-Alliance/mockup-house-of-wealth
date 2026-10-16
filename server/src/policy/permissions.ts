@@ -191,7 +191,7 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
   },
   'Asset Owner': {
     dashboard: ['read'],
-    assets: ['read'],
+    assets: ['create', 'read', 'update'],
     profile: ['read', 'update'],
   },
   'Asset Manager': {
@@ -293,6 +293,8 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
   },
   'Legal Officer': {
     contracts: ['create', 'read', 'update', 'approve'],
+    // Verifies the title and ownership of registered assets.
+    assets: ['read', 'approve'],
     governance: ['read'],
     profile: ['read', 'update'],
   },

@@ -2,7 +2,7 @@ import React from 'react';
 import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, BeneficiaryItem, LedgerTransaction } from '../types';
 import { RoleGuard } from '../rbac/RoleGuard';
 import { RoleDashboardView } from './dashboards/RoleDashboardView';
-import { MyAssetsView } from './MyAssetsView';
+import { AssetRegisterView } from '../assets/AssetRegisterView';
 import { MyContractsView } from './MyContractsView';
 import { AgreementReviewPanel } from '../ai/features/contract/AgreementReviewPanel';
 import { AssetDiscoveryView } from './AssetDiscoveryView';
@@ -41,6 +41,8 @@ interface MainTabViewsProps {
   beneficiaries: BeneficiaryItem[];
   setBeneficiaries: React.Dispatch<React.SetStateAction<BeneficiaryItem[]>>;
   onOpenAssetRegister: () => void;
+  assetRegisterRequested?: boolean;
+  onAssetRegisterStarted?: () => void;
   onOpenContractWizard: () => void;
   onOpenFinancialPerf: (contract: ContractItem) => void;
   onOpenPdpRegister?: () => void;
@@ -61,6 +63,8 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
   beneficiaries,
   setBeneficiaries,
   onOpenAssetRegister,
+  assetRegisterRequested,
+  onAssetRegisterStarted,
   onOpenContractWizard,
   onOpenFinancialPerf,
   onOpenPdpRegister,
@@ -104,12 +108,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'assets' && (
         <RoleGuard tab="assets">
-          <MyAssetsView
-            assets={assets}
-            lang={lang}
-            onOpenAssetRegister={onOpenAssetRegister}
-            onOpenContractWizard={onOpenContractWizard}
-          />
+          <AssetRegisterView startRegistering={assetRegisterRequested} onStartedRegistering={onAssetRegisterStarted} />
         </RoleGuard>
       )}
 

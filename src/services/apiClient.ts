@@ -367,6 +367,21 @@ export const apiClient = {
   downloadMyKycDocument: (documentId: string) => openAuthenticatedFile(`/kyc/me/documents/${encodeURIComponent(documentId)}/download`),
   getKycQueue: (status: KycReviewableStatus = 'SUBMITTED') => request<KycQueueItem[]>(`/kyc/applications?status=${status}`),
   getKycApplicationForReview: (id: string) => request<KycApplication>(`/kyc/applications/${encodeURIComponent(id)}`),
+  // Asset registration: owners register and submit; Country Admins and Legal Officers verify.
+  getAssets: (status?: AssetStatusCode) => request<RegisteredAsset[]>(`/assets${status ? `?status=${status}` : ''}`),
+  getAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}`),
+  createAsset: (input: AssetInput) => request<RegisteredAsset>('/assets', { method: 'POST', body: JSON.stringify(input) }),
+  updateAsset: (id: string, input: AssetInput) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  uploadAssetDocument: (id: string, documentType: AssetDocumentType, file: File) => {
+    const body = new FormData();
+    body.append('file', file);
+    return request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/documents/${documentType}`, { method: 'POST', body });
+  },
+  removeAssetDocument: (id: string, documentId: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
+  downloadAssetDocument: (id: string, documentId: string) => openAuthenticatedFile(`/assets/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}/download`),
+  submitAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/submit`, { method: 'POST', body: JSON.stringify({ ownership: true, halalUse: true, accuracy: true }) }),
+  withdrawAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/withdraw`, { method: 'POST' }),
+  reviewAsset: (id: string, decision: 'VERIFIED' | 'CHANGES_REQUESTED' | 'REJECTED', note: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
   downloadKycDocumentForReview: (applicationId: string, documentId: string) => openAuthenticatedFile(`/kyc/applications/${encodeURIComponent(applicationId)}/documents/${encodeURIComponent(documentId)}/download`),
   reviewKycApplication: (id: string, input: { decision: KycDecision; comment: string; kycLevel?: KycLevel; acknowledgeWarnings?: boolean; overrideReason?: string }) => request<KycApplication>(`/kyc/applications/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   rerunKycChecks: (id: string) => request<KycApplication>(`/kyc/applications/${encodeURIComponent(id)}/checks/run`, { method: 'POST' }),
@@ -480,6 +495,59 @@ export type KycCheckRecommendation = 'CLEAR' | 'ATTENTION' | 'ADVERSE' | 'PENDIN
 export type KycCheckStatus = 'PASS' | 'FAIL' | 'REVIEW' | 'PENDING' | 'ERROR' | 'SKIPPED';
 
 /** One compared field of an automated check; INFO rows explain without raising an issue. */
+export type AssetTypeCode = 'LAND' | 'BUILDING' | 'MACHINERY' | 'VEHICLE' | 'EQUIPMENT' | 'OTHER';
+export type AssetStatusCode = 'DRAFT' | 'SUBMITTED' | 'CHANGES_REQUESTED' | 'VERIFIED' | 'REJECTED' | 'WITHDRAWN';
+export type AssetIntendedUse = 'IJARAH' | 'MUSHARAKAH' | 'MURABAHAH' | 'UNDECIDED';
+export type AssetDocumentType = 'OWNERSHIP' | 'VALUATION' | 'INSURANCE' | 'PHOTO' | 'OTHER';
+
+export interface AssetInput {
+  assetType: AssetTypeCode;
+  name: string;
+  description?: string;
+  location?: string;
+  titleReference?: string;
+  estimatedValue: number;
+  currency: string;
+  valuationDate?: string;
+  valuerName?: string;
+  isEncumbered?: boolean;
+  encumbranceNote?: string;
+  intendedUse?: AssetIntendedUse;
+}
+
+export interface RegisteredAssetDocument {
+  id: string;
+  documentType: AssetDocumentType;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  sha256: string;
+  integrity?: { flags?: { code: string; message: string }[] } | null;
+  createdAt: string;
+}
+
+/** An asset registered on the server (unlike the sample AssetItem used by older screens). */
+export interface RegisteredAsset extends Omit<AssetInput, 'description' | 'location' | 'titleReference' | 'valuerName' | 'encumbranceNote' | 'valuationDate'> {
+  id: string;
+  organisationId: string;
+  organisationName?: string;
+  countryNodeId: string;
+  ownerUserId: string;
+  description: string;
+  location: string;
+  titleReference: string | null;
+  valuationDate: string | null;
+  valuerName: string | null;
+  encumbranceNote: string | null;
+  status: AssetStatusCode;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+  documents: RegisteredAssetDocument[];
+}
+
 export interface KycCheckFinding {
   source: string;
   field: string;
