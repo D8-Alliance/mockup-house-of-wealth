@@ -14,11 +14,12 @@ import {
   Search,
   Sparkles,
   LogIn,
+  LogOut,
   ShieldAlert
 } from 'lucide-react';
 
 export const RoleSwitcherBar: React.FC = () => {
-  const { currentRole, setRole, roleDef, setShowLoginModal, isAuthenticated, authMode, setAuthMode, assignedRoles, activeUser, tenantContext } = useRBAC();
+  const { currentRole, setRole, roleDef, setShowLoginModal, isAuthenticated, logoutUser, authMode, setAuthMode, assignedRoles, activeUser, tenantContext } = useRBAC();
   const [isOpen, setIsOpen] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -178,13 +179,23 @@ export const RoleSwitcherBar: React.FC = () => {
             <span>Org: <strong className="text-white">{activeUser.organizationName || tenantContext.organisationId}</strong></span>
           </div>
 
-          <button
-            onClick={() => setShowLoginModal(true)}
-            className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow flex items-center gap-1.5 cursor-pointer"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>{isAuthenticated ? 'Switch Login / Account' : 'Sign In'}</span>
-          </button>
+          {isAuthenticated ? (
+            <button
+              onClick={logoutUser}
+              className="px-3 py-1 bg-slate-700 hover:bg-red-600 text-white font-bold text-xs rounded-xl shadow flex items-center gap-1.5 cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowLoginModal(true)}
+              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow flex items-center gap-1.5 cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
+          )}
         </div>
 
       </div>

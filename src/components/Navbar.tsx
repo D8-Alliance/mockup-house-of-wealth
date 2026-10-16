@@ -266,16 +266,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <span>Account Settings</span>
                       </button>
 
-                      <button
-                        onClick={() => {
-                          setUserMenuOpen(false);
-                          setShowLoginModal(true);
-                        }}
-                        className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
-                      >
-                        <LogIn className="w-4 h-4 text-blue-500" />
-                        <span>Switch Persona / Login Gateway</span>
-                      </button>
 
                       {isAuthenticated && (
                         <button
@@ -343,10 +333,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <button onClick={() => { setTab('membership'); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
                     <CreditCard className="w-4 h-4" />
                     <span>Membership & AI Credits</span>
-                  </button>
-                  <button onClick={() => { setMobileMenuOpen(false); setShowLoginModal(true); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
-                    <LogIn className="w-4 h-4" />
-                    <span>Switch Account</span>
                   </button>
                   <button onClick={() => { setMobileMenuOpen(false); logoutUser(); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer">
                     <LogOut className="w-4 h-4" />
