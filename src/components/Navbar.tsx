@@ -325,14 +325,40 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>{item.label}</span>
               </button>
             ))}
-            <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-800">
-              <button
-                onClick={() => setShowLoginModal(true)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                {isAuthenticated ? <User className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
-                <span>{isAuthenticated ? 'Account & Role' : 'Sign In'}</span>
-              </button>
+            {/* The avatar menu is hidden on small screens, so its account actions, including sign out, are repeated here. */}
+            <div className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-800 space-y-1">
+              {isAuthenticated ? (
+                <>
+                  <div className="px-4 py-2 flex items-center gap-3">
+                    <img src={user.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-emerald-500/30" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-extrabold text-slate-900 dark:text-white truncate">{user.name}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{user.email} · {currentRole}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => { setTab('profile'); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                    <User className="w-4 h-4" />
+                    <span>Account Settings</span>
+                  </button>
+                  <button onClick={() => { setTab('membership'); setMobileMenuOpen(false); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                    <CreditCard className="w-4 h-4" />
+                    <span>Membership & AI Credits</span>
+                  </button>
+                  <button onClick={() => { setMobileMenuOpen(false); setShowLoginModal(true); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                    <LogIn className="w-4 h-4" />
+                    <span>Switch Account</span>
+                  </button>
+                  <button onClick={() => { setMobileMenuOpen(false); logoutUser(); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 cursor-pointer">
+                    <LogOut className="w-4 h-4" />
+                    <span>Sign Out</span>
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => { setMobileMenuOpen(false); setShowLoginModal(true); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer">
+                  <LogIn className="w-4 h-4" />
+                  <span>Sign In</span>
+                </button>
+              )}
             </div>
           </div>
         )}

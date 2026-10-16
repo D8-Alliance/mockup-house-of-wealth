@@ -74,7 +74,7 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
           <div className="space-y-2 max-w-2xl">
             <div className="flex flex-wrap items-center gap-2">
               <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${roleDef.badgeColor}`}>
-                {roleDef.category} • {currentRole}
+                {roleDef.category === currentRole ? currentRole : `${roleDef.category} • ${currentRole}`}
               </span>
               <span className="bg-emerald-500/20 text-emerald-400 text-xs font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30">
                 Shariah Governance
