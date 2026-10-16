@@ -93,7 +93,7 @@ export function distanceKm(a: { latitude: number; longitude: number }, b: { lati
 export function checkAssetDocuments(asset: CheckedAsset, documents: CheckedDocument[], now = new Date()): CheckFinding[] {
   const findings: CheckFinding[] = [];
   const latest = (type: string) => documents.filter((document) => document.documentType === type).pop();
-  const unreadable = (type: string) => findings.push({ source: LABELS[type] ?? type, field: 'Readable text', result: 'NOT_FOUND', note: 'No text could be read (a scanned PDF cannot be read here). Check this document by eye, or upload a clear JPG or PNG photo of it.' });
+  const unreadable = (type: string) => findings.push({ source: LABELS[type] ?? type, field: 'Readable text', result: 'NOT_FOUND', note: 'No text could be read (blurred, very dark, or a PDF stored in an unusual image format). Check this document by eye, or upload a clearer photo of it.' });
 
   if (asset.assetType === 'LAND' && asset.land) {
     const land = asset.land;

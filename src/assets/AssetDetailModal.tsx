@@ -130,7 +130,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
                 <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-60"><Upload className="w-3.5 h-3.5" />Upload PDF, JPG or PNG</button>
                 <SitePhotoCapture asset={asset} onUploaded={onChanged} />
               </div>
-              <p className="text-[11px] text-slate-500">{ASSET_DOCUMENT_LABELS[documentType].hint} Up to 15 MB. A clear photo (JPG or PNG) of a title or search can be read by the system; a scanned PDF cannot.</p>
+              <p className="text-[11px] text-slate-500">{ASSET_DOCUMENT_LABELS[documentType].hint} Up to 15 MB. The system reads PDFs (including scans) and clear photos.</p>
             </div>
           )}
         </section>

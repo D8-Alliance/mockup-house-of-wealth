@@ -25,10 +25,22 @@ export class DocumentTextReader {
 
   async read(document: { mimeType: string; content: Buffer }): Promise<DocumentText> {
     if (document.mimeType === 'application/pdf') {
-      const parsed = await pdfParse(document.content);
-      const text = parsed.text.trim();
-      // A scanned PDF has no text layer; it would need page rendering before OCR.
-      return { text, method: text ? 'pdf-text' : 'none' };
+      const parsed = await pdfParse(document.content).catch(() => null);
+      const text = parsed?.text.trim() ?? '';
+      if (text) return { text, method: 'pdf-text' };
+      // A scanned PDF has no text layer. Scanners and phone apps store each page as a JPEG
+      // inside the PDF, so those images are read with OCR instead.
+      const pages = extractPdfJpegs(document.content);
+      if (!pages.length) return { text: '', method: 'none' };
+      const worker = await this.getWorker();
+      try {
+        const texts: string[] = [];
+        for (const page of pages) texts.push((await worker.recognize(page)).data.text.trim());
+        const joined = texts.filter(Boolean).join('\n');
+        return { text: joined, method: joined ? 'ocr' : 'none' };
+      } finally {
+        this.scheduleShutdown();
+      }
     }
     if (document.mimeType === 'image/png' || document.mimeType === 'image/jpeg') {
       const worker = await this.getWorker();
@@ -66,6 +78,38 @@ export class DocumentTextReader {
     }, IDLE_SHUTDOWN_MS);
     this.idleTimer.unref();
   }
+}
+
+/**
+ * The JPEG page images inside a scanned PDF (image streams with /DCTDecode), largest first, at most
+ * `max` of them. Images stored another way (e.g. CCITT fax or JBIG2) are not found and stay unread.
+ */
+export function extractPdfJpegs(pdf: Buffer, max = 3): Buffer[] {
+  const images: Buffer[] = [];
+  let from = 0;
+  for (;;) {
+    const filter = pdf.indexOf('/DCTDecode', from);
+    if (filter < 0) break;
+    from = filter + 10;
+    const objectStart = pdf.lastIndexOf(' obj', filter);
+    const streamStart = pdf.indexOf('stream', filter);
+    if (streamStart < 0) break;
+    const dictionary = pdf.subarray(Math.max(0, objectStart), streamStart).toString('latin1');
+    if (!/\/Subtype\s*\/Image/.test(dictionary)) continue;
+    let start = streamStart + 'stream'.length;
+    if (pdf[start] === 0x0d) start += 1;
+    if (pdf[start] === 0x0a) start += 1;
+    let end = pdf.indexOf('endstream', start);
+    if (end < 0) break;
+    const next = end;
+    // The end-of-line before "endstream" is not part of the image data.
+    while (end > start && (pdf[end - 1] === 0x0a || pdf[end - 1] === 0x0d)) end -= 1;
+    const image = pdf.subarray(start, end);
+    // A JPEG starts with FF D8 FF; anything else (e.g. a further filter on top) is skipped.
+    if (image[0] === 0xff && image[1] === 0xd8 && image[2] === 0xff) images.push(Buffer.from(image));
+    from = next;
+  }
+  return images.sort((a, b) => b.length - a.length).slice(0, max);
 }
 
 /** Tesseract takes one language directory; the npm data packages each ship their own, so gather them once. */

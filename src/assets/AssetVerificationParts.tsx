@@ -188,7 +188,7 @@ export const AssetCheckResults: React.FC<{ asset: RegisteredAsset; canReview: bo
           </table>
         </div>
       )}
-      {asset.checkedAt && <p className="text-[10px] text-slate-400">Checked {asset.checkedAt.slice(0, 16).replace('T', ' ')}. These signals support the review; the decision is the reviewer's. Text is read from PDFs and photos; a scanned PDF cannot be read and must be checked by eye.</p>}
+      {asset.checkedAt && <p className="text-[10px] text-slate-400">Checked {asset.checkedAt.slice(0, 16).replace('T', ' ')}. These signals support the review; the decision is the reviewer's. Text is read from PDFs (including scans) and photos; a blurred or dark page may not be read and must be checked by eye.</p>}
       {error && <p className="text-xs font-bold text-rose-600">{error}</p>}
     </section>
   );
