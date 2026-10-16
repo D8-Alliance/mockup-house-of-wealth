@@ -6,7 +6,7 @@ const STEP_TEXT: Record<LivenessStep, { title: string; hint: string }> = {
   ALIGN: { title: 'Position your face inside the oval', hint: 'Look straight at the camera. Remove sunglasses or a face mask.' },
   TURN_LEFT: { title: 'Turn your head to your LEFT', hint: 'Turn slowly and hold for a moment.' },
   TURN_RIGHT: { title: 'Turn your head to your RIGHT', hint: 'Turn slowly and hold for a moment.' },
-  LOOK_UP: { title: 'Tilt your head UP', hint: 'Lift your chin slowly and hold for a moment.' },
+  LOOK_UP: { title: 'Tilt your head UP', hint: 'Hold the phone at eye level, then lift your chin slowly and hold for a moment.' },
   ID_CARD: { title: 'Show the FRONT of your ID card', hint: 'Hold the card flat inside the frame, close to the camera, in good light and without glare. The ID number must be clearly readable.' },
   FACE_WITH_ID: { title: 'Hold your ID card next to your face', hint: 'Your face and the photo on the card must both be visible.' },
 };
@@ -46,6 +46,7 @@ export const KycLivenessCapture: React.FC<KycLivenessCaptureProps> = ({ onFinish
   const [session, setSession] = useState<LivenessSession | null>(null);
   const [message, setMessage] = useState('');
   const [accepted, setAccepted] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [aspect, setAspect] = useState(16 / 9);
@@ -98,6 +99,7 @@ export const KycLivenessCapture: React.FC<KycLivenessCaptureProps> = ({ onFinish
         setSession(current);
         setMessage(result.message);
         setAccepted(result.accepted);
+        setProgress(typeof result.metrics?.progress === 'number' && !result.accepted ? result.metrics.progress : null);
         // Pause after a completed step so the next instruction can be read.
         await sleep(result.accepted ? 1000 : 350);
       } catch (cause) {
@@ -214,6 +216,11 @@ export const KycLivenessCapture: React.FC<KycLivenessCaptureProps> = ({ onFinish
             </div>
             <div className="text-xs text-slate-500">{text.hint}</div>
             {message && <div className={`text-xs font-bold ${accepted ? 'text-emerald-600' : 'text-amber-600'}`}>{message}</div>}
+            {progress !== null && (
+              <div className="mx-auto w-48 h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden" role="progressbar" aria-label="Movement progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+                <div className="h-full rounded-full bg-purple-600 transition-all duration-300" style={{ width: `${Math.round(progress * 100)}%` }} />
+              </div>
+            )}
             <div className="text-[11px] text-slate-400">Step {session.currentStep + 1} of {session.steps.length} · {secondsLeft}s left</div>
           </div>
         )}

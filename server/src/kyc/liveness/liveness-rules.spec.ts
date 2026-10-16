@@ -69,6 +69,21 @@ describe('head movements', () => {
     expect(evaluateFaceStep('LOOK_UP', frame([face({ noseLift: 2 })]), baseline).accepted).toBe(false);
   });
 
+  it('accepts a look-up of 0.06 (a nose lift of 5 of 80 pixels here), suited to a phone held below the face', () => {
+    expect(evaluateFaceStep('LOOK_UP', frame([face({ noseLift: 5 })]), baseline).accepted).toBe(true);
+    expect(evaluateFaceStep('LOOK_UP', frame([face({ noseLift: 4 })]), baseline).accepted).toBe(false);
+  });
+
+  it('reports how far a movement has got, so the applicant knows to keep going', () => {
+    const small = evaluateFaceStep('LOOK_UP', frame([face({ noseLift: 2 })]), baseline);
+    expect(small.metrics.progress).toBeCloseTo(0.42, 2);
+    expect(small.message).toBe('Slowly tilt your head UP.');
+    const most = evaluateFaceStep('LOOK_UP', frame([face({ noseLift: 3 })]), baseline);
+    expect(most.message).toContain('Almost there');
+    expect(evaluateFaceStep('TURN_LEFT', frame([face({ noseShift: -22 })]), baseline).metrics.progress).toBe(0);
+    expect(evaluateFaceStep('TURN_LEFT', frame([face({ noseShift: 40 })]), baseline).metrics.progress).toBe(1);
+  });
+
   it('needs the aligned baseline first', () => {
     expect(evaluateFaceStep('TURN_LEFT', frame([face({ noseShift: 22 })]), null).accepted).toBe(false);
   });

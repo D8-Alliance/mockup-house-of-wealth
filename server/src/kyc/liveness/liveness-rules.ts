@@ -37,8 +37,11 @@ export const THRESHOLDS = {
   maxAlignYaw: 0.15,
   /** Yaw change from the aligned pose that counts as a head turn. */
   turnYaw: 0.22,
-  /** Pitch drop from the aligned pose that counts as looking up. */
-  lookUpPitch: 0.08,
+  /**
+   * Pitch drop from the aligned pose that counts as looking up. Lowered from 0.08: on a phone
+   * held below the face the head already starts tilted up, leaving little room to lift further.
+   */
+  lookUpPitch: 0.06,
   /** SFace cosine similarity: the OpenCV-recommended threshold for "same person". */
   samePerson: 0.363,
 } as const;
@@ -122,7 +125,10 @@ export function evaluateFaceStep(step: LivenessStep, frame: FrameFacts, baseline
         : step === 'LOOK_UP' ? pitchChange <= -THRESHOLDS.lookUpPitch
           : false;
   const prompt = step === 'TURN_LEFT' ? 'Slowly turn your head to your LEFT.' : step === 'TURN_RIGHT' ? 'Slowly turn your head to your RIGHT.' : 'Slowly tilt your head UP.';
-  return { accepted: done, message: done ? 'Movement detected.' : prompt, metrics: { ...metrics, yawChange: round(yawChange), pitchChange: round(pitchChange) } };
+  // How far the movement has got (0 to 1), so the applicant can see whether to keep going.
+  const reached = step === 'TURN_LEFT' ? yawChange / THRESHOLDS.turnYaw : step === 'TURN_RIGHT' ? -yawChange / THRESHOLDS.turnYaw : step === 'LOOK_UP' ? -pitchChange / THRESHOLDS.lookUpPitch : 0;
+  const progress = Math.round(Math.min(1, Math.max(0, reached)) * 100) / 100;
+  return { accepted: done, message: done ? 'Movement detected.' : progress >= 0.5 ? `${prompt} Almost there.` : prompt, metrics: { ...metrics, yawChange: round(yawChange), pitchChange: round(pitchChange), progress } };
 }
 
 /** The live face is the largest face in the frame; any smaller face is assumed to be the photo on the ID card. */

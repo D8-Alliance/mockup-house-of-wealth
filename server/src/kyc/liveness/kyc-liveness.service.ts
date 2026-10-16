@@ -223,7 +223,7 @@ export class KycLivenessService {
 
 /** Guidance the applicant needs (position, lighting, movement), without face-match scores or card readings. */
 function applicantMetrics(metrics: Record<string, unknown>) {
-  const allowed = ['faces', 'widthRatio', 'brightness', 'yawChange', 'pitchChange'];
+  const allowed = ['faces', 'widthRatio', 'brightness', 'yawChange', 'pitchChange', 'progress'];
   return Object.fromEntries(Object.entries(metrics).filter(([key]) => allowed.includes(key)));
 }
 
