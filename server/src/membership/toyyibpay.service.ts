@@ -21,6 +21,17 @@ type PaymentHook = (payment: PaymentTransaction) => Promise<void>;
 // was cancelled is real money). PAID and REFUNDED are final and are never fulfilled again.
 const FULFILLABLE_STATUSES = ['INITIATED', 'PENDING', 'FAILED', 'CANCELLED'];
 
+/** ToyyibPay's FPX fee. Bills are created with billChargeToCustomer=0, so the payer pays it on top of the price. */
+export const TOYYIBPAY_FPX_FEE_MYR = 1;
+
+/**
+ * Whether the amount ToyyibPay says was paid covers this payment. Its billpaymentAmount includes the
+ * FPX fee charged to the payer, so either the price alone or the price plus that fee is accepted.
+ */
+export function paidAmountMatches(paidMYR: number, priceMYR: number, feeMYR = TOYYIBPAY_FPX_FEE_MYR): boolean {
+  return Math.abs(paidMYR - priceMYR) <= 0.01 || Math.abs(paidMYR - (priceMYR + feeMYR)) <= 0.01;
+}
+
 /**
  * The payer email ToyyibPay accepts. Its validator rejects a "+tag" (name+tag@gmail.com), so the tag
  * is dropped: mail still reaches the same inbox. Null when the address cannot be used at all,
@@ -119,7 +130,8 @@ export class ToyyibPayService {
     const callbackTransactionId = String(input.refno || input.transaction_id || '') || undefined;
     const providerTransactionId = verification.transactionId || callbackTransactionId;
     if (status === 'PAID') {
-      if (verification.amountMYR !== undefined && Math.abs(verification.amountMYR - Number(payment.amountMYR)) > 0.01) throw new BadRequestException('ToyyibPay amount does not match the local payment.');
+      const recordedFee = Number(((payment.metadata || {}) as Record<string, unknown>).fpxFeeMYR);
+      if (verification.amountMYR !== undefined && !paidAmountMatches(verification.amountMYR, Number(payment.amountMYR), Number.isFinite(recordedFee) && recordedFee > 0 ? recordedFee : TOYYIBPAY_FPX_FEE_MYR)) throw new BadRequestException(`ToyyibPay amount (RM ${verification.amountMYR.toFixed(2)}) does not match the local payment (RM ${Number(payment.amountMYR).toFixed(2)} plus the FPX fee).`);
       if (verification.currency && verification.currency.toUpperCase() !== payment.currency.toUpperCase()) throw new BadRequestException('ToyyibPay currency does not match the local payment.');
       if (callbackTransactionId && verification.transactionId && callbackTransactionId !== verification.transactionId) throw new BadRequestException('ToyyibPay transaction reference does not match the provider response.');
       if (!providerTransactionId) throw new BadRequestException('ToyyibPay did not provide a payment transaction reference.');

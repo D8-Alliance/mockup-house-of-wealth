@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { PaymentTransaction } from '@prisma/client';
-import { ToyyibPayService, toyyibPayEmail } from './toyyibpay.service';
+import { paidAmountMatches, ToyyibPayService, toyyibPayEmail } from './toyyibpay.service';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 
@@ -83,5 +83,19 @@ describe('toyyibPayEmail', () => {
   it('refuses addresses that cannot receive mail', () => {
     expect(toyyibPayEmail('3f2a@pending.invalid')).toBeNull();
     expect(toyyibPayEmail('not-an-email')).toBeNull();
+  });
+});
+
+describe('paidAmountMatches', () => {
+  it('accepts the price alone or the price plus the FPX fee the payer was charged', () => {
+    expect(paidAmountMatches(39, 39)).toBe(true);
+    expect(paidAmountMatches(40, 39)).toBe(true);
+    expect(paidAmountMatches(40.5, 39, 1.5)).toBe(true);
+  });
+
+  it('still refuses any other amount', () => {
+    expect(paidAmountMatches(1, 39)).toBe(false);
+    expect(paidAmountMatches(41, 39)).toBe(false);
+    expect(paidAmountMatches(38, 39)).toBe(false);
   });
 });

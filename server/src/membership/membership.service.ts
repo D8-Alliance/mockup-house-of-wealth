@@ -4,7 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { UpgradeMembershipDto } from './membership.dto';
-import { ToyyibPayService } from './toyyibpay.service';
+import { ToyyibPayService, TOYYIBPAY_FPX_FEE_MYR } from './toyyibpay.service';
 import { formatLocalDateTime } from '../tenancy/country-time';
 import { tenantScopeFilter } from '../tenancy/tenant-scope';
 import { FinancialLedgerService, toyyibPayCashAccount } from '../financial/financial-ledger.service';
@@ -38,8 +38,6 @@ const FREE_PERIOD_DAYS = 30;
 // Free monthly AI credits are granted per cycle and expire at its end, for every plan
 // (an annual plan gets a fresh allowance every cycle).
 const ALLOWANCE_CYCLE_DAYS = 30;
-// ToyyibPay passes its FPX fee to the payer (billChargeToCustomer=0); shown before checkout.
-const TOYYIBPAY_FPX_FEE_MYR = 1;
 const TOYYIBPAY_MINIMUM_MYR = 1;
 // Value of one purchased AI credit when paying for membership. Kept below the cheapest
 // pack price (RM 899 / 3,600 credits ≈ RM 0.25) so credits cannot be bought and redeemed at a profit.
