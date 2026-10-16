@@ -1415,6 +1415,8 @@ model KycCheckResult {
   score           Float?
   reasons         Json      @default("[]")
   identity        Json? // identity fields the provider extracted, if any
+  /// Field-by-field comparison shown to the officer (entered, found on the document, result); no full document text.
+  findings        Json?
   // Provider transaction id; async webhooks must match it exactly.
   externalRef     String?
   shadow          Boolean   @default(false)

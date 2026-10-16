@@ -12,7 +12,7 @@ const SYSTEM_ACTOR = 'system:kyc-checks';
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 // Everything except the raw provider response, which holds personal data.
-export const CHECK_RESULT_SELECT = { id: true, round: true, checkType: true, provider: true, providerVersion: true, status: true, score: true, reasons: true, identity: true, shadow: true, agree: true, latencyMs: true, createdAt: true, completedAt: true } satisfies Prisma.KycCheckResultSelect;
+export const CHECK_RESULT_SELECT = { id: true, round: true, checkType: true, provider: true, providerVersion: true, status: true, score: true, reasons: true, identity: true, findings: true, shadow: true, agree: true, latencyMs: true, createdAt: true, completedAt: true } satisfies Prisma.KycCheckResultSelect;
 
 const isFinal = (status: string) => (FINAL_CHECK_STATUSES as string[]).includes(status);
 
@@ -111,7 +111,7 @@ export class KycChecksService {
 
     const updated = await this.prisma.kycCheckResult.updateMany({
       where: { id: row.id, status: 'PENDING' },
-      data: { status: outcome.status, score: outcome.score ?? null, reasons: outcome.reasons, identity: (outcome.identity ?? Prisma.JsonNull) as Prisma.InputJsonValue, raw: (outcome.raw ?? Prisma.JsonNull) as Prisma.InputJsonValue, completedAt: new Date() },
+      data: { status: outcome.status, score: outcome.score ?? null, reasons: outcome.reasons, identity: (outcome.identity ?? Prisma.JsonNull) as Prisma.InputJsonValue, raw: (outcome.raw ?? Prisma.JsonNull) as Prisma.InputJsonValue, findings: outcome.findings ? (outcome.findings as unknown as Prisma.InputJsonValue) : Prisma.JsonNull, completedAt: new Date() },
     });
     if (!updated.count) return { applied: false };
 
@@ -196,7 +196,7 @@ export class KycChecksService {
         reasons: outcome.reasons,
         identity: (outcome.identity ?? Prisma.JsonNull) as Prisma.InputJsonValue,
         externalRef: outcome.externalRef ?? null,
-        raw: (outcome.raw ?? Prisma.JsonNull) as Prisma.InputJsonValue,
+        raw: (outcome.raw ?? Prisma.JsonNull) as Prisma.InputJsonValue, findings: outcome.findings ? (outcome.findings as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
         completedAt: isFinal(outcome.status) ? new Date() : null,
       },
     });

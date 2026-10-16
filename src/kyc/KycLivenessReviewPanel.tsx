@@ -13,9 +13,18 @@ const STEP_LABELS: Record<LivenessStep, string> = {
 };
 // SFace cosine similarity; the server uses the same threshold (THRESHOLDS.samePerson).
 const SAME_PERSON = 0.363;
+/** Above this the faces agree clearly; between the two the officer should compare the photos. */
+const STRONG_MATCH = 0.5;
+
+export interface LivenessSummary {
+  /** The applicant completed every movement. */
+  passed: boolean;
+  /** Something the officer should look at: not completed, or a face match that is not strong. */
+  needsAttention: boolean;
+}
 
 /** Officer view of the applicant's camera face verification: result, scores and captured frames. */
-export const KycLivenessReviewPanel: React.FC<{ applicationId: string }> = ({ applicationId }) => {
+export const KycLivenessReviewPanel: React.FC<{ applicationId: string; onSummary?: (summary: LivenessSummary | null) => void }> = ({ applicationId, onSummary }) => {
   const [review, setReview] = useState<LivenessReview | null | undefined>(undefined);
   const [images, setImages] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
@@ -29,6 +38,8 @@ export const KycLivenessReviewPanel: React.FC<{ applicationId: string }> = ({ ap
       .then(async (data) => {
         if (cancelled) return;
         setReview(data);
+        const scores = [data?.result?.cardFaceSimilarity, data?.result?.uploadedIdFaceSimilarity].filter((value): value is number => typeof value === 'number' && value >= 0);
+        onSummary?.(data ? { passed: data.status === 'PASSED', needsAttention: data.status !== 'PASSED' || scores.some((value) => value < STRONG_MATCH) || data.result?.idNumberOnCard !== 'MATCH' } : null);
         for (const frame of data?.frames ?? []) {
           const url = await apiClient.getKycLivenessFrameUrl(applicationId, frame.id);
           if (cancelled) { URL.revokeObjectURL(url); return; }
@@ -45,8 +56,9 @@ export const KycLivenessReviewPanel: React.FC<{ applicationId: string }> = ({ ap
 
   const similarity = (value: number | null | undefined) => {
     if (typeof value !== 'number' || value < 0) return <span className="text-slate-400">not available</span>;
-    const match = value >= SAME_PERSON;
-    return <span className={`font-bold ${match ? 'text-emerald-600' : 'text-amber-600'}`}>{value.toFixed(2)} ({match ? 'same person' : 'does not match'})</span>;
+    if (value >= STRONG_MATCH) return <span className="font-bold text-emerald-600">{value.toFixed(2)} (strong match)</span>;
+    if (value >= SAME_PERSON) return <span className="font-bold text-amber-600">{value.toFixed(2)} (moderate match: compare the photos)</span>;
+    return <span className="font-bold text-rose-600">{value.toFixed(2)} (does not match)</span>;
   };
 
   return (
@@ -73,6 +85,7 @@ export const KycLivenessReviewPanel: React.FC<{ applicationId: string }> = ({ ap
                 <div>ID number on the card shown to the camera: <strong className={review.result?.idNumberOnCard === 'MATCH' ? 'text-emerald-600' : 'text-amber-600'}>{review.result?.idNumberOnCard === 'MATCH' ? 'matches the application' : review.result?.idNumberOnCard === 'MISMATCH' ? 'does NOT match the application' : 'could not be read'}</strong></div>
               </>
             )}
+            <div className="text-[10px] text-slate-400">Face match score: 0.50 or more is a strong match; 0.36 to 0.50 is a moderate match; below 0.36 the faces do not match.</div>
             <div className="text-[10px] text-slate-400">Steps issued: {review.steps.map((step) => STEP_LABELS[step]).join(' → ')}. Prototype: movements and face match are checked on the server, but a screen replay or real-time deepfake is not detected. Compare the frames yourself.</div>
           </div>
           {review.frames.length > 0 && (

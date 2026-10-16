@@ -41,6 +41,21 @@ export interface CheckOutcome {
   externalRef?: string;
   /** Full provider response; stored, never returned by the API. */
   raw?: unknown;
+  /** Field-by-field comparison the officer sees. */
+  findings?: CheckFinding[];
+}
+
+/**
+ * One compared field. INFO rows explain without raising an issue (e.g. who issued a bill).
+ * "found" is a short excerpt of what the document shows, never its full text.
+ */
+export interface CheckFinding {
+  source: string;
+  field: string;
+  result: 'MATCH' | 'MISMATCH' | 'NOT_FOUND' | 'INFO';
+  entered?: string;
+  found?: string;
+  note?: string;
 }
 
 /** Read-only view of the application handed to providers. Documents are loaded lazily. */

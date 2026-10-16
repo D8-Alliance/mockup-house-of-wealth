@@ -3,7 +3,9 @@ import { AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { apiClient, apiErrorMessage, KycApplication, KycDecision, KycLevel, KycQueueItem, KycReviewableStatus } from '../services/apiClient';
 import { KYC_DOCUMENT_LABELS, KYC_ID_DOCUMENT_LABELS, KYC_LEVEL_LABELS, KYC_STATUS_LABELS, KYC_STATUS_STYLES } from './kycLabels';
 import { KycChecksPanel } from './KycChecksPanel';
-import { KycLivenessReviewPanel } from './KycLivenessReviewPanel';
+import { KycLivenessReviewPanel, LivenessSummary } from './KycLivenessReviewPanel';
+
+type ReviewTab = 'checks' | 'face' | 'documents' | 'history';
 import { formatDateTime } from '../utils/platformTime';
 
 const FILTERS: KycReviewableStatus[] = ['SUBMITTED', 'RESUBMISSION_REQUIRED', 'APPROVED', 'REJECTED'];
@@ -30,8 +32,11 @@ export const KycReviewQueue: React.FC = () => {
   // Approval safeguards, mirroring KycService.assertApprovable on the server.
   const [acknowledged, setAcknowledged] = useState(false);
   const [overrideReason, setOverrideReason] = useState('');
+  const [reviewTab, setReviewTab] = useState<ReviewTab>('checks');
+  const [liveness, setLiveness] = useState<LivenessSummary | null | undefined>(undefined);
   const latestRound = (selected?.checks ?? []).reduce((max, check) => Math.max(max, check.round), 0);
   const latestChecks = (selected?.checks ?? []).filter((check) => check.round === latestRound && !check.shadow);
+  const checkIssueCount = latestChecks.filter((check) => check.status === 'FAIL' || check.status === 'REVIEW' || check.status === 'ERROR').reduce((sum, check) => sum + Math.max(1, check.reasons.length), 0);
   const failedChecks = latestChecks.filter((check) => check.status === 'FAIL');
   const needsOverride = failedChecks.length > 0 || selected?.checkRecommendation === 'ADVERSE';
   const hasWarnings = !needsOverride && (selected?.checkRecommendation !== 'CLEAR' || latestChecks.some((check) => check.status !== 'PASS'));
@@ -57,6 +62,8 @@ export const KycReviewQueue: React.FC = () => {
     setComment('');
     setDecision('APPROVED');
     setKycLevel('LEVEL_1');
+    setReviewTab('checks');
+    setLiveness(undefined);
     try {
       setSelected(await apiClient.getKycApplicationForReview(id));
       setAcknowledged(false);
@@ -182,12 +189,31 @@ export const KycReviewQueue: React.FC = () => {
               <div className="sm:col-span-2"><dt className="text-slate-400 font-bold">Residential address</dt><dd className="text-slate-800 dark:text-slate-100 whitespace-pre-line">{selected.residentialAddress}</dd></div>
             </dl>
 
-            <KycChecksPanel application={selected} onUpdated={setSelected} />
+            {/* Tabs keep the window short; each shows how many things need a look. */}
+            <div className="flex gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-900/60 overflow-x-auto" role="tablist">
+              {([
+                { id: 'checks', label: 'Automated checks', badge: checkIssueCount ? `⚠ ${checkIssueCount}` : '✓', alert: checkIssueCount > 0 },
+                { id: 'face', label: 'Face verification', badge: liveness === undefined ? '' : liveness === null ? '⚠' : liveness.needsAttention ? '⚠' : '✓', alert: liveness === null || Boolean(liveness?.needsAttention) },
+                { id: 'documents', label: 'Documents', badge: String(selected.documents.length), alert: false },
+                ...(selected.reviews && selected.reviews.length > 0 ? [{ id: 'history', label: 'History', badge: String(selected.reviews.length), alert: false }] : []),
+              ] as Array<{ id: ReviewTab; label: string; badge: string; alert: boolean }>).map((tab) => (
+                <button key={tab.id} type="button" role="tab" aria-selected={reviewTab === tab.id} onClick={() => setReviewTab(tab.id)} className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${reviewTab === tab.id ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}>
+                  {tab.label}
+                  {tab.badge && <span className={`px-1.5 rounded-full text-[10px] ${tab.alert ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}`}>{tab.badge}</span>}
+                </button>
+              ))}
+            </div>
 
-            <KycLivenessReviewPanel applicationId={selected.id} />
+            <div className={reviewTab === 'checks' ? '' : 'hidden'}>
+              <KycChecksPanel application={selected} onUpdated={setSelected} />
+            </div>
 
-            <div className="space-y-2">
-              <h5 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">Documents</h5>
+            {/* Kept mounted while hidden so its photos load once and the tab badge knows the result. */}
+            <div className={reviewTab === 'face' ? '' : 'hidden'}>
+              <KycLivenessReviewPanel applicationId={selected.id} onSummary={setLiveness} />
+            </div>
+
+            <div className={reviewTab === 'documents' ? 'space-y-2' : 'hidden'}>
               {selected.documents.map((document) => (
                 <div key={document.id} className="flex justify-between items-center gap-2 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
                   <div>
@@ -199,9 +225,8 @@ export const KycReviewQueue: React.FC = () => {
               ))}
             </div>
 
-            {selected.reviews && selected.reviews.length > 0 && (
+            {reviewTab === 'history' && selected.reviews && selected.reviews.length > 0 && (
               <div className="space-y-1.5">
-                <h5 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">Review history</h5>
                 {selected.reviews.map((review) => (
                   <div key={review.id} className="text-xs p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/50">
                     <span className="font-bold">{DECISIONS.find((item) => item.value === review.decision)?.label}</span>

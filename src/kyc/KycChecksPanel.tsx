@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { apiClient, apiErrorMessage, KycApplication, KycCheckRecommendation, KycCheckStatus } from '../services/apiClient';
+import { apiClient, apiErrorMessage, KycApplication, KycCheckFinding, KycCheckRecommendation, KycCheckStatus } from '../services/apiClient';
+
+const FINDING_RESULT: Record<KycCheckFinding['result'], { label: string; className: string }> = {
+  MATCH: { label: '✓ Matches', className: 'text-emerald-600' },
+  MISMATCH: { label: '✗ Does not match', className: 'text-rose-600' },
+  NOT_FOUND: { label: '? Not found', className: 'text-amber-600' },
+  INFO: { label: 'ℹ Note', className: 'text-slate-500' },
+};
 
 const RECOMMENDATION_STYLES: Record<KycCheckRecommendation, { label: string; className: string }> = {
   CLEAR: { label: 'No issues found', className: 'bg-emerald-500/10 text-emerald-600' },
@@ -96,7 +103,8 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
           </ul>
         </div>
       )}
-      {(application.checkReasons ?? []).length > 0 && (
+      {/* The overall reasons repeat the issues listed above, so they are only shown when there are none. */}
+      {issues.length === 0 && (application.checkReasons ?? []).length > 0 && (
         <ul className="list-disc pl-5 text-xs text-slate-600 dark:text-slate-300 space-y-0.5">
           {application.checkReasons!.map((reason) => <li key={reason}>{reason}</li>)}
         </ul>
@@ -115,7 +123,8 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
                 <td>{check.provider}</td>
                 <td className={`font-bold ${STATUS_STYLES[check.status]}`}>
                   {check.status}
-                  {check.reasons.length > 0 && <div className="font-normal text-slate-500">{check.reasons.join('; ')}</div>}
+                  {/* Reasons of checks needing attention are already in the issues box. */}
+                  {check.reasons.length > 0 && !['FAIL', 'REVIEW', 'ERROR'].includes(check.status) && <div className="font-normal text-slate-500">{check.reasons.join('; ')}</div>}
                 </td>
                 <td>{check.score === null ? '-' : check.score.toFixed(2)}</td>
               </tr>
@@ -123,6 +132,31 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
           </tbody>
         </table>
       )}
+      {primary.filter((check) => check.findings?.length).map((check) => (
+        <div key={`findings-${check.id}`} className="space-y-1">
+          <h6 className="text-[11px] font-black text-slate-600 dark:text-slate-300">{CHECK_LABELS[check.checkType] ?? check.checkType}: field by field</h6>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="text-left text-slate-400 uppercase"><th className="py-1 pr-2">Field</th><th className="pr-2">Entered</th><th className="pr-2">On the document</th><th>Result</th></tr>
+              </thead>
+              <tbody>
+                {check.findings!.map((finding, index) => (
+                  <tr key={index} className="border-t border-slate-100 dark:border-slate-700 align-top">
+                    <td className="py-1 pr-2"><div className="font-bold text-slate-700 dark:text-slate-200">{finding.field}</div><div className="text-slate-400">{finding.source}</div></td>
+                    <td className="pr-2 text-slate-600 dark:text-slate-300 break-words">{finding.entered ?? '-'}</td>
+                    <td className="pr-2 font-mono text-slate-600 dark:text-slate-300 break-words">{finding.found ?? (finding.result === 'MATCH' ? 'same as entered' : '-')}</td>
+                    <td className={`font-bold whitespace-nowrap ${FINDING_RESULT[finding.result].className}`}>
+                      {FINDING_RESULT[finding.result].label}
+                      {finding.note && <div className="font-normal text-slate-500 whitespace-normal max-w-[14rem]">{finding.note}</div>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
       {shadows.length > 0 && (
         <p className="text-[11px] text-slate-500">
           Shadow providers: {shadows.map((check) => `${check.provider} ${check.checkType} ${check.status}${check.agree === null ? '' : check.agree ? ' (agrees)' : ' (disagrees)'}`).join(' · ')}

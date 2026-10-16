@@ -479,6 +479,16 @@ export interface KycApplication {
 export type KycCheckRecommendation = 'CLEAR' | 'ATTENTION' | 'ADVERSE' | 'PENDING';
 export type KycCheckStatus = 'PASS' | 'FAIL' | 'REVIEW' | 'PENDING' | 'ERROR' | 'SKIPPED';
 
+/** One compared field of an automated check; INFO rows explain without raising an issue. */
+export interface KycCheckFinding {
+  source: string;
+  field: string;
+  result: 'MATCH' | 'MISMATCH' | 'NOT_FOUND' | 'INFO';
+  entered?: string;
+  found?: string;
+  note?: string;
+}
+
 export interface KycCheckResult {
   id: string;
   round: number;
@@ -488,6 +498,7 @@ export interface KycCheckResult {
   status: KycCheckStatus;
   score: number | null;
   reasons: string[];
+  findings?: KycCheckFinding[] | null;
   shadow: boolean;
   agree: boolean | null;
   latencyMs: number;
