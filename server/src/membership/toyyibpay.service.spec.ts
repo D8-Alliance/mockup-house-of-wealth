@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { PaymentTransaction } from '@prisma/client';
-import { ToyyibPayService } from './toyyibpay.service';
+import { ToyyibPayService, toyyibPayEmail } from './toyyibpay.service';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 
@@ -71,5 +71,17 @@ describe('ToyyibPayService.handleCallback', () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true, text: async () => '\t\t\t\tNo data found!' }) as unknown as typeof fetch;
     await expect(service.handleCallback({ order_id: 'PAY-1' }, fulfil)).resolves.toMatchObject({ status: 'PENDING' });
     expect(fulfil).not.toHaveBeenCalled();
+  });
+});
+
+describe('toyyibPayEmail', () => {
+  it('drops a +tag that ToyyibPay rejects, keeping the same inbox', () => {
+    expect(toyyibPayEmail('ItManager.AlHidayahGroup+AssetOwner@Gmail.com')).toBe('itmanager.alhidayahgroup@gmail.com');
+    expect(toyyibPayEmail('siti.aminah@investor.my')).toBe('siti.aminah@investor.my');
+  });
+
+  it('refuses addresses that cannot receive mail', () => {
+    expect(toyyibPayEmail('3f2a@pending.invalid')).toBeNull();
+    expect(toyyibPayEmail('not-an-email')).toBeNull();
   });
 });

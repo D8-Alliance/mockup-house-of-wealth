@@ -21,6 +21,19 @@ type PaymentHook = (payment: PaymentTransaction) => Promise<void>;
 // was cancelled is real money). PAID and REFUNDED are final and are never fulfilled again.
 const FULFILLABLE_STATUSES = ['INITIATED', 'PENDING', 'FAILED', 'CANCELLED'];
 
+/**
+ * The payer email ToyyibPay accepts. Its validator rejects a "+tag" (name+tag@gmail.com), so the tag
+ * is dropped: mail still reaches the same inbox. Null when the address cannot be used at all,
+ * e.g. the placeholder "...@pending.invalid" of an account that has not signed in yet.
+ */
+export function toyyibPayEmail(email: string): string | null {
+  const [local, domain] = email.trim().toLowerCase().split('@');
+  if (!local || !domain) return null;
+  const candidate = `${local.split('+')[0]}@${domain}`;
+  if (!/^[a-z0-9._-]+@[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(candidate) || /\.(invalid|test|example|local)$/.test(domain)) return null;
+  return candidate;
+}
+
 @Injectable()
 export class ToyyibPayService {
   private readonly baseUrl = (process.env.TOYYIBPAY_BASE_URL || '').replace(/\/$/, '');
@@ -39,6 +52,8 @@ export class ToyyibPayService {
   async createBill(actor: AuthenticatedUser, input: BillInput, hooks: { onCreated?: (paymentId: string) => Promise<void>; onFailed?: PaymentHook } = {}) {
     if (!this.isConfigured()) throw new ServiceUnavailableException('ToyyibPay is not configured. Set TOYYIBPAY_BASE_URL, TOYYIBPAY_SECRET_KEY, TOYYIBPAY_CATEGORY_CODE and TOYYIBPAY_CALLBACK_URL.');
     if (input.amountMYR <= 0) throw new BadRequestException('Payment amount must be greater than zero.');
+    const billEmail = toyyibPayEmail(actor.email);
+    if (!billEmail) throw new BadRequestException(`ToyyibPay cannot use the email on your account (${actor.email}). Update your email on the sign-in service, then sign in again.`);
     const payment = await this.prisma.paymentTransaction.create({ data: { userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, productType: input.productType, productId: input.productId, amountMYR: new Prisma.Decimal(input.amountMYR), metadata: (input.metadata || {}) as Prisma.InputJsonValue } });
     if (hooks.onCreated) {
       try {
@@ -54,7 +69,7 @@ export class ToyyibPayService {
     const profile = (await this.prisma.user.findUnique({ where: { id: actor.userId }, select: { profile: true } }))?.profile as { phone?: unknown } | null;
     const billPhone = typeof profile?.phone === 'string' && profile.phone ? localPhoneDigits(profile.phone) : '0000000000';
     // billAmount is in sen (cents), not ringgit: RM 99.00 must be sent as "9900".
-    const body = new URLSearchParams({ userSecretKey: this.secretKey!, categoryCode: this.categoryCode!, billName: billText(input.description, 30), billDescription: billText(input.description, 100), billPriceSetting: '1', billPayorInfo: '1', billAmount: String(Math.round(input.amountMYR * 100)), billReturnUrl: input.returnUrl || process.env.TOYYIBPAY_RETURN_URL || '', billCallbackUrl: this.callbackUrl!, billExternalReferenceNo: payment.id, billTo: actor.name.slice(0, 100), billEmail: actor.email, billPhone, billPaymentChannel: '0', billChargeToCustomer: '0' });
+    const body = new URLSearchParams({ userSecretKey: this.secretKey!, categoryCode: this.categoryCode!, billName: billText(input.description, 30), billDescription: billText(input.description, 100), billPriceSetting: '1', billPayorInfo: '1', billAmount: String(Math.round(input.amountMYR * 100)), billReturnUrl: input.returnUrl || process.env.TOYYIBPAY_RETURN_URL || '', billCallbackUrl: this.callbackUrl!, billExternalReferenceNo: payment.id, billTo: actor.name.slice(0, 100), billEmail, billPhone, billPaymentChannel: '0', billChargeToCustomer: '0' });
     const fail = async (reason: string) => {
       await this.markUnsuccessful(payment.id, 'FAILED', reason, hooks.onFailed);
       return new ServiceUnavailableException(reason);
