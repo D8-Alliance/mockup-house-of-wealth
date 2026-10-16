@@ -10,6 +10,26 @@ export function openAiEngineSection(section: string): void {
   pendingSection = section;
 }
 
+/** Details an agreement starts from, e.g. a verified asset's name, title and value. Read once. */
+export interface AgreementPrefill {
+  contractType: 'IJARAH' | 'MUSHARAKAH';
+  projectName: string;
+  values: Record<string, string>;
+}
+
+let pendingPrefill: AgreementPrefill | null = null;
+
+export function openAgreementFor(prefill: AgreementPrefill): void {
+  pendingPrefill = prefill;
+  pendingSection = 'agreement-generation';
+}
+
+export function takeAgreementPrefill(): AgreementPrefill | null {
+  const prefill = pendingPrefill;
+  pendingPrefill = null;
+  return prefill;
+}
+
 export function takeAiEngineSection(): string | null {
   const section = pendingSection;
   pendingSection = null;

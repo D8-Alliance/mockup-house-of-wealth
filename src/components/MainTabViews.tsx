@@ -108,7 +108,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'assets' && (
         <RoleGuard tab="assets">
-          <AssetRegisterView startRegistering={assetRegisterRequested} onStartedRegistering={onAssetRegisterStarted} />
+          <AssetRegisterView startRegistering={assetRegisterRequested} onStartedRegistering={onAssetRegisterStarted} onOpenAgreement={() => setTab('ai-engine')} />
         </RoleGuard>
       )}
 

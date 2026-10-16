@@ -150,7 +150,9 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
     );
   }
 
-  const tabs: { id: AIEngineTab; label: string; icon: React.ReactNode; badge?: string }[] = [
+  // Pool, portfolio and project analyses serve investors and PDPs; an asset owner has none to analyse.
+  const hiddenForRole: AIEngineTab[] = ['Asset Owner', 'Asset Manager'].includes(activeUser.role) ? ['contract-advisor', 'investment-matcher', 'portfolio-analysis', 'due-diligence', 'risk-analyzer', 'scenarios', 'pool-optimizer'] : [];
+  const tabs: { id: AIEngineTab; label: string; icon: React.ReactNode; badge?: string }[] = ([
     { id: 'overview', label: 'AI Suite Overview', icon: <BrainCircuit className="w-4 h-4" /> },
     { id: 'ai-credits', label: 'AI Credits & Usage', icon: <Coins className="w-4 h-4 text-amber-500" />, badge: creditBalance.creditExempt ? 'Staff' : `${creditBalance.availableBalance} Cr` },
     ...(canViewProjectFeasibility ? [{ id: 'project-analyzer' as AIEngineTab, label: 'Project Feasibility', icon: <FileText className="w-4 h-4" /> }] : []),
@@ -170,7 +172,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
      ] : []),
      { id: 'rag-knowledge-base', label: 'AI Knowledge Base', icon: <FileText className="w-4 h-4 text-purple-400" />, badge: 'RAG' },
      ...(canViewCitationAudit ? [{ id: 'citation-audit' as AIEngineTab, label: 'Citation Audit', icon: <ShieldCheck className="w-4 h-4 text-purple-400" />, badge: 'Audit' }] : []),
-  ];
+  ] as { id: AIEngineTab; label: string; icon: React.ReactNode; badge?: string }[]).filter((tab) => !hiddenForRole.includes(tab.id));
 
   const primaryTabIds: AIEngineTab[] = ['overview', 'project-analyzer', 'contract-advisor', 'agreement-generation'];
   const primaryTabs = tabs.filter(tab => primaryTabIds.includes(tab.id));
@@ -296,6 +298,20 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
               </button>
             </div>
 
+            {hiddenForRole.length > 0 && (
+              <div className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
+                <h3 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  <Scale className="w-4 h-4 text-emerald-600" /> Contracts for your assets
+                </h3>
+                <p className="text-slate-500 text-[11px] leading-relaxed">
+                  Open an asset in Asset Register to see which Islamic contract suits it (Ijarah, Musharakah or Murabahah) and to ask the AI adviser. A verified asset opens Agreement Generation with its details filled in.
+                </p>
+                <button onClick={() => setActiveTab('agreement-generation')} className="text-emerald-600 font-bold underline text-[11px] cursor-pointer">
+                  Open Agreement Generation →
+                </button>
+              </div>
+            )}
+            {!hiddenForRole.includes('contract-advisor') && (
             <div className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
               <h3 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
                 <Scale className="w-4 h-4 text-emerald-600" /> Contract & Shariah AI
@@ -307,7 +323,9 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
                 Launch Contract Advisor →
               </button>
             </div>
+            )}
 
+            {!hiddenForRole.includes('investment-matcher') && (
             <div className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
               <h3 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-purple-600" /> Pool Matching & Discovery
@@ -319,7 +337,9 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
                 Match Wealth Pools →
               </button>
             </div>
+            )}
 
+            {!hiddenForRole.includes('due-diligence') && (
             <div className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
               <h3 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-rose-600" /> Due Diligence & Fraud Scan
@@ -331,6 +351,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
                 Run Due Diligence Scan →
               </button>
             </div>
+            )}
 
             {onNavigateToMembership && (
               <div className="md:col-span-2 lg:col-span-3 pt-2">

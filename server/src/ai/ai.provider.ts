@@ -181,6 +181,12 @@ export class SandboxAiProvider implements AiProvider {
   }
 }
 
+/** How long to wait for the model (AI_REQUEST_TIMEOUT_MS, default 240 s, like chat: local CPU models are slow) before giving up. */
+export function aiRequestTimeoutMs(): number {
+  const value = Number(process.env.AI_REQUEST_TIMEOUT_MS);
+  return Number.isFinite(value) && value > 0 ? value : 240_000;
+}
+
 @Injectable()
 export class OpenAiProvider implements AiProvider {
   readonly providerName = 'openai';
@@ -191,6 +197,7 @@ export class OpenAiProvider implements AiProvider {
     if (!apiKey) throw new Error('OPENAI_API_KEY is not configured');
 
     const response = await fetch(process.env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions', {
+      signal: AbortSignal.timeout(aiRequestTimeoutMs()),
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({

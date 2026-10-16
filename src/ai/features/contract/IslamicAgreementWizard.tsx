@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useRBAC } from '../../../rbac/RBACContext';
-import { agreementTypesFor } from '../../aiEngineNavigation';
+import { agreementTypesFor, takeAgreementPrefill } from '../../aiEngineNavigation';
 import { CheckCircle2, Download, FileSignature, Info, ShieldAlert, WandSparkles } from 'lucide-react';
 import { apiClient, BackendAgreementDraft } from '../../../services/apiClient';
 
@@ -33,10 +33,12 @@ export const IslamicAgreementWizard: React.FC = () => {
   // A delivery partner drafts project financing; an asset owner drafts asset contracts.
   const { currentRole } = useRBAC();
   const allowedTypes = agreementTypesFor(currentRole, Object.keys(labels) as AgreementType[]);
-  const [contractType, setContractType] = useState<AgreementType>(() => (allowedTypes.includes('MUSHARAKAH') ? 'MUSHARAKAH' : allowedTypes[0]));
-  const [projectName, setProjectName] = useState('');
+  // An asset's page may open this wizard with the asset's details already filled in.
+  const [prefill] = useState(() => takeAgreementPrefill());
+  const [contractType, setContractType] = useState<AgreementType>(() => (prefill && allowedTypes.includes(prefill.contractType) ? prefill.contractType : allowedTypes.includes('MUSHARAKAH') ? 'MUSHARAKAH' : allowedTypes[0]));
+  const [projectName, setProjectName] = useState(prefill?.projectName ?? '');
   const [jurisdiction, setJurisdiction] = useState('Malaysia');
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(prefill?.values ?? {});
   const [draft, setDraft] = useState<BackendAgreementDraft | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

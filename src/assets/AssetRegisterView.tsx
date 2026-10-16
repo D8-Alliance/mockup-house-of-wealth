@@ -13,10 +13,12 @@ interface AssetRegisterViewProps {
   /** Set by the dashboard's Register Asset button so the form opens straight away. */
   startRegistering?: boolean;
   onStartedRegistering?: () => void;
+  /** Opens the AI Wealth Engine, where Agreement Generation starts from the asset. */
+  onOpenAgreement?: () => void;
 }
 
 /** Real assets from the server: owners register and submit them, Country Admins and Legal Officers verify them. */
-export const AssetRegisterView: React.FC<AssetRegisterViewProps> = ({ startRegistering, onStartedRegistering }) => {
+export const AssetRegisterView: React.FC<AssetRegisterViewProps> = ({ startRegistering, onStartedRegistering, onOpenAgreement }) => {
   const { currentRole } = useRBAC();
   const isOwner = OWNER_ROLES.has(currentRole);
   const isReviewer = REVIEWER_ROLES.has(currentRole);
@@ -135,6 +137,7 @@ export const AssetRegisterView: React.FC<AssetRegisterViewProps> = ({ startRegis
           onChanged={replace}
           onEdit={() => setForm({ asset: selected })}
           onClose={() => setSelected(null)}
+          onOpenAgreement={onOpenAgreement ? () => { setSelected(null); onOpenAgreement(); } : undefined}
         />
       )}
       {form && (

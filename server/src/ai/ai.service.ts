@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException, Optional } from '@nestjs/common';
+import { AssetsService } from '../assets/assets.service';
 import { createHash, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -32,6 +33,8 @@ export class AiService {
     private readonly contractRetriever: ContractClauseRetriever,
     private readonly embeddings: RagEmbeddingService,
     @Inject('AI_PROVIDER') private readonly provider: AiProvider,
+    // Optional so the AI service still builds where assets are not wired in (tests, worker).
+    @Optional() private readonly assets?: AssetsService,
   ) {}
 
   /**
@@ -140,6 +143,18 @@ export class AiService {
       take: 30,
       select: { id: true, title: true, createdAt: true, updatedAt: true, _count: { select: { messages: true } } },
     });
+  }
+
+  /**
+   * AI adviser on how to structure a registered asset (Ijarah, Musharakah, Murabahah). It gets the
+   * asset's facts and the platform's rule-based guidance, never the owner's name or documents.
+   */
+  async assetAdvisor(actor: AuthenticatedUser, assetId: string, question?: string) {
+    if (!this.assets) throw new ServiceUnavailableException('Asset registration is not available.');
+    const context = await this.assets.adviserContext(actor, assetId);
+    const shariahRules = await this.contractRetriever.retrieveShariahRules(actor, { contractType: context.asset.intendedUse === 'UNDECIDED' ? 'IJARAH' : context.asset.intendedUse });
+    const prompt = question?.trim() || 'Which Islamic contract suits this asset, what must the owner do under it, and what is still missing? Build on the supplied guidance; do not contradict its Shariah constraints.';
+    return this.run(actor, 'asset_advisor', 'RECOMMEND_CONTRACT', prompt, { ...context, shariahRules });
   }
 
   async contractAdvisor(actor: AuthenticatedUser, input: ContractAdvisorDto) {
@@ -1004,8 +1019,8 @@ export class AiService {
   }
 
   private async run(actor: AuthenticatedUser, featureKey: string, action: string, prompt: string, context: Record<string, unknown>, conversationId?: string) {
-    const operationKey = featureKey === 'contract_draft' ? 'CONTRACT_ANALYSIS' : featureKey === 'contract_advisor' ? 'CONTRACT_ANALYSIS' : featureKey === 'due_diligence_assistant' ? 'DUE_DILIGENCE' : featureKey === 'project_feasibility' ? 'FULL_PROJECT_INTELLIGENCE' : featureKey === 'chat' ? 'SIMPLE_QUERY' : featureKey === 'shariah_assistant' ? 'RISK_ANALYSIS' : 'PROJECT_SUMMARY';
-    await this.membership.consumeCredits(actor, operationKey, String(context.projectId || context.subjectId || featureKey));
+    const operationKey = featureKey === 'contract_draft' ? 'CONTRACT_ANALYSIS' : featureKey === 'contract_advisor' || featureKey === 'asset_advisor' ? 'CONTRACT_ANALYSIS' : featureKey === 'due_diligence_assistant' ? 'DUE_DILIGENCE' : featureKey === 'project_feasibility' ? 'FULL_PROJECT_INTELLIGENCE' : featureKey === 'chat' ? 'SIMPLE_QUERY' : featureKey === 'shariah_assistant' ? 'RISK_ANALYSIS' : 'PROJECT_SUMMARY';
+    const charge = await this.membership.consumeCredits(actor, operationKey, String(context.projectId || context.subjectId || featureKey));
     const requestId = randomUUID();
     const run = await this.prisma.aiRun.create({ data: { requestId, featureKey, action, userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, conversationId, input: context as Prisma.InputJsonValue, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });
     await this.audit.recordActor(actor, { action: 'ai.request', resourceType: 'AiRun', resourceId: run.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { featureKey, requestId } });
@@ -1016,7 +1031,9 @@ export class AiService {
       return { ...completed, output };
     } catch (error) {
       await this.prisma.aiRun.update({ where: { id: run.id }, data: { status: 'FAILED', output: { error: 'AI provider failed' } } });
-      throw new ServiceUnavailableException('AI provider is unavailable. Check that the configured Ollama or OpenAI endpoint is running.');
+      // The user is not charged for an answer they did not get.
+      const refunded = await this.membership.refundFailedUse(actor, charge, `AIRUN-${run.id}`).then(() => true, (refundError) => { this.logger.error(`Credit refund for AiRun ${run.id} failed: ${refundError instanceof Error ? refundError.message : refundError}`); return false; });
+      throw new ServiceUnavailableException(`The AI adviser did not answer in time or is unavailable.${refunded ? ' Your credits were returned.' : ''} Try again later.`);
     }
   }
 

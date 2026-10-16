@@ -379,6 +379,8 @@ export const apiClient = {
   },
   removeAssetDocument: (id: string, documentId: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
   downloadAssetDocument: (id: string, documentId: string) => openAuthenticatedFile(`/assets/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}/download`),
+  getAssetStructuring: (id: string) => request<AssetStructuringGuidance>(`/assets/${encodeURIComponent(id)}/structuring`),
+  askAssetAdvisor: (id: string, question?: string) => request<BackendAiRun>(`/ai/assets/${encodeURIComponent(id)}/advise`, { method: 'POST', body: JSON.stringify({ question }) }),
   submitAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/submit`, { method: 'POST', body: JSON.stringify({ ownership: true, halalUse: true, accuracy: true }) }),
   withdrawAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/withdraw`, { method: 'POST' }),
   reviewAsset: (id: string, decision: 'VERIFIED' | 'CHANGES_REQUESTED' | 'REJECTED', note: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
@@ -513,6 +515,13 @@ export interface AssetInput {
   isEncumbered?: boolean;
   encumbranceNote?: string;
   intendedUse?: AssetIntendedUse;
+}
+
+/** Which Islamic contracts suit an asset, from the platform's Shariah structuring rules. */
+export interface AssetStructuringGuidance {
+  options: { contract: 'IJARAH' | 'MUSHARAKAH' | 'MURABAHAH'; fit: 'RECOMMENDED' | 'POSSIBLE' | 'NOT_SUITABLE'; reasons: string[]; ownerDuties: string[]; needs: string[] }[];
+  concerns: string[];
+  basis: string;
 }
 
 export interface RegisteredAssetDocument {

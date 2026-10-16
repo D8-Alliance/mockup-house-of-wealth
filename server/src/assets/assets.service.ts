@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma.service';
 import { inspectDocument } from '../projects/document-integrity';
 import { newCountryScopedId } from '../users/user-identity';
 import { ASSET_DOCUMENT_TYPES, ReviewAssetDto, SaveAssetDto, SubmitAssetDto } from './asset.dto';
+import { structuringGuidance } from './asset-structuring';
 
 /** Roles that register assets for their own organisation. */
 export const ASSET_OWNER_ROLES: ReadonlySet<string> = new Set(['Asset Owner', 'Asset Manager']);
@@ -33,6 +34,26 @@ export class AssetsService {
 
   async get(actor: AuthenticatedUser, id: string) {
     return this.view(await this.find(actor, id));
+  }
+
+  /** Which Islamic contracts suit the asset, from its own facts (free; no AI involved). */
+  async structuring(actor: AuthenticatedUser, id: string) {
+    return structuringGuidance(AssetsService.structuringFacts(await this.find(actor, id)));
+  }
+
+  /** The asset as the AI adviser may see it: its facts and the rule-based guidance, no names or files. */
+  async adviserContext(actor: AuthenticatedUser, id: string) {
+    const asset = await this.find(actor, id);
+    const facts = AssetsService.structuringFacts(asset);
+    return {
+      subjectId: asset.id,
+      asset: { assetType: asset.assetType, location: asset.location, estimatedValue: Number(asset.estimatedValue), currency: asset.currency, valuationDate: asset.valuationDate?.toISOString().slice(0, 10) ?? null, isEncumbered: asset.isEncumbered, intendedUse: asset.intendedUse, status: asset.status, description: asset.description.slice(0, 1000), documentTypes: facts.documentTypes },
+      guidance: structuringGuidance(facts),
+    };
+  }
+
+  private static structuringFacts(asset: AssetWithDocuments) {
+    return { assetType: asset.assetType, status: asset.status, isEncumbered: asset.isEncumbered, encumbranceNote: asset.encumbranceNote, valuationDate: asset.valuationDate, valuerName: asset.valuerName, intendedUse: asset.intendedUse, documentTypes: asset.documents.map((document) => document.documentType) };
   }
 
   async create(actor: AuthenticatedUser, input: SaveAssetDto) {

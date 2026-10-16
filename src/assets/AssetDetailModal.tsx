@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { AlertTriangle, FileText, Trash2, Upload, X } from 'lucide-react';
 import { apiClient, apiErrorMessage, AssetDocumentType, RegisteredAsset } from '../services/apiClient';
+import { AssetStructuringPanel } from './AssetStructuringPanel';
 import { ASSET_DOCUMENT_LABELS, ASSET_EDITABLE, ASSET_STATUS, ASSET_TYPE_LABELS, ASSET_USE_LABELS, formatMoney } from './assetLabels';
 
 interface AssetDetailModalProps {
@@ -12,6 +13,8 @@ interface AssetDetailModalProps {
   onChanged: (asset: RegisteredAsset) => void;
   onEdit: () => void;
   onClose: () => void;
+  /** Opens the AI Wealth Engine, for drafting an agreement from the asset. */
+  onOpenAgreement?: () => void;
 }
 
 const DECLARATIONS = [
@@ -20,7 +23,7 @@ const DECLARATIONS = [
   { key: 'accuracy', text: 'The details and documents are true and complete. I understand false information may lead to rejection and legal action.' },
 ] as const;
 
-export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEdit, canReview, onChanged, onEdit, onClose }) => {
+export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEdit, canReview, onChanged, onEdit, onClose, onOpenAgreement }) => {
   const [documentType, setDocumentType] = useState<AssetDocumentType>('OWNERSHIP');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +127,8 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
             </div>
           )}
         </section>
+
+        {asset.status !== 'WITHDRAWN' && asset.status !== 'REJECTED' && <AssetStructuringPanel asset={asset} canAct={canEdit} onOpenAgreement={onOpenAgreement} />}
 
         {editable && (
           <section className="space-y-2 pt-3 border-t border-slate-100 dark:border-slate-700">

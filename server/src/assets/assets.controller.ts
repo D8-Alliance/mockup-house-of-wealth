@@ -29,6 +29,11 @@ export class AssetsController {
   @RequirePermission('assets', 'read')
   get(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.assets.get(actor, id); }
 
+  @Get(':id/structuring')
+  @Roles(...OWNERS, ...REVIEWERS)
+  @RequirePermission('assets', 'read')
+  structuring(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.assets.structuring(actor, id); }
+
   @Post()
   @Roles(...OWNERS)
   @RequirePermission('assets', 'create')

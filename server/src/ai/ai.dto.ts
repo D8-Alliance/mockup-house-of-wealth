@@ -1,4 +1,4 @@
-import { IsArray, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Min, MinLength, ValidateIf } from 'class-validator';
+import { IsArray, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength, ValidateIf } from 'class-validator';
 import { RAG_REVIEW_DECISIONS, RAG_SCOPES, RagReviewDecision, RagScope } from './rag-scope';
 import { CITATION_REVIEW_STATUSES, CitationReviewStatus, GROUNDING_STATUSES } from './citation-audit';
 
@@ -15,6 +15,13 @@ export class ChatDto {
   @IsOptional()
   @IsString()
   projectId?: string;
+}
+
+export class AssetAdvisorDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  question?: string;
 }
 
 export class ContractAdvisorDto {

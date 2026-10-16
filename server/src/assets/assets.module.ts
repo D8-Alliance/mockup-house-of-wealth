@@ -8,5 +8,6 @@ import { AssetsService } from './assets.service';
   imports: [AuditModule, FeatureModuleModule],
   controllers: [AssetsController],
   providers: [AssetsService],
+  exports: [AssetsService],
 })
 export class AssetsModule {}

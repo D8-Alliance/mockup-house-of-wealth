@@ -8,7 +8,7 @@ import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { AiService } from './ai.service';
 import { CitationAuditService } from './citation-audit.service';
-import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, RagUploadMetadataDto, CitationAuditQueryDto, CitationReviewDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { AiDecisionDto, AssetAdvisorDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, RagUploadMetadataDto, CitationAuditQueryDto, CitationReviewDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
 import { FeasibilityReviewDto } from './project-feasibility.dto';
 
 @Controller('ai')
@@ -42,6 +42,10 @@ export class AiController {
   reviewCitation(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: CitationReviewDto) { return this.citations.review(actor, id, input); }
 
   @Post('chat') chat(@CurrentUser() actor: AuthenticatedUser, @Body() input: ChatDto) { return this.ai.chat(actor, input); }
+
+  @Post('assets/:id/advise')
+  @Roles('Super Admin', 'Asset Owner', 'Asset Manager')
+  assetAdvisor(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: AssetAdvisorDto) { return this.ai.assetAdvisor(actor, id, input.question); }
 
   @Post('contract-advisor/analyze')
   @Roles('Super Admin', 'AI Administrator', 'Shariah Reviewer', 'Shariah Advisor', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office')

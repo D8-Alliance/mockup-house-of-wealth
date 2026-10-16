@@ -448,6 +448,19 @@ export class MembershipService {
   }
 
   /** With `client`, charges inside the caller's transaction and leaves the audit entry to the caller (recordCreditAudit). */
+  /** Returns the credits of an AI request that failed, so a model outage costs the user nothing. */
+  async refundFailedUse(actor: AuthenticatedUser, charge: { cost?: number; usageTransactionId?: string; exempt?: boolean }, reference: string) {
+    const cost = charge.cost ?? 0;
+    if (charge.exempt || cost <= 0) return;
+    await this.prisma.$transaction(async (tx) => {
+      const wallet = await tx.aiCreditWallet.update({ where: { userId_organisationId: { userId: actor.userId, organisationId: actor.organisationId } }, data: { availableBalance: { increment: cost }, usedCredits: { decrement: cost } } });
+      const subscription = await tx.membershipSubscription.findUniqueOrThrow({ where: { userId: actor.userId } });
+      await tx.membershipSubscription.update({ where: { id: subscription.id }, data: { aiCreditsRemaining: wallet.availableBalance } });
+      await tx.aiCreditTransaction.create({ data: { userId: actor.userId, subscriptionId: subscription.id, type: 'REFUND', operationKey: 'AI_REQUEST_FAILED', credits: cost, balanceBefore: wallet.availableBalance - cost, balanceAfter: wallet.availableBalance, reference } });
+      if (charge.usageTransactionId) await tx.aiUsageTransaction.update({ where: { id: charge.usageTransactionId }, data: { status: 'REFUNDED' } });
+    });
+  }
+
   async consumeCredits(actor: AuthenticatedUser, operationKey: string, targetEntity?: string, client?: Prisma.TransactionClient) {
     const { pricing, wallet } = await this.assertCanConsume(actor, operationKey);
     if (!wallet) {

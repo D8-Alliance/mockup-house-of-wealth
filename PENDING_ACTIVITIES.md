@@ -353,7 +353,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 ## 20. Modul aset untuk Asset Owner
 
-- **Status:** Sebahagian siap (2026-10-16). Pendaftaran aset kini di server (model `Asset` dan `AssetDocument`, modul `ASSET_REGISTRATION`): Asset Owner atau Asset Manager mendaftar aset sebagai draf, memuat naik dokumen (bukti hak milik wajib; PDF/JPG/PNG disemak jenis sebenar, hash SHA-256, isyarat pengubahsuaian dan fail yang sama pada aset pemilik lain), membuat tiga pengakuan (hak milik, kegunaan halal, ketepatan) lalu menghantar. Country Admin atau Legal Officer negara itu mengesahkan, meminta perubahan atau menolak, tidak boleh untuk organisasi sendiri. Tab Asset Register dan kad dashboard "Asset Holdings" kini data sebenar; tab Investments dibuang untuk Asset Owner.
+- **Status:** Sebahagian siap (2026-10-16). Pendaftaran aset kini di server (model `Asset` dan `AssetDocument`, modul `ASSET_REGISTRATION`): Asset Owner atau Asset Manager mendaftar aset sebagai draf, memuat naik dokumen (bukti hak milik wajib; PDF/JPG/PNG disemak jenis sebenar, hash SHA-256, isyarat pengubahsuaian dan fail yang sama pada aset pemilik lain), membuat tiga pengakuan (hak milik, kegunaan halal, ketepatan) lalu menghantar. Country Admin atau Legal Officer negara itu mengesahkan, meminta perubahan atau menolak, tidak boleh untuk organisasi sendiri. Tab Asset Register dan kad dashboard "Asset Holdings" kini data sebenar; tab Investments dibuang untuk Asset Owner. Pada 2026-10-16: halaman aset memaparkan pilihan akad (Ijarah, Musharakah, Murabahah) daripada peraturan penstrukturan Shariah (`server/src/assets/asset-structuring.ts`), butang penasihat AI (20 kredit; kredit dipulangkan jika AI gagal atau tamat masa), dan butang draf perjanjian yang mengisi Agreement Generation daripada aset yang disahkan. Menu AI Asset Owner hanya menunjukkan bahagian yang berkaitan.
 - **Kawasan:** `server/src/assets/`, `src/assets/`, `src/components/dashboards/RoleDashboardView.tsx`
 
 **Baki:**
@@ -363,6 +363,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 4. **Penilaian:** amaran jika laporan penilaian lebih lama daripada 12 bulan, atau nilai yang dimasukkan jauh berbeza daripada laporan.
 5. **Aset yang sudah disahkan:** cara mengemas kini nilai atau menarik balik aset VERIFIED (kini perlu melalui Country Admin).
 6. **Skrin lama:** Asset Marketplace dan dashboard eksekutif masih menggunakan senarai aset contoh (`INITIAL_ASSETS`).
+7. **Penasihat AI di staging:** staging menggunakan `AI_PROVIDER=sandbox`, jadi jawapan penasihat AI hanya teks contoh. Sambungkan model sebenar (item 16, langkah 12 panduan staging) untuk jawapan penuh; peraturan penstrukturan berfungsi tanpa AI.
 
 ## 21. Baki tab Profile & Settings
 

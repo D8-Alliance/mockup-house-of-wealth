@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AssetsModule } from '../assets/assets.module';
 import { AuditModule } from '../audit/audit.module';
 import { FeatureModuleModule } from '../modules/feature-module.module';
 import { MembershipModule } from '../membership/membership.module';
@@ -10,7 +11,7 @@ import { OpenAiProvider, SandboxAiProvider } from './ai.provider';
 import { ContractClauseRetriever } from './contract-clause-retriever.service';
 
 @Module({
-  imports: [AuditModule, FeatureModuleModule, MembershipModule],
+  imports: [AuditModule, FeatureModuleModule, MembershipModule, AssetsModule],
   controllers: [AiController],
   providers: [
     AiService,
