@@ -372,9 +372,14 @@ export const apiClient = {
   getAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}`),
   createAsset: (input: AssetInput) => request<RegisteredAsset>('/assets', { method: 'POST', body: JSON.stringify(input) }),
   updateAsset: (id: string, input: AssetInput) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) }),
-  uploadAssetDocument: (id: string, documentType: AssetDocumentType, file: File) => {
+  uploadAssetDocument: (id: string, documentType: AssetDocumentType, file: File | Blob, location?: { latitude: number; longitude: number; accuracyMetres?: number }) => {
     const body = new FormData();
-    body.append('file', file);
+    body.append('file', file, file instanceof File ? file.name : 'site-photo.jpg');
+    if (location) {
+      body.append('latitude', String(location.latitude));
+      body.append('longitude', String(location.longitude));
+      if (location.accuracyMetres !== undefined) body.append('accuracyMetres', String(Math.round(location.accuracyMetres)));
+    }
     return request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/documents/${documentType}`, { method: 'POST', body });
   },
   removeAssetDocument: (id: string, documentId: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
@@ -382,6 +387,7 @@ export const apiClient = {
   getAssetStructuring: (id: string) => request<AssetStructuringGuidance>(`/assets/${encodeURIComponent(id)}/structuring`),
   askAssetAdvisor: (id: string, question?: string) => request<BackendAiRun>(`/ai/assets/${encodeURIComponent(id)}/advise`, { method: 'POST', body: JSON.stringify({ question }) }),
   submitAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/submit`, { method: 'POST', body: JSON.stringify({ ownership: true, halalUse: true, accuracy: true }) }),
+  rerunAssetChecks: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/checks/run`, { method: 'POST' }),
   withdrawAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/withdraw`, { method: 'POST' }),
   reviewAsset: (id: string, decision: 'VERIFIED' | 'CHANGES_REQUESTED' | 'REJECTED', note: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
   downloadKycDocumentForReview: (applicationId: string, documentId: string) => openAuthenticatedFile(`/kyc/applications/${encodeURIComponent(applicationId)}/documents/${encodeURIComponent(documentId)}/download`),
@@ -500,7 +506,25 @@ export type KycCheckStatus = 'PASS' | 'FAIL' | 'REVIEW' | 'PENDING' | 'ERROR' | 
 export type AssetTypeCode = 'LAND' | 'BUILDING' | 'MACHINERY' | 'VEHICLE' | 'EQUIPMENT' | 'OTHER';
 export type AssetStatusCode = 'DRAFT' | 'SUBMITTED' | 'CHANGES_REQUESTED' | 'VERIFIED' | 'REJECTED' | 'WITHDRAWN';
 export type AssetIntendedUse = 'IJARAH' | 'MUSHARAKAH' | 'MURABAHAH' | 'UNDECIDED';
-export type AssetDocumentType = 'OWNERSHIP' | 'VALUATION' | 'INSURANCE' | 'PHOTO' | 'OTHER';
+export type AssetDocumentType = 'OWNERSHIP' | 'OFFICIAL_SEARCH' | 'QUIT_RENT' | 'VALUATION' | 'INSURANCE' | 'SITE_PHOTO' | 'PHOTO' | 'OTHER';
+
+/** What a land title says (Malaysia). */
+export interface LandDetailsInput {
+  titleType?: 'GRN' | 'GM' | 'PN' | 'PM' | 'HSD' | 'HSM';
+  titleNumber?: string;
+  lotNumber?: string;
+  mukim?: string;
+  district?: string;
+  state?: string;
+  areaValue?: number;
+  areaUnit?: 'HECTARE' | 'ACRE' | 'SQ_METRE' | 'SQ_FEET';
+  landUseCategory?: 'AGRICULTURE' | 'BUILDING' | 'INDUSTRY' | 'OTHER';
+  tenure?: 'FREEHOLD' | 'LEASEHOLD';
+  leaseExpiry?: string;
+  ownershipShare?: string;
+  malayReserve?: boolean;
+  restrictions?: string;
+}
 
 export interface AssetInput {
   assetType: AssetTypeCode;
@@ -515,6 +539,9 @@ export interface AssetInput {
   isEncumbered?: boolean;
   encumbranceNote?: string;
   intendedUse?: AssetIntendedUse;
+  latitude?: number;
+  longitude?: number;
+  land?: LandDetailsInput;
 }
 
 /** Which Islamic contracts suit an asset, from the platform's Shariah structuring rules. */
@@ -532,11 +559,22 @@ export interface RegisteredAssetDocument {
   fileSize: number;
   sha256: string;
   integrity?: { flags?: { code: string; message: string }[] } | null;
+  /** Site photos: where the phone was when the photo was taken. */
+  metadata?: { latitude?: number; longitude?: number; accuracyMetres?: number | null; capturedAt?: string } | null;
   createdAt: string;
 }
 
 /** An asset registered on the server (unlike the sample AssetItem used by older screens). */
-export interface RegisteredAsset extends Omit<AssetInput, 'description' | 'location' | 'titleReference' | 'valuerName' | 'encumbranceNote' | 'valuationDate'> {
+export interface RegisteredAsset extends Omit<AssetInput, 'description' | 'location' | 'titleReference' | 'valuerName' | 'encumbranceNote' | 'valuationDate' | 'latitude' | 'longitude' | 'land'> {
+  latitude: number | null;
+  longitude: number | null;
+  /** Type-specific details; for land, the title details. */
+  details: LandDetailsInput | null;
+  /** Automated document checks, run when the asset is submitted. */
+  checkFindings: KycCheckFinding[] | null;
+  checkedAt: string | null;
+  /** Reviewers only: other owners' registrations of the same land. */
+  duplicates?: { id: string; status: AssetStatusCode; organisationName: string }[];
   id: string;
   organisationId: string;
   organisationName?: string;

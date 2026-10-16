@@ -1913,6 +1913,16 @@ model Asset {
   encumbranceNote String?
   /// IJARAH (lease), MUSHARAKAH (partnership contribution), MURABAHAH (sale) or UNDECIDED
   intendedUse     String    @default("UNDECIDED")
+  /// Fields that depend on the asset type, e.g. for LAND: title type and number, lot, mukim, district, state, area, land use, tenure.
+  details         Json?
+  /// Where the asset is (map pin).
+  latitude        Float?
+  longitude       Float?
+  /// Normalised identity (e.g. LAND:state|district|mukim|lot) to spot the same asset registered twice.
+  identityKey     String?
+  /// Automated document checks (field, document, result), shown to the owner and reviewers.
+  checkFindings   Json?
+  checkedAt       DateTime?
   /// DRAFT, SUBMITTED, CHANGES_REQUESTED, VERIFIED, REJECTED or WITHDRAWN
   status          String    @default("DRAFT")
   /// The owner's declarations at submission (ownership, halal use, accuracy).
@@ -1930,6 +1940,7 @@ model Asset {
 
   @@index([organisationId, countryNodeId])
   @@index([countryNodeId, status])
+  @@index([identityKey])
 }
 
 /// Evidence for an asset: proof of ownership, valuation report, insurance, photos.
@@ -1946,6 +1957,8 @@ model AssetDocument {
   sha256       String
   /// Advisory tamper signals (see src/projects/document-integrity.ts).
   integrity    Json?
+  /// For a site photo: where and when it was taken (from the phone), to compare with the map pin.
+  metadata     Json?
   uploadedBy   String
   createdAt    DateTime @default(now())
 

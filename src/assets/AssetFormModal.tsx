@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Building2, X } from 'lucide-react';
 import { apiClient, apiErrorMessage, AssetInput, AssetIntendedUse, AssetTypeCode, RegisteredAsset } from '../services/apiClient';
 import { ASSET_TYPE_LABELS, ASSET_USE_LABELS } from './assetLabels';
+import { LandDetailsFields } from './LandDetailsFields';
+import { LocationPicker } from './LocationPicker';
 
 interface AssetFormModalProps {
   /** Editing an existing draft; omitted for a new asset. */
@@ -30,6 +32,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({ asset, defaultCu
     isEncumbered: asset?.isEncumbered ?? false,
     encumbranceNote: asset?.encumbranceNote ?? '',
     intendedUse: asset?.intendedUse ?? 'UNDECIDED',
+    latitude: asset?.latitude ?? undefined,
+    longitude: asset?.longitude ?? undefined,
+    land: asset?.details ?? { areaUnit: 'HECTARE' },
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +44,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({ asset, defaultCu
     event.preventDefault();
     setSaving(true);
     setError(null);
-    const input: AssetInput = { ...form, valuationDate: form.valuationDate || undefined, estimatedValue: Number(form.estimatedValue) };
+    // Land details are kept only for land; empty text fields are not sent.
+    const land = form.assetType === 'LAND' && form.land ? Object.fromEntries(Object.entries(form.land).filter(([, value]) => value !== '' && value !== undefined)) as AssetInput['land'] : undefined;
+    const input: AssetInput = { ...form, land, valuationDate: form.valuationDate || undefined, estimatedValue: Number(form.estimatedValue) };
     try {
       onSaved(asset ? await apiClient.updateAsset(asset.id, input) : await apiClient.createAsset(input));
     } catch (cause) {
@@ -112,6 +119,8 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({ asset, defaultCu
               <input id="asset-valuer" maxLength={160} value={form.valuerName} onChange={(e) => set('valuerName', e.target.value)} placeholder="Firm name" className={INPUT} />
             </div>
           </div>
+          {form.assetType === 'LAND' && <LandDetailsFields value={form.land ?? {}} onChange={(land) => set('land', land)} />}
+          <LocationPicker latitude={form.latitude} longitude={form.longitude} onChange={(latitude, longitude) => setForm((current) => ({ ...current, latitude, longitude }))} />
           <div className="sm:col-span-2">
             <label htmlFor="asset-description" className={LABEL}>Description</label>
             <textarea id="asset-description" rows={3} maxLength={2000} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Size, condition, current use, tenants..." className={INPUT} />

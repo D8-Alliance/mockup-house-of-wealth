@@ -25,7 +25,7 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 17 | Entiti berasingan dan pihak berkaitan | No. SSM, jenis entiti, syarikat induk; skrin cipta organisasi | Boleh dimulakan |
 | 18 | Prestasi projek PDP dan kontrak | Laporan KPI berkala; "My Contracts" masih data contoh | Keputusan senarai KPI |
 | 19 | Benefisiari dan pusaka | Simpanan backend, Estate Officer, aliran kematian | Keputusan proses; nasihat Shariah dan undang-undang |
-| 20 | Modul aset | Pengesahan tanah (Fasa A dan B sedang dibuat), kemudian bangunan, mesin dan kenderaan; pautan aset ke pool | Sedang dibuat |
+| 20 | Modul aset | Tanah siap (Fasa A dan B); seterusnya kenderaan berat, mesin dan bangunan; OCR PDF imbasan; pautan aset ke pool | Boleh diteruskan |
 | 21 | Profile & Settings | Skrin pengesahan akaun bank (Settlement Officer); kontrak dan mata wang pilihan belum digunakan | Boleh dimulakan |
 | 22 | Pendaftaran dan pengurusan pengguna | Notis privasi rasmi; Fasa 2 (RoleGrantRequest, skrin Users); Fasa 3 (daftar sendiri) | Butiran syarikat dan semakan peguam |
 | 23 | Skrin yang masih data contoh | Lihat senarai penuh dalam item 23 | Boleh dimulakan mengikut keutamaan |
@@ -373,6 +373,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
    - **Fasa A** (tiada pihak luar): borang dan senarai dokumen mengikut jenis; pengesanan pendaftaran berganda (hak milik/lot, no. casis, no. siri); pin peta dan gambar tapak dengan GPS; tarikh luput (pajakan, insurans, cukai jalan, sijil JKKP).
    - **Fasa B** (OCR dalam pelayan sendiri): geran dan Carian Rasmi (pemilik, bahagian, gadaian/kaveat), cukai pintu dan CCC (bangunan), VOC JPJ dan PUSPAKOM (kenderaan berat), invois dan plat nombor siri, sijil PMA JKKP (mesin).
    - **Fasa C** (pihak luar): integrasi e-Tanah, JPJ atau JKKP; memerlukan perjanjian dengan agensi atau penyedia.
+   - **Tanah: Fasa A dan B siap (2026-10-16).** Butiran geran (jenis dan no. hak milik, lot, mukim, daerah, negeri, keluasan, kategori, pegangan, tarikh tamat pajakan, bahagian, Tanah Rizab Melayu); pin peta (OpenStreetMap) dan gambar tapak dengan GPS; Carian Rasmi wajib; tanah yang sama ditolak dalam satu organisasi dan dipaparkan kepada penyemak jika didaftar organisasi lain; OCR geran, Carian Rasmi dan cukai tanah (no. hak milik, lot, mukim, pemilik berdaftar, tarikh carian, gadaian/kaveat, Rizab Melayu, tahun cukai) serta jarak gambar dari pin. Baki tanah: OCR tidak dapat membaca PDF imbasan (perlu OCR halaman PDF); peringatan tarikh luput; pautan peta lot negeri.
    - **Susunan:** tanah dahulu (Carian Rasmi **wajib** untuk tanah, kerana hanya ia menunjukkan pemilik dan bebanan semasa), kemudian kenderaan berat dan mesin, kemudian bangunan.
 4. **Penilaian:** amaran jika laporan penilaian lebih lama daripada 12 bulan, atau nilai yang dimasukkan jauh berbeza daripada laporan.
 5. **Aset yang sudah disahkan:** cara mengemas kini nilai atau menarik balik aset VERIFIED (kini perlu melalui Country Admin).

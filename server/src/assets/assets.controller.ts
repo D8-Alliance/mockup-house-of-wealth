@@ -6,7 +6,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { RequirePermission, Roles } from '../auth/roles.decorator';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
-import { ReviewAssetDto, SaveAssetDto, SubmitAssetDto } from './asset.dto';
+import { ReviewAssetDto, SaveAssetDto, SitePhotoMetadataDto, SubmitAssetDto } from './asset.dto';
 import { AssetsService } from './assets.service';
 
 const OWNERS = ['Asset Owner', 'Asset Manager'] as const;
@@ -48,8 +48,8 @@ export class AssetsController {
   @Roles(...OWNERS)
   @RequirePermission('assets', 'update')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 15 * 1024 * 1024 } }))
-  upload(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Param('documentType') documentType: string, @UploadedFile() file: Express.Multer.File | undefined) {
-    return this.assets.uploadDocument(actor, id, documentType.toUpperCase(), file);
+  upload(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Param('documentType') documentType: string, @UploadedFile() file: Express.Multer.File | undefined, @Body() location: SitePhotoMetadataDto) {
+    return this.assets.uploadDocument(actor, id, documentType.toUpperCase(), file, location);
   }
 
   @Delete(':id/documents/:documentId')
@@ -77,6 +77,11 @@ export class AssetsController {
   @Roles(...OWNERS)
   @RequirePermission('assets', 'update')
   withdraw(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.assets.withdraw(actor, id); }
+
+  @Post(':id/checks/run')
+  @Roles(...REVIEWERS)
+  @RequirePermission('assets', 'approve')
+  rerunChecks(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.assets.rerunChecks(actor, id); }
 
   @Post(':id/review')
   @Roles(...REVIEWERS)

@@ -18,6 +18,7 @@ const declarations = { ownership: true, halalUse: true, accuracy: true };
 describe('AssetsService', () => {
   const prisma = {
     asset: { create: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), update: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn() },
+    organisation: { findUnique: jest.fn().mockResolvedValue({ name: 'Al Hidayah Group Sdn Bhd' }) },
     assetDocument: { count: jest.fn().mockResolvedValue(0), create: jest.fn().mockResolvedValue({ id: 'DOC-1', sha256: 'x' }), deleteMany: jest.fn(), findFirst: jest.fn() },
   };
   const audit = { recordActor: jest.fn().mockResolvedValue(undefined) };
@@ -36,13 +37,30 @@ describe('AssetsService', () => {
     await expect(service.create(actor('Retail Investor'), input)).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('needs proof of ownership before an asset can be submitted', async () => {
-    prisma.asset.findFirst.mockResolvedValueOnce(draft);
+  it('needs proof of ownership before an asset can be submitted, then runs the document checks', async () => {
+    const building = { ...draft, assetType: 'BUILDING' };
+    prisma.asset.findFirst.mockResolvedValueOnce(building);
     await expect(service.submit(owner, draft.id, declarations)).rejects.toThrow('proof of ownership');
-    prisma.asset.findFirst.mockResolvedValueOnce({ ...draft, documents: [{ documentType: 'OWNERSHIP' }] });
+    prisma.asset.findFirst.mockResolvedValueOnce({ ...building, documents: [{ documentType: 'OWNERSHIP' }] });
     prisma.asset.updateMany.mockResolvedValueOnce({ count: 1 });
-    prisma.asset.findUniqueOrThrow.mockResolvedValueOnce({ ...draft, status: 'SUBMITTED' });
+    prisma.asset.findUniqueOrThrow
+      .mockResolvedValueOnce({ ...building, status: 'SUBMITTED' })
+      .mockResolvedValueOnce({ ...building, status: 'SUBMITTED', isEncumbered: false, latitude: null, longitude: null, details: null, documents: [] });
+    prisma.asset.update.mockResolvedValueOnce({ ...building, status: 'SUBMITTED', checkFindings: [] });
     await expect(service.submit(owner, draft.id, declarations)).resolves.toMatchObject({ status: 'SUBMITTED' });
+    expect(prisma.asset.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ checkFindings: [] }) }));
+  });
+
+  it('needs the official land search and complete title details before land is submitted', async () => {
+    prisma.asset.findFirst.mockResolvedValueOnce({ ...draft, assetType: 'LAND', documents: [{ documentType: 'OWNERSHIP' }] });
+    await expect(service.submit(owner, draft.id, declarations)).rejects.toThrow('Carian Rasmi');
+    prisma.asset.findFirst.mockResolvedValueOnce({ ...draft, assetType: 'LAND', details: { titleType: 'GRN', titleNumber: '56789' }, documents: [{ documentType: 'OWNERSHIP' }, { documentType: 'OFFICIAL_SEARCH' }] });
+    await expect(service.submit(owner, draft.id, declarations)).rejects.toThrow('lot number');
+  });
+
+  it('refuses the same land twice in one organisation', async () => {
+    prisma.asset.findFirst.mockResolvedValueOnce({ id: 'ASSET-MYS-OLD00001' });
+    await expect(service.create(owner, { ...input, land: { lotNumber: '1234', mukim: 'Semenyih', district: 'Hulu Langat', state: 'Selangor' } })).rejects.toThrow('already registered as ASSET-MYS-OLD00001');
   });
 
   it('refuses to change a submitted asset', async () => {

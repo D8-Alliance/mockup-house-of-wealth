@@ -6,7 +6,9 @@ import { detectDocumentType } from '../kyc/kyc.service';
 import { PrismaService } from '../prisma.service';
 import { inspectDocument } from '../projects/document-integrity';
 import { newCountryScopedId } from '../users/user-identity';
-import { ASSET_DOCUMENT_TYPES, ReviewAssetDto, SaveAssetDto, SubmitAssetDto } from './asset.dto';
+import { ASSET_DOCUMENT_TYPES, ReviewAssetDto, SaveAssetDto, SitePhotoMetadataDto, SubmitAssetDto } from './asset.dto';
+import { checkAssetDocuments, LandDetails, landGaps, landIdentityKey, requiredDocuments } from './asset-checks';
+import { DocumentTextReader } from '../kyc/checks/document-text-reader';
 import { structuringGuidance } from './asset-structuring';
 
 /** Roles that register assets for their own organisation. */
@@ -17,12 +19,18 @@ export const ASSET_REVIEWER_ROLES: ReadonlySet<string> = new Set(['Super Admin',
 const EDITABLE = new Set(['DRAFT', 'CHANGES_REQUESTED']);
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 
-const DOCUMENT_SELECT = { id: true, documentType: true, fileName: true, mimeType: true, fileSize: true, sha256: true, integrity: true, uploadedBy: true, createdAt: true } satisfies Prisma.AssetDocumentSelect;
+const DOCUMENT_SELECT = { id: true, documentType: true, fileName: true, mimeType: true, fileSize: true, sha256: true, integrity: true, metadata: true, uploadedBy: true, createdAt: true } satisfies Prisma.AssetDocumentSelect;
+/** Assets that no longer count when looking for the same asset registered twice. */
+const INACTIVE = ['WITHDRAWN', 'REJECTED'];
+const DOCUMENT_LABELS: Record<string, string> = { OWNERSHIP: 'proof of ownership (for land, the title or geran)', OFFICIAL_SEARCH: 'official land search (Carian Rasmi)' };
 
 type AssetWithDocuments = Prisma.AssetGetPayload<{ include: { documents: { select: typeof DOCUMENT_SELECT } } }>;
 
 @Injectable()
 export class AssetsService {
+  /** Reads PDF text, or OCR on photos (English and Malay), in this server; shared with the KYC checks. */
+  private readonly reader = new DocumentTextReader();
+
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
 
   /** Owners see their organisation's assets; reviewers see their country's (Super Admin: every country). */
@@ -33,7 +41,11 @@ export class AssetsService {
   }
 
   async get(actor: AuthenticatedUser, id: string) {
-    return this.view(await this.find(actor, id));
+    const asset = await this.find(actor, id);
+    if (!ASSET_REVIEWER_ROLES.has(actor.role) || !asset.identityKey) return this.view(asset);
+    // Only reviewers learn that another owner registered the same land: owners never see other owners' assets.
+    const others = await this.prisma.asset.findMany({ where: { identityKey: asset.identityKey, id: { not: asset.id }, status: { notIn: INACTIVE } }, select: { id: true, status: true, organisation: { select: { name: true } } } });
+    return { ...this.view(asset), duplicates: others.map((other) => ({ id: other.id, status: other.status, organisationName: other.organisation.name })) };
   }
 
   /** Which Islamic contracts suit the asset, from its own facts (free; no AI involved). */
@@ -58,6 +70,7 @@ export class AssetsService {
 
   async create(actor: AuthenticatedUser, input: SaveAssetDto) {
     this.assertOwnerRole(actor);
+    await this.assertNotRegisteredTwice(actor, input);
     const asset = await this.prisma.asset.create({
       data: { id: newCountryScopedId('ASSET', actor.countryNodeId), organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, ownerUserId: actor.userId, ...this.fields(input) },
       include: { documents: { select: DOCUMENT_SELECT } },
@@ -69,12 +82,13 @@ export class AssetsService {
   async update(actor: AuthenticatedUser, id: string, input: SaveAssetDto) {
     const asset = await this.findOwn(actor, id);
     this.assertEditable(asset.status);
+    await this.assertNotRegisteredTwice(actor, input, id);
     const updated = await this.prisma.asset.update({ where: { id }, data: this.fields(input), include: { documents: { select: DOCUMENT_SELECT } } });
     await this.record(actor, 'asset.update', updated);
     return this.view(updated);
   }
 
-  async uploadDocument(actor: AuthenticatedUser, id: string, documentType: string, file: Express.Multer.File | undefined) {
+  async uploadDocument(actor: AuthenticatedUser, id: string, documentType: string, file: Express.Multer.File | undefined, location?: SitePhotoMetadataDto) {
     if (!(ASSET_DOCUMENT_TYPES as readonly string[]).includes(documentType)) throw new BadRequestException(`Choose a document type: ${ASSET_DOCUMENT_TYPES.join(', ')}.`);
     if (!file) throw new BadRequestException('A PDF, JPG or PNG file is required.');
     if (file.size > MAX_FILE_BYTES) throw new BadRequestException('The file is larger than 15 MB.');
@@ -87,7 +101,7 @@ export class AssetsService {
     const reused = await this.prisma.assetDocument.count({ where: { sha256: integrity.sha256, asset: { organisationId: { not: asset.organisationId } } } });
     const flags = reused ? [...integrity.flags, { code: 'REUSED_ELSEWHERE', message: `The same file is attached to ${reused} asset(s) of another owner.` }] : integrity.flags;
     const document = await this.prisma.assetDocument.create({
-      data: { assetId: id, documentType, fileName: file.originalname.slice(0, 200), mimeType, fileSize: file.size, fileContent: file.buffer, sha256: integrity.sha256, integrity: { ...integrity, flags } as unknown as Prisma.InputJsonValue, uploadedBy: actor.userId },
+      data: { assetId: id, documentType, fileName: file.originalname.slice(0, 200), mimeType, fileSize: file.size, fileContent: file.buffer, sha256: integrity.sha256, integrity: { ...integrity, flags } as unknown as Prisma.InputJsonValue, uploadedBy: actor.userId, ...(documentType === 'SITE_PHOTO' && location?.latitude !== undefined && location.longitude !== undefined ? { metadata: { latitude: location.latitude, longitude: location.longitude, accuracyMetres: location.accuracyMetres ?? null, capturedAt: new Date().toISOString() } } : {}) },
       select: DOCUMENT_SELECT,
     });
     await this.record(actor, 'asset.document.upload', asset, { documentId: document.id, documentType, sha256: document.sha256, flags: flags.map((flag) => flag.code) });
@@ -115,10 +129,41 @@ export class AssetsService {
   async submit(actor: AuthenticatedUser, id: string, declarations: SubmitAssetDto) {
     const asset = await this.findOwn(actor, id);
     this.assertEditable(asset.status);
-    if (!asset.documents.some((document) => document.documentType === 'OWNERSHIP')) throw new BadRequestException('Upload proof of ownership first (land title, grant, sale agreement or purchase invoice).');
-    const updated = await this.claim(id, asset.status, { status: 'SUBMITTED', submittedAt: new Date(), declarations: { ...declarations, confirmedAt: new Date().toISOString() } });
-    await this.record(actor, 'asset.submit', updated);
-    return this.view(updated);
+    const missing = requiredDocuments(asset.assetType).filter((type) => !asset.documents.some((document) => document.documentType === type));
+    if (missing.length) throw new BadRequestException(`Upload ${missing.map((type) => DOCUMENT_LABELS[type] ?? type).join(' and ')} first.`);
+    if (asset.assetType === 'LAND') {
+      const gaps = landGaps(asset.details as LandDetails | null);
+      if (gaps.length) throw new BadRequestException(`Complete the land title details first: ${gaps.join(', ')}.`);
+    }
+    await this.claim(id, asset.status, { status: 'SUBMITTED', submittedAt: new Date(), declarations: { ...declarations, confirmedAt: new Date().toISOString() } });
+    const checked = await this.runDocumentChecks(id, actor.organisationId);
+    await this.record(actor, 'asset.submit', checked, { findings: (checked.checkFindings as unknown[] | null)?.length ?? 0 });
+    return this.view(checked);
+  }
+
+  /** Re-runs the document checks, e.g. after an owner replaced a document or OCR improved. Reviewers only. */
+  async rerunChecks(actor: AuthenticatedUser, id: string) {
+    if (!ASSET_REVIEWER_ROLES.has(actor.role)) throw new ForbiddenException('Only a Country Admin or Legal Officer can re-run the checks.');
+    const asset = await this.find(actor, id);
+    const checked = await this.runDocumentChecks(id, asset.organisationId);
+    await this.record(actor, 'asset.checks.run', checked);
+    return this.get(actor, id);
+  }
+
+  /** Reads the asset's documents and stores what they agree or disagree with. Never decides the review. */
+  private async runDocumentChecks(id: string, organisationId: string) {
+    const asset = await this.prisma.asset.findUniqueOrThrow({ where: { id }, include: { documents: { select: { documentType: true, mimeType: true, fileContent: true, metadata: true }, orderBy: { createdAt: 'asc' } } } });
+    const organisation = await this.prisma.organisation.findUnique({ where: { id: organisationId }, select: { name: true } });
+    const documents = [];
+    for (const document of asset.documents) {
+      const readable = ['OWNERSHIP', 'OFFICIAL_SEARCH', 'QUIT_RENT'].includes(document.documentType);
+      const text = readable ? await this.reader.read({ mimeType: document.mimeType, content: Buffer.from(document.fileContent) }).catch(() => null) : null;
+      documents.push({ documentType: document.documentType, text, metadata: document.metadata as { latitude?: number; longitude?: number } | null });
+    }
+    // Personal organisations are named "<person> (individual)"; the title shows the person.
+    const ownerName = (organisation?.name ?? '').replace(/\s*\((individual|asset owner|individual investor)\)\s*$/i, '');
+    const findings = checkAssetDocuments({ assetType: asset.assetType, ownerName, isEncumbered: asset.isEncumbered, latitude: asset.latitude, longitude: asset.longitude, land: asset.details as LandDetails | null }, documents);
+    return this.prisma.asset.update({ where: { id }, data: { checkFindings: findings as unknown as Prisma.InputJsonValue, checkedAt: new Date() }, include: { documents: { select: DOCUMENT_SELECT } } });
   }
 
   async withdraw(actor: AuthenticatedUser, id: string) {
@@ -154,6 +199,10 @@ export class AssetsService {
       isEncumbered: input.isEncumbered ?? false,
       encumbranceNote: input.isEncumbered ? input.encumbranceNote || null : null,
       intendedUse: input.intendedUse ?? 'UNDECIDED',
+      latitude: input.latitude ?? null,
+      longitude: input.longitude ?? null,
+      details: input.assetType === 'LAND' && input.land ? (JSON.parse(JSON.stringify(input.land)) as Prisma.InputJsonValue) : Prisma.JsonNull,
+      identityKey: input.assetType === 'LAND' ? landIdentityKey(input.land) : null,
     };
   }
 
@@ -181,6 +230,14 @@ export class AssetsService {
     const asset = await this.prisma.asset.findFirst({ where: { id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId }, include: { documents: { select: DOCUMENT_SELECT } } });
     if (!asset) throw new NotFoundException('Asset not found.');
     return asset;
+  }
+
+  /** The same land (lot, mukim, district, state) registered twice by one organisation is refused. */
+  private async assertNotRegisteredTwice(actor: AuthenticatedUser, input: SaveAssetDto, exceptId?: string) {
+    const key = input.assetType === 'LAND' ? landIdentityKey(input.land) : null;
+    if (!key) return;
+    const existing = await this.prisma.asset.findFirst({ where: { identityKey: key, organisationId: actor.organisationId, status: { notIn: INACTIVE }, ...(exceptId ? { id: { not: exceptId } } : {}) }, select: { id: true } });
+    if (existing) throw new ConflictException(`This land is already registered as ${existing.id}.`);
   }
 
   private assertOwnerRole(actor: AuthenticatedUser) {

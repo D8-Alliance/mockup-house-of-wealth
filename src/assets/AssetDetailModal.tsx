@@ -2,7 +2,8 @@ import React, { useRef, useState } from 'react';
 import { AlertTriangle, FileText, Trash2, Upload, X } from 'lucide-react';
 import { apiClient, apiErrorMessage, AssetDocumentType, RegisteredAsset } from '../services/apiClient';
 import { AssetStructuringPanel } from './AssetStructuringPanel';
-import { ASSET_DOCUMENT_LABELS, ASSET_EDITABLE, ASSET_STATUS, ASSET_TYPE_LABELS, ASSET_USE_LABELS, formatMoney } from './assetLabels';
+import { ASSET_DOCUMENT_LABELS, ASSET_EDITABLE, ASSET_STATUS, ASSET_TYPE_LABELS, ASSET_USE_LABELS, documentChecklist, documentLabel, formatMoney } from './assetLabels';
+import { AssetCheckResults, AssetDocumentChecklist, AssetLocationAndTitle, SitePhotoCapture } from './AssetVerificationParts';
 
 interface AssetDetailModalProps {
   asset: RegisteredAsset;
@@ -31,7 +32,10 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
   const [note, setNote] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const editable = canEdit && ASSET_EDITABLE.has(asset.status);
-  const hasOwnership = asset.documents.some((document) => document.documentType === 'OWNERSHIP');
+  const checklist = documentChecklist(asset.assetType);
+  const missingRequired = checklist.filter((item) => item.required && !asset.documents.some((document) => document.documentType === item.type));
+  // Upload choices: this type's checklist, then the general kinds not already in it.
+  const uploadTypes = [...checklist.map((item) => item.type), ...(['INSURANCE', 'PHOTO', 'OTHER'] as AssetDocumentType[]).filter((type) => !checklist.some((item) => item.type === type))];
   const allConfirmed = DECLARATIONS.every((item) => confirmed[item.key]);
 
   const run = async (action: () => Promise<RegisteredAsset>) => {
@@ -88,9 +92,11 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
         </dl>
         {editable && <button type="button" onClick={onEdit} className="text-xs font-extrabold text-emerald-600 hover:underline cursor-pointer">Edit details</button>}
 
+        <AssetLocationAndTitle asset={asset} />
+
         <section className="space-y-2">
           <h3 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">Documents</h3>
-          {asset.documents.length === 0 && <p className="text-xs text-slate-500">No documents yet.{canEdit ? ' Proof of ownership is needed before submitting.' : ''}</p>}
+          <AssetDocumentChecklist asset={asset} />
           {asset.documents.map((document) => {
             const flags = document.integrity?.flags ?? [];
             return (
@@ -99,8 +105,8 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
                   <div className="flex items-center gap-2 min-w-0">
                     <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                     <div className="min-w-0">
-                      <div className="font-bold text-slate-800 dark:text-slate-100">{ASSET_DOCUMENT_LABELS[document.documentType].label}</div>
-                      <div className="text-slate-400 truncate">{document.fileName} · {Math.ceil(document.fileSize / 1024)} KB</div>
+                      <div className="font-bold text-slate-800 dark:text-slate-100">{documentLabel(document.documentType, asset.assetType)}</div>
+                      <div className="text-slate-400 truncate">{document.fileName} · {Math.ceil(document.fileSize / 1024)} KB{document.metadata?.latitude !== undefined ? ` · taken at ${document.metadata.latitude.toFixed(5)}, ${document.metadata.longitude?.toFixed(5)}` : ''}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -118,15 +124,18 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
             <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-dashed border-slate-300 dark:border-slate-600 space-y-2">
               <div className="flex flex-wrap gap-2 items-center">
                 <select aria-label="Document type" value={documentType} onChange={(e) => setDocumentType(e.target.value as AssetDocumentType)} className="px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs cursor-pointer">
-                  {(Object.keys(ASSET_DOCUMENT_LABELS) as AssetDocumentType[]).map((type) => <option key={type} value={type}>{ASSET_DOCUMENT_LABELS[type].label}</option>)}
+                  {uploadTypes.map((type) => <option key={type} value={type}>{documentLabel(type, asset.assetType)}</option>)}
                 </select>
                 <input ref={fileRef} type="file" accept="application/pdf,image/jpeg,image/png" className="hidden" onChange={(e) => upload(e.target.files?.[0])} />
                 <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-60"><Upload className="w-3.5 h-3.5" />Upload PDF, JPG or PNG</button>
+                <SitePhotoCapture asset={asset} onUploaded={onChanged} />
               </div>
-              <p className="text-[11px] text-slate-500">{ASSET_DOCUMENT_LABELS[documentType].hint} Up to 15 MB.</p>
+              <p className="text-[11px] text-slate-500">{ASSET_DOCUMENT_LABELS[documentType].hint} Up to 15 MB. A clear photo (JPG or PNG) of a title or search can be read by the system; a scanned PDF cannot.</p>
             </div>
           )}
         </section>
+
+        <AssetCheckResults asset={asset} canReview={canReview} onChanged={onChanged} />
 
         {asset.status !== 'WITHDRAWN' && asset.status !== 'REJECTED' && <AssetStructuringPanel asset={asset} canAct={canEdit} onOpenAgreement={onOpenAgreement} />}
 
@@ -139,9 +148,10 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
                 <span>{item.text}</span>
               </label>
             ))}
-            {!hasOwnership && <p className="text-[11px] font-bold text-amber-600">Upload proof of ownership first.</p>}
+            {missingRequired.length > 0 && <p className="text-[11px] font-bold text-amber-600">Upload first: {missingRequired.map((item) => documentLabel(item.type, asset.assetType)).join(', ')}.</p>}
+            <p className="text-[11px] text-slate-500">On submitting, the system reads the documents and compares them with what you entered; a reviewer then decides.</p>
             <div className="flex justify-end">
-              <button type="button" disabled={busy || !allConfirmed || !hasOwnership} onClick={() => void run(() => apiClient.submitAsset(asset.id))} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-50">Submit for verification</button>
+              <button type="button" disabled={busy || !allConfirmed || missingRequired.length > 0} onClick={() => void run(() => apiClient.submitAsset(asset.id))} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-50">Submit for verification</button>
             </div>
           </section>
         )}
