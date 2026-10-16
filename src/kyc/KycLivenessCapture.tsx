@@ -25,6 +25,21 @@ interface KycLivenessCaptureProps {
  * camera, the guides and the server's feedback. The preview is mirrored like a
  * selfie camera, but frames are sent un-mirrored so left/right are measured correctly.
  */
+
+/**
+ * The face guide in the SVG's stretched 0-100 box. The box takes the camera's shape, so the
+ * oval's width is worked out from the aspect ratio to keep a face shape (width / height 0.75)
+ * on a portrait phone as on a landscape webcam. It stays at most 60% of the frame wide (44% when
+ * the ID card shares the frame), because the server asks for a face 22-65% of the frame width.
+ */
+function faceOval(aspect: number, withCard: boolean): { cx: number; rx: number; ry: number } {
+  const shape = 0.75;
+  let ry = 38;
+  let rx = (ry * shape) / aspect;
+  const maxRx = withCard ? 22 : 30;
+  if (rx > maxRx) { rx = maxRx; ry = (rx * aspect) / shape; }
+  return { cx: withCard ? 38 : 50, rx, ry };
+}
 export const KycLivenessCapture: React.FC<KycLivenessCaptureProps> = ({ onFinished, onCancel }) => {
   const [phase, setPhase] = useState<'consent' | 'starting' | 'running' | 'passed' | 'failed'>('consent');
   const [consent, setConsent] = useState(false);
@@ -138,6 +153,7 @@ export const KycLivenessCapture: React.FC<KycLivenessCaptureProps> = ({ onFinish
   };
 
   const step = session?.steps[session.currentStep];
+  const oval = faceOval(aspect, step === 'FACE_WITH_ID');
   const text = step ? STEP_TEXT[step] : null;
   const guideColour = accepted ? '#10b981' : '#fbbf24';
 
@@ -175,12 +191,12 @@ export const KycLivenessCapture: React.FC<KycLivenessCaptureProps> = ({ onFinish
               <defs>
                 <mask id="liveness-guide">
                   <rect width="100" height="100" fill="white" />
-                  {!isCardStep(step) && <ellipse cx={step === 'FACE_WITH_ID' ? 38 : 50} cy="50" rx="20" ry="34" fill="black" />}
+                  {!isCardStep(step) && <ellipse cx={oval.cx} cy="50" rx={oval.rx} ry={oval.ry} fill="black" />}
                   {(isCardStep(step) || step === 'FACE_WITH_ID') && <rect x={step === 'FACE_WITH_ID' ? 62 : 18} y={step === 'FACE_WITH_ID' ? 40 : 22} width={step === 'FACE_WITH_ID' ? 30 : 64} height={step === 'FACE_WITH_ID' ? 30 : 56} rx="3" fill="black" />}
                 </mask>
               </defs>
               <rect width="100" height="100" fill="rgba(15,23,42,0.55)" mask="url(#liveness-guide)" />
-              {!isCardStep(step) && <ellipse cx={step === 'FACE_WITH_ID' ? 38 : 50} cy="50" rx="20" ry="34" fill="none" stroke={guideColour} strokeWidth="0.8" />}
+              {!isCardStep(step) && <ellipse cx={oval.cx} cy="50" rx={oval.rx} ry={oval.ry} fill="none" stroke={guideColour} strokeWidth="0.8" />}
               {(isCardStep(step) || step === 'FACE_WITH_ID') && <rect x={step === 'FACE_WITH_ID' ? 62 : 18} y={step === 'FACE_WITH_ID' ? 40 : 22} width={step === 'FACE_WITH_ID' ? 30 : 64} height={step === 'FACE_WITH_ID' ? 30 : 56} rx="3" fill="none" stroke={guideColour} strokeWidth="0.8" strokeDasharray="2 1" />}
             </svg>
           )}
