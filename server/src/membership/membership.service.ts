@@ -10,6 +10,7 @@ import { tenantScopeFilter } from '../tenancy/tenant-scope';
 import { FinancialLedgerService, toyyibPayCashAccount } from '../financial/financial-ledger.service';
 import { isAiCreditExempt } from './ai-credit-exemption';
 import { Receipt } from '../billing/receipt-pdf';
+import { RECEIPT_AKAD } from '../billing/receipt-akad';
 
 const AI_CAPABILITIES = ['SIMPLE_QUERY', 'PROJECT_SUMMARY', 'FULL_FEASIBILITY_ANALYSIS', 'INVESTMENT_ANALYSIS', 'RISK_ANALYSIS', 'CONTRACT_ANALYSIS', 'DUE_DILIGENCE', 'FULL_PROJECT_INTELLIGENCE'] as const;
 const PLANS = [
@@ -454,6 +455,7 @@ export class MembershipService {
       items,
       currency: 'MYR',
       status: transaction.status,
+      akad: transaction.type === 'MEMBERSHIP' ? RECEIPT_AKAD.MEMBERSHIP : RECEIPT_AKAD.AI_CREDIT_TOP_UP,
       payment: [
         ['Method', transaction.method],
         ...(payment?.providerBillCode ? [['ToyyibPay bill', payment.providerBillCode] as [string, string]] : []),

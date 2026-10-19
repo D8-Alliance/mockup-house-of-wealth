@@ -1,3 +1,4 @@
+import { RECEIPT_AKAD } from './receipt-akad';
 import { renderReceiptPdf } from './receipt-pdf';
 
 describe('renderReceiptPdf', () => {
@@ -10,6 +11,7 @@ describe('renderReceiptPdf', () => {
       items: [{ description: 'Plus membership (monthly)', amount: 49 }, { description: 'AI credits applied (100 credits)', amount: -10 }],
       currency: 'MYR',
       status: 'Paid',
+      akad: RECEIPT_AKAD.MEMBERSHIP,
       payment: [['Method', 'ToyyibPay'], ['ToyyibPay bill', 'if1veumd'], ['Gateway reference', 'TP2610160849326576'], ['FPX fee', 'MYR 1.00, charged by ToyyibPay on top of the total and kept by it']],
       notes: ['Membership and AI credits are platform services.'],
     });

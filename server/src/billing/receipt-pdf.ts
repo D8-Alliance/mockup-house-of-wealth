@@ -1,4 +1,6 @@
 import PDFDocument from 'pdfkit';
+import { ReceiptAkad } from './receipt-akad';
+import { RECEIPT_LOGO_PNG } from './receipt-logo';
 
 export interface Receipt {
   /** e.g. "Payment receipt" or "Promotion receipt". */
@@ -10,6 +12,8 @@ export interface Receipt {
   items: Array<{ description: string; amount: number }>;
   currency: string;
   status: string;
+  /** The Shariah contract the payment was made under. */
+  akad?: ReceiptAkad;
   /** Payment method, gateway references and similar. */
   payment: Array<[string, string]>;
   notes: string[];
@@ -34,10 +38,11 @@ export function renderReceiptPdf(receipt: Receipt): Promise<Buffer> {
     const width = doc.page.width - left - doc.page.margins.right;
     const right = left + width;
 
-    // Issuer on the left, receipt title and number on the right.
+    // Logo and issuer on the left, receipt title and number on the right.
     const top = doc.y;
-    doc.font('Helvetica-Bold').fontSize(16).fillColor(GREEN).text('Wealth Pooling', left, top);
-    doc.font('Helvetica').fontSize(9).fillColor(GREY).text('D-8 Islamic Circular Economy Platform', left, doc.y);
+    doc.image(RECEIPT_LOGO_PNG, left, top - 4, { width: 70 });
+    doc.font('Helvetica-Bold').fontSize(16).fillColor(GREEN).text('Wealth Pooling', left + 78, top + 6);
+    doc.font('Helvetica').fontSize(9).fillColor(GREY).text('D-8 Islamic Circular Economy Platform', left + 78, doc.y);
     doc.font('Helvetica-Bold').fontSize(18).fillColor('#000000').text(receipt.title.toUpperCase(), left, top, { width, align: 'right' });
     doc.font('Helvetica').fontSize(9).fillColor(GREY).text(`No. ${receipt.receiptNumber}`, left, doc.y, { width, align: 'right' });
     doc.text(`Issued ${receipt.issuedAt}`, left, doc.y, { width, align: 'right' });
@@ -45,6 +50,8 @@ export function renderReceiptPdf(receipt: Receipt): Promise<Buffer> {
     const paid = status === 'PAID';
     doc.font('Helvetica-Bold').fillColor(paid ? GREEN : '#b45309').text(status, left, doc.y, { width, align: 'right' });
 
+    // The logo is taller than the issuer text; start below whichever ends lower.
+    doc.y = Math.max(doc.y, top + 44);
     doc.moveTo(left, doc.y + 12).lineTo(right, doc.y + 12).strokeColor('#e2e8f0').stroke();
     doc.y += 24;
 
@@ -70,6 +77,21 @@ export function renderReceiptPdf(receipt: Receipt): Promise<Buffer> {
     const total = receipt.items.reduce((sum, item) => sum + item.amount, 0);
     const totalY = doc.y;
     doc.font('Helvetica-Bold').fontSize(12).text(paid ? 'Total paid' : 'Total', left + 8, totalY).text(money(total, receipt.currency), left, totalY, { width: width - 8, align: 'right' });
+
+    if (receipt.akad) {
+      doc.moveDown(1.5);
+      const boxTop = doc.y;
+      const inner = width - 24;
+      const labelHeight = doc.font('Helvetica-Bold').fontSize(9).heightOfString('AKAD', { width: inner });
+      const nameHeight = doc.font('Helvetica-Bold').fontSize(10).heightOfString(receipt.akad.name, { width: inner });
+      const textHeight = doc.font('Helvetica').fontSize(9).heightOfString(receipt.akad.explanation, { width: inner });
+      const height = 10 + labelHeight + 2 + nameHeight + 2 + textHeight + 12;
+      doc.roundedRect(left, boxTop, width, height, 6).fillAndStroke('#ecfdf5', '#a7f3d0');
+      doc.font('Helvetica-Bold').fontSize(9).fillColor(GREEN).text('AKAD (SHARIAH CONTRACT)', left + 12, boxTop + 10);
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#000000').text(receipt.akad.name, left + 12, doc.y + 2, { width: inner });
+      doc.font('Helvetica').fontSize(9).fillColor('#334155').text(receipt.akad.explanation, left + 12, doc.y + 2, { width: inner });
+      doc.y = boxTop + height;
+    }
 
     if (receipt.payment.length) {
       doc.moveDown(1.5).font('Helvetica-Bold').fontSize(10).fillColor(GREY).text('PAYMENT', left);

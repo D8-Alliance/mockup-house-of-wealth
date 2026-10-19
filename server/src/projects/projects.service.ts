@@ -13,6 +13,7 @@ import { BadRequestException } from '@nestjs/common';
 import pdfParse from 'pdf-parse';
 import * as XLSX from 'xlsx';
 import { Receipt } from '../billing/receipt-pdf';
+import { RECEIPT_AKAD } from '../billing/receipt-akad';
 
 const PROJECT_PROMOTION_PACKAGES = [
   { id: 'pkg_free_listing', title: 'Free Project Listing', badgeType: 'Promoted', durationDays: 0, priceMYR: 0, creditsCost: 0 },
@@ -465,6 +466,7 @@ export class ProjectsService {
       items: [{ description: `${campaign.packageName} promotion for ${project.projectName}`, amount: Number(campaign.payment.amountMYR) }],
       currency: 'MYR',
       status: campaign.payment.status,
+      akad: RECEIPT_AKAD.PROJECT_PROMOTION,
       payment: [['Method', campaign.payment.method], ...(campaign.payment.providerRef ? [['Provider reference', campaign.payment.providerRef] as [string, string]] : [])],
       notes: ['This receipt confirms payment for promotional placement. It is not an investment recommendation.'],
     };
