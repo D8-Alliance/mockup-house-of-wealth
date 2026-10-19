@@ -1,6 +1,7 @@
 import React from 'react';
 import { BuildingDetailsInput, MachineDetailsInput, VehicleDetailsInput } from '../services/apiClient';
-import { BUILDING_TITLE_KIND_LABELS, BUILDING_USE_LABELS, FLOOR_AREA_UNIT_LABELS, MALAYSIAN_STATES, VEHICLE_CATEGORY_LABELS } from './assetLabels';
+import { BUILDING_TITLE_KIND_LABELS, BUILDING_USE_LABELS, FLOOR_AREA_UNIT_LABELS, VEHICLE_CATEGORY_LABELS } from './assetLabels';
+import { StateDistrictMukimFields } from './StateDistrictMukimFields';
 
 const INPUT = 'w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500';
 const LABEL = 'text-xs font-bold text-slate-600 dark:text-slate-300 block mb-1';
@@ -128,16 +129,8 @@ export const BuildingDetailsFields: React.FC<FieldsProps<BuildingDetailsInput>> 
           <>
             {text('building-title-no', 'Title number', value.titleNumber, (next) => set('titleNumber', next), { placeholder: 'e.g. GRN 11223' })}
             {text('building-lot', 'Lot number', value.lotNumber, (next) => set('lotNumber', next))}
-            {text('building-mukim', 'Mukim / town', value.mukim, (next) => set('mukim', next), { maxLength: 80 })}
-            {text('building-district', 'District', value.district, (next) => set('district', next), { maxLength: 80 })}
-            <div>
-              <label htmlFor="building-state" className={LABEL}>State</label>
-              <select id="building-state" value={value.state ?? ''} onChange={(e) => set('state', e.target.value || undefined)} className={`${INPUT} cursor-pointer`}>
-                <option value="">Choose…</option>
-                {MALAYSIAN_STATES.map((state) => <option key={state} value={state}>{state}</option>)}
-              </select>
-            </div>
-            {value.titleKind === 'MASTER_TITLE' && text('building-parcel', 'Parcel number (from the sale agreement)', value.parcelNumber, (next) => set('parcelNumber', next))}
+            {value.titleKind === 'MASTER_TITLE' ? text('building-parcel', 'Parcel number (from the sale agreement)', value.parcelNumber, (next) => set('parcelNumber', next)) : <div className="hidden sm:block" />}
+            <StateDistrictMukimFields idPrefix="building" value={value} onChange={(patch) => onChange({ ...value, ...patch })} />
           </>
         )}
         {text('building-name', 'Building name (optional)', value.buildingName, (next) => set('buildingName', next), { maxLength: 120 })}

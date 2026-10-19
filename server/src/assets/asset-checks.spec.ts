@@ -23,6 +23,13 @@ describe('land rules', () => {
     expect(landIdentityKey(land)).toBe(landIdentityKey({ ...land, mukim: 'SEMENYIH', state: 'selangor', district: 'hulu-langat' }));
     expect(landIdentityKey({ lotNumber: '1234' })).toBeNull();
   });
+
+  it('does not ask for a mukim on Sabah or Sarawak titles', () => {
+    const sabah = { ...land, state: 'Sabah', district: 'Penampang', mukim: undefined };
+    expect(landGaps(sabah)).toEqual([]);
+    expect(landGaps({ ...land, mukim: undefined })).toEqual(['mukim']);
+    expect(landIdentityKey(sabah)).toBe('LAND:SABAH|PENAMPANG||1234');
+  });
 });
 
 describe('checkAssetDocuments', () => {

@@ -84,6 +84,11 @@ export function requiredDocuments(assetType: string, details?: AssetDetails | nu
   return ['OWNERSHIP'];
 }
 
+/** Sabah and Sarawak titles are not divided into mukims (Sarawak uses land districts and blocks). */
+export function usesMukim(state: string | undefined): boolean {
+  return !/^(sabah|sarawak)$/i.test((state ?? '').trim());
+}
+
 const need = (gaps: string[], value: unknown, label: string) => { if (value === undefined || value === null || value === '') gaps.push(label); };
 
 /** Title fields still missing before a land asset can be submitted. */
@@ -92,7 +97,7 @@ export function landGaps(land: LandDetails | null | undefined): string[] {
   need(gaps, land?.titleType, 'title type');
   need(gaps, land?.titleNumber, 'title number');
   need(gaps, land?.lotNumber, 'lot number');
-  need(gaps, land?.mukim, 'mukim');
+  if (usesMukim(land?.state)) need(gaps, land?.mukim, 'mukim');
   need(gaps, land?.district, 'district');
   need(gaps, land?.state, 'state');
   need(gaps, land?.areaValue, 'area');
@@ -128,7 +133,7 @@ export function detailGaps(assetType: string, details: AssetDetails | null | und
     } else if (details?.titleKind) {
       need(gaps, details?.titleNumber, 'title number');
       need(gaps, details?.lotNumber, 'lot number');
-      need(gaps, details?.mukim, 'mukim');
+      if (usesMukim(details?.state)) need(gaps, details?.mukim, 'mukim');
       need(gaps, details?.state, 'state');
       if (details.titleKind === 'MASTER_TITLE') need(gaps, details?.parcelNumber, 'parcel number');
     }
@@ -142,9 +147,9 @@ export function detailGaps(assetType: string, details: AssetDetails | null | und
 
 const norm = (value: string | undefined) => (value ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-/** The same lot in the same mukim, district and state is the same land, whoever registers it. */
+/** The same lot in the same mukim (or, in Sabah and Sarawak, district), district and state is the same land, whoever registers it. */
 export function landIdentityKey(land: LandDetails | null | undefined): string | null {
-  if (!land?.lotNumber || !land.mukim || !land.state) return null;
+  if (!land?.lotNumber || !land.state || (usesMukim(land.state) ? !land.mukim : !land.district)) return null;
   return `LAND:${norm(land.state)}|${norm(land.district)}|${norm(land.mukim)}|${norm(land.lotNumber)}`;
 }
 

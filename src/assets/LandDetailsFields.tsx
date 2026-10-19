@@ -1,6 +1,7 @@
 import React from 'react';
 import { LandDetailsInput } from '../services/apiClient';
-import { LAND_AREA_UNIT_LABELS, LAND_TITLE_TYPE_LABELS, LAND_USE_LABELS, MALAYSIAN_STATES } from './assetLabels';
+import { LAND_AREA_UNIT_LABELS, LAND_TITLE_TYPE_LABELS, LAND_USE_LABELS } from './assetLabels';
+import { StateDistrictMukimFields } from './StateDistrictMukimFields';
 
 const INPUT = 'w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500';
 const LABEL = 'text-xs font-bold text-slate-600 dark:text-slate-300 block mb-1';
@@ -32,21 +33,7 @@ export const LandDetailsFields: React.FC<LandDetailsFieldsProps> = ({ value, onC
           <label htmlFor="land-lot" className={LABEL}>Lot number</label>
           <input id="land-lot" maxLength={40} value={value.lotNumber ?? ''} onChange={(e) => set('lotNumber', e.target.value)} placeholder="e.g. 1234" className={INPUT} />
         </div>
-        <div>
-          <label htmlFor="land-mukim" className={LABEL}>Mukim / town</label>
-          <input id="land-mukim" maxLength={80} value={value.mukim ?? ''} onChange={(e) => set('mukim', e.target.value)} placeholder="e.g. Semenyih" className={INPUT} />
-        </div>
-        <div>
-          <label htmlFor="land-district" className={LABEL}>District</label>
-          <input id="land-district" maxLength={80} value={value.district ?? ''} onChange={(e) => set('district', e.target.value)} placeholder="e.g. Hulu Langat" className={INPUT} />
-        </div>
-        <div>
-          <label htmlFor="land-state" className={LABEL}>State</label>
-          <select id="land-state" value={value.state ?? ''} onChange={(e) => set('state', e.target.value || undefined)} className={`${INPUT} cursor-pointer`}>
-            <option value="">Choose…</option>
-            {MALAYSIAN_STATES.map((state) => <option key={state} value={state}>{state}</option>)}
-          </select>
-        </div>
+        <StateDistrictMukimFields idPrefix="land" value={value} onChange={(patch) => onChange({ ...value, ...patch })} />
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label htmlFor="land-area" className={LABEL}>Area</label>
