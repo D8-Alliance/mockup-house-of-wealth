@@ -9,6 +9,7 @@ import { formatLocalDateTime } from '../tenancy/country-time';
 import { tenantScopeFilter } from '../tenancy/tenant-scope';
 import { FinancialLedgerService, toyyibPayCashAccount } from '../financial/financial-ledger.service';
 import { isAiCreditExempt } from './ai-credit-exemption';
+import { Receipt } from '../billing/receipt-pdf';
 
 const AI_CAPABILITIES = ['SIMPLE_QUERY', 'PROJECT_SUMMARY', 'FULL_FEASIBILITY_ANALYSIS', 'INVESTMENT_ANALYSIS', 'RISK_ANALYSIS', 'CONTRACT_ANALYSIS', 'DUE_DILIGENCE', 'FULL_PROJECT_INTELLIGENCE'] as const;
 const PLANS = [
@@ -416,7 +417,7 @@ export class MembershipService {
     const paymentById = new Map(payments.map((payment) => [payment.id, payment]));
     const paymentByInvoice = new Map(payments.flatMap((payment) => { const invoice = (payment.metadata as Record<string, unknown> | null)?.invoiceNumber; return typeof invoice === 'string' ? [[invoice, payment] as const] : []; }));
     return [
-      ...billing.map((item) => { const payment = paymentByInvoice.get(item.invoiceNumber); return { id: item.id, type: 'MEMBERSHIP', description: `${item.planId} membership`, status: item.status, amountMYR: Number(item.amountMYR), amountUSD: Number(item.amountUSD), credits: 0, method: item.paymentMethod, invoiceNumber: item.invoiceNumber, createdAt: item.createdAt, receiptAvailable: true, simulated: !payment && isSimulatedBillingMethod(item.paymentMethod), ...(payment ? gateway(payment) : {}) }; }),
+      ...billing.map((item) => { const payment = paymentByInvoice.get(item.invoiceNumber); return { id: item.id, type: 'MEMBERSHIP', description: `${planOf(item.planId).name} membership`, status: item.status, amountMYR: Number(item.amountMYR), amountUSD: Number(item.amountUSD), credits: 0, method: item.paymentMethod, invoiceNumber: item.invoiceNumber, createdAt: item.createdAt, receiptAvailable: true, simulated: !payment && isSimulatedBillingMethod(item.paymentMethod), ...(payment ? gateway(payment) : {}) }; }),
       ...credits.map((item) => { const payment = item.reference?.startsWith('TOYYIBPAY-') ? paymentById.get(item.reference.slice('TOYYIBPAY-'.length)) : undefined; const description = item.type === 'TOP_UP' ? 'AI credit top-up' : item.type === 'REDEMPTION' ? `AI credits applied to ${planOf(item.targetEntity || '').name} (worth RM ${Number(item.amountMYR || 0).toFixed(2)})` : item.type === 'REFUND' ? 'AI credits returned (membership payment not completed)' : item.type === 'EXPIRY' ? 'Unused free monthly AI credits expired' : `AI usage: ${item.operationKey || 'AI operation'}`; return { id: item.id, type: item.type === 'TOP_UP' ? 'AI_CREDIT_TOP_UP' : 'AI_CREDIT_USAGE', description, status: item.type === 'REFUND' ? 'REFUNDED' : item.type === 'EXPIRY' ? 'EXPIRED' : 'PAID', amountMYR: item.type === 'TOP_UP' ? Number(item.amountMYR || 0) : 0, amountUSD: 0, credits: item.credits, method: item.paymentMethod || 'Platform credits', invoiceNumber: item.reference, createdAt: item.createdAt, receiptAvailable: item.type === 'TOP_UP', simulated: isSimulatedTopUp(item), ...(payment ? gateway(payment) : {}) }; }),
       // Settled payments (PAID, PARTIALLY_REFUNDED, REFUNDED) already appear as their billing or top-up row.
       ...payments.filter((payment) => !['PAID', 'PARTIALLY_REFUNDED', 'REFUNDED'].includes(payment.status)).map((payment) => { const metadata = (payment.metadata || {}) as Record<string, unknown>; const isMembership = payment.productType === 'MEMBERSHIP'; return { id: payment.id, type: isMembership ? 'MEMBERSHIP' : 'AI_CREDIT_TOP_UP', description: isMembership ? `${planOf(payment.productId).name} (${String(metadata.billingInterval || 'monthly')})${Number(metadata.creditsApplied || 0) ? ` • ${Number(metadata.creditsApplied)} AI credits applied` : ''}` : 'AI credit top-up', fpxFeeMYR: Number(metadata.fpxFeeMYR || 0) || undefined, status: payment.status, amountMYR: Number(payment.amountMYR), amountUSD: 0, credits: isMembership ? 0 : Number(metadata.credits || 0) + Number(metadata.bonusCredits || 0), method: 'ToyyibPay', invoiceNumber: payment.providerBillCode, createdAt: payment.createdAt, receiptAvailable: false, simulated: false, ...gateway(payment) }; }),
@@ -424,12 +425,43 @@ export class MembershipService {
     ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   }
 
-  async getTransactionReceipt(actor: AuthenticatedUser, id: string) {
+  async getTransactionReceipt(actor: AuthenticatedUser, id: string): Promise<Receipt> {
     const transactions = await this.getTransactions(actor);
     const transaction = transactions.find((item) => item.id === id);
     if (!transaction || !transaction.receiptAvailable) throw new BadRequestException('Receipt is not available for this transaction.');
     const receiptNumber = transaction.invoiceNumber || `HOW-TXN-${id.slice(-10).toUpperCase()}`;
-    return { receiptNumber, content: ['WEALTH POOLING PAYMENT RECEIPT', `Receipt: ${receiptNumber}`, `Description: ${transaction.description}`, `Amount: MYR ${transaction.amountMYR.toFixed(2)}`, `Payment method: ${transaction.method}`, `Status: ${transaction.status}`, `Date: ${formatLocalDateTime(transaction.createdAt, actor.countryNodeId)}`, '', 'This receipt is system-generated and does not constitute investment advice.'].join('\n') };
+    const paymentId = 'paymentId' in transaction ? transaction.paymentId : undefined;
+    const [organisation, payment] = await Promise.all([
+      this.prisma.organisation.findUnique({ where: { id: actor.organisationId }, select: { name: true } }),
+      paymentId ? this.prisma.paymentTransaction.findUnique({ where: { id: paymentId } }) : null,
+    ]);
+    const metadata = (payment?.metadata || {}) as Record<string, unknown>;
+    // A membership paid partly with AI credits shows the plan price and the credits taken off it.
+    const planPrice = Number(metadata.planPriceMYR || 0);
+    const creditValue = Number(metadata.creditValueMYR || 0);
+    const items = transaction.type === 'MEMBERSHIP' && planPrice > 0
+      ? [
+        { description: `${transaction.description} (${String(metadata.billingInterval || 'monthly')})`, amount: planPrice },
+        ...(creditValue > 0 ? [{ description: `AI credits applied (${Number(metadata.creditsApplied || 0)} credits)`, amount: -creditValue }] : []),
+      ]
+      : [{ description: transaction.credits > 0 && transaction.type === 'AI_CREDIT_TOP_UP' ? `${transaction.description} (${transaction.credits} credits)` : transaction.description, amount: transaction.amountMYR }];
+    const fpxFee = Number(metadata.fpxFeeMYR || 0);
+    return {
+      title: 'Payment receipt',
+      receiptNumber,
+      issuedAt: formatLocalDateTime(transaction.createdAt, actor.countryNodeId),
+      billedTo: [['Name', actor.name], ['Email', actor.email], ['Member ID', actor.userId], ...(organisation ? [['Organisation', organisation.name] as [string, string]] : [])],
+      items,
+      currency: 'MYR',
+      status: transaction.status,
+      payment: [
+        ['Method', transaction.method],
+        ...(payment?.providerBillCode ? [['ToyyibPay bill', payment.providerBillCode] as [string, string]] : []),
+        ...(payment?.providerTransactionId ? [['Gateway reference', payment.providerTransactionId] as [string, string]] : []),
+        ...(fpxFee > 0 ? [['FPX fee', `MYR ${fpxFee.toFixed(2)}, charged by ToyyibPay on top of the total and kept by it`] as [string, string]] : []),
+      ],
+      notes: ['Membership and AI credits are platform services; this receipt is not an investment and does not constitute investment advice.'],
+    };
   }
 
   /**

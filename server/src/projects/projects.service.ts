@@ -12,6 +12,7 @@ import { inspectDocument, sha256Hex, withStoredChecks } from './document-integri
 import { BadRequestException } from '@nestjs/common';
 import pdfParse from 'pdf-parse';
 import * as XLSX from 'xlsx';
+import { Receipt } from '../billing/receipt-pdf';
 
 const PROJECT_PROMOTION_PACKAGES = [
   { id: 'pkg_free_listing', title: 'Free Project Listing', badgeType: 'Promoted', durationDays: 0, priceMYR: 0, creditsCost: 0 },
@@ -455,7 +456,19 @@ export class ProjectsService {
     if (!campaign?.payment || campaign.payment.userId !== user.userId) throw new NotFoundException('Promotion receipt not found');
     if (campaign.payment.status !== 'PAID') throw new BadRequestException('Receipt is available after payment confirmation.');
     const receiptNumber = `HOW-PROMO-${campaign.payment.id.slice(-10).toUpperCase()}`;
-    return { receiptNumber, content: ['WEALTH POOLING PROMOTION RECEIPT', `Receipt: ${receiptNumber}`, `Project: ${project.projectName}`, `Campaign: ${campaign.packageName}`, `Amount: MYR ${campaign.payment.amountMYR.toString()}`, `Payment method: ${campaign.payment.method}`, `Payment status: ${campaign.payment.status}`, `Provider reference: ${campaign.payment.providerRef || 'N/A'}`, `Paid at: ${formatLocalDateTime(campaign.payment.updatedAt, project.countryNodeId)}`, '', 'This receipt confirms payment for promotional placement. It is not an investment recommendation.'].join('\n') };
+    const organisation = await this.prisma.organisation.findUnique({ where: { id: user.organisationId }, select: { name: true } });
+    const receipt: Receipt = {
+      title: 'Promotion receipt',
+      receiptNumber,
+      issuedAt: formatLocalDateTime(campaign.payment.updatedAt, project.countryNodeId),
+      billedTo: [['Name', user.name], ['Email', user.email], ['Member ID', user.userId], ...(organisation ? [['Organisation', organisation.name] as [string, string]] : [])],
+      items: [{ description: `${campaign.packageName} promotion for ${project.projectName}`, amount: Number(campaign.payment.amountMYR) }],
+      currency: 'MYR',
+      status: campaign.payment.status,
+      payment: [['Method', campaign.payment.method], ...(campaign.payment.providerRef ? [['Provider reference', campaign.payment.providerRef] as [string, string]] : [])],
+      notes: ['This receipt confirms payment for promotional placement. It is not an investment recommendation.'],
+    };
+    return receipt;
   }
 
   async createPromotion(projectId: string, dto: CreateProjectPromotionDto, user: AuthenticatedUser) {

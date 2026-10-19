@@ -8,6 +8,7 @@ import { IsString, MaxLength } from 'class-validator';
 import { ProjectsService } from './projects.service';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
+import { renderReceiptPdf } from '../billing/receipt-pdf';
 
 // Declared before the controller: its decorators reference this class at load time.
 export class ReopenProjectDto {
@@ -208,9 +209,9 @@ export class ProjectsController {
   @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor')
   async promotionReceipt(@Param('id') id: string, @Param('campaignId') campaignId: string, @CurrentUser() user: AuthenticatedUser, @Res() response: Response) {
     const receipt = await this.projectsService.getPromotionReceipt(id, campaignId, user);
-    response.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    response.setHeader('Content-Disposition', `attachment; filename="${receipt.receiptNumber}.txt"`);
-    response.send(receipt.content);
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader('Content-Disposition', `attachment; filename="${receipt.receiptNumber}.pdf"`);
+    response.send(await renderReceiptPdf(receipt));
   }
 
   @Post(':id/documents')

@@ -7,6 +7,7 @@ import { Public, RequirePermission, Roles } from '../auth/roles.decorator';
 import { MembershipService } from './membership.service';
 import { ConsumeCreditsDto, ReconcilePaymentsDto, TopUpCreditsDto, UpgradeMembershipDto } from './membership.dto';
 import { SettleRefundDto } from './refund.dto';
+import { renderReceiptPdf } from '../billing/receipt-pdf';
 
 @Controller('membership')
 export class MembershipController {
@@ -55,9 +56,9 @@ export class MembershipController {
   @Get('me/transactions/:id/receipt')
   async transactionReceipt(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Res() response: Response) {
     const receipt = await this.membershipService.getTransactionReceipt(actor, id);
-    response.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    response.setHeader('Content-Disposition', `attachment; filename="${receipt.receiptNumber}.txt"`);
-    response.send(receipt.content);
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader('Content-Disposition', `attachment; filename="${receipt.receiptNumber}.pdf"`);
+    response.send(await renderReceiptPdf(receipt));
   }
 
   @Post('me/credits/consume')

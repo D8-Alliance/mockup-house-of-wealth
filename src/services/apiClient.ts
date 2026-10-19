@@ -121,7 +121,7 @@ export const apiClient = {
   getMembershipTransactions: () => request<BackendTransaction[]>('/membership/me/transactions'),
   downloadTransactionReceipt: async (transactionId: string) => {
     const token = authService.getAuthState().session?.token; const response = await apiFetch(`${API_BASE_URL}/membership/me/transactions/${encodeURIComponent(transactionId)}/receipt`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-    if (!response.ok) throw new Error(await response.text() || 'Receipt is unavailable.'); const blobUrl = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = blobUrl; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || 'receipt.txt'; link.click(); URL.revokeObjectURL(blobUrl);
+    if (!response.ok) throw new Error(await response.text() || 'Receipt is unavailable.'); const blobUrl = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = blobUrl; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || 'receipt.pdf'; link.click(); URL.revokeObjectURL(blobUrl);
   },
   consumeMembershipCredits: (operationKey: string, targetEntity?: string) => request<BackendCreditTransaction>('/membership/me/credits/consume', { method: 'POST', body: JSON.stringify({ operationKey, targetEntity }) }),
   topUpMembershipCredits: (packageId: string, paymentMethod: string) => request<{ transaction?: BackendCreditTransaction; balance?: BackendCreditSummary; paymentUrl?: string; paymentId?: string; status?: string }>('/membership/me/credits/top-up', { method: 'POST', body: JSON.stringify({ packageId, paymentMethod }) }),
@@ -177,7 +177,7 @@ export const apiClient = {
     const token = authService.getAuthState().session?.token;
     const response = await apiFetch(`${API_BASE_URL}/projects/${encodeURIComponent(projectId)}/promotions/${encodeURIComponent(campaignId)}/receipt`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
     if (!response.ok) throw new Error(await response.text() || 'Promotion receipt is unavailable.');
-    const blobUrl = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = blobUrl; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || 'promotion-receipt.txt'; link.click(); URL.revokeObjectURL(blobUrl);
+    const blobUrl = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = blobUrl; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || 'promotion-receipt.pdf'; link.click(); URL.revokeObjectURL(blobUrl);
   },
   uploadProjectDocument: (projectId: string, file: File) => {
     const formData = new FormData();
