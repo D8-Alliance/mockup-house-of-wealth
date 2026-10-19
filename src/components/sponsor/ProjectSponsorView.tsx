@@ -19,6 +19,7 @@ import { PDPPoolCreationModal } from '../../pdp/components/PDPPoolCreationModal'
 import { PDPApplicationDetailModal } from '../../pdp/components/PDPApplicationDetailModal';
 import { apiClient } from '../../services/apiClient';
 import { authService } from '../../auth/services/authService';
+import { useRBAC } from '../../rbac/RBACContext';
 import { ProjectProgressVisual } from '../projects/ProjectProgressVisual';
 
 const PROJECT_CATEGORIES: SponsorProject['category'][] = ['Green Energy & Solar', 'Agro-Industrial', 'SME Export', 'Commercial Real Estate', 'Social Waqf Housing'];
@@ -49,6 +50,8 @@ const mapShariahContract = (contract: string): SponsorProject['shariahContract']
 };
 
 export const ProjectSponsorView: React.FC = () => {
+  // The tenant the server resolved for this sign-in; a Keycloak token carries no organisation claim.
+  const { tenantContext } = useRBAC();
   const [projects, setProjects] = useState<SponsorProject[]>([]);
   const [projectLoadError, setProjectLoadError] = useState('');
   const [selectedProject, setSelectedProject] = useState<SponsorProject | null>(null);
@@ -135,14 +138,14 @@ export const ProjectSponsorView: React.FC = () => {
       projectCode: `PDP-${Date.now()}`,
       projectName: newProj.title,
       description: newProj.description,
-      organisationId: session.user.organisationId,
-      countryNodeId: session.user.countryNodeId,
+      organisationId: tenantContext.organisationId,
+      countryNodeId: tenantContext.countryNodeId,
       sector: newProj.category,
       totalProjectCost: newProj.targetFunding,
       sponsorContribution: 0,
       fundingRequired: newProj.targetFunding,
       proposedShariahContract: newProj.shariahContract,
-      projectSponsorId: session.user.userId,
+      projectSponsorId: tenantContext.userId,
       sponsorEntityType: newProj.orgType,
     });
     void apiClient.getMembershipCreditSummary().then(summary => setCreditBalance({ userId: summary.userId, totalCredits: summary.totalPoolCredits, usedCredits: summary.usedCredits, availableCredits: summary.availableBalance, monthlyAllowance: summary.monthlyAllowance, purchasedCredits: summary.purchasedCredits ?? 0, resetDate: summary.resetDate })).catch(() => undefined);

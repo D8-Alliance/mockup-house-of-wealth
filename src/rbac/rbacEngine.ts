@@ -26,10 +26,15 @@ export function hasPermission(
  */
 const ASSET_PARTNERSHIP_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Asset Owner', 'Asset Manager', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Super Admin', 'Country Admin', 'Legal Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee']);
 
+/** Asset Register: owners register assets, reviewers verify them. Mirrors server/src/assets/assets.controller.ts. */
+const ASSET_REGISTER_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Asset Owner', 'Asset Manager', 'Super Admin', 'Country Admin', 'Legal Officer']);
+
 export function getAccessibleTabs(role: UserRole): NavTab[] {
   const roleDef = ROLE_DEFINITIONS[role];
   if (!roleDef) return [];
-  return ASSET_PARTNERSHIP_ROLES.has(role) ? [...roleDef.accessibleTabs, 'asset-partnerships'] : [...roleDef.accessibleTabs];
+  const tabs = roleDef.accessibleTabs.filter((tab) => tab !== 'assets' || ASSET_REGISTER_ROLES.has(role));
+  if (ASSET_REGISTER_ROLES.has(role) && !tabs.includes('assets')) tabs.push('assets');
+  return ASSET_PARTNERSHIP_ROLES.has(role) ? [...tabs, 'asset-partnerships'] : tabs;
 }
 
 /**
@@ -49,6 +54,7 @@ export function canApproveWorkflow(role: UserRole, workflowName: string): boolea
 export function isTabAccessible(role: UserRole, tab: NavTab): boolean {
   if (tab === 'billing-transactions' || tab === 'membership') return role !== 'Guest';
   if (tab === 'asset-partnerships') return ASSET_PARTNERSHIP_ROLES.has(role);
+  if (tab === 'assets') return ASSET_REGISTER_ROLES.has(role);
   const roleDef = ROLE_DEFINITIONS[role];
   if (!roleDef) return false;
   return roleDef.accessibleTabs.includes(tab);
