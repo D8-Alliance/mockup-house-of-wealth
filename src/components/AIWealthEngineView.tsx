@@ -52,6 +52,7 @@ import { ShariahReviewInbox } from '../ai/components/ShariahReviewInbox';
 import { BuyAICreditsModal } from '../ai/monetisation/BuyAICreditsModal';
 import { aiMonetisationService } from '../ai/monetisation/aiMonetisationService';
 import { apiClient, BackendCreditSummary } from '../services/apiClient';
+import { AI_TAB_ROLES, canUseAiTab } from '../ai/aiTabAccess';
 
 type BackendCreditSummaryView = Omit<BackendCreditSummary, 'userId'> & { userId?: string };
 
@@ -132,7 +133,8 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
     if (!canViewAiAdministration && (activeTab === 'governance-admin' || activeTab === 'admin-ai-analytics')) setActiveTab('overview');
     if (!canViewProjectFeasibility && activeTab === 'project-analyzer') setActiveTab('overview');
     if (!canViewCitationAudit && activeTab === 'citation-audit') setActiveTab('overview');
-  }, [activeTab, canViewAiAdministration, canViewProjectFeasibility, canViewCitationAudit]);
+    if (!canUseAiTab(activeTab, activeUser.role)) setActiveTab('overview');
+  }, [activeTab, activeUser.role, canViewAiAdministration, canViewProjectFeasibility, canViewCitationAudit]);
 
   if (aiModuleDisabled) {
     return (
@@ -151,7 +153,12 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
   }
 
   // Pool, portfolio and project analyses serve investors and PDPs; an asset owner has none to analyse.
-  const hiddenForRole: AIEngineTab[] = ['Asset Owner', 'Asset Manager'].includes(activeUser.role) ? ['contract-advisor', 'investment-matcher', 'portfolio-analysis', 'due-diligence', 'risk-analyzer', 'scenarios', 'pool-optimizer'] : [];
+  const assetSide = ['Asset Owner', 'Asset Manager'].includes(activeUser.role);
+  // Tabs the server would refuse for this role are hidden too (aiTabAccess.ts mirrors its role lists).
+  const hiddenForRole: AIEngineTab[] = [
+    ...(assetSide ? ['investment-matcher', 'portfolio-analysis', 'risk-analyzer', 'scenarios', 'pool-optimizer'] as AIEngineTab[] : []),
+    ...(Object.keys(AI_TAB_ROLES) as AIEngineTab[]).filter((tab) => !canUseAiTab(tab, activeUser.role)),
+  ];
   const tabs: { id: AIEngineTab; label: string; icon: React.ReactNode; badge?: string }[] = ([
     { id: 'overview', label: 'AI Suite Overview', icon: <BrainCircuit className="w-4 h-4" /> },
     { id: 'ai-credits', label: 'AI Credits & Usage', icon: <Coins className="w-4 h-4 text-amber-500" />, badge: creditBalance.creditExempt ? 'Staff' : `${creditBalance.availableBalance} Cr` },
@@ -298,7 +305,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
               </button>
             </div>
 
-            {hiddenForRole.length > 0 && (
+            {assetSide && (
               <div className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 space-y-2">
                 <h3 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
                   <Scale className="w-4 h-4 text-emerald-600" /> Contracts for your assets
