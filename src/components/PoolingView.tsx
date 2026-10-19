@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { LanguageCode } from '../types';
 import { TRANSLATIONS } from '../data/translations';
 import { useRBAC } from '../rbac/RBACContext';
-import { canInvest } from '../rbac/menuVisibility';
+import { canInvest, canManagePools, canSubmitProject } from '../rbac/menuVisibility';
 import { EndToEndWorkflowExplorer } from '../workflows/EndToEndWorkflowExplorer';
 import { ProjectFormModal } from '../projects/ProjectFormModal';
 import { ProjectDetailModal } from '../projects/ProjectDetailModal';
@@ -53,7 +53,7 @@ export const PoolingView: React.FC<PoolingViewProps> = ({ lang }) => {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2 shrink-0">
+        {canSubmitProject(currentRole) && <div className="flex flex-wrap gap-2 shrink-0">
           <button
             onClick={() => setIsProjectModalOpen(true)}
             className="px-4 py-2.5 text-xs font-black bg-purple-600 hover:bg-purple-500 text-white rounded-xl shadow-md cursor-pointer flex items-center gap-1.5"
@@ -61,11 +61,12 @@ export const PoolingView: React.FC<PoolingViewProps> = ({ lang }) => {
             <Plus className="w-4 h-4" />
             <span>Submit New Project</span>
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* End-to-End Workflow Master Explorer Engine */}
-      <EndToEndWorkflowExplorer onRefresh={refreshData} />
+      {/* A walkthrough of the project and pool stages, for the roles that run them. */}
+      {canSubmitProject(currentRole) && <EndToEndWorkflowExplorer onRefresh={refreshData} />}
 
       {/* Active Projects Section */}
       <div className="space-y-4">
@@ -115,7 +116,7 @@ export const PoolingView: React.FC<PoolingViewProps> = ({ lang }) => {
                 >
                   View Details
                 </button>
-                {proj.status === 'APPROVED' && (
+                {proj.status === 'APPROVED' && canManagePools(currentRole) && (
                   <button
                     onClick={() => setSelectedProjectForPoolCreation(proj)}
                     className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl flex items-center gap-1"
@@ -185,7 +186,7 @@ export const PoolingView: React.FC<PoolingViewProps> = ({ lang }) => {
                 </div>
 
                 <div className="pt-4 mt-4 border-t border-slate-100 dark:border-slate-700/60 flex justify-between items-center">
-                  {pool.status === 'DRAFT' || pool.status === 'UNDER_REVIEW' ? (
+                  {(pool.status === 'DRAFT' || pool.status === 'UNDER_REVIEW') && canManagePools(currentRole) ? (
                     <button
                       onClick={() => setSelectedPoolForApproval(pool)}
                       className="w-full py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5"

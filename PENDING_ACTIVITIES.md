@@ -25,7 +25,7 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 17 | Entiti berasingan dan pihak berkaitan | No. SSM, jenis entiti, syarikat induk; skrin cipta organisasi | Boleh dimulakan |
 | 18 | Prestasi projek PDP dan kontrak | Laporan KPI berkala; "My Contracts" masih data contoh | Keputusan senarai KPI |
 | 19 | Benefisiari dan pusaka | Simpanan backend, Estate Officer, aliran kematian | Keputusan proses; nasihat Shariah dan undang-undang |
-| 20 | Modul aset | Semua jenis siap Fasa A dan B (tanah, kenderaan berat, mesin, bangunan); baki: peringatan tarikh luput, pautan aset ke pool, Fasa C (e-Tanah/JPJ/JKKP) | Boleh diteruskan |
+| 20 | Modul aset | Semua jenis siap Fasa A dan B; baki: pautan aset ke projek PDP (tawaran aset kepada projek, permintaan PDP untuk guna aset), peringatan tarikh luput, Fasa C (e-Tanah/JPJ/JKKP) | Keputusan aliran (a), (b) atau kedua-duanya |
 | 21 | Profile & Settings | Skrin pengesahan akaun bank (Settlement Officer); kontrak dan mata wang pilihan belum digunakan | Boleh dimulakan |
 | 22 | Pendaftaran dan pengurusan pengguna | Notis privasi rasmi; Fasa 2 (RoleGrantRequest, skrin Users); Fasa 3 (daftar sendiri) | Butiran syarikat dan semakan peguam |
 | 23 | Skrin yang masih data contoh | Lihat senarai penuh dalam item 23 | Boleh dimulakan mengikut keutamaan |
@@ -368,7 +368,10 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 **Baki:**
 1. **Kad kontrak:** ringkasan My Contracts masih data contoh; gantikan dengan perjanjian dan pesanan sebenar (rujuk item 18).
-2. **Hubungan aset dengan pool atau projek:** hanya aset berstatus VERIFIED boleh dipautkan kepada pool atau projek (Ijarah atau Musharakah), dengan perjanjian yang telah diluluskan Legal dan Shariah.
+2. **Hubungan aset dengan pool atau projek:** hanya aset berstatus VERIFIED boleh dipautkan kepada pool atau projek (Ijarah atau Musharakah), dengan perjanjian yang telah diluluskan Legal dan Shariah. Disemak 2026-10-19: **belum ada langsung**. Tiada model yang memautkan `Asset` kepada `Project`; aset hanya dilihat oleh organisasi pemilik dan penyemak, jadi PDP tidak boleh mencari aset; projek tiada senarai keperluan aset. Asset Marketplace ialah senarai pelaburan contoh (`INITIAL_MARKETPLACE`), bukan pasaran aset. Dua aliran yang dicadangkan:
+   - **(a) Asset Owner menawarkan aset kepada projek PDP.** Contoh: projek tanam semula sawit Felda memerlukan jentera berat. PDP menyenaraikan keperluan aset pada projek (jenis, bilangan, tempoh, lokasi). Asset Owner yang asetnya VERIFIED dan sepadan menghantar tawaran (aset, kadar sewa atau nisbah, tempoh).
+   - **(b) PDP meminta untuk menggunakan aset Asset Owner.** Contoh: Felda mahu menggunakan tanah Asset Owner. PDP melihat aset VERIFIED yang ditawarkan oleh pemilik (aset hanya disenaraikan jika pemilik memilih untuk menawarkannya, dengan butiran terhad), lalu menghantar permintaan.
+   - **Langkah bersama:** pihak lagi satu menerima, menolak atau berunding; akad direkod (Ijarah: sewa, tempoh, siapa menanggung penyelenggaraan dan insurans; Musharakah: nilai sumbangan aset dan nisbah untung); Legal dan Shariah meluluskan; perjanjian dijana; aset ditanda "committed" untuk tempoh itu supaya tidak ditawarkan dua kali; sewa atau bahagian keuntungan Asset Owner direkod dalam aliran tunai projek.
 3. **Pengesahan mengikut jenis aset (dipersetujui 2026-10-16):**
    - **Fasa A** (tiada pihak luar): borang dan senarai dokumen mengikut jenis; pengesanan pendaftaran berganda (hak milik/lot, no. casis, no. siri); pin peta dan gambar tapak dengan GPS; tarikh luput (pajakan, insurans, cukai jalan, sijil JKKP).
    - **Fasa B** (OCR dalam pelayan sendiri): geran dan Carian Rasmi (pemilik, bahagian, gadaian/kaveat), cukai pintu dan CCC (bangunan), VOC JPJ dan PUSPAKOM (kenderaan berat), invois dan plat nombor siri, sijil PMA JKKP (mesin).
@@ -429,6 +432,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 | Beneficiaries | Disimpan dalam pelayar sahaja | Item 19 |
 | Angka dashboard Super Admin | Contoh | Boleh diganti dengan ringkasan server |
 | AI: Pool Matcher, Portfolio Health, Risk & Early Warning, Stress Scenarios, Pool Sizing Optimizer | Contoh (tiada panggilan server) | Disembunyikan untuk Asset Owner sahaja |
+| Wealth Pooling MVP Workflow Console (senarai projek dan pool, End-to-End Test Engine) | `INITIAL_PROJECTS` dalam pelayar; enjin ujian hanya simulasi | Projek dan pool sebenar sudah ada di server. Sejak 2026-10-19 butang Submit New Project dan enjin ujian hanya untuk peranan yang boleh mencipta projek; Structure Pool dan kelulusan pool hanya untuk pengurus pool |
 
 **Cadangan:** ganti mengikut keutamaan pilot (Investments dan My Contracts dahulu), atau tandakan skrin contoh dengan label "Contoh" sehingga diganti.
 

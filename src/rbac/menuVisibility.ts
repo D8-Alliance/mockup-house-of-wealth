@@ -27,3 +27,13 @@ export const canInvest = (role: UserRole) => INVESTOR_ROLES.has(role);
 const DELIVERY_PARTNER_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Project Sponsor', 'Project Manager']);
 
 export const isDeliveryPartner = (role: UserRole) => DELIVERY_PARTNER_ROLES.has(role);
+
+/** Who may create a project (POST /projects in server/src/projects/projects.controller.ts). */
+const PROJECT_SUBMITTER_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager']);
+
+export const canSubmitProject = (role: UserRole) => PROJECT_SUBMITTER_ROLES.has(role);
+
+/** Who may create pools and move them through review (POST and PATCH /pools in server/src/pools/pools.controller.ts). */
+const POOL_MANAGER_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Super Admin', 'Country Admin', 'Organization Admin', 'Pool Manager']);
+
+export const canManagePools = (role: UserRole) => POOL_MANAGER_ROLES.has(role);
