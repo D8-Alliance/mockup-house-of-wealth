@@ -43,7 +43,7 @@ export const PDPSubscriptionCard: React.FC<PDPSubscriptionCardProps> = ({
               <Building2 className="w-3.5 h-3.5" />
               Sponsor PDP Tier
             </span>
-            <span className="text-xs text-slate-400 font-mono">FELDA / GLC Master Plan</span>
+            <span className="text-xs text-slate-400 font-mono">PDP plan</span>
           </div>
           <div className="flex items-baseline gap-2">
             <h3 className="text-xl sm:text-2xl font-black text-white">

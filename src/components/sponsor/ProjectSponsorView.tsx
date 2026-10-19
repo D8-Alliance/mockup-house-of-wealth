@@ -12,7 +12,6 @@ import { PDPSubscriptionCard } from '../revenue/PDPSubscriptionCard';
 import { PromoteProjectModal } from '../revenue/PromoteProjectModal';
 import { revenueService } from '../../revenue/revenueService';
   import { PDPSubscription, PDPPlan, HoWCreditBalance } from '../../revenue/revenueTypes';
-import { pdpService } from '../../pdp/pdpService';
 import { PDPApplication } from '../../pdp/pdpTypes';
 import { PDPRegistrationModal } from '../../pdp/components/PDPRegistrationModal';
 import { PDPPoolCreationModal } from '../../pdp/components/PDPPoolCreationModal';
@@ -63,13 +62,18 @@ export const ProjectSponsorView: React.FC = () => {
   const [isPdpPoolModalOpen, setIsPdpPoolModalOpen] = useState(false);
   const [isPdpDetailModalOpen, setIsPdpDetailModalOpen] = useState(false);
 
-  const sponsorOrgId = 'ORG-FELDA-MY';
-  const userId = 'USR-8821';
+  const sponsorOrgId = tenantContext.organisationId;
+  const userId = tenantContext.userId;
+  const [organisationName, setOrganisationName] = useState('');
 
-  // PDP Application Status
-  const [pdpApp, setPdpApp] = useState<PDPApplication | undefined>(
-    pdpService.getApplicationById('PDP-2026-MYS-0014') || pdpService.getAllApplications()[0]
-  );
+  // The user's own PDP application from the server; none until they register as a PDP.
+  const [pdpApp, setPdpApp] = useState<PDPApplication | undefined>(undefined);
+  useEffect(() => {
+    apiClient.getMyPdpApplications().then((applications) => setPdpApp(applications[0])).catch(() => setPdpApp(undefined));
+    apiClient.getCurrentUser()
+      .then((user) => setOrganisationName(user.assignedRoles.find((assignment) => assignment.organisationId === sponsorOrgId && assignment.organisationName)?.organisationName ?? ''))
+      .catch(() => undefined);
+  }, [sponsorOrgId]);
 
   const [pdpSub, setPdpSub] = useState<PDPSubscription>(revenueService.getPDPSubscription(sponsorOrgId));
   const [pdpPlans] = useState(revenueService.getPDPPlans());
@@ -79,14 +83,8 @@ export const ProjectSponsorView: React.FC = () => {
     const unsubRev = revenueService.subscribe(() => {
       setPdpSub(revenueService.getPDPSubscription(sponsorOrgId));
     });
-    const unsubPdp = pdpService.subscribe(() => {
-      const updated = pdpService.getApplicationById('PDP-2026-MYS-0014') || pdpService.getAllApplications()[0];
-      setPdpApp(updated);
-    });
-
     return () => {
       unsubRev();
-      unsubPdp();
     };
   }, [sponsorOrgId, userId]);
 
@@ -197,7 +195,7 @@ export const ProjectSponsorView: React.FC = () => {
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
                Pool & Project Delivery Partner (PDP) Portal
             </span>
-            <span className="text-xs text-slate-400">• FELDA Technoplant / GLC Sovereign Node (MYS)</span>
+            <span className="text-xs text-slate-400">• {organisationName || sponsorOrgId} ({tenantContext.countryNodeId.replace(/^CN-/, '')})</span>
           </div>
           <h1 className="text-2xl font-black text-white tracking-tight">D-8 Capital & Asset Originator Portal</h1>
           <p className="text-xs text-slate-300 mt-1 max-w-2xl">
@@ -543,6 +541,7 @@ export const ProjectSponsorView: React.FC = () => {
         isOpen={isRegisterModalOpen}
         onClose={() => setIsRegisterModalOpen(false)}
         onSubmitProject={handleCreateProject}
+        defaultOrgName={organisationName}
       />
 
       {/* Promotion Package Modal */}

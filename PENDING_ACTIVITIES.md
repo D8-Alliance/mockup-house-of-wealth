@@ -433,6 +433,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 | Beneficiaries | Disimpan dalam pelayar sahaja | Item 19 |
 | Angka dashboard Super Admin | Contoh | Boleh diganti dengan ringkasan server |
 | AI: Pool Matcher, Portfolio Health, Risk & Early Warning, Stress Scenarios, Pool Sizing Optimizer | Contoh (tiada panggilan server) | Disembunyikan untuk Asset Owner sahaja |
+| Sponsor Portal: pelan langganan PDP (RM 99/bulan, slot projek), laporan contoh (FELDA Bio-Refinery), Launch Wealth Pool | `revenueService` dan data contoh dalam pelayar | Sejak 2026-10-20 permohonan PDP, nama organisasi dan projek dibaca dari server; **semakan KYB PDP belum ada senarai atau skrin untuk penyemak** (endpoint `POST /pdp/applications/:id/kyb-review` sahaja), jadi status PDP tidak boleh menjadi ACTIVE melalui aplikasi |
 | Wealth Pooling MVP Workflow Console (senarai projek dan pool, End-to-End Test Engine) | `INITIAL_PROJECTS` dalam pelayar; enjin ujian hanya simulasi | Projek dan pool sebenar sudah ada di server. Sejak 2026-10-19 butang Submit New Project dan enjin ujian hanya untuk peranan yang boleh mencipta projek; Structure Pool dan kelulusan pool hanya untuk pengurus pool |
 
 **Cadangan:** ganti mengikut keutamaan pilot (Investments dan My Contracts dahulu), atau tandakan skrin contoh dengan label "Contoh" sehingga diganti.

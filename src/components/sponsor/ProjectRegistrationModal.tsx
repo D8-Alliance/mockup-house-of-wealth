@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SPONSOR_ENTITY_TYPES, SponsorProject, SponsorOrgType } from './SponsorTypes';
 import { X, Upload, FileText, CheckCircle2, Shield } from 'lucide-react';
 
@@ -6,11 +6,14 @@ interface ProjectRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmitProject: (newProject: SponsorProject, documents: { businessPlan?: File; financialProjection?: File }) => void | Promise<void>;
+  /** The signed-in user's organisation, filled in as the sponsoring organisation. */
+  defaultOrgName?: string;
 }
 
-export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> = ({ isOpen, onClose, onSubmitProject }) => {
+export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> = ({ isOpen, onClose, onSubmitProject, defaultOrgName = '' }) => {
   const [title, setTitle] = useState('');
-  const [orgName, setOrgName] = useState('FELDA (Federal Land Development Authority)');
+  const [orgName, setOrgName] = useState(defaultOrgName);
+  useEffect(() => { if (defaultOrgName) setOrgName((current) => current || defaultOrgName); }, [defaultOrgName]);
   const [orgType, setOrgType] = useState<SponsorOrgType>('FELDA / Plantation & Agriculture');
   const [category, setCategory] = useState<SponsorProject['category']>('Green Energy & Solar');
   const [shariahContract, setShariahContract] = useState<SponsorProject['shariahContract']>('Ijarah (Lease)');

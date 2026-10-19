@@ -251,6 +251,8 @@ export const apiClient = {
     });
     return mapPdpApplication(response);
   },
+  /** The signed-in user's own PDP applications, newest first. */
+  getMyPdpApplications: async () => (await request<BackendPdpApplication[]>('/pdp/applications/mine')).map(mapPdpApplication),
   submitPdpApplication: async (id: string) => {
     const response = await request<BackendPdpApplication>(`/pdp/applications/${id}/submit`, { method: 'POST' });
     return mapPdpApplication(response);
