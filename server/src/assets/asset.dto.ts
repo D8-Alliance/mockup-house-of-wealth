@@ -5,8 +5,18 @@ import { PAYOUT_CURRENCIES } from '../distribution/payout-destination.dto';
 
 export const ASSET_TYPES = ['LAND', 'BUILDING', 'MACHINERY', 'VEHICLE', 'EQUIPMENT', 'OTHER'] as const;
 export const ASSET_INTENDED_USES = ['IJARAH', 'MUSHARAKAH', 'MURABAHAH', 'UNDECIDED'] as const;
-/** OFFICIAL_SEARCH: Carian Rasmi from the land office; QUIT_RENT: cukai tanah receipt; SITE_PHOTO: taken on site with the phone's location. */
-export const ASSET_DOCUMENT_TYPES = ['OWNERSHIP', 'OFFICIAL_SEARCH', 'QUIT_RENT', 'VALUATION', 'INSURANCE', 'SITE_PHOTO', 'PHOTO', 'OTHER'] as const;
+/**
+ * OFFICIAL_SEARCH: Carian Rasmi from the land office; QUIT_RENT: cukai tanah receipt; SITE_PHOTO: taken on
+ * site with the phone's location; SERIAL_PLATE: photo of a machine's serial plate; DOSH_CERTIFICATE: JKKP
+ * certificate of fitness (PMA); INSPECTION: PUSPAKOM inspection; ROAD_TAX: road tax (LKM); ASSESSMENT:
+ * cukai pintu; COMPLETION_CERT: CCC or certificate of fitness for occupation; TENANCY: a tenancy agreement.
+ */
+export const ASSET_DOCUMENT_TYPES = ['OWNERSHIP', 'OFFICIAL_SEARCH', 'QUIT_RENT', 'SERIAL_PLATE', 'DOSH_CERTIFICATE', 'INSPECTION', 'ROAD_TAX', 'ASSESSMENT', 'COMPLETION_CERT', 'TENANCY', 'VALUATION', 'INSURANCE', 'SITE_PHOTO', 'PHOTO', 'OTHER'] as const;
+
+export const VEHICLE_CATEGORIES = ['LORRY', 'PRIME_MOVER', 'TRAILER', 'TANKER', 'BUS', 'OTHER'] as const;
+export const BUILDING_TITLE_KINDS = ['INDIVIDUAL', 'STRATA', 'MASTER_TITLE'] as const;
+export const BUILDING_USES = ['RESIDENTIAL', 'COMMERCIAL', 'INDUSTRIAL', 'MIXED'] as const;
+export const FLOOR_AREA_UNITS = ['SQ_METRE', 'SQ_FEET'] as const;
 
 /** Malaysian land titles: registry (GRN, PN), land office (GM, PM) and qualified titles (HS(D), HS(M)). */
 export const LAND_TITLE_TYPES = ['GRN', 'GM', 'PN', 'PM', 'HSD', 'HSM'] as const;
@@ -37,6 +47,62 @@ export class LandDetailsDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) restrictions?: string;
 }
 
+/** A heavy vehicle, as on its JPJ ownership certificate (VOC). Checked as complete on submit. */
+export class VehicleDetailsDto {
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(20) registrationNumber?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(40) chassisNumber?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(40) engineNumber?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(60) make?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(60) model?: string;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(1950) @Max(2100) yearOfManufacture?: number;
+  @IsOptional() @IsIn(VEHICLE_CATEGORIES) category?: (typeof VEHICLE_CATEGORIES)[number];
+  @IsOptional() @IsDateString() roadTaxExpiry?: string;
+  @IsOptional() @IsDateString() insuranceExpiry?: string;
+  /** PUSPAKOM periodic inspection, for commercial vehicles. */
+  @IsOptional() @IsDateString() inspectionExpiry?: string;
+  /** APAD operator licence or permit, for goods and passenger vehicles. */
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(40) permitNumber?: string;
+  /** Still under hire purchase: the financier has an ownership claim until it is settled. */
+  @IsOptional() @IsBoolean() hirePurchase?: boolean;
+}
+
+/** Machinery or equipment, as on its purchase invoice and serial plate. */
+export class MachineDetailsDto {
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(80) manufacturer?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(80) model?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(60) serialNumber?: string;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(1950) @Max(2100) yearOfManufacture?: number;
+  @IsOptional() @IsDateString() purchaseDate?: string;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1e7) operatingHours?: number;
+  /** Lifting machinery, boilers and pressure vessels need a JKKP certificate of fitness (PMA). */
+  @IsOptional() @IsBoolean() requiresDoshCertificate?: boolean;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(40) doshCertificateNumber?: string;
+  @IsOptional() @IsDateString() doshCertificateExpiry?: string;
+  @IsOptional() @IsBoolean() hirePurchase?: boolean;
+}
+
+/** A building on its own title, a strata parcel, or a parcel whose strata title is not issued yet (master title). */
+export class BuildingDetailsDto {
+  @IsOptional() @IsIn(BUILDING_TITLE_KINDS) titleKind?: (typeof BUILDING_TITLE_KINDS)[number];
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(40) titleNumber?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(40) lotNumber?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(80) mukim?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(80) district?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(80) state?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(40) strataTitleNumber?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(40) parcelNumber?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(20) storey?: string;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(120) buildingName?: string;
+  @IsOptional() @IsIn(BUILDING_USES) buildingUse?: (typeof BUILDING_USES)[number];
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1e8) floorArea?: number;
+  @IsOptional() @IsIn(FLOOR_AREA_UNITS) floorAreaUnit?: (typeof FLOOR_AREA_UNITS)[number];
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(1800) @Max(2100) yearCompleted?: number;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(60) completionCertificateNumber?: string;
+  @IsOptional() @IsBoolean() hasTenants?: boolean;
+  /** What the tenants do there; it must be Shariah-compliant for an Ijarah. */
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(300) tenantActivity?: string;
+}
+
 /** Sent with a site photo: where the phone was when it was taken. */
 export class SitePhotoMetadataDto {
   @IsOptional() @Type(() => Number) @IsLatitude() latitude?: number;
@@ -60,6 +126,10 @@ export class SaveAssetDto {
   @IsOptional() @Type(() => Number) @IsLatitude() latitude?: number;
   @IsOptional() @Type(() => Number) @IsLongitude() longitude?: number;
   @IsOptional() @ValidateNested() @Type(() => LandDetailsDto) land?: LandDetailsDto;
+  @IsOptional() @ValidateNested() @Type(() => VehicleDetailsDto) vehicle?: VehicleDetailsDto;
+  /** For machinery and equipment. */
+  @IsOptional() @ValidateNested() @Type(() => MachineDetailsDto) machine?: MachineDetailsDto;
+  @IsOptional() @ValidateNested() @Type(() => BuildingDetailsDto) building?: BuildingDetailsDto;
 }
 
 /** What the owner confirms when submitting an asset for verification; every item must be true. */

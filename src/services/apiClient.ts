@@ -506,7 +506,7 @@ export type KycCheckStatus = 'PASS' | 'FAIL' | 'REVIEW' | 'PENDING' | 'ERROR' | 
 export type AssetTypeCode = 'LAND' | 'BUILDING' | 'MACHINERY' | 'VEHICLE' | 'EQUIPMENT' | 'OTHER';
 export type AssetStatusCode = 'DRAFT' | 'SUBMITTED' | 'CHANGES_REQUESTED' | 'VERIFIED' | 'REJECTED' | 'WITHDRAWN';
 export type AssetIntendedUse = 'IJARAH' | 'MUSHARAKAH' | 'MURABAHAH' | 'UNDECIDED';
-export type AssetDocumentType = 'OWNERSHIP' | 'OFFICIAL_SEARCH' | 'QUIT_RENT' | 'VALUATION' | 'INSURANCE' | 'SITE_PHOTO' | 'PHOTO' | 'OTHER';
+export type AssetDocumentType = 'OWNERSHIP' | 'OFFICIAL_SEARCH' | 'QUIT_RENT' | 'SERIAL_PLATE' | 'DOSH_CERTIFICATE' | 'INSPECTION' | 'ROAD_TAX' | 'ASSESSMENT' | 'COMPLETION_CERT' | 'TENANCY' | 'VALUATION' | 'INSURANCE' | 'SITE_PHOTO' | 'PHOTO' | 'OTHER';
 
 /** What a land title says (Malaysia). */
 export interface LandDetailsInput {
@@ -526,6 +526,60 @@ export interface LandDetailsInput {
   restrictions?: string;
 }
 
+/** A heavy vehicle, as on its JPJ ownership certificate (VOC). */
+export interface VehicleDetailsInput {
+  registrationNumber?: string;
+  chassisNumber?: string;
+  engineNumber?: string;
+  make?: string;
+  model?: string;
+  yearOfManufacture?: number;
+  category?: 'LORRY' | 'PRIME_MOVER' | 'TRAILER' | 'TANKER' | 'BUS' | 'OTHER';
+  roadTaxExpiry?: string;
+  insuranceExpiry?: string;
+  inspectionExpiry?: string;
+  permitNumber?: string;
+  hirePurchase?: boolean;
+}
+
+/** Machinery or equipment, as on its purchase invoice and serial plate. */
+export interface MachineDetailsInput {
+  manufacturer?: string;
+  model?: string;
+  serialNumber?: string;
+  yearOfManufacture?: number;
+  purchaseDate?: string;
+  operatingHours?: number;
+  requiresDoshCertificate?: boolean;
+  doshCertificateNumber?: string;
+  doshCertificateExpiry?: string;
+  hirePurchase?: boolean;
+}
+
+/** A building on its own title, a strata parcel, or a parcel under a master title. */
+export interface BuildingDetailsInput {
+  titleKind?: 'INDIVIDUAL' | 'STRATA' | 'MASTER_TITLE';
+  titleNumber?: string;
+  lotNumber?: string;
+  mukim?: string;
+  district?: string;
+  state?: string;
+  strataTitleNumber?: string;
+  parcelNumber?: string;
+  storey?: string;
+  buildingName?: string;
+  buildingUse?: 'RESIDENTIAL' | 'COMMERCIAL' | 'INDUSTRIAL' | 'MIXED';
+  floorArea?: number;
+  floorAreaUnit?: 'SQ_METRE' | 'SQ_FEET';
+  yearCompleted?: number;
+  completionCertificateNumber?: string;
+  hasTenants?: boolean;
+  tenantActivity?: string;
+}
+
+/** Whatever details were saved for the asset's type. */
+export type AssetDetailsInput = LandDetailsInput & VehicleDetailsInput & MachineDetailsInput & Omit<BuildingDetailsInput, keyof LandDetailsInput>;
+
 export interface AssetInput {
   assetType: AssetTypeCode;
   name: string;
@@ -542,6 +596,9 @@ export interface AssetInput {
   latitude?: number;
   longitude?: number;
   land?: LandDetailsInput;
+  vehicle?: VehicleDetailsInput;
+  machine?: MachineDetailsInput;
+  building?: BuildingDetailsInput;
 }
 
 /** Which Islamic contracts suit an asset, from the platform's Shariah structuring rules. */
@@ -565,15 +622,15 @@ export interface RegisteredAssetDocument {
 }
 
 /** An asset registered on the server (unlike the sample AssetItem used by older screens). */
-export interface RegisteredAsset extends Omit<AssetInput, 'description' | 'location' | 'titleReference' | 'valuerName' | 'encumbranceNote' | 'valuationDate' | 'latitude' | 'longitude' | 'land'> {
+export interface RegisteredAsset extends Omit<AssetInput, 'description' | 'location' | 'titleReference' | 'valuerName' | 'encumbranceNote' | 'valuationDate' | 'latitude' | 'longitude' | 'land' | 'vehicle' | 'machine' | 'building'> {
   latitude: number | null;
   longitude: number | null;
-  /** Type-specific details; for land, the title details. */
-  details: LandDetailsInput | null;
+  /** Type-specific details: the land title, vehicle, machine or building details. */
+  details: AssetDetailsInput | null;
   /** Automated document checks, run when the asset is submitted. */
   checkFindings: KycCheckFinding[] | null;
   checkedAt: string | null;
-  /** Reviewers only: other owners' registrations of the same land. */
+  /** Reviewers only: other owners' registrations of the same asset. */
   duplicates?: { id: string; status: AssetStatusCode; organisationName: string }[];
   id: string;
   organisationId: string;

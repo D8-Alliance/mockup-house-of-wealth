@@ -38,7 +38,7 @@ describe('AssetsService', () => {
   });
 
   it('needs proof of ownership before an asset can be submitted, then runs the document checks', async () => {
-    const building = { ...draft, assetType: 'BUILDING' };
+    const building = { ...draft, assetType: 'OTHER' };
     prisma.asset.findFirst.mockResolvedValueOnce(building);
     await expect(service.submit(owner, draft.id, declarations)).rejects.toThrow('proof of ownership');
     prisma.asset.findFirst.mockResolvedValueOnce({ ...building, documents: [{ documentType: 'OWNERSHIP' }] });

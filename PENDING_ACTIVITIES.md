@@ -2,7 +2,7 @@
 
 Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila kerja dimulakan, dan buang item apabila selesai. Penerangan sistem semasa ada dalam [DOKUMENTASI_SISTEM.md](DOKUMENTASI_SISTEM.md).
 
-## Ringkasan: apa yang belum siap (disemak 2026-10-16)
+## Ringkasan: apa yang belum siap (disemak 2026-10-19)
 
 | # | Item | Yang belum siap | Menunggu |
 |---|---|---|---|
@@ -25,7 +25,7 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 17 | Entiti berasingan dan pihak berkaitan | No. SSM, jenis entiti, syarikat induk; skrin cipta organisasi | Boleh dimulakan |
 | 18 | Prestasi projek PDP dan kontrak | Laporan KPI berkala; "My Contracts" masih data contoh | Keputusan senarai KPI |
 | 19 | Benefisiari dan pusaka | Simpanan backend, Estate Officer, aliran kematian | Keputusan proses; nasihat Shariah dan undang-undang |
-| 20 | Modul aset | Tanah siap (Fasa A dan B); seterusnya kenderaan berat, mesin dan bangunan; OCR PDF imbasan; pautan aset ke pool | Boleh diteruskan |
+| 20 | Modul aset | Semua jenis siap Fasa A dan B (tanah, kenderaan berat, mesin, bangunan); baki: peringatan tarikh luput, pautan aset ke pool, Fasa C (e-Tanah/JPJ/JKKP) | Boleh diteruskan |
 | 21 | Profile & Settings | Skrin pengesahan akaun bank (Settlement Officer); kontrak dan mata wang pilihan belum digunakan | Boleh dimulakan |
 | 22 | Pendaftaran dan pengurusan pengguna | Notis privasi rasmi; Fasa 2 (RoleGrantRequest, skrin Users); Fasa 3 (daftar sendiri) | Butiran syarikat dan semakan peguam |
 | 23 | Skrin yang masih data contoh | Lihat senarai penuh dalam item 23 | Boleh dimulakan mengikut keutamaan |
@@ -373,8 +373,13 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
    - **Fasa A** (tiada pihak luar): borang dan senarai dokumen mengikut jenis; pengesanan pendaftaran berganda (hak milik/lot, no. casis, no. siri); pin peta dan gambar tapak dengan GPS; tarikh luput (pajakan, insurans, cukai jalan, sijil JKKP).
    - **Fasa B** (OCR dalam pelayan sendiri): geran dan Carian Rasmi (pemilik, bahagian, gadaian/kaveat), cukai pintu dan CCC (bangunan), VOC JPJ dan PUSPAKOM (kenderaan berat), invois dan plat nombor siri, sijil PMA JKKP (mesin).
    - **Fasa C** (pihak luar): integrasi e-Tanah, JPJ atau JKKP; memerlukan perjanjian dengan agensi atau penyedia.
-   - **Tanah: Fasa A dan B siap (2026-10-16).** Butiran geran (jenis dan no. hak milik, lot, mukim, daerah, negeri, keluasan, kategori, pegangan, tarikh tamat pajakan, bahagian, Tanah Rizab Melayu); pin peta (OpenStreetMap) dan gambar tapak dengan GPS; Carian Rasmi wajib; tanah yang sama ditolak dalam satu organisasi dan dipaparkan kepada penyemak jika didaftar organisasi lain; OCR geran, Carian Rasmi dan cukai tanah (no. hak milik, lot, mukim, pemilik berdaftar, tarikh carian, gadaian/kaveat, Rizab Melayu, tahun cukai) serta jarak gambar dari pin. Baki tanah: OCR tidak dapat membaca PDF imbasan (perlu OCR halaman PDF); peringatan tarikh luput; pautan peta lot negeri.
-   - **Susunan:** tanah dahulu (Carian Rasmi **wajib** untuk tanah, kerana hanya ia menunjukkan pemilik dan bebanan semasa), kemudian kenderaan berat dan mesin, kemudian bangunan.
+   - **Tanah: Fasa A dan B siap (2026-10-16).** Butiran geran (jenis dan no. hak milik, lot, mukim, daerah, negeri, keluasan, kategori, pegangan, tarikh tamat pajakan, bahagian, Tanah Rizab Melayu); pin peta (OpenStreetMap) dan gambar tapak dengan GPS; Carian Rasmi wajib; tanah yang sama ditolak dalam satu organisasi dan dipaparkan kepada penyemak jika didaftar organisasi lain; OCR geran, Carian Rasmi dan cukai tanah (no. hak milik, lot, mukim, pemilik berdaftar, tarikh carian, gadaian/kaveat, Rizab Melayu, tahun cukai) serta jarak gambar dari pin. PDF imbasan kini dibaca dengan OCR (2026-10-19). Baki tanah: peringatan tarikh luput; pautan peta lot negeri.
+   - **Kenderaan berat, mesin dan bangunan: Fasa A dan B siap (2026-10-19).**
+     - **Kenderaan berat:** no. pendaftaran, casis dan enjin, buatan, tahun, kategori, tarikh luput cukai jalan, insurans dan PUSPAKOM, permit APAD, sewa beli. VOC JPJ wajib. OCR VOC dan PUSPAKOM (nombor, pemilik berdaftar, tuntutan hak milik pembiaya). Kenderaan yang sama dikenal pasti melalui no. casis.
+     - **Mesin dan peralatan:** pengilang, model, no. siri, tarikh beli, jam operasi, sewa beli. Invois dan gambar plat nombor siri wajib; sijil PMA JKKP wajib jika ditanda (kren, pengangkat, dandang, bejana tekanan). OCR invois, plat siri dan sijil. Mesin yang sama dikenal pasti melalui pengilang dan no. siri.
+     - **Bangunan:** hak milik sendiri, strata, atau hak milik induk (strata belum dikeluarkan); kegunaan, keluasan lantai, tahun siap, no. CCC, penyewa dan jenis perniagaan mereka. Hak milik/SPA dan CCC wajib. OCR hak milik (no., lot, pemilik, gadaian), cukai pintu (pemilik, tahun) dan CCC. Perniagaan penyewa yang tidak patuh Shariah (contohnya arak atau judi) ditanda untuk penyemak Shariah.
+     - **OCR:** nombor siri, casis dan enjin dianggap sepadan walaupun OCR keliru antara O/0, I/1, B/8, S/5, dengan nota supaya penyemak melihat dokumen.
+     - **Baki:** peringatan automatik sebelum tarikh luput (cukai jalan, insurans, PUSPAKOM, sijil JKKP); Fasa C dengan agensi.
 4. **Penilaian:** amaran jika laporan penilaian lebih lama daripada 12 bulan, atau nilai yang dimasukkan jauh berbeza daripada laporan.
 5. **Aset yang sudah disahkan:** cara mengemas kini nilai atau menarik balik aset VERIFIED (kini perlu melalui Country Admin).
 6. **Skrin lama:** Asset Marketplace dan dashboard eksekutif masih menggunakan senarai aset contoh (`INITIAL_ASSETS`).

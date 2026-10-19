@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Building2, X } from 'lucide-react';
 import { apiClient, apiErrorMessage, AssetInput, AssetIntendedUse, AssetTypeCode, RegisteredAsset } from '../services/apiClient';
 import { ASSET_TYPE_LABELS, ASSET_USE_LABELS } from './assetLabels';
+import { BuildingDetailsFields, MachineDetailsFields, VehicleDetailsFields } from './AssetTypeDetailsFields';
 import { LandDetailsFields } from './LandDetailsFields';
 import { LocationPicker } from './LocationPicker';
 
@@ -34,7 +35,11 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({ asset, defaultCu
     intendedUse: asset?.intendedUse ?? 'UNDECIDED',
     latitude: asset?.latitude ?? undefined,
     longitude: asset?.longitude ?? undefined,
-    land: asset?.details ?? { areaUnit: 'HECTARE' },
+    // Each type keeps its own details while the owner switches between types; only the chosen one is sent.
+    land: asset?.assetType === 'LAND' && asset.details ? asset.details : { areaUnit: 'HECTARE' },
+    vehicle: asset?.assetType === 'VEHICLE' && asset.details ? asset.details : {},
+    machine: (asset?.assetType === 'MACHINERY' || asset?.assetType === 'EQUIPMENT') && asset.details ? asset.details : {},
+    building: asset?.assetType === 'BUILDING' && asset.details ? asset.details : { floorAreaUnit: 'SQ_FEET' },
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,9 +49,18 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({ asset, defaultCu
     event.preventDefault();
     setSaving(true);
     setError(null);
-    // Land details are kept only for land; empty text fields are not sent.
-    const land = form.assetType === 'LAND' && form.land ? Object.fromEntries(Object.entries(form.land).filter(([, value]) => value !== '' && value !== undefined)) as AssetInput['land'] : undefined;
-    const input: AssetInput = { ...form, land, valuationDate: form.valuationDate || undefined, estimatedValue: Number(form.estimatedValue) };
+    // Only the details for the chosen type are sent; empty text fields are left out.
+    const filled = <T extends object>(details: T | undefined, wanted: boolean): T | undefined => (wanted && details ? Object.fromEntries(Object.entries(details).filter(([, value]) => value !== '' && value !== undefined)) as T : undefined);
+    const type = form.assetType;
+    const input: AssetInput = {
+      ...form,
+      land: filled(form.land, type === 'LAND'),
+      vehicle: filled(form.vehicle, type === 'VEHICLE'),
+      machine: filled(form.machine, type === 'MACHINERY' || type === 'EQUIPMENT'),
+      building: filled(form.building, type === 'BUILDING'),
+      valuationDate: form.valuationDate || undefined,
+      estimatedValue: Number(form.estimatedValue),
+    };
     try {
       onSaved(asset ? await apiClient.updateAsset(asset.id, input) : await apiClient.createAsset(input));
     } catch (cause) {
@@ -120,6 +134,9 @@ export const AssetFormModal: React.FC<AssetFormModalProps> = ({ asset, defaultCu
             </div>
           </div>
           {form.assetType === 'LAND' && <LandDetailsFields value={form.land ?? {}} onChange={(land) => set('land', land)} />}
+          {form.assetType === 'VEHICLE' && <VehicleDetailsFields value={form.vehicle ?? {}} onChange={(vehicle) => set('vehicle', vehicle)} />}
+          {(form.assetType === 'MACHINERY' || form.assetType === 'EQUIPMENT') && <MachineDetailsFields value={form.machine ?? {}} onChange={(machine) => set('machine', machine)} />}
+          {form.assetType === 'BUILDING' && <BuildingDetailsFields value={form.building ?? {}} onChange={(building) => set('building', building)} />}
           <LocationPicker latitude={form.latitude} longitude={form.longitude} onChange={(latitude, longitude) => setForm((current) => ({ ...current, latitude, longitude }))} />
           <div className="sm:col-span-2">
             <label htmlFor="asset-description" className={LABEL}>Description</label>

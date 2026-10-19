@@ -1,24 +1,84 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, CheckCircle2, Circle, MapPin, RefreshCw, X } from 'lucide-react';
 import { apiClient, apiErrorMessage, KycCheckFinding, RegisteredAsset } from '../services/apiClient';
-import { ASSET_STATUS, documentChecklist, documentLabel, LAND_AREA_UNIT_LABELS, LAND_TITLE_TYPE_LABELS, LAND_USE_LABELS } from './assetLabels';
+import { ASSET_STATUS, BUILDING_TITLE_KIND_LABELS, BUILDING_USE_LABELS, documentChecklist, documentLabel, FLOOR_AREA_UNIT_LABELS, LAND_AREA_UNIT_LABELS, LAND_TITLE_TYPE_LABELS, LAND_USE_LABELS, VEHICLE_CATEGORY_LABELS } from './assetLabels';
 import { mapLinkUrl } from './LocationPicker';
 
 const row = (label: string, value: React.ReactNode) => (
   <div><dt className="text-slate-400 font-bold">{label}</dt><dd className="text-slate-800 dark:text-slate-100 break-words">{value || '-'}</dd></div>
 );
 
-/** The land title details and the map pin, as the owner entered them. */
+const heading = (title: string) => <h3 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">{title}</h3>;
+const GRID = 'grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs';
+const day = (value: string | undefined) => value?.slice(0, 10) ?? '';
+const yesNo = (value: boolean | undefined) => (value ? 'Yes' : 'No');
+
+/** The type's details (land title, vehicle, machine or building) and the map pin, as the owner entered them. */
 export const AssetLocationAndTitle: React.FC<{ asset: RegisteredAsset }> = ({ asset }) => {
-  const land = asset.assetType === 'LAND' ? asset.details : null;
+  const details = asset.details;
+  const land = asset.assetType === 'LAND' ? details : null;
+  const vehicle = asset.assetType === 'VEHICLE' ? details : null;
+  const machine = asset.assetType === 'MACHINERY' || asset.assetType === 'EQUIPMENT' ? details : null;
+  const building = asset.assetType === 'BUILDING' ? details : null;
   const pinned = asset.latitude !== null && asset.longitude !== null;
-  if (!land && !pinned) return null;
+  if (!details && !pinned) return null;
   return (
     <section className="space-y-2">
+      {vehicle && (
+        <>
+          {heading('Vehicle (JPJ VOC)')}
+          <dl className={GRID}>
+            {row('Registration', vehicle.registrationNumber)}
+            {row('Chassis number', <span className="font-mono">{vehicle.chassisNumber}</span>)}
+            {row('Engine number', <span className="font-mono">{vehicle.engineNumber}</span>)}
+            {row('Make and model', [vehicle.make, vehicle.model].filter(Boolean).join(' '))}
+            {row('Year', vehicle.yearOfManufacture)}
+            {row('Category', vehicle.category ? VEHICLE_CATEGORY_LABELS[vehicle.category] : '')}
+            {row('Road tax expiry', day(vehicle.roadTaxExpiry))}
+            {row('Insurance expiry', day(vehicle.insuranceExpiry))}
+            {row('PUSPAKOM expiry', day(vehicle.inspectionExpiry))}
+            {row('APAD permit', vehicle.permitNumber)}
+            {row('Hire purchase', yesNo(vehicle.hirePurchase))}
+          </dl>
+        </>
+      )}
+      {machine && (
+        <>
+          {heading('Machine')}
+          <dl className={GRID}>
+            {row('Manufacturer', machine.manufacturer)}
+            {row('Model', machine.model)}
+            {row('Serial number', <span className="font-mono">{machine.serialNumber}</span>)}
+            {row('Year', machine.yearOfManufacture)}
+            {row('Purchased', day(machine.purchaseDate))}
+            {row('Operating hours', machine.operatingHours)}
+            {row('JKKP certificate', machine.requiresDoshCertificate ? `${machine.doshCertificateNumber ?? '?'}, expires ${day(machine.doshCertificateExpiry) || '?'}` : 'Not needed')}
+            {row('Hire purchase', yesNo(machine.hirePurchase))}
+          </dl>
+        </>
+      )}
+      {building && (
+        <>
+          {heading('Building')}
+          <dl className={GRID}>
+            {row('Title', building.titleKind ? BUILDING_TITLE_KIND_LABELS[building.titleKind] : '')}
+            {building.titleKind === 'STRATA'
+              ? row('Strata title, parcel', [building.strataTitleNumber, building.parcelNumber && `parcel ${building.parcelNumber}`, building.storey && `storey ${building.storey}`].filter(Boolean).join(', '))
+              : row('Title, lot', [building.titleNumber, building.lotNumber && `lot ${building.lotNumber}`, building.parcelNumber && `parcel ${building.parcelNumber}`].filter(Boolean).join(', '))}
+            {building.titleKind !== 'STRATA' && row('Mukim, district, state', [building.mukim, building.district, building.state].filter(Boolean).join(', '))}
+            {row('Building', building.buildingName)}
+            {row('Use', building.buildingUse ? BUILDING_USE_LABELS[building.buildingUse] : '')}
+            {row('Floor area', building.floorArea !== undefined ? `${building.floorArea.toLocaleString()} ${FLOOR_AREA_UNIT_LABELS[building.floorAreaUnit ?? 'SQ_FEET']}` : '')}
+            {row('Completed', building.yearCompleted)}
+            {row('CCC / CF', building.completionCertificateNumber)}
+            {row('Tenants', building.hasTenants ? building.tenantActivity || 'Yes' : 'None')}
+          </dl>
+        </>
+      )}
       {land && (
         <>
-          <h3 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">Land title</h3>
-          <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          {heading('Land title')}
+          <dl className={GRID}>
             {row('Title', [land.titleType ? LAND_TITLE_TYPE_LABELS[land.titleType].split(' (')[0] : '', land.titleNumber].filter(Boolean).join(' '))}
             {row('Lot', land.lotNumber)}
             {row('Mukim, district, state', [land.mukim, land.district, land.state].filter(Boolean).join(', '))}
@@ -43,7 +103,7 @@ export const AssetLocationAndTitle: React.FC<{ asset: RegisteredAsset }> = ({ as
 /** Which documents this type of asset needs, and which are already uploaded. */
 export const AssetDocumentChecklist: React.FC<{ asset: RegisteredAsset }> = ({ asset }) => (
   <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
-    {documentChecklist(asset.assetType).map(({ type, required }) => {
+    {documentChecklist(asset.assetType, asset.details).map(({ type, required }) => {
       const present = asset.documents.some((document) => document.documentType === type);
       return (
         <li key={type} className="flex items-center gap-1.5">
@@ -140,7 +200,7 @@ const RESULT: Record<KycCheckFinding['result'], { label: string; className: stri
   INFO: { label: 'ℹ Note', className: 'text-slate-500' },
 };
 
-/** What the document checks found, other registrations of the same land (reviewers), and a re-run. */
+/** What the document checks found, other registrations of the same asset (reviewers), and a re-run. */
 export const AssetCheckResults: React.FC<{ asset: RegisteredAsset; canReview: boolean; onChanged: (asset: RegisteredAsset) => void }> = ({ asset, canReview, onChanged }) => {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -166,8 +226,8 @@ export const AssetCheckResults: React.FC<{ asset: RegisteredAsset; canReview: bo
       </div>
       {duplicates.length > 0 && (
         <div className="p-3 rounded-xl border border-rose-300 bg-rose-50 dark:border-rose-800/60 dark:bg-rose-950/30 text-xs text-rose-700 dark:text-rose-300">
-          <strong>The same land is also registered by another owner:</strong>{' '}
-          {duplicates.map((other) => `${other.id} (${other.organisationName}, ${ASSET_STATUS[other.status].label.toLowerCase()})`).join('; ')}. Establish who holds the title before verifying either.
+          <strong>The same asset is also registered by another owner:</strong>{' '}
+          {duplicates.map((other) => `${other.id} (${other.organisationName}, ${ASSET_STATUS[other.status].label.toLowerCase()})`).join('; ')}. Establish who really owns it before verifying either.
         </div>
       )}
       {!asset.checkedAt && <p className="text-xs text-slate-400">The documents are checked when the asset is submitted.</p>}

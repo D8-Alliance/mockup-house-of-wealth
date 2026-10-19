@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { AlertTriangle, FileText, Trash2, Upload, X } from 'lucide-react';
 import { apiClient, apiErrorMessage, AssetDocumentType, RegisteredAsset } from '../services/apiClient';
 import { AssetStructuringPanel } from './AssetStructuringPanel';
-import { ASSET_DOCUMENT_LABELS, ASSET_EDITABLE, ASSET_STATUS, ASSET_TYPE_LABELS, ASSET_USE_LABELS, documentChecklist, documentLabel, formatMoney } from './assetLabels';
+import { ASSET_EDITABLE, ASSET_STATUS, ASSET_TYPE_LABELS, ASSET_USE_LABELS, documentChecklist, documentHint, documentLabel, formatMoney } from './assetLabels';
 import { AssetCheckResults, AssetDocumentChecklist, AssetLocationAndTitle, SitePhotoCapture } from './AssetVerificationParts';
 
 interface AssetDetailModalProps {
@@ -32,7 +32,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
   const [note, setNote] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const editable = canEdit && ASSET_EDITABLE.has(asset.status);
-  const checklist = documentChecklist(asset.assetType);
+  const checklist = documentChecklist(asset.assetType, asset.details);
   const missingRequired = checklist.filter((item) => item.required && !asset.documents.some((document) => document.documentType === item.type));
   // Upload choices: this type's checklist, then the general kinds not already in it.
   const uploadTypes = [...checklist.map((item) => item.type), ...(['INSURANCE', 'PHOTO', 'OTHER'] as AssetDocumentType[]).filter((type) => !checklist.some((item) => item.type === type))];
@@ -130,7 +130,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
                 <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer disabled:opacity-60"><Upload className="w-3.5 h-3.5" />Upload PDF, JPG or PNG</button>
                 <SitePhotoCapture asset={asset} onUploaded={onChanged} />
               </div>
-              <p className="text-[11px] text-slate-500">{ASSET_DOCUMENT_LABELS[documentType].hint} Up to 15 MB. The system reads PDFs (including scans) and clear photos.</p>
+              <p className="text-[11px] text-slate-500">{documentHint(documentType, asset.assetType)} Up to 15 MB. The system reads PDFs (including scans) and clear photos.</p>
             </div>
           )}
         </section>
