@@ -388,6 +388,16 @@ export const apiClient = {
   askAssetAdvisor: (id: string, question?: string) => request<BackendAiRun>(`/ai/assets/${encodeURIComponent(id)}/advise`, { method: 'POST', body: JSON.stringify({ question }) }),
   submitAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/submit`, { method: 'POST', body: JSON.stringify({ ownership: true, halalUse: true, accuracy: true }) }),
   rerunAssetChecks: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/checks/run`, { method: 'POST' }),
+  setAssetListing: (assetId: string, input: AssetListingInput) => request<{ id: string; offeredToPdp: boolean; offerTerms: AssetOfferTerms | null }>(`/asset-partnerships/assets/${encodeURIComponent(assetId)}/listing`, { method: 'PUT', body: JSON.stringify(input) }),
+  getListedAssets: (assetType?: AssetTypeCode) => request<ListedAsset[]>(`/asset-partnerships/listed-assets${assetType ? `?type=${assetType}` : ''}`),
+  getAssetNeeds: () => request<ProjectAssetNeed[]>('/asset-partnerships/needs'),
+  createAssetNeed: (input: AssetNeedInput) => request<ProjectAssetNeed>('/asset-partnerships/needs', { method: 'POST', body: JSON.stringify(input) }),
+  setAssetNeedStatus: (id: string, status: 'OPEN' | 'CLOSED') => request<ProjectAssetNeed>(`/asset-partnerships/needs/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  getAssetEngagements: () => request<AssetEngagement[]>('/asset-partnerships/engagements'),
+  createAssetEngagement: (input: EngagementInput) => request<AssetEngagement>('/asset-partnerships/engagements', { method: 'POST', body: JSON.stringify(input) }),
+  respondAssetEngagement: (id: string, input: { action: 'ACCEPT' | 'DECLINE' | 'COUNTER'; akad?: PartnershipAkad; terms?: EngagementTerms; startDate?: string; endDate?: string; note?: string }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/respond`, { method: 'POST', body: JSON.stringify(input) }),
+  withdrawAssetEngagement: (id: string, note?: string) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/withdraw`, { method: 'POST', body: JSON.stringify({ note }) }),
+  reviewAssetEngagement: (id: string, input: { decision: 'APPROVE' | 'REJECT'; note: string; track?: 'LEGAL' | 'SHARIAH' }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   withdrawAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/withdraw`, { method: 'POST' }),
   reviewAsset: (id: string, decision: 'VERIFIED' | 'CHANGES_REQUESTED' | 'REJECTED', note: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
   downloadKycDocumentForReview: (applicationId: string, documentId: string) => openAuthenticatedFile(`/kyc/applications/${encodeURIComponent(applicationId)}/documents/${encodeURIComponent(documentId)}/download`),
@@ -601,6 +611,122 @@ export interface AssetInput {
   building?: BuildingDetailsInput;
 }
 
+export type PartnershipAkad = 'IJARAH' | 'MUSHARAKAH';
+export type PreferredAkad = PartnershipAkad | 'EITHER';
+
+/** What an owner is open to when offering an asset to delivery partners. */
+export interface AssetOfferTerms {
+  preferredAkad: PreferredAkad;
+  availableFrom: string | null;
+  availableUntil: string | null;
+  indicativeTerms: string;
+  note: string;
+}
+export interface AssetListingInput extends Partial<Omit<AssetOfferTerms, 'availableFrom' | 'availableUntil'>> {
+  offered: boolean;
+  availableFrom?: string;
+  availableUntil?: string;
+}
+
+/** A verified asset offered to delivery partners, without identifiers or the owner's name. */
+export interface ListedAsset {
+  id: string;
+  assetType: AssetTypeCode;
+  name: string;
+  region: string;
+  details: Partial<AssetDetailsInput>;
+  intendedUse: AssetIntendedUse;
+  isEncumbered: boolean;
+  offerTerms: AssetOfferTerms | null;
+  committed: { startDate: string; endDate: string }[];
+}
+
+export interface AssetNeedInput {
+  projectId: string;
+  assetType: AssetTypeCode;
+  title: string;
+  description?: string;
+  quantity: number;
+  startDate?: string;
+  endDate?: string;
+  location?: string;
+  preferredAkad?: PreferredAkad;
+}
+
+export interface ProjectAssetNeed extends Omit<AssetNeedInput, 'startDate' | 'endDate'> {
+  id: string;
+  organisationId: string;
+  countryNodeId: string;
+  startDate: string | null;
+  endDate: string | null;
+  status: 'OPEN' | 'FILLED' | 'CLOSED';
+  createdAt: string;
+  project: { projectCode: string; projectName: string; sector: string; status: string; organisationName: string };
+  approvedCount: number;
+  offerCount?: number;
+  myEngagementIds?: string[];
+}
+
+/** Ijarah: rent (ujrah), monthly or for the whole period, and who keeps the asset running day to day. Musharakah: the asset's agreed value and the owner's profit share. */
+export interface EngagementTerms {
+  rentAmount?: number;
+  rentFrequency?: 'MONTHLY' | 'WHOLE_PERIOD';
+  upkeepBy?: 'OWNER' | 'LESSEE';
+  contributionValue?: number;
+  profitSharePct?: number;
+  currency?: string;
+}
+
+export interface EngagementInput {
+  assetId: string;
+  needId?: string;
+  projectId?: string;
+  akad: PartnershipAkad;
+  terms: EngagementTerms;
+  startDate: string;
+  endDate: string;
+  message?: string;
+}
+
+export type EngagementStatus = 'PROPOSED' | 'ACCEPTED' | 'APPROVED' | 'DECLINED' | 'WITHDRAWN' | 'REJECTED';
+
+export interface EngagementHistoryEntry {
+  at: string;
+  by: string;
+  byName: string;
+  party: 'OWNER' | 'PDP' | 'REVIEW';
+  action: string;
+  note?: string;
+  akad?: PartnershipAkad;
+  terms?: EngagementTerms;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface AssetEngagement {
+  id: string;
+  direction: 'OFFER' | 'REQUEST';
+  status: EngagementStatus;
+  awaiting: 'OWNER' | 'PDP' | 'REVIEW' | 'NONE';
+  myParty: 'OWNER' | 'PDP' | null;
+  canRespond: boolean;
+  canWithdraw: boolean;
+  canReview: boolean;
+  akad: PartnershipAkad;
+  terms: EngagementTerms;
+  startDate: string;
+  endDate: string;
+  asset: { id: string; assetType: AssetTypeCode; name: string; region: string; details: Partial<AssetDetailsInput> | null; isEncumbered: boolean; location?: string; titleReference?: string | null; estimatedValue?: number; currency?: string; encumbranceNote?: string | null };
+  ownerOrganisationName: string | null;
+  project: { projectId: string; projectCode: string; projectName: string; sector: string; status: string; organisationName: string };
+  need: { id: string; title: string; quantity: number } | null;
+  legalApprovedAt: string | null;
+  shariahApprovedAt: string | null;
+  history: EngagementHistoryEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Which Islamic contracts suit an asset, from the platform's Shariah structuring rules. */
 export interface AssetStructuringGuidance {
   options: { contract: 'IJARAH' | 'MUSHARAKAH' | 'MURABAHAH'; fit: 'RECOMMENDED' | 'POSSIBLE' | 'NOT_SUITABLE'; reasons: string[]; ownerDuties: string[]; needs: string[] }[];
@@ -650,6 +776,9 @@ export interface RegisteredAsset extends Omit<AssetInput, 'description' | 'locat
   createdAt: string;
   updatedAt: string;
   documents: RegisteredAssetDocument[];
+  /** Offered to delivery partners (PDPs) in the same country. */
+  offeredToPdp?: boolean;
+  offerTerms?: AssetOfferTerms | null;
 }
 
 export interface KycCheckFinding {

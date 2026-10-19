@@ -4,6 +4,7 @@ import { apiClient, apiErrorMessage, AssetDocumentType, RegisteredAsset } from '
 import { AssetStructuringPanel } from './AssetStructuringPanel';
 import { ASSET_EDITABLE, ASSET_STATUS, ASSET_TYPE_LABELS, ASSET_USE_LABELS, documentChecklist, documentHint, documentLabel, formatMoney } from './assetLabels';
 import { AssetCheckResults, AssetDocumentChecklist, AssetLocationAndTitle, SitePhotoCapture } from './AssetVerificationParts';
+import { AssetListingPanel } from '../asset-partnerships/AssetListingPanel';
 
 interface AssetDetailModalProps {
   asset: RegisteredAsset;
@@ -136,6 +137,8 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
         </section>
 
         <AssetCheckResults asset={asset} canReview={canReview} onChanged={onChanged} />
+
+        {canEdit && asset.status === 'VERIFIED' && <AssetListingPanel asset={asset} onChanged={onChanged} />}
 
         {asset.status !== 'WITHDRAWN' && asset.status !== 'REJECTED' && <AssetStructuringPanel asset={asset} canAct={canEdit} onOpenAgreement={onOpenAgreement} />}
 

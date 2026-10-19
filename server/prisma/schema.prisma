@@ -248,6 +248,8 @@ model Project {
   evidenceRequirements ProjectEvidenceRequirement[]
   feasibilityRevisions ProjectFeasibilityRevision[]
   approvals            ProjectApproval[]
+  assetNeeds           ProjectAssetNeed[]
+  assetEngagements     AssetEngagement[]
 
   @@index([countryNodeId])
   @@index([organisationId])
@@ -1931,12 +1933,17 @@ model Asset {
   reviewedBy      String?
   reviewedAt      DateTime?
   reviewNote      String?
+  /// The owner offers this verified asset to delivery partners (PDPs) in the same country.
+  offeredToPdp    Boolean   @default(false)
+  /// What the owner is open to: preferred akad, availability window, indicative terms, note.
+  offerTerms      Json?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  organisation Organisation    @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode  CountryNode     @relation(fields: [countryNodeId], references: [code])
+  organisation Organisation      @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode  CountryNode       @relation(fields: [countryNodeId], references: [code])
   documents    AssetDocument[]
+  engagements  AssetEngagement[]
 
   @@index([organisationId, countryNodeId])
   @@index([countryNodeId, status])
@@ -1966,4 +1973,79 @@ model AssetDocument {
 
   @@index([assetId])
   @@index([sha256])
+}
+
+/// An asset a delivery partner's project needs, e.g. "3 excavators for 6 months". Asset owners in the country can offer theirs.
+model ProjectAssetNeed {
+  /// NEED-<country>-XXXXXXXX
+  id             String    @id
+  projectId      String
+  organisationId String
+  countryNodeId  String
+  /// LAND, BUILDING, MACHINERY, VEHICLE, EQUIPMENT or OTHER
+  assetType      String
+  title          String
+  description    String    @default("")
+  quantity       Int       @default(1)
+  startDate      DateTime?
+  endDate        DateTime?
+  location       String    @default("")
+  /// IJARAH, MUSHARAKAH or EITHER
+  preferredAkad  String    @default("EITHER")
+  /// OPEN, FILLED or CLOSED
+  status         String    @default("OPEN")
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  project     Project           @relation(fields: [projectId], references: [projectId])
+  engagements AssetEngagement[]
+
+  @@index([countryNodeId, status])
+  @@index([projectId])
+}
+
+/**
+ * An asset owner's offer of an asset to a project (OFFER, against a need), or a delivery partner's
+ * request to use a listed asset (REQUEST). Negotiated until one side accepts, then approved by Legal
+ * and Shariah before the asset is committed for the period.
+ */
+model AssetEngagement {
+  /// ENG-<country>-XXXXXXXX
+  id                  String    @id
+  assetId             String
+  projectId           String
+  needId              String?
+  countryNodeId       String
+  ownerOrganisationId String
+  pdpOrganisationId   String
+  /// OFFER or REQUEST
+  direction           String
+  /// PROPOSED, ACCEPTED, APPROVED, DECLINED, WITHDRAWN or REJECTED
+  status              String    @default("PROPOSED")
+  /// Whose move it is: OWNER, PDP, REVIEW or NONE
+  awaiting            String
+  /// IJARAH or MUSHARAKAH
+  akad                String
+  /// Ijarah: rent, frequency, currency, day-to-day upkeep. Musharakah: agreed value of the asset, owner's profit share.
+  terms               Json
+  startDate           DateTime
+  endDate             DateTime
+  /// Every proposal, counter-offer and decision, oldest first.
+  history             Json
+  legalApprovedBy     String?
+  legalApprovedAt     DateTime?
+  shariahApprovedBy   String?
+  shariahApprovedAt   DateTime?
+  createdBy           String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  asset   Asset             @relation(fields: [assetId], references: [id])
+  project Project           @relation(fields: [projectId], references: [projectId])
+  need    ProjectAssetNeed? @relation(fields: [needId], references: [id])
+
+  @@index([assetId, status])
+  @@index([projectId])
+  @@index([countryNodeId, status])
 }

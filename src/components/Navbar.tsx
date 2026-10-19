@@ -3,7 +3,8 @@ import { WealthPoolingLogo } from './WealthPoolingLogo';
 import { 
   Building2, 
   LayoutDashboard, 
-  Landmark, 
+  Landmark,
+  Handshake,
   FileText, 
   Compass, 
   HandCoins, 
@@ -77,6 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'pooling', label: t.pooling || 'Pooling', icon: <HandCoins className="w-4 h-4" /> },
     { id: 'investments', label: t.investments || 'Investments', icon: <TrendingUp className="w-4 h-4" /> },
     { id: 'assets', label: t.myAssets || 'Assets', icon: <Landmark className="w-4 h-4" /> },
+    { id: 'asset-partnerships', label: 'Asset Partnerships', icon: <Handshake className="w-4 h-4 text-emerald-600" /> },
     { id: 'contracts', label: t.myContracts || 'Contracts', icon: <FileText className="w-4 h-4" /> },
     { id: 'wallet', label: t.wallet || 'Wallet', icon: <Wallet className="w-4 h-4" /> },
     { id: 'financials', label: t.financials || 'Financials', icon: <Coins className="w-4 h-4" /> },

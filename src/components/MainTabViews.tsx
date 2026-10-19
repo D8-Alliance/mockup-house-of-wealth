@@ -3,6 +3,7 @@ import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, Marketplace
 import { RoleGuard } from '../rbac/RoleGuard';
 import { RoleDashboardView } from './dashboards/RoleDashboardView';
 import { AssetRegisterView } from '../assets/AssetRegisterView';
+import { AssetPartnershipsView } from '../asset-partnerships/AssetPartnershipsView';
 import { MyContractsView } from './MyContractsView';
 import { AgreementReviewPanel } from '../ai/features/contract/AgreementReviewPanel';
 import { AssetDiscoveryView } from './AssetDiscoveryView';
@@ -109,6 +110,12 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
       {currentTab === 'assets' && (
         <RoleGuard tab="assets">
           <AssetRegisterView startRegistering={assetRegisterRequested} onStartedRegistering={onAssetRegisterStarted} onOpenAgreement={() => setTab('ai-engine')} />
+        </RoleGuard>
+      )}
+
+      {currentTab === 'asset-partnerships' && (
+        <RoleGuard tab="asset-partnerships">
+          <AssetPartnershipsView />
         </RoleGuard>
       )}
 

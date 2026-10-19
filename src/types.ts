@@ -9,6 +9,7 @@ export type NavTab =
   | 'pooling'
   | 'investments'
   | 'assets'
+  | 'asset-partnerships'
   | 'contracts'
   | 'wallet'
   | 'financials'
