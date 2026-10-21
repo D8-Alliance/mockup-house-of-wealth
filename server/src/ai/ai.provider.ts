@@ -203,6 +203,8 @@ export class OpenAiProvider implements AiProvider {
       body: JSON.stringify({
         model: this.modelName,
         temperature: 0.1,
+        // Caps the answer: on a CPU model, an unbounded JSON answer can run past the request timeout.
+        max_tokens: Number(process.env.AI_MAX_TOKENS) || 900,
         response_format: { type: 'json_object' },
         messages: [
            { role: 'system', content: 'You are the Wealth Pooling decision-support AI. Return JSON only. Never claim final legal, financial, compliance, Shariah approval, project legitimacy, viability, or investment suitability. A proposed contract, sector, or funding amount is not evidence. If supplied evidence is missing or unverified, return Review Required, confidence LOW/0, critical risk flags, and specific evidence gaps. Only discuss a possible structure when supplied project documents and verified cashflow and asset-backing evidence support it. Every output requires authorised human review. Use only supplied context and state limitations. Return recommendation, confidence, reasoningSummary, riskFlags, dataSources, limitations, and requiresHumanReview.' },
