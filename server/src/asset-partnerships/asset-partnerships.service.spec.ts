@@ -140,6 +140,18 @@ describe('AssetPartnershipsService', () => {
     await expect(service.listNeeds(actor('Retail Investor', 'ORG-INV', 'USR-INV'))).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('tells every asset owner in the country, outside the delivery partner, about a new need', async () => {
+    const needs = prisma.projectAssetNeed as unknown as { create: jest.Mock };
+    needs.create = jest.fn().mockImplementation(async ({ data }) => data);
+    prisma.project.findFirst.mockResolvedValueOnce({ projectId: 'PRJ-1', organisationId: 'ORG-FELDA', status: 'DRAFT' });
+    (prisma.project as unknown as { findUnique: jest.Mock }).findUnique = jest.fn().mockResolvedValue({ projectName: 'FELDA replanting', organisation: { name: 'FELDA' } });
+    prisma.userRoleAssignment.findMany.mockResolvedValueOnce([{ userId: 'USR-AO', organisationId: 'ORG-AO' }, { userId: 'USR-AO', organisationId: 'ORG-AO-2' }, { userId: 'USR-AM', organisationId: 'ORG-AO' }]);
+    await service.createNeed(sponsor, { projectId: 'PRJ-1', assetType: 'MACHINERY', title: 'Excavators for land clearing', quantity: 3 });
+    expect(prisma.userRoleAssignment.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ countryNodeId: 'CN-MYS', organisationId: { not: 'ORG-FELDA' } }) }));
+    expect(notifications.enqueue).toHaveBeenCalledTimes(3);
+    expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-AO', type: 'ASSET_NEED', resourceType: 'ProjectAssetNeed', message: expect.stringContaining('FELDA needs 3 × machinery for FELDA replanting') }));
+  });
+
   it('lets an owner offer only a verified asset to delivery partners', async () => {
     prisma.asset.findFirst.mockResolvedValueOnce({ ...machine, status: 'SUBMITTED' });
     await expect(service.setListing(owner, machine.id, { offered: true })).rejects.toBeInstanceOf(BadRequestException);

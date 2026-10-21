@@ -38,6 +38,8 @@ const ENGAGEMENT_INCLUDE = {
 } satisfies Prisma.AssetEngagementInclude;
 type EngagementRow = Prisma.AssetEngagementGetPayload<{ include: typeof ENGAGEMENT_INCLUDE }>;
 
+const NEED_TYPE_NAMES: Record<string, string> = { LAND: 'land', BUILDING: 'building', MACHINERY: 'machinery', VEHICLE: 'heavy vehicle', EQUIPMENT: 'equipment', OTHER: 'asset' };
+
 const day = (date: Date | null | undefined) => (date ? date.toISOString().slice(0, 10) : null);
 
 /**
@@ -100,6 +102,7 @@ export class AssetPartnershipsService {
       },
     });
     await this.audit.recordActor(actor, { action: 'asset_need.create', resourceType: 'ProjectAssetNeed', resourceId: need.id, organisationId: need.organisationId, countryNodeId: need.countryNodeId, metadata: { projectId: need.projectId, assetType: need.assetType, quantity: need.quantity } });
+    await this.notifyAssetOwnersOfNeed(need);
     return need;
   }
 
@@ -433,6 +436,26 @@ export class AssetPartnershipsService {
       ? [{ userId: row.asset.ownerUserId, organisationId: row.ownerOrganisationId }]
       : [...new Set([row.project.projectSponsorId, row.need?.createdBy].filter((value): value is string => Boolean(value)))].map((userId) => ({ userId, organisationId: row.pdpOrganisationId }));
     await this.send(row, recipients, title, message);
+  }
+
+/**
+   * Tells every asset owner in the country about a new need, including those who have not registered
+   * an asset of that type yet: they may own one and register it to take part.
+   */
+  private async notifyAssetOwnersOfNeed(need: { id: string; projectId: string; organisationId: string; countryNodeId: string; assetType: string; quantity: number; title: string }) {
+    if (!this.notifications) return;
+    const [project, owners] = await Promise.all([
+      this.prisma.project.findUnique({ where: { projectId: need.projectId }, select: { projectName: true, organisation: { select: { name: true } } } }),
+      this.prisma.userRoleAssignment.findMany({ where: { role: { in: ['Asset_Owner', 'Asset_Manager'] as PrismaUserRole[] }, isActive: true, countryNodeId: need.countryNodeId, organisationId: { not: need.organisationId } }, select: { userId: true, organisationId: true } }),
+    ]);
+    const type = (NEED_TYPE_NAMES[need.assetType] ?? need.assetType.toLowerCase());
+    const message = `${project?.organisation.name ?? 'A delivery partner'} needs ${need.quantity} × ${type} for ${project?.projectName ?? 'a project'}: ${need.title}. Offer a verified asset, or register one to take part.`;
+    // One per user and organisation: notifications are shown in the organisation the user signs in for.
+    const unique = [...new Map(owners.map((owner) => [`${owner.userId}|${owner.organisationId}`, owner])).values()];
+    await Promise.all(unique.map((owner) => this.notifications!.enqueue({
+      recipientUserId: owner.userId, organisationId: owner.organisationId, countryNodeId: need.countryNodeId, type: 'ASSET_NEED',
+      title: 'A project is looking for assets', message, resourceType: 'ProjectAssetNeed', resourceId: need.id, dedupeKey: `asset-need:${need.id}:${owner.userId}:${owner.organisationId}`,
+    }).catch(() => undefined)));
   }
 
   private async notifyReviewers(row: EngagementRow) {

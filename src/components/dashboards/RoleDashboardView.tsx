@@ -3,6 +3,7 @@ import { useRBAC } from '../../rbac/RBACContext';
 import { canInvest, canSeePdpOnboarding, canSubmitProject } from '../../rbac/menuVisibility';
 import { requestProjectRegistration } from '../sponsor/sponsorNavigation';
 import { DashboardActivityPanel } from './DashboardActivityPanel';
+import { DashboardOpenNeedsPanel } from './DashboardOpenNeedsPanel';
 import { canDraftAgreement, openAiEngineSection } from '../../ai/aiEngineNavigation';
 import { UserProfile, AssetItem, ContractItem, LanguageCode, NavTab } from '../../types';
 import { 
@@ -255,6 +256,8 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
           <MetricCard label="Active Contracts" value={summary ? summary.contractCount.toString() : 'Loading...'} sub="Database count" icon={<Clock className="w-5 h-5 text-amber-500" />} />
         </div>
       )}
+
+      {isAuthenticated && (currentRole === 'Asset Owner' || currentRole === 'Asset Manager') && <DashboardOpenNeedsPanel setTab={setTab} onOpenAssetRegister={onOpenAssetRegister} />}
 
       {isAuthenticated && currentRole !== 'Guest' && <DashboardActivityPanel setTab={setTab} />}
 
