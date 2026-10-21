@@ -5,6 +5,8 @@ export interface AiProviderRequest {
   action: string;
   prompt: string;
   context: Record<string, unknown>;
+  /** Replaces the general system prompt for features with their own instructions. */
+  systemPrompt?: string;
 }
 
 export interface AiProviderResponse {

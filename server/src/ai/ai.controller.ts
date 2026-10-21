@@ -8,7 +8,7 @@ import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { AiService } from './ai.service';
 import { CitationAuditService } from './citation-audit.service';
-import { AiDecisionDto, AssetAdvisorDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, RagUploadMetadataDto, CitationAuditQueryDto, CitationReviewDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { AiDecisionDto, AssetAdvisorDto, AssetOfferAdvisorDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, RagUploadMetadataDto, CitationAuditQueryDto, CitationReviewDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
 import { FeasibilityReviewDto } from './project-feasibility.dto';
 
 @Controller('ai')
@@ -46,6 +46,11 @@ export class AiController {
   @Post('assets/:id/advise')
   @Roles('Super Admin', 'Asset Owner', 'Asset Manager')
   assetAdvisor(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: AssetAdvisorDto) { return this.ai.assetAdvisor(actor, id, input.question); }
+
+  /** Suggestion while offering an asset to a project need: akad, indicative terms, points to watch. */
+  @Post('asset-partnerships/needs/:needId/advise')
+  @Roles('Super Admin', 'Asset Owner', 'Asset Manager')
+  assetOfferAdvisor(@CurrentUser() actor: AuthenticatedUser, @Param('needId') needId: string, @Body() input: AssetOfferAdvisorDto) { return this.ai.assetOfferAdvisor(actor, needId, input.assetId); }
 
   @Post('contract-advisor/analyze')
   @Roles('Super Admin', 'AI Administrator', 'Shariah Reviewer', 'Shariah Advisor', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office')

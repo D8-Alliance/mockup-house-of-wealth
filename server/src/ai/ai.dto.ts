@@ -17,6 +17,12 @@ export class ChatDto {
   projectId?: string;
 }
 
+export class AssetOfferAdvisorDto {
+  @IsString()
+  @MaxLength(60)
+  assetId!: string;
+}
+
 export class AssetAdvisorDto {
   @IsOptional()
   @IsString()

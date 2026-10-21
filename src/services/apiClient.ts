@@ -390,6 +390,8 @@ export const apiClient = {
   removeAssetDocument: (id: string, documentId: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
   downloadAssetDocument: (id: string, documentId: string) => openAuthenticatedFile(`/assets/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}/download`),
   getAssetStructuring: (id: string) => request<AssetStructuringGuidance>(`/assets/${encodeURIComponent(id)}/structuring`),
+  /** AI suggestion while offering an asset to a project need: akad, indicative terms, points to watch. */
+  askOfferAdvisor: (needId: string, assetId: string) => request<BackendAiRun>(`/ai/asset-partnerships/needs/${encodeURIComponent(needId)}/advise`, { method: 'POST', body: JSON.stringify({ assetId }) }),
   askAssetAdvisor: (id: string, question?: string) => request<BackendAiRun>(`/ai/assets/${encodeURIComponent(id)}/advise`, { method: 'POST', body: JSON.stringify({ question }) }),
   submitAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/submit`, { method: 'POST', body: JSON.stringify({ ownership: true, halalUse: true, accuracy: true }) }),
   rerunAssetChecks: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/checks/run`, { method: 'POST' }),
