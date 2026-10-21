@@ -3,36 +3,18 @@ import { Bell, CheckCheck, ChevronRight, Handshake } from 'lucide-react';
 import { useRBAC } from '../../rbac/RBACContext';
 import { apiClient, AssetEngagement, BackendNotification } from '../../services/apiClient';
 import { NavTab } from '../../types';
-
-/** Where a notification leads, by the record it is about. */
-const TAB_FOR_RESOURCE: Record<string, NavTab> = {
-  AssetEngagement: 'asset-partnerships',
-  ProjectAssetNeed: 'asset-partnerships',
-  Asset: 'assets',
-  Project: 'sponsor-portal',
-  ProjectDocument: 'sponsor-portal',
-  Contract: 'contracts',
-  KycApplication: 'profile',
-  PaymentTransaction: 'billing-transactions',
-};
-
-function timeAgo(iso: string): string {
-  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  return `${Math.round(hours / 24)} d ago`;
-}
+import { TAB_FOR_RESOURCE, timeAgo } from '../../notifications/notificationLinks';
 
 /** What needs the user's action, and their latest notifications, so the dashboard shows what is happening. */
 export const DashboardActivityPanel: React.FC<{ setTab: (tab: NavTab) => void }> = ({ setTab }) => {
   const { currentRole, canAccessTab } = useRBAC();
   const [notifications, setNotifications] = useState<BackendNotification[] | null>(null);
   const [actions, setActions] = useState<AssetEngagement[]>([]);
+  const [unread, setUnread] = useState(0);
 
   const load = useCallback(() => {
     apiClient.getNotifications().then((list) => setNotifications(list.slice(0, 6))).catch(() => setNotifications([]));
+    apiClient.getUnreadNotificationCount().then((result) => setUnread(result.count)).catch(() => setUnread(0));
     if (canAccessTab('asset-partnerships')) apiClient.getAssetEngagements().then((list) => setActions(list.filter((item) => item.canRespond || item.canReview))).catch(() => setActions([]));
     else setActions([]);
   }, [canAccessTab]);
@@ -45,7 +27,6 @@ export const DashboardActivityPanel: React.FC<{ setTab: (tab: NavTab) => void }>
     if (tab && canAccessTab(tab)) setTab(tab);
   };
 
-  const unread = notifications?.filter((item) => !item.readAt).length ?? 0;
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
       <section className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-md space-y-3">

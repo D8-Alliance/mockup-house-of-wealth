@@ -113,7 +113,8 @@ export const apiClient = {
   settleInvestmentOrder: (id: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/settle`, { method: 'POST' }),
   cancelInvestmentOrder: (id: string, reason?: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/cancel`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
   getNotifications: () => request<BackendNotification[]>('/notifications'),
-  getUnreadNotificationCount: () => request<{ count: number }>('/notifications/unread-count'),
+  /** The server answers with a bare number; older builds answered { count }. */
+  getUnreadNotificationCount: async () => { const result = await request<number | { count: number }>('/notifications/unread-count'); return { count: typeof result === 'number' ? result : Number(result?.count ?? 0) }; },
   markNotificationRead: (id: string) => request<BackendNotification>(`/notifications/${encodeURIComponent(id)}/read`, { method: 'POST' }),
   markAllNotificationsRead: () => request<{ count: number }>('/notifications/read-all', { method: 'POST' }),
   getMembershipCreditSummary: () => request<BackendCreditSummary>('/membership/me/credits'),

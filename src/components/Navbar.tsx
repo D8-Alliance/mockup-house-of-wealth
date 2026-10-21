@@ -9,7 +9,6 @@ import {
   Compass, 
   HandCoins, 
   Wallet, 
-  Bell, 
   Sun, 
   Moon, 
   CheckCircle2, 
@@ -35,6 +34,7 @@ import { useRBAC } from '../rbac/RBACContext';
 import { canSeeCodeReview, canSeePdpOnboarding } from '../rbac/menuVisibility';
 import { LogIn, LogOut } from 'lucide-react';
 import { NavLinks } from './navbar/NavLinks';
+import { NotificationBell } from './navbar/NotificationBell';
 
 interface NavbarProps {
   currentTab: NavTab;
@@ -61,7 +61,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const { canAccessTab, currentRole, roleDef, logoutUser, setShowLoginModal, isAuthenticated } = useRBAC();
@@ -184,37 +183,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
             </button>
 
-            {/* Notification Bell */}
-            <div className="relative hidden lg:block">
-              <button
-                onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors relative cursor-pointer"
-              >
-                <Bell className="w-4 h-4" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
-              </button>
-
-              {notificationsOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setNotificationsOpen(false)} />
-                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-4 z-50 animate-fadeIn">
-                    <div className="flex justify-between items-center mb-3">
-                      <h4 className="font-bold text-sm text-slate-900 dark:text-white">Notifications</h4>
-                      <span className="text-[10px] bg-emerald-500/10 text-emerald-600 font-bold px-2 py-0.5 rounded-full">
-                        3 New
-                      </span>
-                    </div>
-                    <div className="space-y-2.5 text-xs">
-                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700">
-                        <p className="font-semibold text-slate-800 dark:text-slate-200">Profit Distributed</p>
-                        <p className="text-emerald-600 dark:text-emerald-400 text-[11px] mt-0.5">+$450.00 added from Istanbul Real Estate Fund</p>
-                        <span className="text-[10px] text-slate-400">10:23 AM</span>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+            {/* Notification Bell: the user's own notifications from the server */}
+            <NotificationBell setTab={setTab} />
 
             {/* Profile Avatar & Account Menu */}
             <div className="relative hidden lg:block">
