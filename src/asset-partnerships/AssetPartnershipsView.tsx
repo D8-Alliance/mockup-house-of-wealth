@@ -4,6 +4,7 @@ import { useRBAC } from '../rbac/RBACContext';
 import { apiClient, apiErrorMessage, AssetEngagement, AssetTypeCode, ListedAsset, ProjectAssetNeed } from '../services/apiClient';
 import { ASSET_TYPE_LABELS } from '../assets/assetLabels';
 import { EngagementDetailModal } from './EngagementDetailModal';
+import { ModalPortal } from '../components/ModalPortal';
 import { NeedFormModal } from './NeedFormModal';
 import { ProposeEngagementModal } from './ProposeEngagementModal';
 import { AKAD_LABELS, describeTerms, ENGAGEMENT_STATUS, NEED_STATUS, nextStep, PREFERRED_AKAD_LABELS } from './partnershipLabels';
@@ -209,10 +210,13 @@ export const AssetPartnershipsView: React.FC<{ onOpenAgreement?: () => void }> =
 
       {(tab === 'engagements' || tab === 'review') && engagementList(shown)}
 
-      {selected && <EngagementDetailModal engagement={selected} isSuperAdmin={currentRole === 'Super Admin'} onChanged={replace} onClose={() => setSelected(null)} onOpenAgreement={onOpenAgreement ? () => { setSelected(null); onOpenAgreement(); } : undefined} />}
-      {offerFor && <ProposeEngagementModal mode="OFFER" need={offerFor} organisationId={tenantContext.organisationId} onClose={() => setOfferFor(null)} onCreated={(engagement) => { setOfferFor(null); setTab('engagements'); replace(engagement); }} />}
-      {requestFor && <ProposeEngagementModal mode="REQUEST" asset={requestFor} organisationId={tenantContext.organisationId} onClose={() => setRequestFor(null)} onCreated={(engagement) => { setRequestFor(null); setTab('engagements'); replace(engagement); }} />}
-      {needForm && <NeedFormModal organisationId={tenantContext.organisationId} onClose={() => setNeedForm(false)} onCreated={() => { setNeedForm(false); setTab('needs'); void load(); }} />}
+      {/* Above the sticky header: this page is inside an animated (transformed) container. */}
+      <ModalPortal>
+        {selected && <EngagementDetailModal engagement={selected} isSuperAdmin={currentRole === 'Super Admin'} onChanged={replace} onClose={() => setSelected(null)} onOpenAgreement={onOpenAgreement ? () => { setSelected(null); onOpenAgreement(); } : undefined} />}
+        {offerFor && <ProposeEngagementModal mode="OFFER" need={offerFor} organisationId={tenantContext.organisationId} onClose={() => setOfferFor(null)} onCreated={(engagement) => { setOfferFor(null); setTab('engagements'); replace(engagement); }} />}
+        {requestFor && <ProposeEngagementModal mode="REQUEST" asset={requestFor} organisationId={tenantContext.organisationId} onClose={() => setRequestFor(null)} onCreated={(engagement) => { setRequestFor(null); setTab('engagements'); replace(engagement); }} />}
+        {needForm && <NeedFormModal organisationId={tenantContext.organisationId} onClose={() => setNeedForm(false)} onCreated={() => { setNeedForm(false); setTab('needs'); void load(); }} />}
+      </ModalPortal>
     </div>
   );
 };

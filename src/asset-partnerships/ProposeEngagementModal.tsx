@@ -4,6 +4,7 @@ import { apiClient, apiErrorMessage, AssetEngagement, BackendProject, ListedAsse
 import { ASSET_TYPE_LABELS } from '../assets/assetLabels';
 import { emptyDraft, EngagementDraft, EngagementTermsFields, INPUT, LABEL } from './EngagementTermsFields';
 import { PREFERRED_AKAD_LABELS } from './partnershipLabels';
+import { OfferSuggestion } from './OfferSuggestion';
 
 const machine = (type: string) => type === 'MACHINERY' || type === 'EQUIPMENT';
 const typesMatch = (needType: string, assetType: string) => needType === assetType || (machine(needType) && machine(assetType));
@@ -126,6 +127,7 @@ export const ProposeEngagementModal: React.FC<Props> = (props) => {
           </div>
         )}
         {mode === 'OFFER' && preferred && preferred !== 'EITHER' && <p className="text-[11px] text-slate-500">The project prefers {PREFERRED_AKAD_LABELS[preferred]}.</p>}
+        {mode === 'OFFER' && <OfferSuggestion assetId={assetId} need={props.need} onUseAkad={(akad) => setDraft((current) => ({ ...current, akad }))} />}
 
         <EngagementTermsFields idPrefix="propose" value={draft} onChange={setDraft} />
         <div>
