@@ -3,8 +3,8 @@ import { SponsorProject, WorkflowStage, SponsorOrgType, ProjectMilestone } from 
 import { SponsorKPICards } from './SponsorKPICards';
 import { ProjectRegistrationModal } from './ProjectRegistrationModal';
 import { ProjectDetailView } from './ProjectDetailView';
-import { 
-  Building2, Plus, Search, Filter, ArrowUpRight, ShieldCheck, 
+import {
+  Building2, Plus, Search, Filter, ArrowUpRight, ShieldCheck,
   Clock, DollarSign, Layers, PieChart, FileSpreadsheet, Settings, Users, Sparkles, Megaphone,
   CheckCircle2, AlertTriangle, FileText, CreditCard, ExternalLink, RefreshCw
 } from 'lucide-react';
@@ -33,6 +33,10 @@ const defaultProjectMilestones = (projectId: string, funding: number, workflowSt
   ];
   return stages.map((stage, index) => ({ id: `${projectId}-M${index + 1}`, title: stage.title, targetDate: new Date(Date.now() + (index + 1) * 30 * 86400000).toISOString().slice(0, 10), completionPct: stage.completionPct, disbursementAmount: index === 0 ? 0 : funding / 3, status: stage.status, shariahSignoff: stage.completionPct === 100, auditorSignoff: stage.completionPct === 100 }));
 };
+
+/** The portal's stage for each lifecycle status on the server. */
+const STAGE_OF_STATUS: Record<string, WorkflowStage> = { DRAFT: 'Draft', DUE_DILIGENCE: 'Shariah Review', APPROVED: 'Approved', FUNDING_OPEN: 'Funding Open', POOLING: 'Pooling', FUNDED: 'Funded', EXECUTION: 'Execution', PROFIT_DISTRIBUTION: 'Profit Distribution', COMPLETED: 'Completed' };
+const stageOf = (status: string): WorkflowStage => STAGE_OF_STATUS[status] ?? 'Draft';
 
 const mapProjectCategory = (sector: string, projectName: string): SponsorProject['category'] => {
   if (PROJECT_CATEGORIES.includes(sector as SponsorProject['category'])) return sector as SponsorProject['category'];
@@ -110,9 +114,10 @@ export const ProjectSponsorView: React.FC = () => {
           tenureMonths: 0,
           location: item.countryNodeId,
           country: item.countryNodeId,
-          workflowStage: item.status === 'DUE_DILIGENCE' ? 'Shariah Review' : item.status === 'APPROVED' ? 'Approved' : 'Draft',
+          workflowStage: stageOf(item.status),
+          serverStatus: item.status,
           healthScore: 0,
-           milestones: item.milestones?.map((milestone) => ({ id: milestone.id, title: milestone.title, targetDate: milestone.targetDate || '', completionPct: milestone.completionPct, disbursementAmount: Number(milestone.disbursementAmount), status: milestone.status === 'COMPLETED' ? 'Completed' : milestone.status === 'IN_PROGRESS' ? 'In Progress' : milestone.status === 'PENDING_VERIFICATION' ? 'Pending Verification' : 'Upcoming', shariahSignoff: milestone.shariahSignoff, auditorSignoff: milestone.auditorSignoff })) || defaultProjectMilestones(item.projectId, Number(item.fundingRequired), item.status === 'DUE_DILIGENCE' ? 'Shariah Review' : item.status === 'APPROVED' ? 'Approved' : 'Draft'),
+           milestones: item.milestones?.map((milestone) => ({ id: milestone.id, title: milestone.title, targetDate: milestone.targetDate || '', completionPct: milestone.completionPct, disbursementAmount: Number(milestone.disbursementAmount), status: milestone.status === 'COMPLETED' ? 'Completed' : milestone.status === 'IN_PROGRESS' ? 'In Progress' : milestone.status === 'PENDING_VERIFICATION' ? 'Pending Verification' : 'Upcoming', shariahSignoff: milestone.shariahSignoff, auditorSignoff: milestone.auditorSignoff })) || defaultProjectMilestones(item.projectId, Number(item.fundingRequired), stageOf(item.status)),
           disbursements: [],
           documents: [],
           team: [],
@@ -129,7 +134,32 @@ export const ProjectSponsorView: React.FC = () => {
 
   const currentPDPPlan = pdpPlans.find(p => p.id === pdpSub.planId) || pdpPlans[1];
 
+  const [editingProject, setEditingProject] = useState<SponsorProject | null>(null);
+  const [statusError, setStatusError] = useState('');
+
+  const replaceProject = (updated: SponsorProject) => {
+    setProjects((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    setSelectedProject((current) => (current && current.id === updated.id ? updated : current));
+  };
+
+  /** Submits a draft for review, or takes it back to draft to correct it. */
+  const handleChangeStatus = async (project: SponsorProject, status: 'DUE_DILIGENCE' | 'DRAFT') => {
+    setStatusError('');
+    try {
+      const saved = await apiClient.updateProjectStatus(project.id, { status, note: status === 'DRAFT' ? 'Returned to draft by the sponsor to correct it.' : 'Submitted for review by the sponsor.' });
+      replaceProject({ ...project, serverStatus: saved.status, workflowStage: stageOf(saved.status) });
+    } catch (error) {
+      setStatusError(error instanceof Error ? error.message : 'The status was not changed.');
+    }
+  };
+
   const handleCreateProject = async (newProj: SponsorProject, documents: { businessPlan?: File; financialProjection?: File }) => {
+    if (editingProject) {
+      const saved = await apiClient.updateProjectDetails(editingProject.id, { projectName: newProj.title, description: newProj.description, sector: newProj.category, sponsorEntityType: newProj.orgType, proposedShariahContract: newProj.shariahContract, totalProjectCost: newProj.targetFunding, fundingRequired: newProj.targetFunding });
+      replaceProject({ ...editingProject, title: saved.projectName, description: saved.description, orgType: saved.sponsorEntityType || newProj.orgType, category: newProj.category, shariahContract: newProj.shariahContract, targetFunding: Number(saved.fundingRequired) });
+      setEditingProject(null);
+      return;
+    }
     const session = authService.getAuthState().session;
     if (!session) throw new Error('Your session has expired. Please sign in again.');
 
@@ -152,22 +182,16 @@ export const ProjectSponsorView: React.FC = () => {
     if (documents.businessPlan) await apiClient.uploadProjectDocument(backendProject.projectId, documents.businessPlan);
     if (documents.financialProjection) await apiClient.uploadProjectDocument(backendProject.projectId, documents.financialProjection);
 
-    setProjects([{ ...newProj, id: backendProject.projectId, workflowStage: 'Draft' }, ...projects]);
+    setProjects([{ ...newProj, id: backendProject.projectId, workflowStage: 'Draft', serverStatus: backendProject.status }, ...projects]);
   };
 
-  const handleUpdateStage = (projectId: string, newStage: WorkflowStage) => {
-    setProjects(prev => prev.map(p => p.id === projectId ? { ...p, workflowStage: newStage } : p));
-    if (selectedProject && selectedProject.id === projectId) {
-      setSelectedProject(prev => prev ? { ...prev, workflowStage: newStage } : null);
-    }
-  };
 
   const handleUpgradePDP = (plan: PDPPlan) => {
     revenueService.upgradePDPSubscription(sponsorOrgId, plan.id, 'Corporate FPX Bank Transfer');
   };
 
   const filteredProjects = projects.filter(p => {
-    const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch = p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           p.orgName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           p.id.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesOrg = filterOrgType === 'ALL' || p.orgType.includes(filterOrgType);
@@ -176,11 +200,22 @@ export const ProjectSponsorView: React.FC = () => {
 
   if (selectedProject) {
     return (
-      <ProjectDetailView 
-        project={selectedProject} 
-        onBack={() => setSelectedProject(null)} 
-        onUpdateStage={handleUpdateStage}
-      />
+      <>
+        <ProjectDetailView
+          project={selectedProject}
+          onBack={() => setSelectedProject(null)}
+          onEdit={() => { setEditingProject(selectedProject); setIsRegisterModalOpen(true); }}
+          onChangeStatus={(status) => void handleChangeStatus(selectedProject, status)}
+          statusError={statusError}
+        />
+        <ProjectRegistrationModal
+          isOpen={isRegisterModalOpen}
+          onClose={() => { setIsRegisterModalOpen(false); setEditingProject(null); }}
+          onSubmitProject={handleCreateProject}
+          defaultOrgName={organisationName}
+          editing={editingProject}
+        />
+      </>
     );
   }
 
@@ -225,8 +260,8 @@ export const ProjectSponsorView: React.FC = () => {
             onClick={() => setIsPdpPoolModalOpen(true)}
             disabled={!isPdpActive}
             className={`px-5 py-2.5 font-black text-xs rounded-xl shadow-lg flex items-center gap-2 transition-all shrink-0 cursor-pointer ${
-              isPdpActive 
-                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white transform hover:scale-105' 
+              isPdpActive
+                ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white transform hover:scale-105'
                 : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'
             }`}
           >
@@ -239,8 +274,8 @@ export const ProjectSponsorView: React.FC = () => {
       {/* PDP Onboarding Status Banner */}
       {pdpApp && (
         <div className={`p-5 rounded-3xl border transition-all ${
-          isPdpActive 
-            ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800/60' 
+          isPdpActive
+            ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-800/60'
             : 'bg-amber-50/60 dark:bg-amber-950/20 border-amber-300 dark:border-amber-800/60'
         }`}>
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -295,8 +330,8 @@ export const ProjectSponsorView: React.FC = () => {
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl transition-colors whitespace-nowrap cursor-pointer ${
-              activeTab === tab.id 
-                ? 'bg-purple-600 text-white font-bold shadow-sm' 
+              activeTab === tab.id
+                ? 'bg-purple-600 text-white font-bold shadow-sm'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
@@ -416,7 +451,7 @@ export const ProjectSponsorView: React.FC = () => {
             const raisedPct = Math.min(100, Math.round((p.raisedFunding / p.targetFunding) * 100));
 
             return (
-              <div 
+              <div
                 key={p.id}
                 className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all space-y-4 relative group"
               >
@@ -473,6 +508,14 @@ export const ProjectSponsorView: React.FC = () => {
                       <span>{['Approved', 'Funding Open', 'Pooling', 'Funded'].includes(p.workflowStage) ? 'Promote' : 'Locked'}</span>
                     </button>
 
+                    {p.serverStatus === 'DRAFT' && (
+                      <button
+                        onClick={() => { setEditingProject(p); setIsRegisterModalOpen(true); }}
+                        className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold rounded-xl cursor-pointer text-[11px]"
+                      >
+                        Edit
+                      </button>
+                    )}
                     <button
                       onClick={() => setSelectedProject(p)}
                       className="px-3 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl flex items-center gap-1 transition-colors cursor-pointer"
@@ -540,9 +583,10 @@ export const ProjectSponsorView: React.FC = () => {
       {/* Project Registration Modal */}
       <ProjectRegistrationModal
         isOpen={isRegisterModalOpen}
-        onClose={() => setIsRegisterModalOpen(false)}
+        onClose={() => { setIsRegisterModalOpen(false); setEditingProject(null); }}
         onSubmitProject={handleCreateProject}
         defaultOrgName={organisationName}
+        editing={editingProject}
       />
 
       {/* Promotion Package Modal */}

@@ -3,8 +3,8 @@ import { SponsorProject, WorkflowStage, ProjectMilestone, TeamMember } from './S
 import { SponsorWorkflowBar } from './SponsorWorkflowBar';
 import { ProjectMilestoneList } from './ProjectMilestoneList';
 import { PDPPromotionCard } from '../revenue/PDPPromotionCard';
-import { 
-  Building2, CheckCircle2, Clock, AlertTriangle, ShieldCheck, 
+import {
+  Building2, CheckCircle2, Clock, AlertTriangle, ShieldCheck,
   FileText, Users, MessageSquare, Download, ArrowLeft, Plus, DollarSign, Calendar
 } from 'lucide-react';
 import { apiClient, BackendProjectAnnouncement, BackendProjectDocument, CreateProjectAnnouncementInput, ProjectTeamCandidate } from '../../services/apiClient';
@@ -13,12 +13,16 @@ import { authService } from '../../auth/services/authService';
 interface ProjectDetailViewProps {
   project: SponsorProject;
   onBack: () => void;
-  onUpdateStage: (projectId: string, newStage: WorkflowStage) => void;
+  /** Opens the edit form; only for a draft. */
+  onEdit: () => void;
+  /** Submits the draft for review, or takes it back to draft. */
+  onChangeStatus: (status: 'DUE_DILIGENCE' | 'DRAFT') => void;
+  statusError?: string;
 }
 
-export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, onBack, onUpdateStage }) => {
+export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, onBack, onEdit, onChangeStatus, statusError }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'milestones' | 'disbursements' | 'dataroom' | 'team' | 'investor-comms' | 'due-diligence'>('overview');
-  
+
   const [milestones, setMilestones] = useState<ProjectMilestone[]>(project.milestones);
   const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
   const [newMilestoneAmount, setNewMilestoneAmount] = useState('');
@@ -225,12 +229,21 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
       <div>
         <div className="flex justify-between items-center mb-2">
           <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">Project Governance & Approval Lifecycle</h3>
-          <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">Click any stage to fast-forward workflow stage (Demo Mode)</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {project.serverStatus === 'DRAFT' && (
+              <>
+                <button type="button" onClick={onEdit} className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer">Edit project</button>
+                <button type="button" onClick={() => { if (window.confirm('Submit this project for review? It can no longer be edited unless you return it to draft.')) onChangeStatus('DUE_DILIGENCE'); }} className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-xs font-black text-slate-950 cursor-pointer">Submit for review</button>
+              </>
+            )}
+            {project.serverStatus === 'DUE_DILIGENCE' && (
+              <button type="button" onClick={() => { if (window.confirm('Return this project to draft to correct it? Reviewers see it again only when you resubmit.')) onChangeStatus('DRAFT'); }} className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer">Return to draft</button>
+            )}
+          </div>
         </div>
-        <SponsorWorkflowBar 
-          currentStage={project.workflowStage} 
-          onSelectStage={(newStage) => onUpdateStage(project.id, newStage)} 
-        />
+        {statusError && <p className="mb-2 text-xs font-bold text-rose-600">{statusError}</p>}
+        {/* The stage follows the server; reviewers move the project beyond due diligence. */}
+        <SponsorWorkflowBar currentStage={project.workflowStage} />
       </div>
 
       {/* Detail View Sub-Tabs */}
@@ -248,8 +261,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-colors whitespace-nowrap ${
-              activeTab === tab.id 
-                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-bold' 
+              activeTab === tab.id
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-bold'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
@@ -274,7 +287,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white">Project Description & Scope</h3>
               <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{project.description}</p>
-              
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
                 <div>
                   <span className="text-[10px] text-slate-400 uppercase font-bold">Category</span>

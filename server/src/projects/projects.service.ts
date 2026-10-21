@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PolicyService } from '../policy/policy.service';
-import { AddProjectTeamMemberDto, CreateProjectAnnouncementDto, CreateProjectPromotionDto, CreateProjectDto, CreateProjectMilestoneDto, UpdateProjectMilestoneDto, UpdateProjectStatusDto } from './projects.controller';
+import { AddProjectTeamMemberDto, CreateProjectAnnouncementDto, CreateProjectPromotionDto, CreateProjectDto, CreateProjectMilestoneDto, UpdateProjectDetailsDto, UpdateProjectMilestoneDto, UpdateProjectStatusDto } from './projects.controller';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { assertProjectUnlocked, hasCurrentFinalApproval, isProjectLocked, REOPENABLE_PROJECT_STATUSES } from './project-lock';
 import { formatLocalDateTime } from '../tenancy/country-time';
@@ -14,6 +14,10 @@ import pdfParse from 'pdf-parse';
 import * as XLSX from 'xlsx';
 import { Receipt } from '../billing/receipt-pdf';
 import { RECEIPT_AKAD } from '../billing/receipt-akad';
+
+const SPONSOR_ROLES = ['Project Sponsor', 'Project Manager'];
+/** The only status changes a sponsor makes: submit the draft for review, or take it back to correct it. */
+const SPONSOR_STATUS_MOVES: Record<string, string[]> = { DRAFT: ['DUE_DILIGENCE'], DUE_DILIGENCE: ['DRAFT'] };
 
 const PROJECT_PROMOTION_PACKAGES = [
   { id: 'pkg_free_listing', title: 'Free Project Listing', badgeType: 'Promoted', durationDays: 0, priceMYR: 0, creditsCost: 0 },
@@ -73,6 +77,10 @@ export class ProjectsService {
     const project = await this.get(projectId, user);
     const allowed = ['DRAFT', 'DUE_DILIGENCE', 'APPROVED', 'FUNDING_OPEN', 'POOLING', 'FUNDED', 'EXECUTION', 'PROFIT_DISTRIBUTION', 'COMPLETED', 'REJECTED'];
     if (!allowed.includes(dto.status)) throw new BadRequestException('Unsupported project lifecycle status.');
+    // A sponsor submits its draft for review, or takes it back to correct it; reviewers move it further.
+    if (SPONSOR_ROLES.includes(user.role) && !(SPONSOR_STATUS_MOVES[project.status] ?? []).includes(dto.status)) {
+      throw new ForbiddenException('A project sponsor can submit a draft for review or return it to draft. Reviewers move it further.');
+    }
     // Approval and reopening have their own governed paths; a plain status change must not bypass them.
     if (isProjectLocked(project.status) && ['DRAFT', 'DUE_DILIGENCE'].includes(dto.status)) throw new ConflictException('An approved or rejected project can only return to due diligence through Reopen project.');
     if (dto.status === 'APPROVED' && project.status !== 'APPROVED' && !(await hasCurrentFinalApproval(this.prisma, project))) throw new ConflictException('A project becomes APPROVED only through the final committee decision on its current feasibility revision.');
@@ -546,6 +554,22 @@ export class ProjectsService {
     assertTenantScope(user, document.project, 'Project document');
     this.assertProjectSponsorScope(user, document.project.projectSponsorId);
     return document;
+  }
+
+  /** Corrects a draft's details. Submitted projects are under review, so they must be returned to draft first. */
+  async updateDetails(projectId: string, dto: UpdateProjectDetailsDto, user: AuthenticatedUser) {
+    const project = await this.get(projectId, user);
+    if (project.status !== 'DRAFT') throw new ConflictException('Only a draft project can be edited. Return it to draft first.');
+    const text = (value: string | undefined) => (value === undefined ? undefined : value.trim());
+    const changes = Object.fromEntries(Object.entries({
+      projectName: text(dto.projectName), description: text(dto.description), sector: text(dto.sector), sponsorEntityType: text(dto.sponsorEntityType),
+      proposedShariahContract: text(dto.proposedShariahContract), totalProjectCost: dto.totalProjectCost, fundingRequired: dto.fundingRequired, sponsorContribution: dto.sponsorContribution,
+    }).filter(([, value]) => value !== undefined && value !== ''));
+    if (!Object.keys(changes).length) throw new BadRequestException('Nothing to change.');
+    const updated = await this.prisma.project.update({ where: { projectId }, data: changes });
+    const before = Object.fromEntries(Object.keys(changes).map((key) => [key, String((project as Record<string, unknown>)[key] ?? '')]));
+    await this.audit.recordActor(user, { action: 'project.update', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { fields: Object.keys(changes), before } });
+    return updated;
   }
 
   async create(dto: CreateProjectDto, user: AuthenticatedUser) {

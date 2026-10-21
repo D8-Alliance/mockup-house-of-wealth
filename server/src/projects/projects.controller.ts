@@ -5,6 +5,7 @@ import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { IsString, MaxLength } from 'class-validator';
+import { UpdateProjectDetailsDto } from './update-project-details.dto';
 import { ProjectsService } from './projects.service';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
@@ -57,7 +58,8 @@ export class ProjectsController {
 
   @Post(':id/status')
   @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
-  @RequirePermission('assets', 'update')
+  // A sponsor may only submit its draft or take it back (ProjectsService.updateStatus); reviewers move it further.
+  @RequirePermission('assets', 'create')
   updateStatus(@Param('id') id: string, @Body() body: UpdateProjectStatusDto, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.updateStatus(id, body, user);
   }
@@ -280,7 +282,18 @@ export class ProjectsController {
   create(@Body() body: CreateProjectDto, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.create(body, user);
   }
+
+  /** Corrects a draft project's details; once submitted for review it must be returned to draft first. */
+  @Patch(':id')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Manager', 'Project Sponsor')
+  @RequirePermission('assets', 'create')
+  updateDetails(@Param('id') id: string, @Body() body: UpdateProjectDetailsDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.updateDetails(id, body, user);
+  }
 }
+
+
+export { UpdateProjectDetailsDto };
 
 export interface CreateProjectDto {
   projectCode: string;

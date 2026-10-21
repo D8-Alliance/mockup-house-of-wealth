@@ -90,6 +90,8 @@ export interface SponsorProject {
   location: string;
   country: string;
   workflowStage: WorkflowStage;
+  /** The lifecycle status on the server (DRAFT, DUE_DILIGENCE, APPROVED...), which decides what the sponsor may do. */
+  serverStatus?: string;
   healthScore: number;
   milestones: ProjectMilestone[];
   disbursements: ProjectDisbursement[];

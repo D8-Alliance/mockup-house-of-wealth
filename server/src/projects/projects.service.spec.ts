@@ -36,6 +36,7 @@ const prismaMock = {
     findUnique: jest.fn(),
     findMany: jest.fn().mockResolvedValue([]),
     create: jest.fn(),
+    update: jest.fn(),
   },
   projectDocument: {
     findFirst: jest.fn(),
@@ -166,5 +167,33 @@ describe('ProjectsService approval lock and reopen', () => {
 
   it('requires a reason to reopen', async () => {
     await expect(service.reopenProject('PRJ-1', '  ', admin)).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('ProjectsService: a sponsor corrects a draft and submits it', () => {
+  const service = new ProjectsService(prismaMock as unknown as PrismaService, auditMock as unknown as AuditService, policy);
+  const project = (status: string) => ({ projectId: 'PRJ-1', projectSponsorId: 'USR-A', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', status, sponsorEntityType: 'FELDA / Plantation & Agriculture' });
+  const sponsor = actor('Project Sponsor', 'CN-MYS');
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('lets the sponsor correct a draft, and records what changed', async () => {
+    prismaMock.project.findUnique.mockResolvedValue(project('DRAFT'));
+    prismaMock.project.update.mockResolvedValue({ ...project('DRAFT'), sponsorEntityType: 'FELCRA / Agro-Land Development' });
+    await service.updateDetails('PRJ-1', { sponsorEntityType: ' FELCRA / Agro-Land Development ' }, sponsor);
+    expect(prismaMock.project.update).toHaveBeenCalledWith({ where: { projectId: 'PRJ-1' }, data: { sponsorEntityType: 'FELCRA / Agro-Land Development' } });
+    expect(auditMock.recordActor).toHaveBeenCalledWith(sponsor, expect.objectContaining({ action: 'project.update', metadata: { fields: ['sponsorEntityType'], before: { sponsorEntityType: 'FELDA / Plantation & Agriculture' } } }));
+  });
+
+  it('refuses to edit a project under review', async () => {
+    prismaMock.project.findUnique.mockResolvedValue(project('DUE_DILIGENCE'));
+    await expect(service.updateDetails('PRJ-1', { projectName: 'Renamed' }, sponsor)).rejects.toThrow('Return it to draft first');
+  });
+
+  it('lets a sponsor only submit a draft or take it back; reviewers move it further', async () => {
+    prismaMock.project.findUnique.mockResolvedValue(project('DRAFT'));
+    await expect(service.updateStatus('PRJ-1', { status: 'FUNDING_OPEN' }, sponsor)).rejects.toBeInstanceOf(ForbiddenException);
+    prismaMock.project.findUnique.mockResolvedValue(project('DUE_DILIGENCE'));
+    await expect(service.updateStatus('PRJ-1', { status: 'REJECTED' }, sponsor)).rejects.toBeInstanceOf(ForbiddenException);
   });
 });

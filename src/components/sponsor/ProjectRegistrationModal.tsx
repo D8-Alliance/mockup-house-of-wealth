@@ -8,13 +8,16 @@ interface ProjectRegistrationModalProps {
   onSubmitProject: (newProject: SponsorProject, documents: { businessPlan?: File; financialProjection?: File }) => void | Promise<void>;
   /** The signed-in user's organisation, filled in as the sponsoring organisation. */
   defaultOrgName?: string;
+  /** A draft project being corrected; the form opens with its details. */
+  editing?: SponsorProject | null;
 }
 
-export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> = ({ isOpen, onClose, onSubmitProject, defaultOrgName = '' }) => {
+export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> = ({ isOpen, onClose, onSubmitProject, defaultOrgName = '', editing = null }) => {
   const [title, setTitle] = useState('');
   const [orgName, setOrgName] = useState(defaultOrgName);
   useEffect(() => { if (defaultOrgName) setOrgName((current) => current || defaultOrgName); }, [defaultOrgName]);
-  const [orgType, setOrgType] = useState<SponsorOrgType>('FELDA / Plantation & Agriculture');
+  // No default: the sponsor picks its own entity type, so nobody is registered as FELDA by mistake.
+  const [orgType, setOrgType] = useState<SponsorOrgType>('');
   const [category, setCategory] = useState<SponsorProject['category']>('Green Energy & Solar');
   const [shariahContract, setShariahContract] = useState<SponsorProject['shariahContract']>('Ijarah (Lease)');
   const [targetFunding, setTargetFunding] = useState('5000000');
@@ -29,6 +32,18 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Editing a draft: start from its saved details.
+  useEffect(() => {
+    if (!isOpen || !editing) return;
+    setTitle(editing.title);
+    setOrgType(editing.orgType);
+    setCategory(editing.category);
+    setShariahContract(editing.shariahContract);
+    setTargetFunding(String(editing.targetFunding || ''));
+    setDescription(editing.description);
+    setSubmitError('');
+  }, [isOpen, editing]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,7 +53,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
     setIsSubmitting(true);
 
     const newProject: SponsorProject = {
-      id: `PRJ-${Math.floor(1000 + Math.random() * 9000)}`,
+      id: editing?.id ?? `PRJ-${Math.floor(1000 + Math.random() * 9000)}`,
       title,
       orgName,
       orgType,
@@ -89,8 +104,8 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
             <Shield className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Register New Sponsor Project</h3>
-            <p className="text-xs text-slate-500">Submit capital project for D-8 Shariah tokenization & investor pooling</p>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">{editing ? 'Edit Draft Project' : 'Register New Sponsor Project'}</h3>
+            <p className="text-xs text-slate-500">{editing ? 'Correct the details while the project is a draft. Changes are recorded in the audit trail.' : 'Submit capital project for D-8 Shariah tokenization & investor pooling'}</p>
           </div>
         </div>
 
@@ -123,8 +138,10 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
               <select
                 value={orgType}
                 onChange={(e) => setOrgType(e.target.value as SponsorOrgType)}
+                required
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
               >
+                <option value="">Choose your entity type…</option>
                 {SPONSOR_ENTITY_TYPES.map((entityType) => <option key={entityType} value={entityType}>{entityType}</option>)}
               </select>
             </div>
@@ -206,7 +223,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+          {!editing && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             <div className="border border-dashed border-slate-300 dark:border-slate-700 rounded-xl p-3 text-center bg-slate-50/50 dark:bg-slate-800/50">
               <FileText className="w-5 h-5 mx-auto text-amber-500 mb-1" />
               <span className="block font-semibold text-slate-700 dark:text-slate-300">Business Plan Document</span>
@@ -226,7 +243,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
                 <input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="hidden" onChange={(event) => setFinancialProjectionFile(event.target.files?.[0] || null)} />
               </label>
             </div>
-          </div>
+          </div>}
 
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
             {submitError && <p className="mr-auto self-center text-xs font-semibold text-rose-600">{submitError}</p>}
@@ -242,7 +259,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
               disabled={isSubmitting}
               className="px-5 py-2 bg-gradient-to-r from-amber-500 to-emerald-600 hover:from-amber-600 hover:to-emerald-700 text-white font-semibold rounded-xl flex items-center gap-1.5 shadow-md disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <CheckCircle2 className="w-4 h-4" /> {isSubmitting ? 'Saving...' : 'Save as Draft'}
+              <CheckCircle2 className="w-4 h-4" /> {isSubmitting ? 'Saving...' : editing ? 'Save changes' : 'Save as Draft'}
             </button>
           </div>
         </form>
