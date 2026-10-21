@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Bot, FileSignature, Scale } from 'lucide-react';
 import { openAgreementFor } from '../ai/aiEngineNavigation';
+import { startFromAsset } from '../ai/features/contract/agreementPrefill';
 import { apiClient, apiErrorMessage, AssetStructuringGuidance, BackendAiRun, RegisteredAsset } from '../services/apiClient';
 import { ASSET_TYPE_LABELS, formatMoney } from './assetLabels';
 
@@ -53,16 +54,7 @@ export const AssetStructuringPanel: React.FC<AssetStructuringPanelProps> = ({ as
   };
 
   const draft = (contract: 'IJARAH' | 'MUSHARAKAH') => {
-    const title = [asset.name, asset.location, asset.titleReference ? `title ${asset.titleReference}` : ''].filter(Boolean).join(', ');
-    const value = formatMoney(asset.estimatedValue, asset.currency);
-    const valuation = [asset.valuationDate?.slice(0, 10), asset.valuerName].filter(Boolean).join(' by ');
-    openAgreementFor({
-      contractType: contract,
-      projectName: asset.name,
-      values: contract === 'IJARAH'
-        ? { lessorName: asset.organisationName ?? '', assetDescription: `${ASSET_TYPE_LABELS[asset.assetType]}: ${title} (${asset.id})`, ownershipMaintained: 'Yes, ownership remains with the lessor.' }
-        : { projectType: `Contribution of ${ASSET_TYPE_LABELS[asset.assetType].toLowerCase()}: ${asset.name}`, partners: `${asset.organisationName ?? 'Asset owner'} (asset contributor)`, contributions: `${asset.organisationName ?? 'Asset owner'}: ${title} contributed in kind at ${value}${valuation ? ` (valuation ${valuation})` : ''}` },
-    });
+    openAgreementFor(startFromAsset(asset, contract));
     onOpenAgreement?.();
   };
 

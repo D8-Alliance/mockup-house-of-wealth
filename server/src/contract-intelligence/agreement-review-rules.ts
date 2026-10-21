@@ -13,12 +13,13 @@ import { isWithinTenantScope } from '../tenancy/tenant-scope';
 export const DRAFTER_ROLES = ['Project Sponsor', 'Project Manager', 'Asset Owner', 'Organization Admin', 'Country Admin', 'Super Admin'] as const;
 
 /**
- * Which akad each drafter may draft. A delivery partner finances a project; an asset owner
- * provides an asset (leased, or contributed as capital). Administrators may draft any type.
+ * Which akad each drafter may draft. A delivery partner finances a project, and leases assets for
+ * it (Ijarah as lessee); an asset owner provides an asset (leased, or contributed as capital).
+ * Administrators may draft any type.
  */
 export const AGREEMENT_TYPES_BY_ROLE: Readonly<Record<string, readonly string[]>> = {
-  'Project Sponsor': ['MUDARABAH', 'MUSHARAKAH', 'WAKALAH', 'SUKUK'],
-  'Project Manager': ['MUDARABAH', 'MUSHARAKAH', 'WAKALAH', 'SUKUK'],
+  'Project Sponsor': ['MUDARABAH', 'MUSHARAKAH', 'WAKALAH', 'SUKUK', 'IJARAH'],
+  'Project Manager': ['MUDARABAH', 'MUSHARAKAH', 'WAKALAH', 'SUKUK', 'IJARAH'],
   'Asset Owner': ['IJARAH', 'MUSHARAKAH'],
 };
 

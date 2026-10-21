@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRBAC } from '../../../rbac/RBACContext';
 import { agreementTypesFor, takeAgreementPrefill } from '../../aiEngineNavigation';
 import { CheckCircle2, Download, FileSignature, Info, ShieldAlert, WandSparkles } from 'lucide-react';
-import { apiClient, BackendAgreementDraft } from '../../../services/apiClient';
+import { apiClient, AssetEngagement, BackendAgreementDraft, BackendProject, RegisteredAsset } from '../../../services/apiClient';
+import { AgreementStart, projectContractType, startFromAsset, startFromEngagement, startFromProject } from './agreementPrefill';
 
-type AgreementType = 'IJARAH' | 'MUSHARAKAH' | 'MUDARABAH' | 'WAKALAH' | 'SUKUK';
+type AgreementType = AgreementStart['contractType'];
 type FieldDefinition = { key: string; label: string; required: boolean; suggestion: string; guidance: string; example: string };
 
 const labels: Record<AgreementType, string> = { IJARAH: 'Ijarah Agreement', MUSHARAKAH: 'Musharakah JV Agreement', MUDARABAH: 'Mudarabah Agreement', WAKALAH: 'Wakalah Agreement', SUKUK: 'Sukuk Structure Document' };
@@ -31,7 +32,7 @@ const jurisdictionProfiles: Record<string, { legalSystem: string; authority: str
 
 export const IslamicAgreementWizard: React.FC = () => {
   // A delivery partner drafts project financing; an asset owner drafts asset contracts.
-  const { currentRole } = useRBAC();
+  const { currentRole, tenantContext } = useRBAC();
   const allowedTypes = agreementTypesFor(currentRole, Object.keys(labels) as AgreementType[]);
   // An asset's page may open this wizard with the asset's details already filled in.
   const [prefill] = useState(() => takeAgreementPrefill());
@@ -43,6 +44,51 @@ export const IslamicAgreementWizard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const currentFields = useMemo(() => fields[contractType], [contractType]);
+
+  // What the drafter can start from: approved partnerships they are party to, their verified assets, their projects.
+  const [sources, setSources] = useState<{ engagements: AssetEngagement[]; assets: RegisteredAsset[]; projects: BackendProject[]; organisationName: string }>({ engagements: [], assets: [], projects: [], organisationName: '' });
+  const [source, setSource] = useState('');
+  const [filledFrom, setFilledFrom] = useState(prefill?.source ?? '');
+  useEffect(() => {
+    const ownerSide = currentRole === 'Asset Owner' || currentRole === 'Asset Manager';
+    void Promise.all([
+      apiClient.getAssetEngagements().then((list) => list.filter((item) => item.status === 'APPROVED' && item.myParty)).catch(() => [] as AssetEngagement[]),
+      ownerSide ? apiClient.getAssets('VERIFIED').catch(() => [] as RegisteredAsset[]) : Promise.resolve([] as RegisteredAsset[]),
+      ownerSide ? Promise.resolve([] as BackendProject[]) : apiClient.getProjects().then((list) => list.filter((project) => project.organisationId === tenantContext.organisationId)).catch(() => [] as BackendProject[]),
+      apiClient.getCurrentUser().then((user) => user.assignedRoles.find((role) => role.organisationId === tenantContext.organisationId && role.organisationName)?.organisationName ?? '').catch(() => ''),
+    ]).then(([engagements, assets, projects, organisationName]) => setSources({ engagements, assets, projects, organisationName }));
+  }, [currentRole, tenantContext.organisationId]);
+
+  /** Fills the type, project name and fields from the chosen partnership, asset or project. */
+  const applySource = (key: string, requestedType?: AgreementType) => {
+    setSource(key);
+    setDraft(null);
+    setError('');
+    if (!key) { setFilledFrom(''); return; }
+    const [kind, id] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)];
+    let start: AgreementStart | null = null;
+    let label = '';
+    if (kind === 'eng') {
+      const engagement = sources.engagements.find((item) => item.id === id);
+      if (engagement) { start = startFromEngagement(engagement); label = `partnership ${engagement.id}`; }
+    } else if (kind === 'asset') {
+      const asset = sources.assets.find((item) => item.id === id);
+      const type = requestedType === 'MUSHARAKAH' || (!requestedType && asset?.intendedUse === 'MUSHARAKAH') ? 'MUSHARAKAH' : 'IJARAH';
+      if (asset) { start = startFromAsset(asset, type); label = asset.name; }
+    } else {
+      const project = sources.projects.find((item) => item.projectId === id);
+      const own = project ? projectContractType(project) : null;
+      const type = requestedType ?? (own && allowedTypes.includes(own) ? own : contractType);
+      if (project) { start = startFromProject(project, type, sources.organisationName || tenantContext.organisationId); label = project.projectName; }
+    }
+    if (!start) return;
+    if (!allowedTypes.includes(start.contractType)) { setError(`As ${currentRole}, you cannot draft a ${labels[start.contractType]}.`); return; }
+    setContractType(start.contractType);
+    setProjectName(start.projectName);
+    setValues(start.values);
+    setFilledFrom(label);
+  };
+  const hasSources = sources.engagements.length + sources.assets.length + sources.projects.length > 0;
   const jurisdictionProfile = jurisdictionProfiles[jurisdiction];
 
   const generate = async () => {
@@ -54,7 +100,8 @@ export const IslamicAgreementWizard: React.FC = () => {
 
   return <div className="space-y-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">
     <div><span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-600"><FileSignature className="h-3.5 w-3.5" /> Legal drafting assistant</span><h2 className="mt-2 text-xl font-black text-slate-900 dark:text-white">Islamic Finance Agreement Generation</h2><p className="mt-1 text-xs text-slate-500">Wizard facts are combined with approved clauses, Shariah references, compliance checks, and versioned document output.</p></div>
-    <div className="grid gap-3 md:grid-cols-3"><label className="text-xs font-bold">Agreement type<select value={contractType} onChange={(event) => { setContractType(event.target.value as AgreementType); setDraft(null); }} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-2.5 dark:bg-slate-900">{allowedTypes.map((key) => <option key={key} value={key}>{labels[key]}</option>)}</select></label><label className="text-xs font-bold">Project name<input value={projectName} onChange={(event) => setProjectName(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 dark:bg-slate-900" placeholder="e.g. Meridian Residences" /><span className="mt-1 block text-[10px] font-normal text-slate-500">Required · Example: Meridian Residences</span></label><label className="text-xs font-bold">Jurisdiction<select value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-2.5 dark:bg-slate-900">{Object.keys(jurisdictionProfiles).map((country) => <option key={country}>{country}</option>)}</select></label></div>
+    {hasSources && <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900 dark:bg-emerald-950/20"><label className="text-xs font-bold text-slate-700 dark:text-slate-200">Fill from<select value={source} onChange={(event) => applySource(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-2.5 dark:bg-slate-900"><option value="">Nothing: start from blank</option>{sources.engagements.length > 0 && <optgroup label="Approved asset partnerships">{sources.engagements.map((item) => <option key={item.id} value={`eng:${item.id}`}>{item.asset.name} → {item.project.projectName} ({item.akad === 'IJARAH' ? 'Ijarah' : 'Musharakah'})</option>)}</optgroup>}{sources.assets.length > 0 && <optgroup label="My verified assets">{sources.assets.map((item) => <option key={item.id} value={`asset:${item.id}`}>{item.name}</option>)}</optgroup>}{sources.projects.length > 0 && <optgroup label="My projects">{sources.projects.map((item) => <option key={item.projectId} value={`project:${item.projectId}`}>{item.projectName} ({item.projectCode})</option>)}</optgroup>}</select></label><p className="mt-1 text-[11px] text-slate-500">{filledFrom ? <>Filled from <strong>{filledFrom}</strong>. Check every field before generating; anything can still be changed.</> : 'Choose an approved partnership, an asset or a project to fill in the parties, the asset and the agreed terms.'}</p></div>}
+    <div className="grid gap-3 md:grid-cols-3"><label className="text-xs font-bold">Agreement type<select value={contractType} onChange={(event) => { const type = event.target.value as AgreementType; if (source && !source.startsWith('eng:')) applySource(source, type); else { setContractType(type); setDraft(null); } }} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-2.5 dark:bg-slate-900">{allowedTypes.map((key) => <option key={key} value={key}>{labels[key]}</option>)}</select></label><label className="text-xs font-bold">Project name<input value={projectName} onChange={(event) => setProjectName(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 p-2.5 dark:bg-slate-900" placeholder="e.g. Meridian Residences" /><span className="mt-1 block text-[10px] font-normal text-slate-500">Required · Example: Meridian Residences</span></label><label className="text-xs font-bold">Jurisdiction<select value={jurisdiction} onChange={(event) => setJurisdiction(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-2.5 dark:bg-slate-900">{Object.keys(jurisdictionProfiles).map((country) => <option key={country}>{country}</option>)}</select></label></div>
     {jurisdictionProfile && <div className="grid gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-[11px] text-blue-950 md:grid-cols-2 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100"><div><strong>Legal system</strong><p>{jurisdictionProfile.legalSystem}</p></div><div><strong>Islamic finance authority</strong><p>{jurisdictionProfile.authority}</p></div><div><strong>Shariah reference</strong><p>{jurisdictionProfile.shariah}</p></div><div><strong>Regulatory documents</strong><p>{jurisdictionProfile.documents.join(' · ')}</p></div></div>}
     <div className="grid gap-3 md:grid-cols-2">{currentFields.map((item) => <div key={item.key} className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-700 dark:bg-slate-900/60"><label className="text-xs font-bold text-slate-700 dark:text-slate-300">{item.label} <span className={item.required ? 'text-rose-600' : 'text-slate-400'}>{item.required ? '(Required)' : '(Optional)'}</span><textarea value={values[item.key] || ''} onChange={(event) => setValues((current) => ({ ...current, [item.key]: event.target.value }))} rows={item.key === 'assetDescription' || item.key === 'partners' ? 3 : 2} placeholder={item.example} className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs dark:border-slate-600 dark:bg-slate-900" /></label><div className="mt-2 space-y-1 text-[10px] leading-relaxed"><p className="text-emerald-700 dark:text-emerald-300"><WandSparkles className="mr-1 inline h-3 w-3" /><strong>AI suggestion:</strong> {item.suggestion}</p><p className="text-slate-500 dark:text-slate-400"><Info className="mr-1 inline h-3 w-3" /><strong>Industry guidance:</strong> {item.guidance}</p><p className="text-slate-500 dark:text-slate-400"><strong>Example:</strong> {item.example}</p></div></div>)}</div>
     <button disabled={loading || !projectName.trim()} onClick={() => void generate()} className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-2.5 text-xs font-black text-white disabled:opacity-50"><WandSparkles className="h-4 w-4" />{loading ? 'Assembling agreement...' : 'Generate draft agreement'}</button>

@@ -80,9 +80,9 @@ describe('agreement visibility', () => {
 });
 
 describe('agreement types by role', () => {
-  it('lets a delivery partner draft project financing and an asset owner draft asset contracts', () => {
+  it('lets a delivery partner draft project financing and leases, and an asset owner draft asset contracts', () => {
     expect(agreementTypeBlocker('Project Sponsor', 'MUDARABAH')).toBeNull();
-    expect(agreementTypeBlocker('Project Sponsor', 'IJARAH')).toMatch(/As Project Sponsor, you can draft/);
+    expect(agreementTypeBlocker('Project Sponsor', 'IJARAH')).toBeNull();
     expect(agreementTypeBlocker('Asset Owner', 'IJARAH')).toBeNull();
     expect(agreementTypeBlocker('Asset Owner', 'MUSHARAKAH')).toBeNull();
     expect(agreementTypeBlocker('Asset Owner', 'MUDARABAH')).toMatch(/IJARAH, MUSHARAKAH/);

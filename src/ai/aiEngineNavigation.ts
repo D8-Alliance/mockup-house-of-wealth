@@ -12,9 +12,11 @@ export function openAiEngineSection(section: string): void {
 
 /** Details an agreement starts from, e.g. a verified asset's name, title and value. Read once. */
 export interface AgreementPrefill {
-  contractType: 'IJARAH' | 'MUSHARAKAH';
+  contractType: 'IJARAH' | 'MUSHARAKAH' | 'MUDARABAH' | 'WAKALAH' | 'SUKUK';
   projectName: string;
   values: Record<string, string>;
+  /** What it was filled from, shown to the drafter, e.g. "partnership ENG-MYS-…". */
+  source?: string;
 }
 
 let pendingPrefill: AgreementPrefill | null = null;
@@ -42,8 +44,8 @@ export function takeAiEngineSection(): string | null {
  * contributed as capital. Roles not listed (administrators) may draft any type.
  */
 const AGREEMENT_TYPES_BY_ROLE: Partial<Record<UserRole, string[]>> = {
-  'Project Sponsor': ['MUDARABAH', 'MUSHARAKAH', 'WAKALAH', 'SUKUK'],
-  'Project Manager': ['MUDARABAH', 'MUSHARAKAH', 'WAKALAH', 'SUKUK'],
+  'Project Sponsor': ['MUDARABAH', 'MUSHARAKAH', 'WAKALAH', 'SUKUK', 'IJARAH'],
+  'Project Manager': ['MUDARABAH', 'MUSHARAKAH', 'WAKALAH', 'SUKUK', 'IJARAH'],
   'Asset Owner': ['IJARAH', 'MUSHARAKAH'],
 };
 
