@@ -19,6 +19,7 @@ import { PDPApplicationDetailModal } from '../../pdp/components/PDPApplicationDe
 import { apiClient } from '../../services/apiClient';
 import { authService } from '../../auth/services/authService';
 import { useRBAC } from '../../rbac/RBACContext';
+import { takeProjectRegistrationRequest } from './sponsorNavigation';
 import { ProjectProgressVisual } from '../projects/ProjectProgressVisual';
 
 const PROJECT_CATEGORIES: SponsorProject['category'][] = ['Green Energy & Solar', 'Agro-Industrial', 'SME Export', 'Commercial Real Estate', 'Social Waqf Housing'];
@@ -54,7 +55,7 @@ export const ProjectSponsorView: React.FC = () => {
   const [projects, setProjects] = useState<SponsorProject[]>([]);
   const [projectLoadError, setProjectLoadError] = useState('');
   const [selectedProject, setSelectedProject] = useState<SponsorProject | null>(null);
-  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(() => takeProjectRegistrationRequest());
   const [projectToPromote, setProjectToPromote] = useState<SponsorProject | null>(null);
 
   // PDP Modals State

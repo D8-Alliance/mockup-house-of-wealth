@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useRBAC } from '../../rbac/RBACContext';
-import { canSeePdpOnboarding } from '../../rbac/menuVisibility';
+import { canInvest, canSeePdpOnboarding, canSubmitProject } from '../../rbac/menuVisibility';
+import { requestProjectRegistration } from '../sponsor/sponsorNavigation';
+import { DashboardActivityPanel } from './DashboardActivityPanel';
 import { canDraftAgreement, openAiEngineSection } from '../../ai/aiEngineNavigation';
 import { UserProfile, AssetItem, ContractItem, LanguageCode, NavTab } from '../../types';
 import { 
@@ -15,6 +17,8 @@ import {
   Award, 
   Clock,
   HandCoins,
+  Handshake,
+  FolderKanban,
   TrendingUp
 } from 'lucide-react';
 import { MetricCard } from './MetricCard';
@@ -41,7 +45,27 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
   onOpenContractWizard,
   onOpenPdpRegister
 }) => {
-  const { currentRole, roleDef, checkPermission, canAccessTab } = useRBAC();
+  const { currentRole, roleDef, checkPermission, canAccessTab, tenantContext, isAuthenticated } = useRBAC();
+  // The organisation the user acts for, e.g. "FELCRA", shown under their name.
+  const [organisationName, setOrganisationName] = useState('');
+  React.useEffect(() => {
+    if (!isAuthenticated) { setOrganisationName(''); return; }
+    void apiClient.getCurrentUser()
+      .then((me) => setOrganisationName(me.assignedRoles.find((role) => role.organisationId === tenantContext.organisationId && role.organisationName)?.organisationName ?? ''))
+      .catch(() => setOrganisationName(''));
+  }, [isAuthenticated, tenantContext.organisationId]);
+  // A delivery partner's own projects, for the projects card.
+  const [projectSummary, setProjectSummary] = useState<string | null>(null);
+  React.useEffect(() => {
+    if (!canSubmitProject(currentRole) || currentRole === 'Super Admin' || currentRole === 'Country Admin') { setProjectSummary(null); return; }
+    void apiClient.getProjects()
+      .then((list) => {
+        const own = list.filter((project) => project.organisationId === tenantContext.organisationId);
+        const drafts = own.filter((project) => project.status === 'DRAFT').length;
+        setProjectSummary(`${own.length} project${own.length === 1 ? '' : 's'}${own.length ? `: ${drafts} draft, ${own.length - drafts} submitted or further` : ' yet. Register your first one.'}`);
+      })
+      .catch(() => setProjectSummary(null));
+  }, [currentRole, tenantContext.organisationId]);
   // Real counts for the asset card, for the roles that register or verify assets.
   const [assetSummary, setAssetSummary] = useState<string | null>(null);
   React.useEffect(() => {
@@ -56,12 +80,18 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
       .catch(() => setAssetSummary(null));
   }, [currentRole]);
   const quickLinks = ([
+    { tab: 'sponsor-portal', title: 'My Projects', text: projectSummary ?? 'Register projects, upload evidence and follow their review.', action: 'Open Sponsor Portal', icon: <FolderKanban className="w-5 h-5 text-amber-500" />, linkClass: 'text-amber-600 dark:text-amber-400' },
     { tab: 'assets', title: 'Asset Holdings', text: assetSummary ?? 'Land, buildings and machinery registered for Shariah-compliant use.', action: 'View Assets', icon: <Building2 className="w-5 h-5 text-emerald-500" />, linkClass: 'text-emerald-600 dark:text-emerald-400' },
+    { tab: 'asset-partnerships', title: 'Asset Partnerships', text: 'Assets offered to projects, project asset needs, and offers waiting for a response.', action: 'Open Asset Partnerships', icon: <Handshake className="w-5 h-5 text-emerald-500" />, linkClass: 'text-emerald-600 dark:text-emerald-400' },
     { tab: 'contracts', title: 'Islamic Contracts', text: 'Your Islamic agreements and where each one is in Legal and Shariah review.', action: 'View Contracts', icon: <Coins className="w-5 h-5 text-blue-500" />, linkClass: 'text-blue-600 dark:text-blue-400' },
     { tab: 'pooling', title: 'Wealth Pools', text: 'Browse open Mudarabah and Waqf pools and their funding progress.', action: 'Explore Pools', icon: <HandCoins className="w-5 h-5 text-emerald-500" />, linkClass: 'text-emerald-600 dark:text-emerald-400' },
     { tab: 'investments', title: 'My Investments', text: 'Track your pool participations, profit distributions and exit requests.', action: 'View Investments', icon: <TrendingUp className="w-5 h-5 text-blue-500" />, linkClass: 'text-blue-600 dark:text-blue-400' },
     { tab: 'marketplace', title: 'Marketplace & Liquidity', text: 'Discover Sukuk offerings and Waqf pool allocations across D-8 nations.', action: 'Explore Opportunities', icon: <Globe2 className="w-5 h-5 text-purple-500" />, linkClass: 'text-purple-600 dark:text-purple-400' },
-  ] satisfies { tab: NavTab; title: string; text: string; action: string; icon: React.ReactNode; linkClass: string }[]).filter(link => canAccessTab(link.tab)).slice(0, 3);
+  ] satisfies { tab: NavTab; title: string; text: string; action: string; icon: React.ReactNode; linkClass: string }[])
+    // Only investors invest; a delivery partner or asset owner has no investments to track.
+    .filter(link => canAccessTab(link.tab) && (link.tab !== 'investments' || canInvest(currentRole)))
+    .filter(link => link.tab !== 'sponsor-portal' || projectSummary !== null)
+    .slice(0, 3);
   // PDP onboarding is offered only to visitors and the roles that deliver projects, pools or assets.
   const showPdpOnboarding = !!onOpenPdpRegister && canSeePdpOnboarding(currentRole);
   const [approvalActionDone, setApprovalActionDone] = useState<string | null>(null);
@@ -98,6 +128,14 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
               Welcome back, {user.name}
             </h1>
 
+            {isAuthenticated && currentRole !== 'Guest' && (
+              <p className="flex items-center gap-1.5 text-sm font-bold text-amber-300">
+                <Building2 className="w-4 h-4" />
+                {organisationName || tenantContext.organisationId}
+                <span className="font-mono text-[11px] font-normal text-slate-400">{organisationName ? tenantContext.organisationId : ''}</span>
+              </p>
+            )}
+
             <p className="text-sm text-slate-300 font-medium leading-relaxed">
               {roleDef.description}
             </p>
@@ -124,6 +162,17 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
               >
                 <Plus className="w-4 h-4" />
                 <span>Register Asset</span>
+              </button>
+            )}
+
+            {canSubmitProject(currentRole) && canAccessTab('sponsor-portal') && (
+              <button
+                type="button"
+                onClick={() => { requestProjectRegistration(); setTab('sponsor-portal'); }}
+                className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-lg flex items-center gap-2 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Submit New Project</span>
               </button>
             )}
 
@@ -206,6 +255,8 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
           <MetricCard label="Active Contracts" value={summary ? summary.contractCount.toString() : 'Loading...'} sub="Database count" icon={<Clock className="w-5 h-5 text-amber-500" />} />
         </div>
       )}
+
+      {isAuthenticated && currentRole !== 'Guest' && <DashboardActivityPanel setTab={setTab} />}
 
       {/* Core Modules Quick Grid: only modules this role can open, so no link leads to Access Denied */}
       {quickLinks.length > 0 && (

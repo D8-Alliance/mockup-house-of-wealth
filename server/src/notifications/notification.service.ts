@@ -67,7 +67,7 @@ export class NotificationService {
       try {
         const recipient = await this.prisma.user.findUnique({ where: { id: row.recipientUserId }, select: { email: true, profile: true } });
         const profile = recipient?.profile && typeof recipient.profile === 'object' && !Array.isArray(recipient.profile) ? recipient.profile as Record<string, unknown> : {};
-        await this.prisma.notification.upsert({ where: { dedupeKey: row.dedupeKey }, update: {}, create: { recipientUserId: row.recipientUserId, organisationId: row.organisationId, countryNodeId: row.countryNodeId, type: row.type, title: row.title, message: row.message, resourceType: row.resourceType, resourceId: row.resourceId, dedupeKey: row.dedupeKey } });
+        await this.prisma.notification.upsert({ where: { dedupeKey: row.dedupeKey }, update: {}, create: { recipientUserId: row.recipientUserId, organisationId: row.organisationId, countryNodeId: row.countryNodeId, type: row.type, title: row.title, message: row.message, resourceType: row.resourceType, resourceId: row.resourceId, dedupeKey: row.dedupeKey, createdAt: row.createdAt } });
         await this.delivery.deliver({ channels: channelsForRecipient(row.channels, profile), title: row.title, message: row.message, recipientEmail: recipient?.email, recipientPhone: typeof profile.phone === 'string' ? profile.phone : undefined, pushToken: typeof profile.pushToken === 'string' ? profile.pushToken : undefined });
         await this.prisma.notificationOutbox.update({ where: { id: row.id }, data: { status: 'PROCESSED', processedAt: new Date(), lastError: null } });
         processed += 1;
