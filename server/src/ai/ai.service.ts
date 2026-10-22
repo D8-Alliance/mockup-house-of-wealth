@@ -19,7 +19,7 @@ import { RAG_EMBEDDING_DIMENSIONS, RagEmbeddingService } from './rag-embedding.s
 import { assertRagTransition, canManageRagScope, isRagManager, ragManagementWhere, RagScope, ragScopeKey, ragVisibilitySql, ragVisibilityWhere } from './rag-scope';
 import { MembershipService } from '../membership/membership.service';
 import { ContractClauseRetriever } from './contract-clause-retriever.service';
-import { OFFER_ADVISOR_SYSTEM_PROMPT, OFFER_COMPARISON_SYSTEM_PROMPT, PARTNERSHIP_REVIEW_SYSTEM_PROMPT } from './offer-advisor-prompt';
+import { AGREEMENT_GAP_SYSTEM_PROMPT, OFFER_ADVISOR_SYSTEM_PROMPT, OFFER_COMPARISON_SYSTEM_PROMPT, PARTNERSHIP_REVIEW_SYSTEM_PROMPT } from './offer-advisor-prompt';
 import { AssetPartnershipsService } from '../asset-partnerships/asset-partnerships.service';
 
 export interface RagSearchResult { id: string; documentId: string; content: string; title: string; sourceType: string; scope: string; pageStart?: number | null; pageEnd?: number | null; paragraphRefs?: string[]; effectiveFrom?: string | null; retrieval?: 'keyword' | 'vector' | 'hybrid'; score?: number }
@@ -333,6 +333,11 @@ export class AiService {
 
   retrieveContractClauses(actor: AuthenticatedUser, input: ContractRetrievalDto) { return this.contractRetriever.retrieveClauses(actor, input); }
   validateContractRules(actor: AuthenticatedUser, input: ShariahValidationDto) { return this.contractRetriever.validateShariahRules(actor, input, input.context || {}); }
+
+  /** Gaps in an agreement's text, from the text and the platform's checks (built by the agreement service). */
+  agreementGapScan(actor: AuthenticatedUser, context: { subjectId: string; contractType: string; checks: unknown[]; text: string }) {
+    return this.run(actor, 'agreement_gap_scan', 'SCAN_AGREEMENT_GAPS', `Find gaps in this ${context.contractType} agreement before it is approved.`, context, undefined, AGREEMENT_GAP_SYSTEM_PROMPT);
+  }
 
   generateAgreementSections(actor: AuthenticatedUser, input: { contractType: string; jurisdiction: string; jurisdictionProfile: unknown; projectId?: string; wizardData: Record<string, unknown>; clauses: unknown[]; shariahRules: unknown[] }) {
     return this.run(actor, 'agreement_generation', 'GENERATE_AGREEMENT_SECTIONS', `Draft structured ${input.contractType} agreement sections from the approved clauses and wizard facts. Do not invent parties, amounts, dates, ownership, guarantees, or Shariah approvals.`, input as unknown as Record<string, unknown>);
@@ -1095,7 +1100,7 @@ export class AiService {
   }
 
   private async run(actor: AuthenticatedUser, featureKey: string, action: string, prompt: string, context: Record<string, unknown>, conversationId?: string, systemPrompt?: string) {
-    const operationKey = featureKey === 'contract_draft' ? 'CONTRACT_ANALYSIS' : featureKey === 'contract_advisor' || featureKey === 'asset_advisor' || featureKey === 'asset_offer_advisor' || featureKey === 'offer_comparison' || featureKey === 'partnership_review_assistant' ? 'CONTRACT_ANALYSIS' : featureKey === 'due_diligence_assistant' ? 'DUE_DILIGENCE' : featureKey === 'project_feasibility' ? 'FULL_PROJECT_INTELLIGENCE' : featureKey === 'chat' ? 'SIMPLE_QUERY' : featureKey === 'shariah_assistant' ? 'RISK_ANALYSIS' : 'PROJECT_SUMMARY';
+    const operationKey = featureKey === 'contract_draft' ? 'CONTRACT_ANALYSIS' : featureKey === 'contract_advisor' || featureKey === 'asset_advisor' || featureKey === 'asset_offer_advisor' || featureKey === 'offer_comparison' || featureKey === 'partnership_review_assistant' || featureKey === 'agreement_gap_scan' ? 'CONTRACT_ANALYSIS' : featureKey === 'due_diligence_assistant' ? 'DUE_DILIGENCE' : featureKey === 'project_feasibility' ? 'FULL_PROJECT_INTELLIGENCE' : featureKey === 'chat' ? 'SIMPLE_QUERY' : featureKey === 'shariah_assistant' ? 'RISK_ANALYSIS' : 'PROJECT_SUMMARY';
     const charge = await this.membership.consumeCredits(actor, operationKey, String(context.projectId || context.subjectId || featureKey));
     const requestId = randomUUID();
     const run = await this.prisma.aiRun.create({ data: { requestId, featureKey, action, userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, conversationId, input: context as Prisma.InputJsonValue, output: { charge: { cost: charge.cost ?? 0, usageTransactionId: charge.usageTransactionId ?? null, exempt: 'exempt' in charge && charge.exempt === true } }, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });

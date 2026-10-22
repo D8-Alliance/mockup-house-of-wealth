@@ -352,6 +352,8 @@ export const apiClient = {
   getAgreement: (id: string) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}`),
   /** A party to a partnership agreement agrees to the latest draft, or signs with their typed full name. */
   agreementPartyAction: (id: string, input: { action: AgreementPartyAction; signatureName?: string }) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/party-action`, { method: 'POST', body: JSON.stringify(input) }),
+  getAgreementChecks: (id: string) => request<{ agreementId: string; version: number; checks: AgreementTextCheck[] }>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/checks`),
+  scanAgreementGaps: (id: string) => request<BackendAiRun>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/gap-scan`, { method: 'POST' }),
   reviewAgreement: (id: string, input: { reviewStatus: AgreementAction; note?: string }) => request(`/contract-intelligence/agreements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   downloadAgreement: async (id: string, format: 'docx' | 'pdf') => { const token = authService.getAuthState().session?.token; const response = await apiFetch(`${API_BASE_URL}/contract-intelligence/agreements/${encodeURIComponent(id)}/download/${format}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); if (!response.ok) throw new Error(await response.text() || 'Agreement download failed.'); const url = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = url; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || `agreement.${format}`; link.click(); URL.revokeObjectURL(url); },
   analyzeShariah: (input: { proposedContract: string; terms: string; projectId: string }) => request<BackendAiRun>('/ai/shariah/analyze', {
@@ -1615,6 +1617,8 @@ export type AgreementStatus = 'DRAFT' | 'LEGAL_REVIEW' | 'SHARIAH_REVIEW' | 'APP
 export type AgreementAction = 'LEGAL_REVIEW' | 'SHARIAH_REVIEW' | 'APPROVED' | 'CHANGES_REQUESTED' | 'EXECUTION';
 export interface AgreementAvailableAction { action: AgreementAction; label: string }
 export type AgreementPartyAction = 'CONSENT' | 'SIGN';
+/** One of the platform's checks on an agreement's text. */
+export interface AgreementTextCheck { key: string; label: string; status: 'PASS' | 'WARN' | 'FAIL' | 'INFO'; detail: string }
 export interface AgreementPartyRow { id?: string; role: 'OWNER' | 'PDP' | null; organisationId: string | null; displayName: string; consentedVersion: number | null; consentedAt?: string | null; signedAt: string | null; signatureName?: string | null }
 
 export interface AgreementSummary {

@@ -44,3 +44,13 @@ export const PARTNERSHIP_REVIEW_SYSTEM_PROMPT = [
   'Ijarah: the owner is the lessor and keeps ownership, major maintenance and takaful; rent is fixed and known. Musharakah: both are partners; profit is shared by an agreed ratio and losses by capital; no fixed or guaranteed return.',
   'Do not claim Shariah approval or give legal advice. The reviewer decides. Write plain English in short sentences.',
 ].join(' ');
+
+/** System prompt for scanning an Islamic finance agreement's text for gaps, for its reviewers and parties. */
+export const AGREEMENT_GAP_SYSTEM_PROMPT = [
+  'You review the text of an Islamic finance agreement on the D-8 Wealth Pooling platform (Malaysia) for gaps before Legal and Shariah approval.',
+  'The context has the contract type, the platform\'s text checks (facts: do not contradict them) and the agreement text. Quote clause numbers when you can.',
+  'Look for: missing or vague Shariah protections (loss sharing by capital, no guaranteed return, ownership risk in Ijarah, valuation of contributions in kind), ambiguous commercial terms (amounts, dates, calculation, distribution), and missing legal mechanics (default, termination, governing law, disputes, signatures).',
+  'Return JSON only, in this shape:',
+  '{"recommendation":{"rationale":"two or three short sentences on the overall state of the text","gaps":[{"title":"short title","severity":"HIGH" or "MEDIUM" or "LOW","clause":"clause number or null","suggestion":"one sentence on what to add or change"}],"draftNote":"a review note of two to four sentences the reviewer can edit"},"confidence":"LOW" or "MEDIUM","limitations":["one short sentence"]}',
+  'List at most six gaps, most serious first. Do not invent clauses that are not in the text. Do not claim Shariah approval or give legal advice.',
+].join(' ');

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Download, FileSignature, RefreshCw, X } from 'lucide-react';
 import { AgreementAction, AgreementDetail, AgreementPartyAction, AgreementStatus, AgreementSummary, apiClient, apiErrorMessage } from '../../../services/apiClient';
 import { takeAgreementRecord } from '../../aiEngineNavigation';
+import { AgreementChecksPanel } from './AgreementChecksPanel';
 import { useRBAC } from '../../../rbac/RBACContext';
 import { formatDateTime } from '../../../utils/platformTime';
 
@@ -271,6 +272,8 @@ export const AgreementReviewPanel: React.FC = () => {
               {!ruleCount && <div className="text-amber-700 dark:text-amber-300">Shariah approval needs at least one.</div>}
             </div>
           </div>
+
+          <AgreementChecksPanel agreementId={selected.id} version={latest} onUseNote={selected.availableActions.length > 0 ? setNote : undefined} />
 
           <details className="rounded-xl border border-slate-200 dark:border-slate-700">
             <summary className="px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer">Read the agreement text ({version?.content.sections?.length ?? 0} sections)</summary>

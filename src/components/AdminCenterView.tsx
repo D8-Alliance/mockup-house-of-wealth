@@ -44,6 +44,7 @@ import { AdminAIAnalyticsPanel } from '../ai/monetisation/AdminAIAnalyticsPanel'
 import { MarketplaceMonetisationHub } from './revenue/MarketplaceMonetisationHub';
 import { RevenueManagementHub } from './revenue/RevenueManagementHub';
 import { PdpKybReviewPanel } from '../pdp/components/PdpKybReviewPanel';
+import { takeAdminSection } from './adminNavigation';
 import { PDPCountryConfigAdminPanel } from '../pdp/components/PDPCountryConfigAdminPanel';
 import { AdminShariahContentManager } from './info/AdminShariahContentManager';
 import { AdminPageContentManager } from './info/AdminPageContentManager';
@@ -53,7 +54,8 @@ import { RoleAvailabilityPanel } from './admin/RoleAvailabilityPanel';
 
 export const AdminCenterView: React.FC = () => {
   const { currentRole } = useRBAC();
-  const [activeSection, setActiveSection] = useState<string>('scoped_dashboard');
+  // My reviews on the dashboard may open a queue directly, e.g. PDP applications.
+  const [activeSection, setActiveSection] = useState<string>(() => takeAdminSection() ?? 'scoped_dashboard');
 
   const navCategories = [
     {

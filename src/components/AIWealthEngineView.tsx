@@ -29,7 +29,6 @@ import {
 import { AIContractAdvisor } from '../ai/features/contract/AIContractAdvisor';
 import { AIContractDraftAssistant } from '../ai/features/contract/AIContractDraftAssistant';
 import { IslamicAgreementWizard } from '../ai/features/contract/IslamicAgreementWizard';
-import { AIContractGapAnalysis } from '../ai/features/contract/AIContractGapAnalysis';
 import { AIShariahAssistant } from '../ai/features/shariah/AIShariahAssistant';
 import { AIInvestmentAdvisor } from '../ai/features/investment/AIInvestmentAdvisor';
 import { AIPortfolioAnalysis } from '../ai/features/investment/AIPortfolioAnalysis';
@@ -387,7 +386,6 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
           <div className="space-y-6">
             <AIContractAdvisor user={activeUser} />
             <AIContractDraftAssistant user={activeUser} />
-            <AIContractGapAnalysis user={activeUser} />
           </div>
         )}
         {activeTab === 'agreement-generation' && <IslamicAgreementWizard />}

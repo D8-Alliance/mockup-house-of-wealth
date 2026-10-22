@@ -8,6 +8,7 @@ import { ModalPortal } from '../components/ModalPortal';
 import { NeedFormModal } from './NeedFormModal';
 import { ProposeEngagementModal } from './ProposeEngagementModal';
 import { OfferComparisonModal } from './OfferComparisonModal';
+import { takePartnership } from './partnershipNavigation';
 import { AKAD_LABELS, describeTerms, ENGAGEMENT_STATUS, NEED_STATUS, nextStep, PREFERRED_AKAD_LABELS } from './partnershipLabels';
 
 const OWNER_ROLES = ['Asset Owner', 'Asset Manager'];
@@ -77,6 +78,15 @@ export const AssetPartnershipsView: React.FC<{ onOpenAgreement?: () => void; onO
   }, [side, typeFilter]);
 
   useEffect(() => { void load(); }, [load, currentRole]);
+
+  // My reviews on the dashboard may ask for one partnership to be opened.
+  const [pendingOpen, setPendingOpen] = useState<string | null>(() => takePartnership());
+  useEffect(() => {
+    if (!pendingOpen || !engagements.length) return;
+    const found = engagements.find((engagement) => engagement.id === pendingOpen);
+    if (found) setSelected(found);
+    setPendingOpen(null);
+  }, [pendingOpen, engagements]);
 
   const replace = (engagement: AssetEngagement) => {
     setCompareRefresh((value) => value + 1);

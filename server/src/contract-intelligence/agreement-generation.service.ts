@@ -14,6 +14,7 @@ import { agreementTypeBlocker, availableActions, canSeeAgreement, DRAFTER_ROLES,
 import { NotificationService } from '../notifications/notification.service';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import { getJurisdictionProfile } from './jurisdiction-profiles';
+import { agreementTextChecks } from './agreement-text-checks';
 
 type Section = { number: string; title: string; paragraphs: string[] };
 
@@ -201,6 +202,26 @@ export class AgreementGenerationService {
       }
     }
     return updated;
+  }
+
+  /** The platform's checks on the latest version's text, for reviewers and the parties. */
+  async textChecks(actor: AuthenticatedUser, id: string) {
+    const contract = await this.get(actor, id);
+    const sections = ((contract.versions[0]?.content as { sections?: Section[] } | undefined)?.sections) ?? [];
+    const engagement = contract.engagementId ? await this.prisma.assetEngagement.findUnique({ where: { id: contract.engagementId }, select: { akad: true, terms: true, startDate: true, endDate: true } }) : null;
+    const partnership = engagement ? { akad: engagement.akad, terms: engagement.terms as Record<string, number>, startDate: engagement.startDate.toISOString().slice(0, 10), endDate: engagement.endDate.toISOString().slice(0, 10) } : null;
+    return { agreementId: id, version: contract.versions[0]?.version ?? 1, checks: agreementTextChecks(contract.contractType, sections, partnership), sections };
+  }
+
+  /** AI scan of the latest version for gaps; the platform's checks go with the text as facts. */
+  async gapScan(actor: AuthenticatedUser, id: string) {
+    const { checks, sections, version } = await this.textChecks(actor, id);
+    const contract = await this.get(actor, id);
+    // Kept short enough for a small model: section headings and text, cut at about 6,000 characters.
+    const text = sections.map((section) => `${section.number}. ${section.title}\n${section.paragraphs.join('\n')}`).join('\n\n').slice(0, 6000);
+    const run = await this.ai.agreementGapScan(actor, { subjectId: id, contractType: contract.contractType, checks: checks.filter((check) => check.status !== 'PASS'), text });
+    await this.auditRecord(actor, 'agreement.gap_scan', id, { version, aiRunId: run.id });
+    return run;
   }
 
   async render(actor: AuthenticatedUser, id: string, format: 'docx' | 'pdf') { const contract = await this.get(actor, id); const version = contract.versions[0]; const body = version?.content as { sections?: Section[]; variables?: Record<string, string> } | undefined; const parties = contract.parties.filter((party) => party.role); const sections = (body?.sections || []).map((section) => (parties.length && section.title === 'Signatures' ? { ...section, paragraphs: parties.map((party) => `For the ${party.role === 'OWNER' ? 'asset owner' : 'delivery partner'}, ${party.displayName}: ${party.signedAt ? `signed electronically by ${party.signatureName} on ${party.signedAt.toISOString().slice(0, 10)}` : 'not signed yet'}.`) } : section)); const filename = `${contract.contractNumber}-${contract.contractType.toLowerCase()}.${format}`; const buffer = format === 'docx' ? await this.docx(contract, sections) : await this.pdf(contract, sections); await this.auditRecord(actor, 'agreement.document_generated', id, { format, version: version?.version || 1 }); return { filename, contentType: format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf', buffer }; }
