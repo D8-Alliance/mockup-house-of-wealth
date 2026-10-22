@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { ProjectPartnershipsNote } from './ProjectPartnershipsNote';
 import { AIService } from '../../services/AIService';
 import { ContractAdvisorProject } from '../../types/aiCoreTypes';
 import { apiClient } from '../../../services/apiClient';
@@ -114,9 +115,10 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
            </label>
            {project ? <>
               <span>Funding Required: <strong className="text-slate-900 dark:text-white">{new Intl.NumberFormat(undefined, { style: 'currency', currency: project.currency || 'MYR', maximumFractionDigits: 0 }).format(project.fundingTarget)}</strong></span>
-              <span>Sponsor Proposed Structure: <strong className="text-emerald-600 font-bold">{project.proposedShariahContract}</strong></span>
+              <span>Project financing structure: <strong className="text-emerald-600 font-bold">{project.proposedShariahContract}</strong></span>
            </> : <span>No projects available for the current tenant.</span>}
          </div>
+         {project && <ProjectPartnershipsNote projectId={project.projectId} financingStructure={project.proposedShariahContract} />}
       </div>
 
       {error && <p role="alert" className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">{error}</p>}

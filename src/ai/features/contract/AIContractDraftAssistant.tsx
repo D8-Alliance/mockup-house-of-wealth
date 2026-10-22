@@ -152,7 +152,7 @@ export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> =
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Islamic Contract Structure</label>
+            <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Project financing structure</label>
             <select
               value={project?.proposedShariahContract || ''}
               disabled
@@ -160,6 +160,7 @@ export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> =
             >
               <option value={project?.proposedShariahContract || ''}>{project?.proposedShariahContract || (projectsLoaded || error ? 'Choose a project first' : 'Loading projects...')}</option>
             </select>
+            <p className="mt-1 text-[10px] text-slate-500">The term sheet is for investors. Asset partnership agreements are drafted from the partnership.</p>
           </div>
 
           <div>

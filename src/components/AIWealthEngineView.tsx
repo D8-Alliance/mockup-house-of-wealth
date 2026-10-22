@@ -366,7 +366,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
               <div className="md:col-span-2 lg:col-span-3 pt-2">
                 <UpgradePromptBanner
                   title="Unlock Full AI Intelligence & Unlimited Scenario Engine"
-                  subtitle="Upgrade to Wealth Pooling Plus or Professional for high-throughput AI contract gap analysis, automated AAOIFI audits, and real-time stress testing."
+                  subtitle="Upgrade to Wealth Pooling Plus or Professional for more AI credits for agreement gap scans, offer explanations and Shariah governance audits."
                   requiredTier="PLUS"
                   onViewPlans={onNavigateToMembership}
                 />
