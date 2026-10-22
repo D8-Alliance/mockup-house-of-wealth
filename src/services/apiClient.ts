@@ -351,7 +351,12 @@ export const apiClient = {
   listAgreements: () => request<AgreementSummary[]>('/contract-intelligence/agreements'),
   getAgreement: (id: string) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}`),
   /** A party to a partnership agreement agrees to the latest draft, or signs with their typed full name. */
-  agreementPartyAction: (id: string, input: { action: AgreementPartyAction; signatureName?: string }) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/party-action`, { method: 'POST', body: JSON.stringify(input) }),
+  /** Sends the signer a one-time code (in test mode the code comes back to show on screen). */
+  requestSignCode: (id: string) => request<{ challengeId: string; channel: 'EMAIL' | 'TEST'; destination: string; expiresAt: string; testCode?: string }>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/sign-code`, { method: 'POST' }),
+  getAgreementIntegrity: (id: string) => request<AgreementIntegrity>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/integrity`),
+  downloadSignedAgreement: (id: string) => openAuthenticatedFile(`/contract-intelligence/agreements/${encodeURIComponent(id)}/signed.pdf`),
+  downloadAgreementTimestamp: (id: string) => openAuthenticatedFile(`/contract-intelligence/agreements/${encodeURIComponent(id)}/timestamp.tsr`),
+  agreementPartyAction: (id: string, input: { action: AgreementPartyAction; signatureName?: string; otpChallengeId?: string; otpCode?: string }) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/party-action`, { method: 'POST', body: JSON.stringify(input) }),
   getAgreementChecks: (id: string) => request<{ agreementId: string; version: number; checks: AgreementTextCheck[] }>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/checks`),
   scanAgreementGaps: (id: string) => request<BackendAiRun>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/gap-scan`, { method: 'POST' }),
   reviewAgreement: (id: string, input: { reviewStatus: AgreementAction; note?: string; aiRunId?: string; overrideReason?: string }) => request(`/contract-intelligence/agreements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
@@ -1617,6 +1622,8 @@ export type AgreementStatus = 'DRAFT' | 'LEGAL_REVIEW' | 'SHARIAH_REVIEW' | 'APP
 export type AgreementAction = 'LEGAL_REVIEW' | 'SHARIAH_REVIEW' | 'APPROVED' | 'CHANGES_REQUESTED' | 'EXECUTION';
 export interface AgreementAvailableAction { action: AgreementAction; label: string }
 export type AgreementPartyAction = 'CONSENT' | 'SIGN';
+/** The signed agreement's seal and time-stamp, checked by the server. */
+export interface AgreementIntegrity { status: 'NOT_SEALED' | 'SEALED' | 'VERIFIED' | 'MISMATCH'; checkedAt?: string; sha256?: string; sealedAt?: string; signer?: string | null; certificateSha256?: string; timestamp?: { at: string | null; authority: string | null; serial: string | null } | null; note?: string | null }
 /** One of the platform's checks on an agreement's text. */
 export interface AgreementTextCheck { key: string; label: string; status: 'PASS' | 'WARN' | 'FAIL' | 'INFO'; detail: string }
 export interface AgreementPartyRow { id?: string; role: 'OWNER' | 'PDP' | null; organisationId: string | null; displayName: string; consentedVersion: number | null; consentedAt?: string | null; signedAt: string | null; signatureName?: string | null }

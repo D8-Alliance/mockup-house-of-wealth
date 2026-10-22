@@ -17,6 +17,7 @@ import { getJurisdictionProfile } from './jurisdiction-profiles';
 import { agreementTextChecks } from './agreement-text-checks';
 import { entryHash } from '../asset-partnerships/engagement-record';
 import { NOTE_READS_AS_REFUSAL } from '../asset-partnerships/partnership-review-checks';
+import { AgreementSigningService } from './signing/agreement-signing.service';
 
 type Section = { number: string; title: string; paragraphs: string[] };
 
@@ -27,7 +28,7 @@ const labels: Record<AgreementType, string> = { IJARAH: 'Ijarah Agreement', MUSH
 
 @Injectable()
 export class AgreementGenerationService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly retriever: ContractClauseRetriever, private readonly ai: AiService, @Optional() private readonly notifications?: NotificationService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly retriever: ContractClauseRetriever, private readonly ai: AiService, @Optional() private readonly notifications?: NotificationService, @Optional() private readonly signing?: AgreementSigningService) {}
 
   async createDraft(actor: AuthenticatedUser, input: AgreementWizardDto) {
     if (!(DRAFTER_ROLES as readonly string[]).includes(actor.role)) throw new ForbiddenException('Only project sponsors, project managers, asset owners and administrators can draft agreements.');
@@ -137,10 +138,12 @@ export class AgreementGenerationService {
     } else {
       const typed = input.signatureName?.trim() ?? '';
       if (!typed || typed.toLowerCase() !== actor.name.trim().toLowerCase()) throw new BadRequestException(`Type your full name exactly as registered (${actor.name}) to sign.`);
+      // The one-time code sent to the signer proves the account holder signs, not someone at their screen.
+      const otp = this.signing ? await this.signing.verifyCode(actor, id, latest, input.otpChallengeId, input.otpCode) : null;
       const executed = await this.prisma.$transaction(async (tx) => {
-        const signed = await tx.contractParty.updateMany({ where: { id: party.id, signedAt: null }, data: { signedAt: new Date(), signedBy: actor.userId, signatureName: typed } });
+        const signed = await tx.contractParty.updateMany({ where: { id: party.id, signedAt: null }, data: { signedAt: new Date(), signedBy: actor.userId, signatureName: typed, signatureMethod: otp ? 'TYPED_NAME_OTP' : 'TYPED_NAME', otpChannel: otp?.channel ?? null } });
         if (!signed.count) throw new ConflictException('Your side has already signed.');
-        await tx.contractEvent.create({ data: { contractId: id, eventType: 'PARTY_SIGNED', actorId: actor.userId, metadata: { version: latest, versionHash, role: actor.role, byName: actor.name, note: `Signed for the ${sideName} by ${typed}` } } });
+        await tx.contractEvent.create({ data: { contractId: id, eventType: 'PARTY_SIGNED', actorId: actor.userId, metadata: { version: latest, versionHash, role: actor.role, byName: actor.name, note: `Signed for the ${sideName} by ${typed}`, ...(otp ? { otp } : {}) } } });
         const unsigned = await tx.contractParty.count({ where: { contractId: id, role: { not: null }, signedAt: null } });
         if (unsigned) return false;
         const claimed = await tx.contract.updateMany({ where: { id, status: 'APPROVED' }, data: { status: 'EXECUTION' } });
@@ -149,7 +152,9 @@ export class AgreementGenerationService {
         await tx.contractApproval.create({ data: { contractId: id, versionId: contract.versions[0]?.id || '', approverId: actor.userId, status: 'EXECUTION', decisionNote: 'Signed by both parties', decidedAt: new Date() } });
         return true;
       });
-      await this.auditRecord(actor, 'agreement.party_signed', id, { version: latest, versionHash, side: party.role, signatureName: typed, executed });
+      await this.auditRecord(actor, 'agreement.party_signed', id, { version: latest, versionHash, side: party.role, signatureName: typed, executed, ...(otp ? { otp } : {}) });
+      // Both signed: build, seal and time-stamp the final PDF; the integrity sweeper retries if this fails.
+      if (executed && this.signing) void this.signing.finalize(id).catch(() => undefined);
       for (const recipient of contract.parties.filter((item) => item.role && item.organisationId && (executed || item.id !== party.id))) {
         await this.notifyOrganisation(recipient.organisationId!, contract.countryNodeId, id, executed ? 'executed' : `signed-${party.role}`, executed ? 'Agreement signed by both sides' : 'Agreement: the other side signed', executed ? `${contract.contractNumber} is signed by both sides and now in force.` : `The ${sideName} signed ${contract.contractNumber}. Sign it to put it in force.`);
       }
@@ -249,6 +254,35 @@ export class AgreementGenerationService {
     const run = await this.ai.agreementGapScan(actor, { subjectId: id, contractType: contract.contractType, checks: checks.filter((check) => check.status !== 'PASS'), text });
     await this.auditRecord(actor, 'agreement.gap_scan', id, { version, aiRunId: run.id });
     return run;
+  }
+
+  /** Sends the signer a one-time code for the version they are about to sign. */
+  async issueSignCode(actor: AuthenticatedUser, id: string) {
+    if (!this.signing) throw new BadRequestException('Signing codes are not available.');
+    const contract = await this.get(actor, id);
+    if (!contract.partyActions.some((item) => item.action === 'SIGN')) throw new BadRequestException('This agreement is not waiting for your signature.');
+    return this.signing.issueCode(actor, { id, contractNumber: contract.contractNumber, version: contract.latestVersion });
+  }
+
+  /** The sealed, time-stamped PDF of an executed agreement, for whoever can see the agreement. */
+  async signedPdf(actor: AuthenticatedUser, id: string) {
+    if (!this.signing) throw new BadRequestException('Signed documents are not available.');
+    const contract = await this.get(actor, id);
+    const buffer = await this.signing.signedPdf(id);
+    await this.auditRecord(actor, 'agreement.signed_pdf_downloaded', id, {});
+    return { filename: `${contract.contractNumber}-signed.pdf`, buffer };
+  }
+
+  async signedTimestamp(actor: AuthenticatedUser, id: string) {
+    if (!this.signing) throw new BadRequestException('Signed documents are not available.');
+    const contract = await this.get(actor, id);
+    return { filename: `${contract.contractNumber}-timestamp.tsr`, buffer: await this.signing.timestampToken(id) };
+  }
+
+  async integrity(actor: AuthenticatedUser, id: string) {
+    if (!this.signing) return { status: 'NOT_SEALED' as const };
+    await this.get(actor, id);
+    return this.signing.checkIntegrity(id);
   }
 
   async render(actor: AuthenticatedUser, id: string, format: 'docx' | 'pdf') { const contract = await this.get(actor, id); const version = contract.versions[0]; const body = version?.content as { sections?: Section[]; variables?: Record<string, string> } | undefined; const parties = contract.parties.filter((party) => party.role); const sections = (body?.sections || []).map((section) => (parties.length && section.title === 'Signatures' ? { ...section, paragraphs: parties.map((party) => `For the ${party.role === 'OWNER' ? 'asset owner' : 'delivery partner'}, ${party.displayName}: ${party.signedAt ? `signed electronically by ${party.signatureName} on ${party.signedAt.toISOString().slice(0, 10)}` : 'not signed yet'}.`) } : section)); const filename = `${contract.contractNumber}-${contract.contractType.toLowerCase()}.${format}`; const buffer = format === 'docx' ? await this.docx(contract, sections) : await this.pdf(contract, sections); await this.auditRecord(actor, 'agreement.document_generated', id, { format, version: version?.version || 1 }); return { filename, contentType: format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf', buffer }; }

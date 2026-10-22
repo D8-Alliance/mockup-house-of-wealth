@@ -19,6 +19,9 @@ export class AgreementPartyActionDto {
   @IsIn(['CONSENT', 'SIGN']) action!: 'CONSENT' | 'SIGN';
   /** SIGN: the signer's full name, typed as their electronic signature. */
   @IsOptional() @IsString() @MaxLength(200) signatureName?: string;
+  /** SIGN: the one-time code sent to the signer, and the challenge it answers. */
+  @IsOptional() @IsString() @MaxLength(60) otpChallengeId?: string;
+  @IsOptional() @IsString() @MaxLength(12) otpCode?: string;
 }
 
 export class AgreementReviewDto {

@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Download, FileSignature, RefreshCw, X } fr
 import { AgreementAction, AgreementDetail, AgreementPartyAction, AgreementStatus, AgreementSummary, apiClient, apiErrorMessage } from '../../../services/apiClient';
 import { takeAgreementRecord } from '../../aiEngineNavigation';
 import { AgreementChecksPanel } from './AgreementChecksPanel';
+import { SignedAgreementPanel } from './SignedAgreementPanel';
 import { useRBAC } from '../../../rbac/RBACContext';
 import { formatDateTime, formatDateTimeWithZone } from '../../../utils/platformTime';
 
@@ -55,6 +56,10 @@ export const AgreementReviewPanel: React.FC = () => {
   const [actionError, setActionError] = useState('');
   const [signatureName, setSignatureName] = useState('');
   const [authorised, setAuthorised] = useState(false);
+  // Signing needs a one-time code sent to the signer.
+  const [signCode, setSignCode] = useState<{ challengeId: string; channel: string; destination: string; expiresAt: string; testCode?: string } | null>(null);
+  const [otp, setOtp] = useState('');
+  const [sendingCode, setSendingCode] = useState(false);
   // Approving against the text checks, the AI scan or one's own note needs a reason, kept with the decision.
   const [aiRunId, setAiRunId] = useState<string | null>(null);
   const [signals, setSignals] = useState<{ failed: string[]; highGaps: number }>({ failed: [], highGaps: 0 });
@@ -100,17 +105,37 @@ export const AgreementReviewPanel: React.FC = () => {
       setActionError('Type your full name and confirm you may sign for your organisation.');
       return;
     }
+    if (action === 'SIGN' && (!signCode || otp.trim().length !== 6)) {
+      setActionError('Send yourself a signing code and enter the 6 digits.');
+      return;
+    }
     setSaving(action === 'SIGN' ? 'EXECUTION' : 'LEGAL_REVIEW');
     setActionError('');
     try {
-      await apiClient.agreementPartyAction(selected.id, { action, signatureName: action === 'SIGN' ? signatureName.trim() : undefined });
+      await apiClient.agreementPartyAction(selected.id, { action, ...(action === 'SIGN' ? { signatureName: signatureName.trim(), otpChallengeId: signCode?.challengeId, otpCode: otp.trim() } : {}) });
       setSignatureName('');
       setAuthorised(false);
+      setSignCode(null);
+      setOtp('');
       await Promise.all([load(), open(selected.id)]);
     } catch (cause) {
       setActionError(apiErrorMessage(cause, action === 'SIGN' ? 'The signature was not saved.' : 'Your agreement was not saved.'));
     } finally {
       setSaving(null);
+    }
+  };
+
+  const sendSignCode = async () => {
+    if (!selected) return;
+    setSendingCode(true);
+    setActionError('');
+    try {
+      setSignCode(await apiClient.requestSignCode(selected.id));
+      setOtp('');
+    } catch (cause) {
+      setActionError(apiErrorMessage(cause, 'The code could not be sent.'));
+    } finally {
+      setSendingCode(false);
     }
   };
 
@@ -262,7 +287,18 @@ export const AgreementReviewPanel: React.FC = () => {
                   <p className="text-slate-600 dark:text-slate-300">Sign electronically for {myParty?.displayName ?? 'your organisation'}. The agreement comes into force when both sides have signed.</p>
                   <input value={signatureName} onChange={(event) => setSignatureName(event.target.value)} placeholder="Type your full name as registered" className="w-full sm:w-80 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm" />
                   <label className="flex items-start gap-2 text-slate-600 dark:text-slate-300"><input type="checkbox" checked={authorised} onChange={(event) => setAuthorised(event.target.checked)} className="mt-0.5" />I have read version {latest} and I am authorised to sign it for {myParty?.displayName ?? 'my organisation'}.</label>
-                  <button type="button" disabled={saving !== null} onClick={() => void actAsParty('SIGN')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold cursor-pointer disabled:opacity-60"><FileSignature className="w-4 h-4" />{saving ? 'Signing…' : 'Sign the agreement'}</button>
+                  <div className="space-y-1.5 p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                    {!signCode ? (
+                      <button type="button" disabled={sendingCode || !signatureName.trim() || !authorised} onClick={() => void sendSignCode()} className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-600 font-bold text-slate-700 dark:text-slate-200 cursor-pointer disabled:opacity-50">{sendingCode ? 'Sending…' : 'Send me a signing code'}</button>
+                    ) : (
+                      <>
+                        <p className="text-slate-600 dark:text-slate-300">Code sent {signCode.channel === 'EMAIL' ? `by email to ${signCode.destination}` : '(test mode)'}; it expires {formatDateTime(signCode.expiresAt)}. <button type="button" disabled={sendingCode} onClick={() => void sendSignCode()} className="font-bold underline cursor-pointer">Send again</button></p>
+                        {signCode.testCode && <p className="font-bold text-amber-700 dark:text-amber-300">Test mode (no email set up): your code is <span className="font-mono">{signCode.testCode}</span>. In production it is sent by email only.</p>}
+                        <input value={otp} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" placeholder="6-digit code" className="w-40 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 font-mono text-sm tracking-widest" />
+                      </>
+                    )}
+                  </div>
+                  <button type="button" disabled={saving !== null || !signCode || otp.length !== 6} onClick={() => void actAsParty('SIGN')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold cursor-pointer disabled:opacity-60"><FileSignature className="w-4 h-4" />{saving ? 'Signing…' : 'Sign the agreement'}</button>
                 </>
               )}
               {actionError && selected.availableActions.length === 0 && <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 font-semibold"><AlertTriangle className="w-4 h-4 shrink-0" />{actionError}</div>}
@@ -286,6 +322,8 @@ export const AgreementReviewPanel: React.FC = () => {
               {!ruleCount && <div className="text-amber-700 dark:text-amber-300">Shariah approval needs at least one.</div>}
             </div>
           </div>
+
+          {selected.status === 'EXECUTION' && parties.length > 0 && <SignedAgreementPanel agreementId={selected.id} />}
 
           <AgreementChecksPanel agreementId={selected.id} version={latest} onUseNote={selected.availableActions.length > 0 ? (text, runId) => { setNote(text); setAiRunId(runId); } : undefined} onSignals={setSignals} />
 

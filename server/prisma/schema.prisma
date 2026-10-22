@@ -1602,10 +1602,56 @@ model Contract {
   approvals        ContractApproval[]
   events           ContractEvent[]
   documentVersions DocumentVersion[]
+  signedDocument   SignedAgreementDocument?
 
   @@index([organisationId, countryNodeId])
   @@index([status])
   @@index([contractType, status])
+}
+
+/// A one-time code sent to a party's signer; the signature is accepted only with it.
+model SignatureChallenge {
+  id          String    @id @default(cuid())
+  contractId  String
+  userId      String
+  /// The agreement version the code is for.
+  version     Int
+  /// SHA-256 of the challenge id and the code; the code itself is never stored.
+  codeHash    String
+  /// EMAIL, SMS or TEST (staging only: the code is shown on screen).
+  channel     String
+  /// Where it was sent, masked, e.g. "a***@gmail.com".
+  destination String
+  attempts    Int       @default(0)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([contractId, userId])
+}
+
+/// The final agreement PDF once both parties signed: with its Certificate of Completion, sealed by the
+/// platform (PAdES) and time-stamped by a third party (RFC 3161). Checked again regularly.
+model SignedAgreementDocument {
+  id                 String    @id @default(cuid())
+  contractId         String    @unique
+  version            Int
+  pdf                Bytes
+  sha256             String
+  sealedAt           DateTime
+  sealCertSha256     String
+  /// Base64 DER time-stamp token over sha256; checkable with openssl ts -verify.
+  timestampToken     String?
+  timestampAt        DateTime?
+  timestampAuthority String?
+  timestampSerial    String?
+  /// SEALED (time-stamp pending), VERIFIED, or MISMATCH (the stored file no longer matches).
+  integrityStatus    String    @default("SEALED")
+  integrityCheckedAt DateTime?
+  integrityNote      String?
+  createdAt          DateTime  @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
 }
 
 // ---------------------------------------------------------------------------
@@ -1766,6 +1812,9 @@ model ContractParty {
   signedBy         String?
   /// The full name the signer typed as their electronic signature.
   signatureName    String?
+  /// How the party signed, e.g. TYPED_NAME_OTP, and where its one-time code went (EMAIL, SMS, TEST).
+  signatureMethod  String?
+  otpChannel       String?
   createdAt      DateTime @default(now())
 
   contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
