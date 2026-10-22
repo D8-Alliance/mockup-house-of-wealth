@@ -325,9 +325,9 @@ export class AiService {
     if (requirement) assertProjectUnlocked(document.project, 'Re-analysing project evidence');
     // Charge credits before any state change so an insufficient balance cannot
     // leave the requirement in AI_PROCESSING or the AiRun in RUNNING.
-    await this.membership.consumeCredits(actor, 'PROJECT_SUMMARY', documentId);
+    const charge = await this.membership.consumeCredits(actor, 'PROJECT_SUMMARY', documentId);
     if (requirement) await this.prisma.projectEvidenceRequirement.update({ where: { id: requirement.id }, data: { status: 'AI_PROCESSING', verificationStatus: 'AI_PROCESSING' } });
-    const aiRun = await this.prisma.aiRun.create({ data: { requestId: randomUUID(), featureKey: 'project_evidence_verification', action: 'ANALYZE_PROJECT_EVIDENCE', userId: actor.userId, organisationId: document.organisationId, countryNodeId: document.countryNodeId, input: { projectId, documentId, evidenceType: requirement?.evidenceType || null, fileName: document.fileName }, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });
+    const aiRun = await this.prisma.aiRun.create({ data: { requestId: randomUUID(), featureKey: 'project_evidence_verification', action: 'ANALYZE_PROJECT_EVIDENCE', userId: actor.userId, organisationId: document.organisationId, countryNodeId: document.countryNodeId, input: { projectId, documentId, evidenceType: requirement?.evidenceType || null, fileName: document.fileName }, output: { charge: { cost: charge.cost ?? 0, usageTransactionId: charge.usageTransactionId ?? null, exempt: 'exempt' in charge && charge.exempt === true } }, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });
     await this.audit.recordActor(actor, { action: 'ai.request', resourceType: 'AiRun', resourceId: aiRun.id, organisationId: document.organisationId, countryNodeId: document.countryNodeId, metadata: { featureKey: aiRun.featureKey, documentId } });
     const failVerification = async (reason: string, missingFields: string[]) => {
       await this.prisma.aiRun.update({ where: { id: aiRun.id }, data: { status: 'FAILED', output: { error: reason }, completedAt: new Date() } });
@@ -1040,7 +1040,7 @@ export class AiService {
     const operationKey = featureKey === 'contract_draft' ? 'CONTRACT_ANALYSIS' : featureKey === 'contract_advisor' || featureKey === 'asset_advisor' || featureKey === 'asset_offer_advisor' ? 'CONTRACT_ANALYSIS' : featureKey === 'due_diligence_assistant' ? 'DUE_DILIGENCE' : featureKey === 'project_feasibility' ? 'FULL_PROJECT_INTELLIGENCE' : featureKey === 'chat' ? 'SIMPLE_QUERY' : featureKey === 'shariah_assistant' ? 'RISK_ANALYSIS' : 'PROJECT_SUMMARY';
     const charge = await this.membership.consumeCredits(actor, operationKey, String(context.projectId || context.subjectId || featureKey));
     const requestId = randomUUID();
-    const run = await this.prisma.aiRun.create({ data: { requestId, featureKey, action, userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, conversationId, input: context as Prisma.InputJsonValue, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });
+    const run = await this.prisma.aiRun.create({ data: { requestId, featureKey, action, userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, conversationId, input: context as Prisma.InputJsonValue, output: { charge: { cost: charge.cost ?? 0, usageTransactionId: charge.usageTransactionId ?? null, exempt: 'exempt' in charge && charge.exempt === true } }, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });
     await this.audit.recordActor(actor, { action: 'ai.request', resourceType: 'AiRun', resourceId: run.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { featureKey, requestId } });
     try {
       const output = this.applyEvidenceGuard(featureKey, context, await this.provider.generate({ featureKey, action, prompt, context, systemPrompt }));

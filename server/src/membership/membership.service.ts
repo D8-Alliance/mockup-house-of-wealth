@@ -483,7 +483,7 @@ export class MembershipService {
 
   /** With `client`, charges inside the caller's transaction and leaves the audit entry to the caller (recordCreditAudit). */
   /** Returns the credits of an AI request that failed, so a model outage costs the user nothing. */
-  async refundFailedUse(actor: AuthenticatedUser, charge: { cost?: number; usageTransactionId?: string; exempt?: boolean }, reference: string) {
+  async refundFailedUse(actor: Pick<AuthenticatedUser, 'userId' | 'organisationId'>, charge: { cost?: number; usageTransactionId?: string; exempt?: boolean }, reference: string) {
     const cost = charge.cost ?? 0;
     if (charge.exempt || cost <= 0) return;
     await this.prisma.$transaction(async (tx) => {
