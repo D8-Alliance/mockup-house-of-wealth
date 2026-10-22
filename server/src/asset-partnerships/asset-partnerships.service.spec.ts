@@ -139,6 +139,12 @@ describe('AssetPartnershipsService', () => {
     await expect(service.respond(owner, accepted.id, { action: 'ACCEPT' })).rejects.toThrow('counter-offer');
   });
 
+  it('refuses a counter-offer that changes nothing', async () => {
+    prisma.assetEngagement.findFirst.mockResolvedValueOnce(row());
+    await expect(service.respond(sponsor, 'ENG-MYS-0000001', { action: 'COUNTER', terms: { rentAmount: 9000 } })).rejects.toThrow('changes nothing');
+    expect(prisma.assetEngagement.updateMany).not.toHaveBeenCalled();
+  });
+
   it("needs the delivery partner's capital before a Musharakah is accepted", async () => {
     prisma.assetEngagement.findFirst.mockResolvedValueOnce(row({ akad: 'MUSHARAKAH', terms: { contributionValue: 500000, profitSharePct: 60, currency: 'MYR' } }));
     await expect(service.respond(sponsor, 'ENG-MYS-0000001', { action: 'ACCEPT' })).rejects.toThrow('capital contribution');

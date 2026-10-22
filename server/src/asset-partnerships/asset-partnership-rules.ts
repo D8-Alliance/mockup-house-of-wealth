@@ -65,6 +65,12 @@ export function capitalShares(terms: EngagementTerms): { owner: number; pdp: num
   return { owner: ownerPct, pdp: Math.round((100 - ownerPct) * 10) / 10 };
 }
 
+/** The same akad terms, ignoring fields left empty. */
+export function sameTerms(a: EngagementTerms, b: EngagementTerms): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof EngagementTerms>;
+  return [...keys].every((key) => (a[key] ?? null) === (b[key] ?? null));
+}
+
 export function periodsOverlap(a: { startDate: Date; endDate: Date }, b: { startDate: Date; endDate: Date }): boolean {
   return a.startDate < b.endDate && b.startDate < a.endDate;
 }

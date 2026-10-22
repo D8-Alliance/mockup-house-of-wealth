@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma.service';
 import { checkSummary, partnershipChecks, ReviewCheck } from './partnership-review-checks';
 import { newCountryScopedId } from '../users/user-identity';
 import { AssetListingDto, CreateAssetNeedDto, CreateEngagementDto, RespondEngagementDto, ReviewEngagementDto, UpdateNeedStatusDto, WithdrawEngagementDto } from './asset-partnership.dto';
-import { Akad, cleanTerms, CLOSED_PROJECT_STATUSES, EngagementTerms, HOLDING_ENGAGEMENT_STATUSES, offerMetrics, OPEN_ENGAGEMENT_STATUSES, otherParty, Party, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch, demandLevel, OFFER_SCORE_WEIGHTS, scoreOffers } from './asset-partnership-rules';
+import { Akad, cleanTerms, CLOSED_PROJECT_STATUSES, EngagementTerms, HOLDING_ENGAGEMENT_STATUSES, offerMetrics, OPEN_ENGAGEMENT_STATUSES, otherParty, Party, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch, demandLevel, OFFER_SCORE_WEIGHTS, scoreOffers, sameTerms } from './asset-partnership-rules';
 
 /** Roles that act for a delivery partner (PDP) and its projects. */
 export const PDP_ROLES: ReadonlySet<string> = new Set(['Project Sponsor', 'Project Manager', 'Organization Admin']);
@@ -299,6 +299,10 @@ export class AssetPartnershipsService {
       const endDate = input.endDate ?? day(engagement.endDate)!;
       const problems = termsProblems(akad, terms, startDate, endDate);
       if (problems.length) throw new BadRequestException(`Add ${problems.join(', ')}.`);
+      // A counter-offer that changes nothing only passes the turn back and forth.
+      if (akad === engagement.akad && startDate === day(engagement.startDate) && endDate === day(engagement.endDate) && sameTerms(terms, cleanTerms(akad, engagement.terms as EngagementTerms))) {
+        throw new BadRequestException('This counter-offer changes nothing. Change the terms, or accept or decline them.');
+      }
       data = {
         akad, terms: terms as Prisma.InputJsonValue, startDate: new Date(startDate), endDate: new Date(endDate), awaiting: otherParty(party),
         history: [...history, this.entry(actor, party, 'COUNTERED', input.note, { akad, terms, startDate, endDate })] as unknown as Prisma.InputJsonValue,
