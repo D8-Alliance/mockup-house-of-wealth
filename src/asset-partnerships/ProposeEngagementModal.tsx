@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Handshake, X } from 'lucide-react';
-import { apiClient, apiErrorMessage, AssetEngagement, BackendProject, ListedAsset, ProjectAssetNeed, RegisteredAsset } from '../services/apiClient';
+import { apiClient, apiErrorMessage, AssetEngagement, AssetTypeCode, BackendProject, ListedAsset, ProjectAssetNeed, RegisteredAsset } from '../services/apiClient';
 import { ASSET_TYPE_LABELS } from '../assets/assetLabels';
 import { emptyDraft, EngagementDraft, EngagementTermsFields, INPUT, LABEL } from './EngagementTermsFields';
 import { PREFERRED_AKAD_LABELS } from './partnershipLabels';
@@ -11,7 +11,7 @@ const typesMatch = (needType: string, assetType: string) => needType === assetTy
 const CLOSED_PROJECT = ['COMPLETED', 'REJECTED'];
 
 type Props =
-  | { mode: 'OFFER'; need: ProjectAssetNeed; organisationId: string; onClose: () => void; onCreated: (engagement: AssetEngagement) => void }
+  | { mode: 'OFFER'; need: ProjectAssetNeed; organisationId: string; onClose: () => void; onCreated: (engagement: AssetEngagement) => void; onRegisterAsset?: (type: AssetTypeCode) => void }
   | { mode: 'REQUEST'; asset: ListedAsset; organisationId: string; onClose: () => void; onCreated: (engagement: AssetEngagement) => void };
 
 /**
@@ -96,7 +96,7 @@ export const ProposeEngagementModal: React.FC<Props> = (props) => {
                 <option value="">Choose…</option>
                 {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name} ({asset.id})</option>)}
               </select>
-            ) : <p className="p-3 rounded-xl bg-amber-500/10 text-amber-700 text-xs">You have no verified {ASSET_TYPE_LABELS[props.need.assetType].toLowerCase()} asset. Register one in Asset Register and have it verified first.</p>}
+            ) : <p className="p-3 rounded-xl bg-amber-500/10 text-amber-700 text-xs">You have no verified {ASSET_TYPE_LABELS[props.need.assetType].toLowerCase()} asset. Register one in Asset Register and have it verified first.{props.onRegisterAsset && <button type="button" onClick={() => props.onRegisterAsset?.(props.need.assetType)} className="ml-2 underline font-bold cursor-pointer">Register {ASSET_TYPE_LABELS[props.need.assetType].toLowerCase()} now</button>}</p>}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

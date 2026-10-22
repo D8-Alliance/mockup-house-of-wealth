@@ -1,4 +1,5 @@
 import { IS_STATIC_DEMO } from './services/apiFetch';
+import type { AssetTypeCode } from './services/apiClient';
 import React, { useState, useEffect } from 'react';
 import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, BeneficiaryItem, LedgerTransaction } from './types';
 import { LANGUAGES } from './data/translations';
@@ -63,7 +64,8 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
   // Modal controls
   const [codeReviewOpen, setCodeReviewOpen] = useState(false);
   const [contractWizardOpen, setContractWizardOpen] = useState(false);
-  const [assetRegisterOpen, setAssetRegisterOpen] = useState(false);
+  // Set when a page asks for the asset form; the type comes from a project need the owner wants to answer.
+  const [assetRegisterOpen, setAssetRegisterOpen] = useState<{ type?: AssetTypeCode } | null>(null);
   const [pdpRegisterOpen, setPdpRegisterOpen] = useState(false);
   const [selectedContractPerf, setSelectedContractPerf] = useState<ContractItem | null>(null);
 
@@ -119,9 +121,9 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
           onFinancialRefresh={refreshFinancialData}
           beneficiaries={beneficiaries}
           setBeneficiaries={setBeneficiaries}
-          onOpenAssetRegister={() => { setAssetRegisterOpen(true); setTab('assets'); }}
+          onOpenAssetRegister={(type) => { setAssetRegisterOpen({ type }); setTab('assets'); }}
           assetRegisterRequested={assetRegisterOpen}
-          onAssetRegisterStarted={() => setAssetRegisterOpen(false)}
+          onAssetRegisterStarted={() => setAssetRegisterOpen(null)}
           onOpenContractWizard={() => setContractWizardOpen(true)}
           onOpenFinancialPerf={(c) => setSelectedContractPerf(c)}
           onOpenPdpRegister={() => setPdpRegisterOpen(true)}

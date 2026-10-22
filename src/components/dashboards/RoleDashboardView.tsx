@@ -1,3 +1,4 @@
+import type { AssetTypeCode } from '../../services/apiClient';
 import React, { useState } from 'react';
 import { useRBAC } from '../../rbac/RBACContext';
 import { canInvest, canSeePdpOnboarding, canSubmitProject } from '../../rbac/menuVisibility';
@@ -32,7 +33,7 @@ interface RoleDashboardViewProps {
   contracts: ContractItem[];
   lang: LanguageCode;
   setTab: (tab: NavTab) => void;
-  onOpenAssetRegister: () => void;
+  onOpenAssetRegister: (type?: AssetTypeCode) => void;
   onOpenContractWizard: () => void;
   onOpenPdpRegister?: () => void;
 }
@@ -158,7 +159,7 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
             {(currentRole === 'Asset Owner' || currentRole === 'Asset Manager') && (
               <button
                 type="button"
-                onClick={onOpenAssetRegister}
+                onClick={() => onOpenAssetRegister()}
                 className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg flex items-center gap-2 cursor-pointer"
               >
                 <Plus className="w-4 h-4" />

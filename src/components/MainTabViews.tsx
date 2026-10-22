@@ -1,3 +1,4 @@
+import type { AssetTypeCode } from '../services/apiClient';
 import React from 'react';
 import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, BeneficiaryItem, LedgerTransaction } from '../types';
 import { RoleGuard } from '../rbac/RoleGuard';
@@ -41,8 +42,8 @@ interface MainTabViewsProps {
   onFinancialRefresh: () => Promise<void>;
   beneficiaries: BeneficiaryItem[];
   setBeneficiaries: React.Dispatch<React.SetStateAction<BeneficiaryItem[]>>;
-  onOpenAssetRegister: () => void;
-  assetRegisterRequested?: boolean;
+  onOpenAssetRegister: (type?: AssetTypeCode) => void;
+  assetRegisterRequested?: { type?: AssetTypeCode } | null;
   onAssetRegisterStarted?: () => void;
   onOpenContractWizard: () => void;
   onOpenFinancialPerf: (contract: ContractItem) => void;
@@ -115,7 +116,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'asset-partnerships' && (
         <RoleGuard tab="asset-partnerships">
-          <AssetPartnershipsView onOpenAgreement={() => setTab('ai-engine')} />
+          <AssetPartnershipsView onOpenAgreement={() => setTab('ai-engine')} onOpenAssetRegister={onOpenAssetRegister} />
         </RoleGuard>
       )}
 
@@ -150,7 +151,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
         <RoleGuard tab="pooling">
           <PoolingView
             lang={lang}
-            onOpenAssetRegister={onOpenAssetRegister}
+            onOpenAssetRegister={() => onOpenAssetRegister()}
           />
         </RoleGuard>
       )}

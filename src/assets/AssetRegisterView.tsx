@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Building2, PlusCircle, RefreshCw } from 'lucide-react';
 import { useRBAC } from '../rbac/RBACContext';
-import { apiClient, apiErrorMessage, AssetStatusCode, RegisteredAsset } from '../services/apiClient';
+import { apiClient, apiErrorMessage, AssetStatusCode, AssetTypeCode, RegisteredAsset } from '../services/apiClient';
 import { AssetDetailModal } from './AssetDetailModal';
 import { AssetFormModal } from './AssetFormModal';
 import { ASSET_STATUS, ASSET_TYPE_LABELS, formatMoney } from './assetLabels';
@@ -11,7 +11,7 @@ const REVIEWER_ROLES = new Set(['Super Admin', 'Country Admin', 'Legal Officer']
 
 interface AssetRegisterViewProps {
   /** Set by the dashboard's Register Asset button so the form opens straight away. */
-  startRegistering?: boolean;
+  startRegistering?: { type?: AssetTypeCode } | null;
   onStartedRegistering?: () => void;
   /** Opens the AI Wealth Engine, where Agreement Generation starts from the asset. */
   onOpenAgreement?: () => void;
@@ -27,7 +27,7 @@ export const AssetRegisterView: React.FC<AssetRegisterViewProps> = ({ startRegis
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<AssetStatusCode | 'ALL'>(isReviewer && !isOwner ? 'SUBMITTED' : 'ALL');
   const [selected, setSelected] = useState<RegisteredAsset | null>(null);
-  const [form, setForm] = useState<{ asset?: RegisteredAsset } | null>(null);
+  const [form, setForm] = useState<{ asset?: RegisteredAsset; type?: AssetTypeCode } | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -40,7 +40,7 @@ export const AssetRegisterView: React.FC<AssetRegisterViewProps> = ({ startRegis
 
   useEffect(load, [load]);
   useEffect(() => {
-    if (startRegistering && isOwner) { setForm({}); onStartedRegistering?.(); }
+    if (startRegistering && isOwner) { setForm({ type: startRegistering.type }); onStartedRegistering?.(); }
   }, [startRegistering, isOwner, onStartedRegistering]);
 
   const replace = (asset: RegisteredAsset) => {
@@ -143,6 +143,7 @@ export const AssetRegisterView: React.FC<AssetRegisterViewProps> = ({ startRegis
       {form && (
         <AssetFormModal
           asset={form.asset}
+          defaultType={form.type}
           onClose={() => setForm(null)}
           onSaved={(asset) => { replace(asset); setForm(null); setSelected(asset); }}
         />

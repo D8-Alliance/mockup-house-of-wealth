@@ -10,6 +10,8 @@ interface AssetFormModalProps {
   /** Editing an existing draft; omitted for a new asset. */
   asset?: RegisteredAsset;
   defaultCurrency?: string;
+  /** A new asset starts on this type, e.g. the type a project need asks for. */
+  defaultType?: AssetTypeCode;
   onClose: () => void;
   onSaved: (asset: RegisteredAsset) => void;
 }
@@ -19,9 +21,9 @@ const INPUT = 'w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 bor
 const LABEL = 'text-xs font-bold text-slate-600 dark:text-slate-300 block mb-1';
 
 /** Registers an asset as a draft (or edits one). Documents and submission follow on the asset's own page. */
-export const AssetFormModal: React.FC<AssetFormModalProps> = ({ asset, defaultCurrency = 'MYR', onClose, onSaved }) => {
+export const AssetFormModal: React.FC<AssetFormModalProps> = ({ asset, defaultCurrency = 'MYR', defaultType, onClose, onSaved }) => {
   const [form, setForm] = useState<AssetInput>({
-    assetType: asset?.assetType ?? 'LAND',
+    assetType: asset?.assetType ?? defaultType ?? 'LAND',
     name: asset?.name ?? '',
     description: asset?.description ?? '',
     location: asset?.location ?? '',

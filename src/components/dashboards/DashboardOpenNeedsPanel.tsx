@@ -12,7 +12,7 @@ const typesMatch = (needType: string, assetType: string) => needType === assetTy
  * For an asset owner: the latest projects looking for assets in the country. With a verified asset of
  * that type the owner can offer it; without one, they are invited to register it first.
  */
-export const DashboardOpenNeedsPanel: React.FC<{ setTab: (tab: NavTab) => void; onOpenAssetRegister: () => void }> = ({ setTab, onOpenAssetRegister }) => {
+export const DashboardOpenNeedsPanel: React.FC<{ setTab: (tab: NavTab) => void; onOpenAssetRegister: (type?: AssetTypeCode) => void }> = ({ setTab, onOpenAssetRegister }) => {
   const [needs, setNeeds] = useState<ProjectAssetNeed[] | null>(null);
   const [verifiedTypes, setVerifiedTypes] = useState<AssetTypeCode[]>([]);
 
@@ -58,7 +58,7 @@ export const DashboardOpenNeedsPanel: React.FC<{ setTab: (tab: NavTab) => void; 
                   {canOffer ? (
                     <button type="button" onClick={() => setTab('asset-partnerships')} className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold cursor-pointer">Offer an asset</button>
                   ) : (
-                    <button type="button" onClick={onOpenAssetRegister} title={`You have no verified ${ASSET_TYPE_LABELS[need.assetType].toLowerCase()} yet`} className="px-3 py-1.5 rounded-xl border border-emerald-500/50 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Register {ASSET_TYPE_LABELS[need.assetType].toLowerCase()}</button>
+                    <button type="button" onClick={() => onOpenAssetRegister(need.assetType)} title={`You have no verified ${ASSET_TYPE_LABELS[need.assetType].toLowerCase()} yet`} className="px-3 py-1.5 rounded-xl border border-emerald-500/50 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold flex items-center gap-1 cursor-pointer"><Plus className="w-3.5 h-3.5" />Register {ASSET_TYPE_LABELS[need.assetType].toLowerCase()}</button>
                   )}
                 </div>
               </div>
