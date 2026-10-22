@@ -43,6 +43,8 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
   const [track, setTrack] = useState<'LEGAL' | 'SHARIAH'>(engagement.legalApprovedAt ? 'SHARIAH' : 'LEGAL');
   const { currentRole } = useRBAC();
   // The checks open on the reviewer's own track; a Super Admin sees the one still to sign.
+  // After a reviewer asks for changes, the side whose turn it is corrects the terms; accepting them unchanged is refused.
+  const changesRequested = engagement.status === 'PROPOSED' && Boolean(engagement.history[engagement.history.length - 1]?.action?.endsWith('_CHANGES_REQUESTED'));
   const reviewerTrack: 'LEGAL' | 'SHARIAH' = ['Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'].includes(currentRole) ? 'SHARIAH' : currentRole === 'Super Admin' ? track : 'LEGAL';
   const status = ENGAGEMENT_STATUS[engagement.status];
   const details = Object.entries(engagement.asset.details ?? {}).filter(([key, value]) => DETAIL_LABELS[key] && value !== undefined && value !== '');
@@ -141,11 +143,12 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
             )}
             <div className="flex flex-wrap justify-end gap-2">
               {engagement.canWithdraw && <button type="button" disabled={busy} onClick={() => window.confirm('Withdraw from this partnership?') && void run(() => apiClient.withdrawAssetEngagement(engagement.id, note || undefined))} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer disabled:opacity-50">Withdraw</button>}
+              {engagement.canRespond && !countering && changesRequested && <p className="w-full text-xs font-bold text-amber-700 dark:text-amber-300">A reviewer asked for changes (see History). Use Counter-offer to send corrected terms; the other side then accepts them and the review starts again.</p>}
               {engagement.canRespond && !countering && (
                 <>
                   <button type="button" disabled={busy} onClick={() => void run(() => apiClient.respondAssetEngagement(engagement.id, { action: 'DECLINE', note: note || undefined }))} className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-xs font-bold cursor-pointer disabled:opacity-50">Decline</button>
                   <button type="button" disabled={busy} onClick={() => setCountering(true)} className="px-4 py-2 rounded-xl border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold cursor-pointer disabled:opacity-50">Counter-offer</button>
-                  <button type="button" disabled={busy} onClick={() => void run(() => apiClient.respondAssetEngagement(engagement.id, { action: 'ACCEPT', note: note || undefined }))} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Accept</button>
+                  {!changesRequested && <button type="button" disabled={busy} onClick={() => void run(() => apiClient.respondAssetEngagement(engagement.id, { action: 'ACCEPT', note: note || undefined }))} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Accept</button>}
                 </>
               )}
               {engagement.canRespond && countering && (
