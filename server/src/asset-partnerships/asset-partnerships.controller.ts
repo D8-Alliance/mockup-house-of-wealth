@@ -50,6 +50,11 @@ export class AssetPartnershipsController {
   @Roles(...OWNERS, ...PDP, ...REVIEWERS)
   engagement(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.partnerships.getEngagement(actor, id); }
 
+  /** The system's checks for the Legal and Shariah reviewers of an accepted partnership. */
+  @Get('engagements/:id/checks')
+  @Roles(...REVIEWERS)
+  checks(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.partnerships.reviewChecks(actor, id); }
+
   @Post('engagements')
   @Roles(...OWNERS, ...PDP)
   create(@CurrentUser() actor: AuthenticatedUser, @Body() body: CreateEngagementDto) { return this.partnerships.createEngagement(actor, body); }

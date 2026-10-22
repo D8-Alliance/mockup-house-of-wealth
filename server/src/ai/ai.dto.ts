@@ -17,6 +17,11 @@ export class ChatDto {
   projectId?: string;
 }
 
+export class PartnershipReviewAssistDto {
+  /** Which review the help is for; by default the reviewer's own (Shariah roles: SHARIAH, others: LEGAL). */
+  @IsOptional() @IsIn(['LEGAL', 'SHARIAH']) track?: 'LEGAL' | 'SHARIAH';
+}
+
 export class AssetOfferAdvisorDto {
   @IsString()
   @MaxLength(60)

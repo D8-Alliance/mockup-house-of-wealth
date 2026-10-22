@@ -19,7 +19,7 @@ import { RAG_EMBEDDING_DIMENSIONS, RagEmbeddingService } from './rag-embedding.s
 import { assertRagTransition, canManageRagScope, isRagManager, ragManagementWhere, RagScope, ragScopeKey, ragVisibilitySql, ragVisibilityWhere } from './rag-scope';
 import { MembershipService } from '../membership/membership.service';
 import { ContractClauseRetriever } from './contract-clause-retriever.service';
-import { OFFER_ADVISOR_SYSTEM_PROMPT, OFFER_COMPARISON_SYSTEM_PROMPT } from './offer-advisor-prompt';
+import { OFFER_ADVISOR_SYSTEM_PROMPT, OFFER_COMPARISON_SYSTEM_PROMPT, PARTNERSHIP_REVIEW_SYSTEM_PROMPT } from './offer-advisor-prompt';
 import { AssetPartnershipsService } from '../asset-partnerships/asset-partnerships.service';
 
 export interface RagSearchResult { id: string; documentId: string; content: string; title: string; sourceType: string; scope: string; pageStart?: number | null; pageEnd?: number | null; paragraphRefs?: string[]; effectiveFrom?: string | null; retrieval?: 'keyword' | 'vector' | 'hybrid'; score?: number }
@@ -201,6 +201,36 @@ export class AiService {
       })),
     }, undefined, OFFER_COMPARISON_SYSTEM_PROMPT);
     return { ...run, labels: Object.fromEntries(labels) };
+  }
+
+  /**
+   * Helps the Legal or Shariah reviewer of an accepted partnership: a summary of the platform's checks,
+   * questions for the parties and a draft review note. It never approves, and never suggests approval
+   * while a check fails.
+   */
+  async partnershipReviewAssistant(actor: AuthenticatedUser, engagementId: string, requestedTrack?: 'LEGAL' | 'SHARIAH') {
+    if (!this.partnerships) throw new ServiceUnavailableException('Asset partnerships are not available.');
+    const { checks } = await this.partnerships.reviewChecks(actor, engagementId);
+    const engagement = await this.partnerships.getEngagement(actor, engagementId);
+    const track = requestedTrack ?? (['Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'].includes(actor.role) ? 'SHARIAH' : 'LEGAL');
+    const mine = checks.filter((check) => check.track === track || check.track === 'BOTH');
+    const failing = mine.filter((check) => check.status === 'FAIL').length;
+    const prompt = `Help the ${track === 'LEGAL' ? 'Legal' : 'Shariah'} reviewer decide on this asset partnership.`;
+    const run = await this.run(actor, 'partnership_review_assistant', 'REVIEW_PARTNERSHIP', prompt, {
+      subjectId: engagementId,
+      reviewerTrack: track,
+      akad: engagement.akad, terms: engagement.terms, startDate: engagement.startDate, endDate: engagement.endDate,
+      asset: { type: engagement.asset.assetType, region: engagement.asset.region },
+      project: { name: engagement.project.projectName, sector: engagement.project.sector },
+      need: engagement.need ? { title: engagement.need.title, quantity: engagement.need.quantity } : null,
+      partiesSaid: ((engagement.history ?? []) as Array<{ party?: string; action?: string; note?: string }>).filter((entry) => entry.note).slice(-4).map((entry) => ({ party: entry.party, action: entry.action, note: entry.note })),
+      checks: mine.filter((check) => check.status !== 'PASS').map(({ label, status, detail }) => ({ label, status, detail })),
+      checksPassed: mine.filter((check) => check.status === 'PASS').map((check) => check.label),
+    }, undefined, PARTNERSHIP_REVIEW_SYSTEM_PROMPT.replace('{TRACK}', track === 'LEGAL' ? 'Legal' : 'Shariah'));
+    // The model may not suggest approving what the platform's checks fail.
+    const recommendation = (run.output?.recommendation ?? {}) as Record<string, unknown>;
+    if (failing && String(recommendation.suggestedDecision ?? '').toUpperCase() === 'APPROVE') recommendation.suggestedDecision = 'REQUEST_CHANGES';
+    return { ...run, track, failing };
   }
 
   async contractAdvisor(actor: AuthenticatedUser, input: ContractAdvisorDto) {
@@ -1065,7 +1095,7 @@ export class AiService {
   }
 
   private async run(actor: AuthenticatedUser, featureKey: string, action: string, prompt: string, context: Record<string, unknown>, conversationId?: string, systemPrompt?: string) {
-    const operationKey = featureKey === 'contract_draft' ? 'CONTRACT_ANALYSIS' : featureKey === 'contract_advisor' || featureKey === 'asset_advisor' || featureKey === 'asset_offer_advisor' || featureKey === 'offer_comparison' ? 'CONTRACT_ANALYSIS' : featureKey === 'due_diligence_assistant' ? 'DUE_DILIGENCE' : featureKey === 'project_feasibility' ? 'FULL_PROJECT_INTELLIGENCE' : featureKey === 'chat' ? 'SIMPLE_QUERY' : featureKey === 'shariah_assistant' ? 'RISK_ANALYSIS' : 'PROJECT_SUMMARY';
+    const operationKey = featureKey === 'contract_draft' ? 'CONTRACT_ANALYSIS' : featureKey === 'contract_advisor' || featureKey === 'asset_advisor' || featureKey === 'asset_offer_advisor' || featureKey === 'offer_comparison' || featureKey === 'partnership_review_assistant' ? 'CONTRACT_ANALYSIS' : featureKey === 'due_diligence_assistant' ? 'DUE_DILIGENCE' : featureKey === 'project_feasibility' ? 'FULL_PROJECT_INTELLIGENCE' : featureKey === 'chat' ? 'SIMPLE_QUERY' : featureKey === 'shariah_assistant' ? 'RISK_ANALYSIS' : 'PROJECT_SUMMARY';
     const charge = await this.membership.consumeCredits(actor, operationKey, String(context.projectId || context.subjectId || featureKey));
     const requestId = randomUUID();
     const run = await this.prisma.aiRun.create({ data: { requestId, featureKey, action, userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, conversationId, input: context as Prisma.InputJsonValue, output: { charge: { cost: charge.cost ?? 0, usageTransactionId: charge.usageTransactionId ?? null, exempt: 'exempt' in charge && charge.exempt === true } }, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });

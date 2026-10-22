@@ -6,6 +6,7 @@ import { AssetDetails } from '../assets/asset-checks';
 import { ASSET_OWNER_ROLES } from '../assets/assets.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
+import { checkSummary, partnershipChecks, ReviewCheck } from './partnership-review-checks';
 import { newCountryScopedId } from '../users/user-identity';
 import { AssetListingDto, CreateAssetNeedDto, CreateEngagementDto, RespondEngagementDto, ReviewEngagementDto, UpdateNeedStatusDto, WithdrawEngagementDto } from './asset-partnership.dto';
 import { Akad, cleanTerms, CLOSED_PROJECT_STATUSES, EngagementTerms, HOLDING_ENGAGEMENT_STATUSES, offerMetrics, OPEN_ENGAGEMENT_STATUSES, otherParty, Party, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch, demandLevel, OFFER_SCORE_WEIGHTS, scoreOffers } from './asset-partnership-rules';
@@ -29,6 +30,8 @@ interface HistoryEntry {
   terms?: EngagementTerms;
   startDate?: string;
   endDate?: string;
+  /** Review decisions: the system checks that failed or warned when the reviewer decided. */
+  checks?: { fail: string[]; warn: string[] };
 }
 
 const ENGAGEMENT_INCLUDE = {
@@ -328,6 +331,32 @@ export class AssetPartnershipsService {
     return this.view(actor, updated);
   }
 
+  /**
+   * The system's checks on an accepted partnership, for its Legal and Shariah reviewers: the deal
+   * against the need, the asset's documents and title findings, the parties, and the akad terms.
+   */
+  async reviewChecks(actor: AuthenticatedUser, id: string) {
+    if (!REVIEWERS.has(actor.role)) throw new ForbiddenException('Only Legal and Shariah reviewers see the review checks.');
+    const engagement = await this.findEngagement(actor, id);
+    return { engagementId: id, checks: await this.checksFor(engagement), generatedAt: new Date().toISOString() };
+  }
+
+  private async checksFor(engagement: EngagementRow): Promise<ReviewCheck[]> {
+    const [asset, need, pdpApplication, overlapping] = await Promise.all([
+      this.prisma.asset.findUnique({ where: { id: engagement.assetId }, select: { assetType: true, status: true, isEncumbered: true, estimatedValue: true, valuationDate: true, details: true, checkFindings: true, documents: { select: { documentType: true } } } }),
+      engagement.needId ? this.prisma.projectAssetNeed.findUnique({ where: { id: engagement.needId }, select: { assetType: true, title: true, startDate: true, endDate: true } }) : Promise.resolve(null),
+      this.prisma.pdpApplication.findFirst({ where: { OR: [{ organisationId: engagement.pdpOrganisationId }, { organisationName: engagement.project.organisation.name }], status: { not: 'DRAFT' } }, orderBy: { updatedAt: 'desc' }, select: { status: true } }),
+      this.prisma.assetEngagement.count({ where: { assetId: engagement.assetId, id: { not: engagement.id }, status: { in: HOLDING_ENGAGEMENT_STATUSES }, startDate: { lt: engagement.endDate }, endDate: { gt: engagement.startDate } } }),
+    ]);
+    if (!asset) throw new NotFoundException('Asset not found.');
+    return partnershipChecks({
+      akad: engagement.akad as Akad, terms: engagement.terms as EngagementTerms, startDate: engagement.startDate, endDate: engagement.endDate,
+      need, project: { sector: engagement.project.sector, projectName: engagement.project.projectName },
+      asset: { assetType: asset.assetType, status: asset.status, isEncumbered: asset.isEncumbered, estimatedValue: Number(asset.estimatedValue), valuationDate: asset.valuationDate, details: asset.details as AssetDetails | null, checkFindings: asset.checkFindings, documentTypes: asset.documents.map((document) => document.documentType) },
+      pdpApplicationStatus: pdpApplication?.status ?? null, overlappingCommitments: overlapping,
+    });
+  }
+
   /** Legal and Shariah each approve once, by different people, neither from either party; one rejection ends it. */
   async review(actor: AuthenticatedUser, id: string, input: ReviewEngagementDto) {
     if (!REVIEWERS.has(actor.role)) throw new ForbiddenException('Only Legal and Shariah reviewers can approve asset partnerships.');
@@ -341,17 +370,20 @@ export class AssetPartnershipsService {
 
     const history = engagement.history as unknown as HistoryEntry[];
     const label = track === 'LEGAL' ? 'Legal' : 'Shariah';
+    // What the system flagged for this reviewer when they decided, kept with the decision for audit.
+    const flagged = checkSummary(await this.checksFor(engagement).catch(() => []), track);
+    const decided = (action: string) => ({ ...this.entry(actor, 'REVIEW', action, input.note), checks: { fail: flagged.fail, warn: flagged.warn } });
     const field = track === 'LEGAL' ? { legalApprovedBy: null } : { shariahApprovedBy: null };
     let data: Prisma.AssetEngagementUpdateManyMutationInput;
     let finished = false;
     if (input.decision === 'REJECT') {
-      data = { status: 'REJECTED', awaiting: 'NONE', history: [...history, this.entry(actor, 'REVIEW', `${track}_REJECTED`, input.note)] as unknown as Prisma.InputJsonValue };
+      data = { status: 'REJECTED', awaiting: 'NONE', history: [...history, decided(`${track}_REJECTED`)] as unknown as Prisma.InputJsonValue };
     } else if (input.decision === 'REQUEST_CHANGES') {
       // Back to the side whose terms were accepted: it corrects them with a counter-offer, the other side
       // accepts, and both reviews start again.
       data = {
         status: 'PROPOSED', awaiting: this.termsAuthor(engagement), legalApprovedBy: null, legalApprovedAt: null, shariahApprovedBy: null, shariahApprovedAt: null,
-        history: [...history, this.entry(actor, 'REVIEW', `${track}_CHANGES_REQUESTED`, input.note)] as unknown as Prisma.InputJsonValue,
+        history: [...history, decided(`${track}_CHANGES_REQUESTED`)] as unknown as Prisma.InputJsonValue,
       };
     } else {
       const now = new Date();
@@ -360,7 +392,7 @@ export class AssetPartnershipsService {
       data = {
         ...(track === 'LEGAL' ? { legalApprovedBy: actor.userId, legalApprovedAt: now } : { shariahApprovedBy: actor.userId, shariahApprovedAt: now }),
         ...(finished ? { status: 'APPROVED', awaiting: 'NONE' } : {}),
-        history: [...history, this.entry(actor, 'REVIEW', `${track}_APPROVED`, input.note)] as unknown as Prisma.InputJsonValue,
+        history: [...history, decided(`${track}_APPROVED`)] as unknown as Prisma.InputJsonValue,
       };
     }
     const claimed = await this.prisma.assetEngagement.updateMany({ where: { id, status: 'ACCEPTED', ...field }, data });

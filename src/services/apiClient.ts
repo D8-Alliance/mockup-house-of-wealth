@@ -412,6 +412,8 @@ export const apiClient = {
   createAssetEngagement: (input: EngagementInput) => request<AssetEngagement>('/asset-partnerships/engagements', { method: 'POST', body: JSON.stringify(input) }),
   respondAssetEngagement: (id: string, input: { action: 'ACCEPT' | 'DECLINE' | 'COUNTER'; akad?: PartnershipAkad; terms?: EngagementTerms; startDate?: string; endDate?: string; note?: string }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/respond`, { method: 'POST', body: JSON.stringify(input) }),
   withdrawAssetEngagement: (id: string, note?: string) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/withdraw`, { method: 'POST', body: JSON.stringify({ note }) }),
+  getPartnershipChecks: (id: string) => request<{ engagementId: string; checks: PartnershipReviewCheck[]; generatedAt: string }>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/checks`),
+  askPartnershipReviewAssistant: (id: string, track: 'LEGAL' | 'SHARIAH') => request<BackendAiRun & { track: string; failing: number }>(`/ai/asset-partnerships/engagements/${encodeURIComponent(id)}/review-assist`, { method: 'POST', body: JSON.stringify({ track }) }),
   reviewAssetEngagement: (id: string, input: { decision: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES'; note: string; track?: 'LEGAL' | 'SHARIAH' }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   withdrawAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/withdraw`, { method: 'POST' }),
   reviewAsset: (id: string, decision: 'VERIFIED' | 'CHANGES_REQUESTED' | 'REJECTED', note: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
@@ -718,7 +720,12 @@ export interface EngagementHistoryEntry {
   terms?: EngagementTerms;
   startDate?: string;
   endDate?: string;
+  /** Review decisions: the platform checks that failed or warned when the reviewer decided. */
+  checks?: { fail: string[]; warn: string[] };
 }
+
+/** One of the platform's pre-approval checks on an accepted partnership. */
+export interface PartnershipReviewCheck { key: string; track: 'LEGAL' | 'SHARIAH' | 'BOTH'; label: string; status: 'PASS' | 'WARN' | 'FAIL' | 'INFO'; detail: string }
 
 /** Every offer for one need, with figures that make them comparable. */
 export interface OfferComparison {

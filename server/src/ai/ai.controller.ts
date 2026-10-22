@@ -8,7 +8,7 @@ import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { AiService } from './ai.service';
 import { CitationAuditService } from './citation-audit.service';
-import { AiDecisionDto, AssetAdvisorDto, AssetOfferAdvisorDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, RagUploadMetadataDto, CitationAuditQueryDto, CitationReviewDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
+import { AiDecisionDto, AssetAdvisorDto, AssetOfferAdvisorDto, PartnershipReviewAssistDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, ProjectDueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, RagUploadMetadataDto, CitationAuditQueryDto, CitationReviewDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
 import { FeasibilityReviewDto } from './project-feasibility.dto';
 
 @Controller('ai')
@@ -56,6 +56,11 @@ export class AiController {
   @Post('asset-partnerships/needs/:needId/compare-explain')
   @Roles('Super Admin', 'Project Sponsor', 'Project Manager', 'Organization Admin')
   explainOfferComparison(@CurrentUser() actor: AuthenticatedUser, @Param('needId') needId: string) { return this.ai.explainOfferComparison(actor, needId); }
+
+  /** For the Legal or Shariah reviewer of an accepted partnership: summary, questions and a draft note. */
+  @Post('asset-partnerships/engagements/:id/review-assist')
+  @Roles('Super Admin', 'Country Admin', 'Legal Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee')
+  partnershipReviewAssistant(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: PartnershipReviewAssistDto) { return this.ai.partnershipReviewAssistant(actor, id, input.track); }
 
   @Post('contract-advisor/analyze')
   @Roles('Super Admin', 'AI Administrator', 'Shariah Reviewer', 'Shariah Advisor', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office')

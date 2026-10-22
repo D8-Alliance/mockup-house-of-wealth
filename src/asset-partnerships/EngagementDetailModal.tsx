@@ -6,6 +6,8 @@ import { apiClient, apiErrorMessage, AssetEngagement } from '../services/apiClie
 import { ASSET_TYPE_LABELS } from '../assets/assetLabels';
 import { EngagementDraft, EngagementTermsFields, INPUT, LABEL } from './EngagementTermsFields';
 import { AKAD_LABELS, describeTerms, ENGAGEMENT_STATUS, historyAction, nextStep, PARTY_LABELS } from './partnershipLabels';
+import { ReviewChecksPanel } from './ReviewChecksPanel';
+import { useRBAC } from '../rbac/RBACContext';
 
 const DETAIL_LABELS: Record<string, string> = {
   manufacturer: 'Manufacturer', make: 'Make', model: 'Model', yearOfManufacture: 'Year', operatingHours: 'Operating hours', category: 'Category', requiresDoshCertificate: 'Needs JKKP certificate',
@@ -39,6 +41,9 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
   const [countering, setCountering] = useState(false);
   const [draft, setDraft] = useState<EngagementDraft>({ akad: engagement.akad, terms: { ...engagement.terms }, startDate: engagement.startDate, endDate: engagement.endDate });
   const [track, setTrack] = useState<'LEGAL' | 'SHARIAH'>(engagement.legalApprovedAt ? 'SHARIAH' : 'LEGAL');
+  const { currentRole } = useRBAC();
+  // The checks open on the reviewer's own track; a Super Admin sees the one still to sign.
+  const reviewerTrack: 'LEGAL' | 'SHARIAH' = ['Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'].includes(currentRole) ? 'SHARIAH' : currentRole === 'Super Admin' ? track : 'LEGAL';
   const status = ENGAGEMENT_STATUS[engagement.status];
   const details = Object.entries(engagement.asset.details ?? {}).filter(([key, value]) => DETAIL_LABELS[key] && value !== undefined && value !== '');
 
@@ -110,10 +115,13 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
                 <div><strong>{entry.byName}</strong> <span className="text-slate-400">({PARTY_LABELS[entry.party]})</span> {historyAction(entry.action)} <span className="text-slate-400">· {entry.at.slice(0, 16).replace('T', ' ')}</span></div>
                 {entry.akad && entry.terms && <div className="text-slate-600 dark:text-slate-300">{AKAD_LABELS[entry.akad]}: {describeTerms(entry.akad, entry.terms)}, {entry.startDate} to {entry.endDate}</div>}
                 {entry.note && <div className="text-slate-500 italic">"{entry.note}"</div>}
+                {entry.checks && (entry.checks.fail.length > 0 || entry.checks.warn.length > 0) && <div className="mt-1 text-[11px] text-slate-500">Checks when decided: {entry.checks.fail.length ? <span className="text-rose-600">failed: {entry.checks.fail.join(', ')}</span> : null}{entry.checks.fail.length && entry.checks.warn.length ? '; ' : ''}{entry.checks.warn.length ? <span className="text-amber-700">to confirm: {entry.checks.warn.join(', ')}</span> : null}</div>}
               </li>
             ))}
           </ol>
         </section>
+
+        {engagement.canReview && <ReviewChecksPanel engagementId={engagement.id} defaultTrack={reviewerTrack} onUseNote={setNote} />}
 
         {(engagement.canRespond || engagement.canReview || engagement.canWithdraw) && (
           <section className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-700">
