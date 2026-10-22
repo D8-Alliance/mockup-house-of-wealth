@@ -19,7 +19,7 @@ const text = (value: unknown): string | null => (typeof value === 'string' && va
  * checks (instant, always the same for the same data), and on request an AI summary, questions for
  * the parties and a draft note the reviewer can use.
  */
-export const ReviewChecksPanel: React.FC<{ engagementId: string; defaultTrack: Track; onUseNote: (note: string) => void }> = ({ engagementId, defaultTrack, onUseNote }) => {
+export const ReviewChecksPanel: React.FC<{ engagementId: string; defaultTrack: Track; onUseNote: (note: string, aiRunId: string) => void }> = ({ engagementId, defaultTrack, onUseNote }) => {
   const [checks, setChecks] = useState<PartnershipReviewCheck[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [track, setTrack] = useState<Track>(defaultTrack);
@@ -99,10 +99,10 @@ export const ReviewChecksPanel: React.FC<{ engagementId: string; defaultTrack: T
               <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-900">
                 <p className="font-bold text-slate-600 dark:text-slate-300">Draft review note</p>
                 <p className="text-slate-700 dark:text-slate-200">{draftNote}</p>
-                <button type="button" onClick={() => onUseNote(draftNote)} className="mt-1 text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:underline cursor-pointer">Use as my review note</button>
+                <button type="button" onClick={() => assist && onUseNote(draftNote, assist.id)} className="mt-1 text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:underline cursor-pointer">Use as my review note</button>
               </div>
             )}
-            <p className="text-[10px] text-slate-400">AI help from the checks and terms above. It may be wrong: edit the note before you use it. It never approves.</p>
+            <p className="text-[10px] text-slate-400">AI help from the checks and terms above. It may be wrong: edit the note before you use it. If you use it, your decision is recorded as AI-assisted. It never approves.</p>
           </div>
         )}
       </div>

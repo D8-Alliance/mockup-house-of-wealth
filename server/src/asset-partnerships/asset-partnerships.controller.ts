@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
+import { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { Roles } from '../auth/roles.decorator';
@@ -54,6 +55,22 @@ export class AssetPartnershipsController {
   @Get('engagements/:id/checks')
   @Roles(...REVIEWERS)
   checks(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.partnerships.reviewChecks(actor, id); }
+
+  /** The history checked against the audit log, with when each party saw the other side's changes. */
+  @Get('engagements/:id/record')
+  @Roles(...OWNERS, ...PDP, ...REVIEWERS)
+  record(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.partnerships.engagementRecord(actor, id); }
+
+  @Get('engagements/:id/record.pdf')
+  @Roles(...OWNERS, ...PDP, ...REVIEWERS)
+  async recordPdf(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Res() response: Response) {
+    const { filename, buffer } = await this.partnerships.engagementRecordPdf(actor, id);
+    response.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"` }).send(buffer);
+  }
+
+  @Post('engagements/:id/seen')
+  @Roles(...OWNERS, ...PDP)
+  seen(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.partnerships.markSeen(actor, id); }
 
   @Post('engagements')
   @Roles(...OWNERS, ...PDP)

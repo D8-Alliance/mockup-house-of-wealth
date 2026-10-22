@@ -7,6 +7,9 @@ import { ASSET_OWNER_ROLES } from '../assets/assets.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { checkSummary, partnershipChecks, ReviewCheck } from './partnership-review-checks';
+import { entryHash, recordFingerprint, termsHash, verifyEntries } from './engagement-record';
+import { renderEngagementRecordPdf } from './engagement-record-pdf';
+import { formatLocalDateTime } from '../tenancy/country-time';
 import { newCountryScopedId } from '../users/user-identity';
 import { AssetListingDto, CreateAssetNeedDto, CreateEngagementDto, RespondEngagementDto, ReviewEngagementDto, UpdateNeedStatusDto, WithdrawEngagementDto } from './asset-partnership.dto';
 import { Akad, cleanTerms, CLOSED_PROJECT_STATUSES, EngagementTerms, HOLDING_ENGAGEMENT_STATUSES, offerMetrics, OPEN_ENGAGEMENT_STATUSES, otherParty, Party, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch, demandLevel, OFFER_SCORE_WEIGHTS, scoreOffers, sameTerms } from './asset-partnership-rules';
@@ -32,6 +35,13 @@ interface HistoryEntry {
   endDate?: string;
   /** Review decisions: the system checks that failed or warned when the reviewer decided. */
   checks?: { fail: string[]; warn: string[] };
+  /** ACCEPTED: what the party confirmed, and the fingerprint of the terms it accepted. */
+  statement?: string;
+  acceptedTermsHash?: string;
+  /** Review decisions: the note was drafted with the AI review assistant (its run). */
+  aiAssisted?: { runId: string };
+  /** Review decisions: the asset's documents (and their SHA-256) when the reviewer decided. */
+  documents?: Array<{ type: string; fileName: string; sha256: string }>;
 }
 
 const ENGAGEMENT_INCLUDE = {
@@ -283,9 +293,15 @@ export class AssetPartnershipsService {
     if (input.action === 'ACCEPT') {
       if (history[history.length - 1]?.action?.endsWith('_CHANGES_REQUESTED')) throw new BadRequestException('A reviewer asked for changes. Make a counter-offer with the corrected terms; the other side then accepts it.');
       if (engagement.akad === 'MUSHARAKAH' && (engagement.terms as EngagementTerms).pdpContributionValue === undefined) throw new BadRequestException("Add the delivery partner's capital contribution with a counter-offer before accepting (0 if none): losses in a Musharakah are shared by capital.");
+      // The party accepts exactly the terms it was shown, and says so.
+      const current = termsHash(engagement);
+      if (input.confirmed !== true || !input.termsHash) throw new BadRequestException('Confirm that you accept these terms on behalf of your organisation.');
+      if (input.termsHash !== current) throw new ConflictException('The terms changed since you opened them. Reload and check them again before accepting.');
       await this.assertAssetFree(engagement);
       if (engagement.needId) await this.assertNeedHasRoom(engagement.needId, engagement.id);
-      data = { status: 'ACCEPTED', awaiting: 'REVIEW', history: [...history, this.entry(actor, party, 'ACCEPTED', input.note)] as unknown as Prisma.InputJsonValue };
+      const organisation = party === 'OWNER' ? engagement.asset.organisation.name : engagement.project.organisation.name;
+      const accepted = { ...this.entry(actor, party, 'ACCEPTED', input.note), statement: `Accepted these terms on behalf of ${organisation}.`, acceptedTermsHash: current };
+      data = { status: 'ACCEPTED', awaiting: 'REVIEW', history: [...history, accepted] as unknown as Prisma.InputJsonValue };
       notice = ['Asset partnership accepted', `${engagement.asset.name} for ${engagement.project.projectName} was accepted and now goes to Legal and Shariah review.`];
     } else if (input.action === 'DECLINE') {
       data = { status: 'DECLINED', awaiting: 'NONE', history: [...history, this.entry(actor, party, 'DECLINED', input.note)] as unknown as Prisma.InputJsonValue };
@@ -376,7 +392,14 @@ export class AssetPartnershipsService {
     const label = track === 'LEGAL' ? 'Legal' : 'Shariah';
     // What the system flagged for this reviewer when they decided, kept with the decision for audit.
     const flagged = checkSummary(await this.checksFor(engagement).catch(() => []), track);
-    const decided = (action: string) => ({ ...this.entry(actor, 'REVIEW', action, input.note), checks: { fail: flagged.fail, warn: flagged.warn } });
+    const documents = await this.prisma.assetDocument.findMany({ where: { assetId: engagement.assetId }, select: { documentType: true, fileName: true, sha256: true }, orderBy: { createdAt: 'asc' } }).catch(() => [] as Array<{ documentType: string; fileName: string; sha256: string }>);
+    let aiAssisted: { runId: string } | undefined;
+    if (input.aiRunId) {
+      const run = await this.prisma.aiRun.findFirst({ where: { id: input.aiRunId, userId: actor.userId, featureKey: 'partnership_review_assistant' }, select: { id: true, input: true } });
+      if (!run || (run.input as { subjectId?: string } | null)?.subjectId !== engagement.id) throw new BadRequestException('That AI draft is not for this partnership.');
+      aiAssisted = { runId: run.id };
+    }
+    const decided = (action: string) => ({ ...this.entry(actor, 'REVIEW', action, input.note), checks: { fail: flagged.fail, warn: flagged.warn }, ...(aiAssisted ? { aiAssisted } : {}), documents: documents.map((document) => ({ type: document.documentType, fileName: document.fileName, sha256: document.sha256 })) });
     const field = track === 'LEGAL' ? { legalApprovedBy: null } : { shariahApprovedBy: null };
     let data: Prisma.AssetEngagementUpdateManyMutationInput;
     let finished = false;
@@ -496,7 +519,10 @@ export class AssetPartnershipsService {
     for (const row of open) {
       const history = [...(row.history as unknown as HistoryEntry[]), { at: new Date().toISOString(), by: 'SYSTEM', byName: 'Wealth Pooling', party: 'PDP' as const, action: 'DECLINED', note: reason }];
       const closed = await this.prisma.assetEngagement.updateMany({ where: { id: row.id, status: 'PROPOSED' }, data: { status: 'DECLINED', awaiting: 'NONE', history: history as unknown as Prisma.InputJsonValue } });
-      if (closed.count) await this.notifyParty(row, 'OWNER', 'Offer closed', `${row.asset.name} for ${row.project.projectName}: ${reason}`);
+      if (!closed.count) continue;
+      const last = history[history.length - 1];
+      await this.audit.record({ userId: 'SYSTEM', action: 'asset_engagement.auto_closed', resourceType: 'AssetEngagement', resourceId: row.id, countryNodeId: row.countryNodeId, metadata: { status: 'DECLINED', entry: last, entryHash: entryHash(last), entryIndex: history.length - 1 } });
+      await this.notifyParty(row, 'OWNER', 'Offer closed', `${row.asset.name} for ${row.project.projectName}: ${reason}`);
     }
   }
 
@@ -528,6 +554,7 @@ export class AssetPartnershipsService {
       canReview: reviewer && row.status === 'ACCEPTED' && actor.organisationId !== row.ownerOrganisationId && actor.organisationId !== row.pdpOrganisationId,
       akad: row.akad,
       terms: row.terms,
+      termsHash: termsHash(row),
       startDate: day(row.startDate),
       endDate: day(row.endDate),
       asset: {
@@ -550,8 +577,84 @@ export class AssetPartnershipsService {
     };
   }
 
-  private record(actor: AuthenticatedUser, action: string, engagement: { id: string; countryNodeId: string; status: string; assetId: string; projectId: string; akad: string }) {
-    return this.audit.recordActor(actor, { action, resourceType: 'AssetEngagement', resourceId: engagement.id, organisationId: actor.organisationId, countryNodeId: engagement.countryNodeId, metadata: { status: engagement.status, assetId: engagement.assetId, projectId: engagement.projectId, akad: engagement.akad } });
+  /**
+   * Writes the action to the append-only audit log with the full history entry it added and that
+   * entry's fingerprint, so the history shown to the parties can be proved against the log.
+   */
+  private record(actor: AuthenticatedUser, action: string, engagement: { id: string; countryNodeId: string; status: string; assetId: string; projectId: string; akad: string; terms: unknown; startDate: Date; endDate: Date; history: unknown }) {
+    const history = Array.isArray(engagement.history) ? engagement.history : [];
+    const entry = history[history.length - 1];
+    return this.audit.recordActor(actor, { action, resourceType: 'AssetEngagement', resourceId: engagement.id, organisationId: actor.organisationId, countryNodeId: engagement.countryNodeId, metadata: {
+      status: engagement.status, assetId: engagement.assetId, projectId: engagement.projectId, akad: engagement.akad, terms: engagement.terms as Prisma.InputJsonValue, startDate: day(engagement.startDate), endDate: day(engagement.endDate),
+      byName: actor.name, role: actor.role, entry: entry ?? null, entryHash: entry ? entryHash(entry) : null, entryIndex: history.length - 1,
+    } });
+  }
+
+  /** A party opened the partnership after the other side changed it: recorded once per change, so nobody can say they never saw it. */
+  async markSeen(actor: AuthenticatedUser, id: string) {
+    const engagement = await this.findEngagement(actor, id);
+    const party = this.partyOf(actor, engagement);
+    const history = engagement.history as unknown as HistoryEntry[];
+    const last = history[history.length - 1];
+    if (!party || !last || last.party === party) return { recorded: false };
+    const already = await this.prisma.auditEvent.findFirst({ where: { resourceType: 'AssetEngagement', resourceId: id, action: 'asset_engagement.seen', userId: actor.userId, createdAt: { gte: engagement.updatedAt } }, select: { id: true } });
+    if (already) return { recorded: false };
+    await this.audit.recordActor(actor, { action: 'asset_engagement.seen', resourceType: 'AssetEngagement', resourceId: id, organisationId: actor.organisationId, countryNodeId: engagement.countryNodeId, metadata: { byName: actor.name, party, entryIndex: history.length - 1, entryHash: null, seenEntryHash: entryHash(last) } });
+    return { recorded: true };
+  }
+
+  /** The history checked against the audit log, and when each party saw the other side's changes. */
+  async engagementRecord(actor: AuthenticatedUser, id: string) {
+    const engagement = await this.findEngagement(actor, id);
+    if (!this.partyOf(actor, engagement) && !REVIEWERS.has(actor.role) && actor.role !== 'Super Admin') throw new ForbiddenException('Only the parties and the reviewers see the record.');
+    const history = engagement.history as unknown as HistoryEntry[];
+    const audit = await this.prisma.auditEvent.findMany({ where: { resourceType: 'AssetEngagement', resourceId: id }, orderBy: { createdAt: 'asc' }, select: { action: true, createdAt: true, metadata: true } });
+    const checked = verifyEntries(history, audit.filter((event) => event.action !== 'asset_engagement.seen'));
+    const views = audit.filter((event) => event.action === 'asset_engagement.seen').map((event) => {
+      const meta = event.metadata as { byName?: string; party?: string; entryIndex?: number };
+      return { at: event.createdAt.toISOString(), byName: meta.byName ?? 'Someone', party: meta.party ?? null, entryIndex: meta.entryIndex ?? null };
+    });
+    return { engagementId: id, entries: history.map((entry, index) => ({ ...entry, ...checked[index] })), views, fingerprint: recordFingerprint(checked.map((item) => item.hash)) };
+  }
+
+  /** The record as a PDF for the parties and reviewers, in the country's local time. */
+  async engagementRecordPdf(actor: AuthenticatedUser, id: string) {
+    const record = await this.engagementRecord(actor, id);
+    const view = this.view(actor, await this.findEngagement(actor, id));
+    const local = (iso: string) => formatLocalDateTime(new Date(iso), actor.countryNodeId);
+    const termsText = (akad?: string, terms?: EngagementTerms, start?: string, end?: string) => (akad && terms ? `${akad === 'IJARAH' ? 'Ijarah' : 'Musharakah'}: ${describeTermsText(akad, terms)}, ${start} to ${end}` : undefined);
+    const buffer = await renderEngagementRecordPdf({
+      engagementId: id,
+      generatedAt: local(new Date().toISOString()),
+      generatedBy: `${actor.name} (${actor.role})`,
+      status: view.status,
+      parties: [
+        ['Asset', `${view.asset.name}${view.asset.titleReference ? ` (${view.asset.titleReference})` : ''}, ${view.asset.region || '-'}`],
+        ['Asset owner', view.ownerOrganisationName ?? 'shown once accepted'],
+        ['Delivery partner', view.project.organisationName],
+        ['Project', `${view.project.projectName} (${view.project.projectCode})`],
+      ],
+      current: termsText(view.akad, view.terms as EngagementTerms, view.startDate ?? '', view.endDate ?? '') ?? '-',
+      entries: record.entries.map((entry, index) => ({
+        at: local(entry.at),
+        who: `${entry.byName} (${entry.party === 'REVIEW' ? 'reviewer' : entry.party === 'OWNER' ? 'asset owner' : 'delivery partner'})`,
+        action: entry.action.toLowerCase().replace(/_/g, ' '),
+        terms: termsText(entry.akad, entry.terms, entry.startDate, entry.endDate),
+        note: entry.note,
+        extra: [
+          ...(entry.statement ? [entry.statement] : []),
+          ...(entry.checks && (entry.checks.fail.length || entry.checks.warn.length) ? [`Checks when decided: failed ${entry.checks.fail.join(', ') || 'none'}; to confirm ${entry.checks.warn.join(', ') || 'none'}.`] : []),
+          ...(entry.aiAssisted ? [`Review note drafted with the AI review assistant (run ${entry.aiAssisted.runId}).`] : []),
+          ...(entry.documents?.length ? [`Documents on file: ${entry.documents.map((document) => `${document.type} ${document.sha256.slice(0, 12)}…`).join('; ')}`] : []),
+          ...record.views.filter((seen) => seen.entryIndex === index).map((seen) => `Seen by ${seen.byName} on ${local(seen.at)}.`),
+        ],
+        verification: entry.verification,
+        hash: entry.hash,
+      })),
+      fingerprint: record.fingerprint,
+    });
+    await this.audit.recordActor(actor, { action: 'asset_engagement.record_downloaded', resourceType: 'AssetEngagement', resourceId: id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { fingerprint: record.fingerprint } });
+    return { filename: `partnership-record-${id}.pdf`, buffer };
   }
 
   /** In-app notice to the asset's owner, or to the project's sponsor and whoever posted the need. */
@@ -623,4 +726,11 @@ export class AssetPartnershipsService {
       title, message, resourceType: 'AssetEngagement', resourceId: row.id, dedupeKey: `asset-engagement:${row.id}:${recipient.userId}:${title}:${row.updatedAt.toISOString()}`,
     }).catch(() => undefined)));
   }
+}
+
+/** "RM 9,000 a month; upkeep by the project" or "asset valued RM 450,000; owner takes 60% of profit; delivery partner adds RM 300,000". */
+function describeTermsText(akad: string, terms: EngagementTerms): string {
+  const money = (amount: number | undefined) => (amount === undefined ? 'not stated' : `${terms.currency ?? 'MYR'} ${amount.toLocaleString('en-MY')}`);
+  if (akad === 'IJARAH') return `${money(terms.rentAmount)} ${terms.rentFrequency === 'WHOLE_PERIOD' ? 'for the whole period' : 'a month'}; day-to-day upkeep by ${terms.upkeepBy === 'OWNER' ? 'the owner' : 'the project'}`;
+  return `asset valued ${money(terms.contributionValue)}; owner takes ${terms.profitSharePct ?? '?'}% of profit; delivery partner's capital ${money(terms.pdpContributionValue)}`;
 }

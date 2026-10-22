@@ -55,3 +55,11 @@ export function installPlatformTimeZone(): void {
     });
   }
 }
+
+/** e.g. "22 Oct 2026, 12:51 pm (GMT+8)": local time with its zone, for records people may rely on. */
+export function formatDateTimeWithZone(value: string | number | Date | null | undefined): string {
+  const local = formatDateTime(value);
+  if (local === '-') return local;
+  const zone = new Intl.DateTimeFormat('en-US', { timeZone: platformTimeZone(), timeZoneName: 'shortOffset' }).formatToParts(new Date(value as string)).find((part) => part.type === 'timeZoneName')?.value;
+  return zone ? `${local} (${zone})` : local;
+}

@@ -3,6 +3,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { AssetPartnershipsService } from './asset-partnerships.service';
+import { entryHash, termsHash } from './engagement-record';
 
 jest.mock('../prisma.service', () => ({ PrismaService: class {} }));
 jest.mock('../audit/audit.service', () => ({ AuditService: class {} }));
@@ -36,8 +37,11 @@ describe('AssetPartnershipsService', () => {
     projectAssetNeed: { findFirst: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
     assetEngagement: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn(), count: jest.fn() },
     userRoleAssignment: { findMany: jest.fn().mockResolvedValue([]) },
+    assetDocument: { findMany: jest.fn().mockResolvedValue([{ documentType: 'OWNERSHIP', fileName: 'geran.pdf', sha256: 'a1b2c3' }]) },
+    aiRun: { findFirst: jest.fn() },
+    auditEvent: { findFirst: jest.fn().mockResolvedValue(null), findMany: jest.fn().mockResolvedValue([]) },
   };
-  const audit = { recordActor: jest.fn().mockResolvedValue(undefined) };
+  const audit = { recordActor: jest.fn().mockResolvedValue(undefined), record: jest.fn().mockResolvedValue(undefined) };
   const notifications = { enqueue: jest.fn().mockResolvedValue(undefined) };
   const service = new AssetPartnershipsService(prisma as unknown as PrismaService, audit as unknown as AuditService, notifications as never);
 
@@ -104,7 +108,7 @@ describe('AssetPartnershipsService', () => {
     prisma.assetEngagement.findFirst.mockResolvedValueOnce(row());
     prisma.projectAssetNeed.findUnique.mockResolvedValueOnce({ quantity: 1, status: 'OPEN' });
     prisma.assetEngagement.count.mockResolvedValueOnce(1);
-    await expect(service.respond(sponsor, 'ENG-MYS-0000001', { action: 'ACCEPT' })).rejects.toThrow('already has 1 of 1 asset accepted or approved');
+    await expect(service.respond(sponsor, 'ENG-MYS-0000001', { action: 'ACCEPT', termsHash: termsHash(row()), confirmed: true })).rejects.toThrow('already has 1 of 1 asset accepted or approved');
   });
 
   it('closes the other open offers, and tells their owners, once the need is filled', async () => {
@@ -118,6 +122,7 @@ describe('AssetPartnershipsService', () => {
     await service.review(shariah, accepted.id, { decision: 'APPROVE', note: 'Akad sound.' });
     expect(prisma.assetEngagement.updateMany).toHaveBeenLastCalledWith({ where: { id: 'ENG-MYS-OTHER001', status: 'PROPOSED' }, data: expect.objectContaining({ status: 'DECLINED', awaiting: 'NONE' }) });
     expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-AO2', title: 'Offer closed' }));
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ userId: 'SYSTEM', action: 'asset_engagement.auto_closed', resourceId: 'ENG-MYS-OTHER001' }));
     prisma.assetEngagement.updateMany.mockReset();
   });
 
@@ -139,6 +144,48 @@ describe('AssetPartnershipsService', () => {
     await expect(service.respond(owner, accepted.id, { action: 'ACCEPT' })).rejects.toThrow('counter-offer');
   });
 
+  it('accepts only the terms the party was shown, with its confirmation, and records both', async () => {
+    prisma.assetEngagement.findFirst.mockResolvedValue(row());
+    await expect(service.respond(sponsor, 'ENG-MYS-0000001', { action: 'ACCEPT' })).rejects.toThrow('Confirm that you accept');
+    await expect(service.respond(sponsor, 'ENG-MYS-0000001', { action: 'ACCEPT', termsHash: 'stale', confirmed: true })).rejects.toThrow('terms changed');
+    prisma.projectAssetNeed.findUnique.mockResolvedValueOnce({ quantity: 1, status: 'OPEN' });
+    prisma.assetEngagement.count.mockResolvedValueOnce(0);
+    prisma.assetEngagement.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.assetEngagement.findUniqueOrThrow.mockImplementationOnce(async () => row({ status: 'ACCEPTED', history: prisma.assetEngagement.updateMany.mock.calls[0][0].data.history }));
+    await service.respond(sponsor, 'ENG-MYS-0000001', { action: 'ACCEPT', termsHash: termsHash(row()), confirmed: true });
+    const accepted = prisma.assetEngagement.updateMany.mock.calls[0][0].data.history[0];
+    expect(accepted).toMatchObject({ action: 'ACCEPTED', statement: 'Accepted these terms on behalf of FELDA.', acceptedTermsHash: termsHash(row()) });
+    // The audit log holds the full entry and its fingerprint.
+    expect(audit.recordActor).toHaveBeenCalledWith(sponsor, expect.objectContaining({ action: 'asset_engagement.accept', metadata: expect.objectContaining({ entry: accepted, entryHash: entryHash(accepted) }) }));
+    prisma.assetEngagement.findFirst.mockReset();
+  });
+
+  it('shows the history checked against the audit log, and who saw what', async () => {
+    const entries = [{ at: '2026-10-22T04:00:00.000Z', by: 'USR-AO', byName: 'Amran', party: 'OWNER', action: 'PROPOSED' }, { at: '2026-10-22T05:00:00.000Z', by: 'USR-PS', byName: 'Umar', party: 'PDP', action: 'ACCEPTED' }];
+    prisma.assetEngagement.findFirst.mockResolvedValueOnce(row({ history: entries }));
+    prisma.auditEvent.findMany.mockResolvedValueOnce([
+      { action: 'asset_engagement.offer', createdAt: new Date('2026-10-22T04:00:01Z'), metadata: { entryHash: entryHash(entries[0]) } },
+      { action: 'asset_engagement.seen', createdAt: new Date('2026-10-22T04:30:00Z'), metadata: { byName: 'Umar', party: 'PDP', entryIndex: 0 } },
+    ]);
+    const record = await service.engagementRecord(sponsor, 'ENG-MYS-0000001');
+    expect(record.entries.map((entry) => entry.verification)).toEqual(['VERIFIED', 'MISMATCH']);
+    expect(record.views).toEqual([{ at: '2026-10-22T04:30:00.000Z', byName: 'Umar', party: 'PDP', entryIndex: 0 }]);
+  });
+
+  it('records AI help and the documents on file with a review decision', async () => {
+    const accepted = row({ status: 'ACCEPTED', awaiting: 'REVIEW' });
+    prisma.assetEngagement.findFirst.mockResolvedValueOnce(accepted);
+    prisma.aiRun.findFirst.mockResolvedValueOnce({ id: 'RUN-9', input: { subjectId: accepted.id } });
+    prisma.assetEngagement.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.assetEngagement.findUniqueOrThrow.mockResolvedValueOnce(row({ status: 'ACCEPTED', legalApprovedBy: legal.userId }));
+    await service.review(legal, accepted.id, { decision: 'APPROVE', note: 'Terms clear.', aiRunId: 'RUN-9' });
+    const entry = prisma.assetEngagement.updateMany.mock.calls[0][0].data.history[0];
+    expect(entry).toMatchObject({ aiAssisted: { runId: 'RUN-9' }, documents: [{ type: 'OWNERSHIP', fileName: 'geran.pdf', sha256: 'a1b2c3' }] });
+    prisma.assetEngagement.findFirst.mockResolvedValueOnce(accepted);
+    prisma.aiRun.findFirst.mockResolvedValueOnce({ id: 'RUN-8', input: { subjectId: 'ENG-OTHER' } });
+    await expect(service.review(legal, accepted.id, { decision: 'APPROVE', note: 'Terms clear.', aiRunId: 'RUN-8' })).rejects.toThrow('not for this partnership');
+  });
+
   it('refuses a counter-offer that changes nothing', async () => {
     prisma.assetEngagement.findFirst.mockResolvedValueOnce(row());
     await expect(service.respond(sponsor, 'ENG-MYS-0000001', { action: 'COUNTER', terms: { rentAmount: 9000 } })).rejects.toThrow('changes nothing');
@@ -153,7 +200,7 @@ describe('AssetPartnershipsService', () => {
   it('refuses to accept when the asset is already committed for an overlapping period', async () => {
     prisma.assetEngagement.findFirst.mockResolvedValueOnce(row());
     prisma.assetEngagement.findMany.mockResolvedValueOnce([{ id: 'ENG-MYS-OTHER001', startDate: new Date('2027-03-01'), endDate: new Date('2027-09-01') }]);
-    await expect(service.respond(sponsor, 'ENG-MYS-0000001', { action: 'ACCEPT' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(service.respond(sponsor, 'ENG-MYS-0000001', { action: 'ACCEPT', termsHash: termsHash(row()), confirmed: true })).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('needs Legal and Shariah approval from different people outside both parties, then fills the need', async () => {

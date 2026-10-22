@@ -410,11 +410,14 @@ export const apiClient = {
   getAssetEngagements: () => request<AssetEngagement[]>('/asset-partnerships/engagements'),
   getNeedOffers: (needId: string) => request<OfferComparison>(`/asset-partnerships/needs/${encodeURIComponent(needId)}/offers`),
   createAssetEngagement: (input: EngagementInput) => request<AssetEngagement>('/asset-partnerships/engagements', { method: 'POST', body: JSON.stringify(input) }),
-  respondAssetEngagement: (id: string, input: { action: 'ACCEPT' | 'DECLINE' | 'COUNTER'; akad?: PartnershipAkad; terms?: EngagementTerms; startDate?: string; endDate?: string; note?: string }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/respond`, { method: 'POST', body: JSON.stringify(input) }),
+  respondAssetEngagement: (id: string, input: { action: 'ACCEPT' | 'DECLINE' | 'COUNTER'; akad?: PartnershipAkad; terms?: EngagementTerms; startDate?: string; endDate?: string; note?: string; termsHash?: string; confirmed?: boolean }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/respond`, { method: 'POST', body: JSON.stringify(input) }),
+  getEngagementRecord: (id: string) => request<EngagementRecord>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/record`),
+  downloadEngagementRecord: (id: string) => openAuthenticatedFile(`/asset-partnerships/engagements/${encodeURIComponent(id)}/record.pdf`),
+  markEngagementSeen: (id: string) => request<{ recorded: boolean }>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/seen`, { method: 'POST' }),
   withdrawAssetEngagement: (id: string, note?: string) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/withdraw`, { method: 'POST', body: JSON.stringify({ note }) }),
   getPartnershipChecks: (id: string) => request<{ engagementId: string; checks: PartnershipReviewCheck[]; generatedAt: string }>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/checks`),
   askPartnershipReviewAssistant: (id: string, track: 'LEGAL' | 'SHARIAH') => request<BackendAiRun & { track: string; failing: number }>(`/ai/asset-partnerships/engagements/${encodeURIComponent(id)}/review-assist`, { method: 'POST', body: JSON.stringify({ track }) }),
-  reviewAssetEngagement: (id: string, input: { decision: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES'; note: string; track?: 'LEGAL' | 'SHARIAH' }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  reviewAssetEngagement: (id: string, input: { decision: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES'; note: string; track?: 'LEGAL' | 'SHARIAH'; aiRunId?: string }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   withdrawAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/withdraw`, { method: 'POST' }),
   reviewAsset: (id: string, decision: 'VERIFIED' | 'CHANGES_REQUESTED' | 'REJECTED', note: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
   downloadKycDocumentForReview: (applicationId: string, documentId: string) => openAuthenticatedFile(`/kyc/applications/${encodeURIComponent(applicationId)}/documents/${encodeURIComponent(documentId)}/download`),
@@ -722,6 +725,20 @@ export interface EngagementHistoryEntry {
   endDate?: string;
   /** Review decisions: the platform checks that failed or warned when the reviewer decided. */
   checks?: { fail: string[]; warn: string[] };
+  /** ACCEPTED: what the party confirmed, and the fingerprint of the terms accepted. */
+  statement?: string;
+  acceptedTermsHash?: string;
+  /** Review decisions drafted with the AI review assistant, and the asset's documents (SHA-256) at the time. */
+  aiAssisted?: { runId: string };
+  documents?: Array<{ type: string; fileName: string; sha256: string }>;
+}
+
+/** The history checked against the audit log, and when each party saw the other side's changes. */
+export interface EngagementRecord {
+  engagementId: string;
+  entries: Array<EngagementHistoryEntry & { hash: string; verification: 'VERIFIED' | 'LEGACY' | 'MISMATCH' }>;
+  views: Array<{ at: string; byName: string; party: 'OWNER' | 'PDP' | null; entryIndex: number | null }>;
+  fingerprint: string;
 }
 
 /** One of the platform's pre-approval checks on an accepted partnership. */
@@ -751,6 +768,8 @@ export interface AssetEngagement {
   canReview: boolean;
   akad: PartnershipAkad;
   terms: EngagementTerms;
+  /** Fingerprint of the terms on the table; sent back on Accept so a party accepts exactly what it saw. */
+  termsHash: string;
   startDate: string;
   endDate: string;
   asset: { id: string; assetType: AssetTypeCode; name: string; region: string; details: Partial<AssetDetailsInput> | null; isEncumbered: boolean; location?: string; titleReference?: string | null; estimatedValue?: number; currency?: string; encumbranceNote?: string | null };

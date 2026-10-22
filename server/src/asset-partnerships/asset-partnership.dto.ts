@@ -78,6 +78,9 @@ export class RespondEngagementDto {
   @IsOptional() @IsDateString() startDate?: string;
   @IsOptional() @IsDateString() endDate?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) note?: string;
+  /** ACCEPT: the fingerprint of the terms the party was shown (termsHash in the view), and its explicit confirmation. */
+  @IsOptional() @IsString() @MaxLength(64) termsHash?: string;
+  @IsOptional() @IsBoolean() confirmed?: boolean;
 }
 
 export class WithdrawEngagementDto {
@@ -89,4 +92,6 @@ export class ReviewEngagementDto {
   /** Needed only by a Super Admin, who may sign either track (never both on one engagement). */
   @IsOptional() @IsIn(REVIEW_TRACKS) track?: (typeof REVIEW_TRACKS)[number];
   @Transform(trim) @IsString() @MinLength(3) @MaxLength(2000) note!: string;
+  /** The AI review assistant's run whose draft note the reviewer used, so the record shows the note was AI-assisted. */
+  @IsOptional() @IsString() @MaxLength(60) aiRunId?: string;
 }

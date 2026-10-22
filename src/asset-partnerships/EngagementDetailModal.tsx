@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { AlertTriangle, FileSignature, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertTriangle, Download, Eye, FileSignature, ShieldCheck, X } from 'lucide-react';
+import { formatDateTimeWithZone } from '../utils/platformTime';
 import { openAgreementFor, openAgreementRecord } from '../ai/aiEngineNavigation';
 import { startFromEngagement } from '../ai/features/contract/agreementPrefill';
-import { apiClient, apiErrorMessage, AssetEngagement } from '../services/apiClient';
+import { apiClient, apiErrorMessage, AssetEngagement, EngagementRecord } from '../services/apiClient';
 import { ASSET_TYPE_LABELS } from '../assets/assetLabels';
 import { EngagementDraft, EngagementTermsFields, INPUT, LABEL } from './EngagementTermsFields';
 import { AKAD_LABELS, describeTerms, ENGAGEMENT_STATUS, historyAction, nextStep, PARTY_LABELS } from './partnershipLabels';
@@ -48,6 +49,17 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
   const changesRequested = engagement.status === 'PROPOSED' && Boolean(engagement.history[engagement.history.length - 1]?.action?.endsWith('_CHANGES_REQUESTED'));
   // A counter-offer is reviewed before it is sent, and can be saved on this device without sending.
   const [confirming, setConfirming] = useState(false);
+  // Accepting shows the exact terms and asks the party to confirm them for its organisation.
+  const [accepting, setAccepting] = useState(false);
+  const [acceptConfirmed, setAcceptConfirmed] = useState(false);
+  const [aiRunId, setAiRunId] = useState<string | null>(null);
+  const [record, setRecord] = useState<EngagementRecord | null>(null);
+  const myOrganisation = engagement.myParty === 'OWNER' ? engagement.ownerOrganisationName : engagement.project.organisationName;
+  // A party opening the partnership after the other side changed it is recorded; the history is checked against the audit log.
+  useEffect(() => {
+    if (engagement.myParty) void apiClient.markEngagementSeen(engagement.id).catch(() => undefined);
+    apiClient.getEngagementRecord(engagement.id).then(setRecord).catch(() => setRecord(null));
+  }, [engagement.id, engagement.updatedAt, engagement.myParty]);
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
   const current = { akad: engagement.akad, terms: { ...engagement.terms }, startDate: engagement.startDate, endDate: engagement.endDate };
   const startCounter = () => {
@@ -71,6 +83,9 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
       setCountering(false);
       setConfirming(false);
       setDraftNotice(null);
+      setAccepting(false);
+      setAcceptConfirmed(false);
+      setAiRunId(null);
     } catch (cause) {
       setError(apiErrorMessage(cause, 'The change was not saved.'));
     } finally {
@@ -125,20 +140,35 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
         </section>
 
         <section className="space-y-2">
-          <h3 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">History</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">History</h3>
+            <button type="button" onClick={() => void apiClient.downloadEngagementRecord(engagement.id).catch((cause) => setError(apiErrorMessage(cause, 'The record could not be downloaded.')))} className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:underline flex items-center gap-1 cursor-pointer"><Download className="w-3.5 h-3.5" />Download record (PDF)</button>
+          </div>
+          {record && <p className="text-[10px] text-slate-400">Each step is also written to the platform's audit log, which cannot be changed. Times are local. Record fingerprint {record.fingerprint.slice(0, 16)}…</p>}
           <ol className="space-y-2 text-xs">
             {engagement.history.map((entry, index) => (
               <li key={index} className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                <div><strong>{entry.byName}</strong> <span className="text-slate-400">({PARTY_LABELS[entry.party]})</span> {historyAction(entry.action)} <span className="text-slate-400">· {entry.at.slice(0, 16).replace('T', ' ')}</span></div>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div><strong>{entry.byName}</strong> <span className="text-slate-400">({PARTY_LABELS[entry.party]})</span> {historyAction(entry.action)} <span className="text-slate-400">· {formatDateTimeWithZone(entry.at)}</span></div>
+                  {record?.entries[index] && (record.entries[index].verification === 'VERIFIED'
+                    ? <span title={`SHA-256 ${record.entries[index].hash}`} className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5"><ShieldCheck className="w-3 h-3" />Verified</span>
+                    : record.entries[index].verification === 'MISMATCH'
+                      ? <span className="text-[10px] font-black text-rose-600">Does not match the audit log</span>
+                      : <span className="text-[10px] text-slate-400" title="Recorded before entries were fingerprinted">Earlier record</span>)}
+                </div>
                 {entry.akad && entry.terms && <div className="text-slate-600 dark:text-slate-300">{AKAD_LABELS[entry.akad]}: {describeTerms(entry.akad, entry.terms)}, {entry.startDate} to {entry.endDate}</div>}
                 {entry.note && <div className="text-slate-500 italic">"{entry.note}"</div>}
+                {entry.statement && <div className="text-emerald-700 dark:text-emerald-300 font-semibold">{entry.statement}</div>}
+                {entry.aiAssisted && <div className="text-[11px] text-purple-700 dark:text-purple-300">Review note drafted with the AI review assistant, then confirmed by the reviewer.</div>}
+                {entry.documents && entry.documents.length > 0 && <details className="text-[11px] text-slate-500"><summary className="cursor-pointer">{entry.documents.length} document{entry.documents.length > 1 ? 's' : ''} on file when decided</summary><ul className="pl-4 list-disc">{entry.documents.map((document) => <li key={document.sha256}>{document.type.replace(/_/g, ' ').toLowerCase()}: {document.fileName} <span className="font-mono">SHA-256 {document.sha256.slice(0, 12)}…</span></li>)}</ul></details>}
+                {record?.views.filter((seen) => seen.entryIndex === index).map((seen) => <div key={seen.at} className="mt-1 text-[11px] text-slate-400 flex items-center gap-1"><Eye className="w-3 h-3" />Seen by {seen.byName} · {formatDateTimeWithZone(seen.at)}</div>)}
                 {entry.checks && (entry.checks.fail.length > 0 || entry.checks.warn.length > 0) && <div className="mt-1 text-[11px] text-slate-500">Checks when decided: {entry.checks.fail.length ? <span className="text-rose-600">failed: {entry.checks.fail.join(', ')}</span> : null}{entry.checks.fail.length && entry.checks.warn.length ? '; ' : ''}{entry.checks.warn.length ? <span className="text-amber-700">to confirm: {entry.checks.warn.join(', ')}</span> : null}</div>}
               </li>
             ))}
           </ol>
         </section>
 
-        {engagement.canReview && <ReviewChecksPanel engagementId={engagement.id} defaultTrack={reviewerTrack} onUseNote={setNote} />}
+        {engagement.canReview && <ReviewChecksPanel engagementId={engagement.id} defaultTrack={reviewerTrack} onUseNote={(text, runId) => { setNote(text); setAiRunId(runId); }} />}
 
         {(engagement.canRespond || engagement.canReview || engagement.canWithdraw) && (
           <section className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-700">
@@ -171,11 +201,23 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
             <div className="flex flex-wrap justify-end gap-2">
               {engagement.canWithdraw && <button type="button" disabled={busy} onClick={() => window.confirm('Withdraw from this partnership?') && void run(() => apiClient.withdrawAssetEngagement(engagement.id, note || undefined))} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer disabled:opacity-50">Withdraw</button>}
               {engagement.canRespond && !countering && changesRequested && <p className="w-full text-xs font-bold text-amber-700 dark:text-amber-300">A reviewer asked for changes (see History). Use Counter-offer to send corrected terms; the other side then accepts them and the review starts again.</p>}
-              {engagement.canRespond && !countering && (
+              {engagement.canRespond && !countering && accepting && (
+                <div className="w-full p-4 rounded-2xl border border-emerald-300/60 bg-emerald-50/40 dark:bg-emerald-950/10 space-y-2 text-xs">
+                  <p className="font-black text-slate-800 dark:text-slate-100">You are accepting these terms</p>
+                  <p className="text-slate-700 dark:text-slate-200">{AKAD_LABELS[engagement.akad]}: {describeTerms(engagement.akad, engagement.terms)}, {engagement.startDate} to {engagement.endDate}.</p>
+                  <label className="flex items-start gap-2 text-slate-700 dark:text-slate-200"><input type="checkbox" checked={acceptConfirmed} onChange={(e) => setAcceptConfirmed(e.target.checked)} className="mt-0.5" />I have read these terms and accept them on behalf of {myOrganisation ?? 'my organisation'}. They then go to Legal and Shariah review.</label>
+                  <p className="text-[10px] text-slate-400">Your acceptance, the time and a fingerprint of these exact terms are recorded. If the terms change before you confirm, the acceptance is refused.</p>
+                  <div className="flex justify-end gap-2">
+                    <button type="button" disabled={busy} onClick={() => { setAccepting(false); setAcceptConfirmed(false); }} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">Back</button>
+                    <button type="button" disabled={busy || !acceptConfirmed} onClick={() => void run(() => apiClient.respondAssetEngagement(engagement.id, { action: 'ACCEPT', note: note || undefined, termsHash: engagement.termsHash, confirmed: true }))} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">{busy ? 'Accepting…' : 'Confirm acceptance'}</button>
+                  </div>
+                </div>
+              )}
+              {engagement.canRespond && !countering && !accepting && (
                 <>
                   <button type="button" disabled={busy} onClick={() => void run(() => apiClient.respondAssetEngagement(engagement.id, { action: 'DECLINE', note: note || undefined }))} className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-xs font-bold cursor-pointer disabled:opacity-50">Decline</button>
                   <button type="button" disabled={busy} onClick={startCounter} className="px-4 py-2 rounded-xl border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold cursor-pointer disabled:opacity-50">Counter-offer</button>
-                  {!changesRequested && <button type="button" disabled={busy} onClick={() => void run(() => apiClient.respondAssetEngagement(engagement.id, { action: 'ACCEPT', note: note || undefined }))} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Accept</button>}
+                  {!changesRequested && <button type="button" disabled={busy} onClick={() => setAccepting(true)} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Accept</button>}
                 </>
               )}
               {engagement.canRespond && countering && !confirming && (
@@ -187,9 +229,9 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
               )}
               {engagement.canReview && (
                 <>
-                  <button type="button" disabled={busy || note.trim().length < 3} onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'REJECT', note, ...(isSuperAdmin ? { track } : {}) }))} className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-600 text-xs font-bold cursor-pointer disabled:opacity-50">Reject</button>
-                  <button type="button" disabled={busy || note.trim().length < 3} title="Send it back to the parties to correct the terms; both reviews start again" onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'REQUEST_CHANGES', note, ...(isSuperAdmin ? { track } : {}) }))} className="px-4 py-2 rounded-xl border border-amber-400 text-amber-700 dark:text-amber-300 text-xs font-bold cursor-pointer disabled:opacity-50">Request changes</button>
-                  <button type="button" disabled={busy || note.trim().length < 3} onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'APPROVE', note, ...(isSuperAdmin ? { track } : {}) }))} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Approve</button>
+                  <button type="button" disabled={busy || note.trim().length < 3} onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'REJECT', note, ...(isSuperAdmin ? { track } : {}), ...(aiRunId ? { aiRunId } : {}) }))} className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-600 text-xs font-bold cursor-pointer disabled:opacity-50">Reject</button>
+                  <button type="button" disabled={busy || note.trim().length < 3} title="Send it back to the parties to correct the terms; both reviews start again" onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'REQUEST_CHANGES', note, ...(isSuperAdmin ? { track } : {}), ...(aiRunId ? { aiRunId } : {}) }))} className="px-4 py-2 rounded-xl border border-amber-400 text-amber-700 dark:text-amber-300 text-xs font-bold cursor-pointer disabled:opacity-50">Request changes</button>
+                  <button type="button" disabled={busy || note.trim().length < 3} onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'APPROVE', note, ...(isSuperAdmin ? { track } : {}), ...(aiRunId ? { aiRunId } : {}) }))} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Approve</button>
                 </>
               )}
             </div>
