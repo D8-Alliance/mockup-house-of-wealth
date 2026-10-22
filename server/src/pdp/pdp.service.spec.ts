@@ -33,7 +33,7 @@ describe('PdpService.reviewKyb', () => {
     prisma.pdpApplication.findUniqueOrThrow.mockResolvedValueOnce({ ...application, kybStatus: 'VERIFIED_MANUAL' });
     const result = await service.reviewKyb(actor('KYB Officer'), 'PDP-1', 'APPROVED', 'Registry documents match');
     expect(result.kybStatus).toBe('VERIFIED_MANUAL');
-    expect(prisma.pdpApplication.updateMany).toHaveBeenCalledWith({ where: { id: 'PDP-1', kybStatus: { in: ['PENDING_MANUAL_REVIEW', 'SUBMITTED', 'UNDER_REVIEW'] } }, data: { kybStatus: 'VERIFIED_MANUAL' } });
+    expect(prisma.pdpApplication.updateMany).toHaveBeenCalledWith({ where: { id: 'PDP-1', kybStatus: { in: ['PENDING_MANUAL_REVIEW', 'SUBMITTED', 'UNDER_REVIEW'] } }, data: expect.objectContaining({ status: 'APPROVED', kybStatus: 'VERIFIED_MANUAL', reviewNote: 'Registry documents match', reviewedBy: 'USR-REVIEWER' }) });
   });
 
   it.each(['KYB Officer', 'Country Admin', 'Organization Admin', 'Compliance Officer'] as const)('forbids a %s from another country', async (role) => {
@@ -65,5 +65,52 @@ describe('PdpService.reviewKyb', () => {
     prisma.pdpApplication.updateMany.mockResolvedValueOnce({ count: 0 });
     await expect(service.reviewKyb(actor('KYB Officer'), 'PDP-1', 'REJECTED', 'Mismatch')).rejects.toBeInstanceOf(ConflictException);
     expect(audit.recordActor).not.toHaveBeenCalled();
+  });
+});
+
+describe('PdpService review queue and corrections', () => {
+  const audit = { recordActor: jest.fn().mockResolvedValue(undefined) };
+  const notifications = { enqueue: jest.fn().mockResolvedValue(undefined) };
+  const prisma = {
+    pdpApplication: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), update: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn() },
+    featureModule: { findUnique: jest.fn().mockResolvedValue(null) },
+    userRoleAssignment: { findMany: jest.fn().mockResolvedValue([{ userId: 'USR-KYB', organisationId: 'ORG-REG' }]) },
+  };
+  const service = new PdpService(prisma as unknown as PrismaService, audit as unknown as AuditService, notifications as never);
+  const submitted = { ...application, status: 'SUBMITTED', organisationId: 'ORG-SPONSOR', organisationName: 'Felcra Bhd', history: [] };
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('lists only submitted applications from the reviewer\'s country', async () => {
+    await service.listForReview(actor('KYB Officer'));
+    expect(prisma.pdpApplication.findMany.mock.calls[0][0].where).toEqual({ countryCode: 'MYS', status: { not: 'DRAFT' } });
+    await service.listForReview(actor('Super Admin'), 'SUBMITTED');
+    expect(prisma.pdpApplication.findMany.mock.calls[1][0].where).toEqual({ status: 'SUBMITTED' });
+  });
+
+  it('sends an application back for more information and tells the applicant what to correct', async () => {
+    prisma.pdpApplication.findUnique.mockResolvedValueOnce(submitted);
+    prisma.pdpApplication.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.pdpApplication.findUniqueOrThrow.mockResolvedValueOnce({ ...submitted, status: 'ADDITIONAL_INFORMATION_REQUIRED', kybStatus: 'CORRECTION_REQUIRED' });
+    await service.reviewKyb(actor('KYB Officer'), 'PDP-1', 'REQUEST_INFO', 'Upload the latest SSM Form 24.');
+    const data = prisma.pdpApplication.updateMany.mock.calls[0][0].data;
+    expect(data).toMatchObject({ status: 'ADDITIONAL_INFORMATION_REQUIRED', kybStatus: 'CORRECTION_REQUIRED' });
+    expect(data.history[0]).toMatchObject({ action: 'REQUEST_INFO', note: 'Upload the latest SSM Form 24.' });
+    expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-SPONSOR', organisationId: 'ORG-SPONSOR', countryNodeId: 'CN-MYS', message: expect.stringContaining('Upload the latest SSM Form 24.') }));
+  });
+
+  it('forbids a reviewer from the applicant\'s own organisation', async () => {
+    prisma.pdpApplication.findUnique.mockResolvedValueOnce({ ...submitted, organisationId: 'ORG-A' });
+    await expect(service.reviewKyb(actor('Country Admin'), 'PDP-1', 'APPROVED', 'Fine')).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('lets the applicant resubmit a corrected application, and tells reviewers', async () => {
+    const sentBack = { ...submitted, status: 'ADDITIONAL_INFORMATION_REQUIRED', kybStatus: 'CORRECTION_REQUIRED', payload: { compliance: Object.fromEntries(['amlCftDeclaration', 'sourceOfFundsDeclaration', 'beneficialOwnershipAccurate', 'sanctionsNonMatchDeclared', 'regulatoryComplianceAgreed', 'shariahComplianceAttested', 'termsAndConditionsAccepted', 'privacyConsentGranted'].map((key) => [key, true])) } };
+    prisma.pdpApplication.findUnique.mockResolvedValueOnce(sentBack);
+    prisma.pdpApplication.update.mockResolvedValueOnce({ ...sentBack, status: 'SUBMITTED', kybStatus: 'SUBMITTED' });
+    await service.submit(actor('Project Sponsor', 'CN-MYS', 'USR-SPONSOR'), 'PDP-1');
+    expect(prisma.pdpApplication.update.mock.calls[0][0].data.history[0]).toMatchObject({ action: 'RESUBMITTED' });
+    expect(prisma.userRoleAssignment.findMany.mock.calls[0][0].where).toMatchObject({ countryNodeId: 'CN-MYS', organisationId: { not: 'ORG-SPONSOR' } });
+    expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-KYB', title: 'PDP application corrected' }));
   });
 });

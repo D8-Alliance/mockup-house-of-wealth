@@ -256,6 +256,9 @@ export const apiClient = {
   },
   /** The signed-in user's own PDP applications, newest first. */
   getMyPdpApplications: async () => (await request<BackendPdpApplication[]>('/pdp/applications/mine')).map(mapPdpApplication),
+  /** KYB reviewers: applications from their country (every country for the Super Admin). */
+  getPdpReviewQueue: async (status = 'SUBMITTED') => (await request<BackendPdpApplication[]>(`/pdp/applications?status=${encodeURIComponent(status)}`)).map(mapPdpApplication),
+  reviewPdpApplication: async (id: string, decision: PdpKybDecision, justification: string) => mapPdpApplication(await request<BackendPdpApplication>(`/pdp/applications/${encodeURIComponent(id)}/kyb-review`, { method: 'POST', body: JSON.stringify({ decision, justification }) })),
   submitPdpApplication: async (id: string) => {
     const response = await request<BackendPdpApplication>(`/pdp/applications/${id}/submit`, { method: 'POST' });
     return mapPdpApplication(response);
@@ -1526,6 +1529,8 @@ export interface BackendAccess {
   organisationId: string;
 }
 
+export type PdpKybDecision = 'APPROVED' | 'REJECTED' | 'REQUEST_INFO';
+
 interface BackendPdpApplication {
   id: string;
   applicationNumber: string;
@@ -1539,6 +1544,9 @@ interface BackendPdpApplication {
   createdAt: string;
   updatedAt: string;
   submittedAt?: string;
+  reviewNote?: string | null;
+  reviewedAt?: string;
+  history?: PDPApplication['reviewHistory'];
 }
 
 function mapPdpApplication(application: BackendPdpApplication): PDPApplication {
@@ -1555,6 +1563,9 @@ function mapPdpApplication(application: BackendPdpApplication): PDPApplication {
     createdAt: application.createdAt,
     updatedAt: application.updatedAt,
     submittedAt: application.submittedAt,
+    reviewNote: application.reviewNote ?? undefined,
+    reviewedAt: application.reviewedAt,
+    reviewHistory: application.history ?? [],
   };
 }
 

@@ -1,9 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { KybReviewDto, SavePdpApplicationDto } from './pdp.dto';
 import { PdpService } from './pdp.service';
+
+/** Organization Admin is left out: it belongs to a client organisation, which should not vet other companies. */
+const KYB_REVIEWERS = ['Super Admin', 'Country Admin', 'KYB Officer', 'Compliance Officer'] as const;
 
 @Controller('pdp/applications')
 export class PdpController {
@@ -12,6 +15,21 @@ export class PdpController {
   @Get('mine')
   mine(@CurrentUser() actor: AuthenticatedUser) {
     return this.pdpService.getMine(actor);
+  }
+
+  /** The review queue: submitted applications from the reviewer's country (all countries for the Super Admin). */
+  @Get()
+  @Roles(...KYB_REVIEWERS)
+  @RequirePermission('users', 'approve')
+  list(@CurrentUser() actor: AuthenticatedUser, @Query('status') status?: string) {
+    return this.pdpService.listForReview(actor, status);
+  }
+
+  @Get(':id')
+  @Roles(...KYB_REVIEWERS)
+  @RequirePermission('users', 'approve')
+  getOne(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) {
+    return this.pdpService.getForReview(actor, id);
   }
 
   @Post()
@@ -30,7 +48,7 @@ export class PdpController {
   }
 
   @Post(':id/kyb-review')
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'KYB Officer', 'Compliance Officer')
+  @Roles(...KYB_REVIEWERS)
   @RequirePermission('users', 'approve')
   reviewKyb(
     @CurrentUser() actor: AuthenticatedUser,

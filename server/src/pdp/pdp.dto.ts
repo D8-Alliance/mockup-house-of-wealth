@@ -1,5 +1,7 @@
 import { IsIn, IsObject, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
+export type KybDecision = 'APPROVED' | 'REJECTED' | 'REQUEST_INFO';
+
 export class SavePdpApplicationDto {
   @IsOptional()
   @IsString()
@@ -36,8 +38,8 @@ export class SavePdpApplicationDto {
 }
 
 export class KybReviewDto {
-  @IsIn(['APPROVED', 'REJECTED'])
-  decision!: 'APPROVED' | 'REJECTED';
+  @IsIn(['APPROVED', 'REJECTED', 'REQUEST_INFO'])
+  decision!: KybDecision;
 
   @IsString()
   @MinLength(1)

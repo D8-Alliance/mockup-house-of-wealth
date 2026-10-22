@@ -43,7 +43,7 @@ import { OrganisationAdminDashboard } from './admin/OrganisationAdminDashboard';
 import { AdminAIAnalyticsPanel } from '../ai/monetisation/AdminAIAnalyticsPanel';
 import { MarketplaceMonetisationHub } from './revenue/MarketplaceMonetisationHub';
 import { RevenueManagementHub } from './revenue/RevenueManagementHub';
-import { PDPApplicationsAdminPanel } from '../pdp/components/PDPApplicationsAdminPanel';
+import { PdpKybReviewPanel } from '../pdp/components/PdpKybReviewPanel';
 import { PDPCountryConfigAdminPanel } from '../pdp/components/PDPCountryConfigAdminPanel';
 import { AdminShariahContentManager } from './info/AdminShariahContentManager';
 import { AdminPageContentManager } from './info/AdminPageContentManager';
@@ -237,7 +237,7 @@ export const AdminCenterView: React.FC = () => {
         <div className="lg:col-span-9 space-y-6">
           {activeSection === 'scoped_dashboard' && renderScopedDashboard()}
 
-          {activeSection === 'pdp_applications' && <PDPApplicationsAdminPanel />}
+          {activeSection === 'pdp_applications' && <PdpKybReviewPanel />}
 
           {activeSection === 'pdp_country_config' && <PDPCountryConfigAdminPanel />}
 

@@ -19,6 +19,8 @@ export type KYBVerificationStatus =
   | 'UNDER_REVIEW'
   | 'VERIFIED'
   | 'CORRECTION_REQUIRED'
+  | 'VERIFIED_MANUAL'
+  | 'PENDING_MANUAL_REVIEW'
   | 'REJECTED';
 
 export interface PDPAuthorisedRepresentative {
@@ -143,6 +145,10 @@ export interface PDPApplication {
   submittedAt?: string;
   approvedAt?: string;
   activatedAt?: string;
+  /** From the server: the reviewer's latest reason, and every submission and decision. */
+  reviewNote?: string;
+  reviewedAt?: string;
+  reviewHistory?: Array<{ at: string; by: string; byName: string; role: string; action: string; note?: string }>;
 }
 
 export interface PDPCountryConfig {

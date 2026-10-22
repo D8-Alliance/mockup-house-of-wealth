@@ -228,7 +228,8 @@ export const ProjectSponsorView: React.FC = () => {
     );
   }
 
-  const isPdpActive = pdpApp?.status === 'ACTIVE';
+  // Approved by a KYB reviewer; ACTIVE is kept for applications from before the server review existed.
+  const isPdpActive = pdpApp?.status === 'APPROVED' || pdpApp?.status === 'ACTIVE';
 
   return (
       <div className="space-y-6 animate-fadeIn">
@@ -302,6 +303,9 @@ export const ProjectSponsorView: React.FC = () => {
                   </span>
                   <span className="text-xs font-mono text-slate-500">{pdpApp.applicationNumber}</span>
                 </div>
+                {pdpApp.reviewNote && (pdpApp.status === 'ADDITIONAL_INFORMATION_REQUIRED' || pdpApp.status === 'REJECTED') && (
+                  <p className="text-xs font-bold text-amber-800 dark:text-amber-300 mt-1">{pdpApp.status === 'REJECTED' ? 'Rejected' : 'The reviewer asks'}: {pdpApp.reviewNote}{pdpApp.status === 'ADDITIONAL_INFORMATION_REQUIRED' ? ' Use "Edit KYB Onboarding" to correct and submit again.' : ''}</p>
+                )}
                 <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
                   Node: <span className="font-bold">{pdpApp.countryName} ({pdpApp.countryCode})</span> • Category: <span className="font-semibold">{pdpApp.businessCategory}</span> • Settlement: <span className="font-mono font-bold text-purple-600">{pdpApp.bankInfo?.accountNumber} ({pdpApp.bankInfo?.bankName})</span>
                 </p>

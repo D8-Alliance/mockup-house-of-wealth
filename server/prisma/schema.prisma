@@ -1304,6 +1304,14 @@ model PdpApplication {
   status            String    @default("DRAFT")
   kybStatus         String    @default("IN_PROGRESS")
   payload           Json
+  /// The applicant's organisation when the application was saved; null on applications from before 2026-10-22.
+  organisationId    String?
+  /// The reviewer's latest reason: what to correct, or why it was approved or rejected.
+  reviewNote        String?
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  /// Submissions and decisions, oldest first: { at, by, byName, role, action, note }.
+  history           Json      @default("[]")
   submittedAt       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
