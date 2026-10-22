@@ -15,6 +15,8 @@ import { NotificationService } from '../notifications/notification.service';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import { getJurisdictionProfile } from './jurisdiction-profiles';
 import { agreementTextChecks } from './agreement-text-checks';
+import { entryHash } from '../asset-partnerships/engagement-record';
+import { NOTE_READS_AS_REFUSAL } from '../asset-partnerships/partnership-review-checks';
 
 type Section = { number: string; title: string; paragraphs: string[] };
 
@@ -118,14 +120,16 @@ export class AgreementGenerationService {
       throw new BadRequestException(input.action === 'CONSENT' ? 'There is no new version for your side to agree to.' : 'This agreement is not waiting for your signature.');
     }
     const latest = contract.versions[0]?.version ?? 1;
+    // Each side agrees to, and signs, a version identified by its fingerprint.
+    const versionHash = contract.versions[0] ? entryHash(contract.versions[0].content) : null;
     const other = contract.parties.find((item) => item.role && item.id !== party.id);
     const sideName = party.role === 'OWNER' ? 'asset owner' : 'delivery partner';
     if (input.action === 'CONSENT') {
       await this.prisma.$transaction([
         this.prisma.contractParty.update({ where: { id: party.id }, data: { consentedVersion: latest, consentedAt: new Date(), consentedBy: actor.userId } }),
-        this.prisma.contractEvent.create({ data: { contractId: id, eventType: 'PARTY_CONSENTED', actorId: actor.userId, metadata: { version: latest, role: actor.role, note: `The ${sideName} agreed to version ${latest}` } } }),
+        this.prisma.contractEvent.create({ data: { contractId: id, eventType: 'PARTY_CONSENTED', actorId: actor.userId, metadata: { version: latest, versionHash, role: actor.role, byName: actor.name, note: `The ${sideName} agreed to version ${latest}` } } }),
       ]);
-      await this.auditRecord(actor, 'agreement.party_consented', id, { version: latest, side: party.role });
+      await this.auditRecord(actor, 'agreement.party_consented', id, { version: latest, versionHash, side: party.role, byName: actor.name });
       if (other?.organisationId) {
         const both = other.consentedVersion === latest;
         await this.notifyOrganisation(other.organisationId, contract.countryNodeId, id, `consent-v${latest}-${party.role}`, both ? 'Agreement ready for legal review' : 'Agreement: the other side agreed', both ? `Both sides agreed to version ${latest} of ${contract.contractNumber}. It can now be submitted for legal review.` : `The ${sideName} agreed to version ${latest} of ${contract.contractNumber}. Read it and agree, or draft a revision.`);
@@ -136,7 +140,7 @@ export class AgreementGenerationService {
       const executed = await this.prisma.$transaction(async (tx) => {
         const signed = await tx.contractParty.updateMany({ where: { id: party.id, signedAt: null }, data: { signedAt: new Date(), signedBy: actor.userId, signatureName: typed } });
         if (!signed.count) throw new ConflictException('Your side has already signed.');
-        await tx.contractEvent.create({ data: { contractId: id, eventType: 'PARTY_SIGNED', actorId: actor.userId, metadata: { version: latest, role: actor.role, note: `Signed for the ${sideName} by ${typed}` } } });
+        await tx.contractEvent.create({ data: { contractId: id, eventType: 'PARTY_SIGNED', actorId: actor.userId, metadata: { version: latest, versionHash, role: actor.role, byName: actor.name, note: `Signed for the ${sideName} by ${typed}` } } });
         const unsigned = await tx.contractParty.count({ where: { contractId: id, role: { not: null }, signedAt: null } });
         if (unsigned) return false;
         const claimed = await tx.contract.updateMany({ where: { id, status: 'APPROVED' }, data: { status: 'EXECUTION' } });
@@ -145,7 +149,7 @@ export class AgreementGenerationService {
         await tx.contractApproval.create({ data: { contractId: id, versionId: contract.versions[0]?.id || '', approverId: actor.userId, status: 'EXECUTION', decisionNote: 'Signed by both parties', decidedAt: new Date() } });
         return true;
       });
-      await this.auditRecord(actor, 'agreement.party_signed', id, { version: latest, side: party.role, executed });
+      await this.auditRecord(actor, 'agreement.party_signed', id, { version: latest, versionHash, side: party.role, signatureName: typed, executed });
       for (const recipient of contract.parties.filter((item) => item.role && item.organisationId && (executed || item.id !== party.id))) {
         await this.notifyOrganisation(recipient.organisationId!, contract.countryNodeId, id, executed ? 'executed' : `signed-${party.role}`, executed ? 'Agreement signed by both sides' : 'Agreement: the other side signed', executed ? `${contract.contractNumber} is signed by both sides and now in force.` : `The ${sideName} signed ${contract.contractNumber}. Sign it to put it in force.`);
       }
@@ -187,15 +191,38 @@ export class AgreementGenerationService {
     if (input.reviewStatus === 'SHARIAH_REVIEW' && !content?.approvedClauseIds?.length) throw new BadRequestException('Legal approval needs at least one approved clause. Add approved clauses for this contract type, then generate a new draft.');
     if (input.reviewStatus === 'SHARIAH_REVIEW' && compliance?.status === 'REQUIRES_REVIEW') throw new BadRequestException('Legal approval is blocked: required commercial terms are missing (see the compliance check).');
     if (input.reviewStatus === 'APPROVED' && !content?.shariahRuleIds?.length) throw new BadRequestException('Shariah approval needs at least one approved Shariah rule for this contract type. Add the rules, then generate a new draft.');
+    // Evidence kept with the decision: the version's fingerprint and what the text checks found.
+    const version = contract.versions[0];
+    const versionHash = version ? entryHash(version.content) : null;
+    const { checks } = await this.textChecks(actor, id);
+    const flagged = { fail: checks.filter((check) => check.status === 'FAIL').map((check) => check.label), warn: checks.filter((check) => check.status === 'WARN').map((check) => check.label) };
+    let aiAssisted: { runId: string } | undefined;
+    let highGaps = 0;
+    if (input.aiRunId) {
+      const run = await this.prisma.aiRun.findFirst({ where: { id: input.aiRunId, userId: actor.userId, featureKey: 'agreement_gap_scan' }, select: { id: true, input: true, output: true } });
+      if (!run || (run.input as { subjectId?: string } | null)?.subjectId !== id) throw new BadRequestException('That AI scan is not for this agreement.');
+      aiAssisted = { runId: run.id };
+      const gaps = (run.output as { recommendation?: { gaps?: Array<{ severity?: string }> } } | null)?.recommendation?.gaps ?? [];
+      highGaps = gaps.filter((gap) => String(gap.severity).toUpperCase() === 'HIGH').length;
+    }
+    // A reviewer approving against the checks, the AI scan or their own note says why; it is kept with the decision.
+    const approving = input.reviewStatus === 'SHARIAH_REVIEW' || input.reviewStatus === 'APPROVED';
+    const grounds = approving ? [
+      ...(flagged.fail.length ? [`${flagged.fail.length} text check${flagged.fail.length > 1 ? 's' : ''} failed: ${flagged.fail.join(', ')}`] : []),
+      ...(highGaps ? [`the AI scan found ${highGaps} serious gap${highGaps > 1 ? 's' : ''}`] : []),
+      ...(NOTE_READS_AS_REFUSAL.test(input.note ?? '') ? ['the note reads as a refusal'] : []),
+    ] : [];
+    if (grounds.length && (input.overrideReason?.trim().length ?? 0) < 10) throw new BadRequestException(`Give your reason for approving: ${grounds.join('; ')}.`);
+    const evidence = { note: input.note || null, role: actor.role, byName: actor.name, version: version?.version ?? 1, versionHash, checks: flagged, ...(aiAssisted ? { aiAssisted } : {}), ...(grounds.length ? { override: { grounds, reason: input.overrideReason!.trim() } } : {}) };
     const updated = await this.prisma.$transaction(async (tx) => {
       // Conditional on the status we checked, so two reviewers acting at once cannot both move it.
       const claimed = await tx.contract.updateMany({ where: { id, status: contract.status }, data: { status: input.reviewStatus } });
       if (!claimed.count) throw new ConflictException('This agreement was changed by someone else. Reload and try again.');
-      await tx.contractEvent.create({ data: { contractId: id, eventType: 'STATUS_CHANGED', fromStatus: contract.status, toStatus: input.reviewStatus, actorId: actor.userId, metadata: { note: input.note || null, role: actor.role } } });
+      await tx.contractEvent.create({ data: { contractId: id, eventType: 'STATUS_CHANGED', fromStatus: contract.status, toStatus: input.reviewStatus, actorId: actor.userId, metadata: evidence as Prisma.InputJsonValue } });
       await tx.contractApproval.create({ data: { contractId: id, versionId: contract.versions[0]?.id || '', approverId: actor.userId, status: input.reviewStatus, decisionNote: input.note, decidedAt: new Date() } });
       return tx.contract.findUniqueOrThrow({ where: { id } });
     });
-    await this.auditRecord(actor, 'agreement.review_status_changed', id, { fromStatus: contract.status, toStatus: input.reviewStatus, note: input.note, role: actor.role });
+    await this.auditRecord(actor, 'agreement.review_status_changed', id, { fromStatus: contract.status, toStatus: input.reviewStatus, ...evidence });
     if (input.reviewStatus === 'APPROVED' || input.reviewStatus === 'CHANGES_REQUESTED') {
       for (const party of contract.parties.filter((item) => item.role && item.organisationId)) {
         await this.notifyOrganisation(party.organisationId!, contract.countryNodeId, id, `review-${input.reviewStatus}-${updated.updatedAt.toISOString()}`, input.reviewStatus === 'APPROVED' ? 'Agreement approved: ready to sign' : 'Agreement: changes requested', input.reviewStatus === 'APPROVED' ? `${contract.contractNumber} passed legal and Shariah review. Each side now signs it.` : `${contract.contractNumber}: ${input.note ?? 'changes were requested'}. Either side drafts a revision, then both agree again.`);

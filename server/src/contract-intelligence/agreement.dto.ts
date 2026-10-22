@@ -24,4 +24,8 @@ export class AgreementPartyActionDto {
 export class AgreementReviewDto {
   @IsIn(['LEGAL_REVIEW', 'SHARIAH_REVIEW', 'APPROVED', 'CHANGES_REQUESTED', 'EXECUTION']) reviewStatus!: 'LEGAL_REVIEW' | 'SHARIAH_REVIEW' | 'APPROVED' | 'CHANGES_REQUESTED' | 'EXECUTION';
   @IsOptional() @IsString() note?: string;
+  /** The AI gap scan whose draft note the reviewer used, so the record shows the note was AI-assisted. */
+  @IsOptional() @IsString() @MaxLength(60) aiRunId?: string;
+  /** Approving despite failed text checks, high gaps in the AI scan, or a note that reads as a refusal: why. */
+  @IsOptional() @IsString() @MaxLength(1000) overrideReason?: string;
 }

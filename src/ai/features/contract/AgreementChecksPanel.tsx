@@ -16,7 +16,7 @@ const text = (value: unknown): string | null => (typeof value === 'string' && va
  * Checks on an agreement's text (blanks, the clauses its akad needs, the approved partnership terms),
  * and on request an AI scan for gaps with a draft review note. Replaces the old sample "gap analyzer".
  */
-export const AgreementChecksPanel: React.FC<{ agreementId: string; version: number; onUseNote?: (note: string) => void }> = ({ agreementId, version, onUseNote }) => {
+export const AgreementChecksPanel: React.FC<{ agreementId: string; version: number; onUseNote?: (note: string, aiRunId: string) => void; /** What failed, and the serious gaps the AI found: approving against them needs a reason. */ onSignals?: (signals: { failed: string[]; highGaps: number }) => void }> = ({ agreementId, version, onUseNote, onSignals }) => {
   const [checks, setChecks] = useState<AgreementTextCheck[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPassed, setShowPassed] = useState(false);
@@ -36,6 +36,12 @@ export const AgreementChecksPanel: React.FC<{ agreementId: string; version: numb
   const recommendation = (scan?.output?.recommendation ?? {}) as Record<string, unknown>;
   const gaps = (Array.isArray(recommendation.gaps) ? recommendation.gaps : []) as Array<Record<string, unknown>>;
   const draftNote = text(recommendation.draftNote);
+
+  useEffect(() => {
+    if (!checks || !onSignals) return;
+    onSignals({ failed: checks.filter((check) => check.status === 'FAIL').map((check) => check.label), highGaps: gaps.filter((gap) => String(gap.severity).toUpperCase() === 'HIGH').length });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checks, scan]);
 
   const runScan = async () => {
     setScanning(true);
@@ -75,8 +81,8 @@ export const AgreementChecksPanel: React.FC<{ agreementId: string; version: numb
                 ))}
               </ul>
             )}
-            {draftNote && onUseNote && <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-900"><p className="font-bold text-slate-600 dark:text-slate-300">Draft review note</p><p className="text-slate-700 dark:text-slate-200">{draftNote}</p><button type="button" onClick={() => onUseNote(draftNote)} className="mt-1 text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:underline cursor-pointer">Use as my note</button></div>}
-            <p className="text-[10px] text-slate-400">AI reading of this version's text. It may miss or misread clauses; it never approves. The scan is recorded in the agreement's audit trail.</p>
+            {draftNote && onUseNote && <div className="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-900"><p className="font-bold text-slate-600 dark:text-slate-300">Draft review note</p><p className="text-slate-700 dark:text-slate-200">{draftNote}</p><button type="button" onClick={() => scan && onUseNote(draftNote, scan.id)} className="mt-1 text-[11px] font-bold text-purple-700 dark:text-purple-300 hover:underline cursor-pointer">Use as my note</button></div>}
+            <p className="text-[10px] text-slate-400">AI reading of this version's text. It may miss or misread clauses; it never approves. The scan is recorded in the agreement's audit trail, and a decision using its note is marked AI-assisted.</p>
           </div>
         )}
       </div>

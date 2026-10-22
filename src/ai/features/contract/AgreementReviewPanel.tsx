@@ -4,7 +4,7 @@ import { AgreementAction, AgreementDetail, AgreementPartyAction, AgreementStatus
 import { takeAgreementRecord } from '../../aiEngineNavigation';
 import { AgreementChecksPanel } from './AgreementChecksPanel';
 import { useRBAC } from '../../../rbac/RBACContext';
-import { formatDateTime } from '../../../utils/platformTime';
+import { formatDateTime, formatDateTimeWithZone } from '../../../utils/platformTime';
 
 const STATUS_LABELS: Record<AgreementStatus, string> = {
   DRAFT: 'Draft',
@@ -55,6 +55,10 @@ export const AgreementReviewPanel: React.FC = () => {
   const [actionError, setActionError] = useState('');
   const [signatureName, setSignatureName] = useState('');
   const [authorised, setAuthorised] = useState(false);
+  // Approving against the text checks, the AI scan or one's own note needs a reason, kept with the decision.
+  const [aiRunId, setAiRunId] = useState<string | null>(null);
+  const [signals, setSignals] = useState<{ failed: string[]; highGaps: number }>({ failed: [], highGaps: 0 });
+  const [overrideReason, setOverrideReason] = useState('');
   const { tenantContext } = useRBAC();
 
   const load = useCallback(async () => {
@@ -119,8 +123,11 @@ export const AgreementReviewPanel: React.FC = () => {
     setSaving(action);
     setActionError('');
     try {
-      await apiClient.reviewAgreement(selected.id, { reviewStatus: action, note: note.trim() || undefined });
+      const approving = action === 'SHARIAH_REVIEW' || action === 'APPROVED';
+      await apiClient.reviewAgreement(selected.id, { reviewStatus: action, note: note.trim() || undefined, ...(aiRunId ? { aiRunId } : {}), ...(approving && overrideGrounds.length ? { overrideReason: overrideReason.trim() } : {}) });
       setNote('');
+      setAiRunId(null);
+      setOverrideReason('');
       await Promise.all([load(), open(selected.id)]);
     } catch (cause) {
       setActionError(apiErrorMessage(cause, 'The decision could not be saved.'));
@@ -135,6 +142,13 @@ export const AgreementReviewPanel: React.FC = () => {
   const latest = selected?.latestVersion ?? selected?.versions[0]?.version ?? 1;
   const myParty = parties.find((party) => party.organisationId === tenantContext.organisationId);
   const partyActions = selected?.partyActions ?? [];
+  const canApprove = (selected?.availableActions ?? []).some((item) => item.action === 'SHARIAH_REVIEW' || item.action === 'APPROVED');
+  const overrideGrounds = canApprove ? [
+    ...(signals.failed.length ? [`${signals.failed.length} text check${signals.failed.length > 1 ? 's' : ''} failed: ${signals.failed.join(', ')}`] : []),
+    ...(aiRunId && signals.highGaps ? [`the AI scan found ${signals.highGaps} serious gap${signals.highGaps > 1 ? 's' : ''}`] : []),
+    ...(/\b(cannot|can ?not|could not|should not|not) be approved\b|\btidak (boleh |dapat )?(di)?lulus/i.test(note) ? ['your note reads as a refusal'] : []),
+  ] : [];
+  const overrideMissing = overrideGrounds.length > 0 && overrideReason.trim().length < 10;
   const version = selected?.versions[0];
   const clauseCount = version?.content.approvedClauseIds?.length ?? 0;
   const ruleCount = version?.content.shariahRuleIds?.length ?? 0;
@@ -273,7 +287,7 @@ export const AgreementReviewPanel: React.FC = () => {
             </div>
           </div>
 
-          <AgreementChecksPanel agreementId={selected.id} version={latest} onUseNote={selected.availableActions.length > 0 ? setNote : undefined} />
+          <AgreementChecksPanel agreementId={selected.id} version={latest} onUseNote={selected.availableActions.length > 0 ? (text, runId) => { setNote(text); setAiRunId(runId); } : undefined} onSignals={setSignals} />
 
           <details className="rounded-xl border border-slate-200 dark:border-slate-700">
             <summary className="px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer">Read the agreement text ({version?.content.sections?.length ?? 0} sections)</summary>
@@ -292,9 +306,16 @@ export const AgreementReviewPanel: React.FC = () => {
               <label htmlFor="agreement-review-note" className="block text-xs font-bold text-slate-600 dark:text-slate-300">Note for the record {selected.availableActions.some((item) => item.action === 'CHANGES_REQUESTED') && <span className="font-normal text-slate-500">(required when requesting changes)</span>}</label>
               <textarea id="agreement-review-note" rows={2} value={note} onChange={(event) => setNote(event.target.value)} className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white" placeholder="What you checked, or what must change" />
               {actionError && <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs font-semibold"><AlertTriangle className="w-4 h-4 shrink-0" />{actionError}</div>}
+              {overrideGrounds.length > 0 && (
+                <div className="p-3 rounded-xl border border-amber-300 bg-amber-50/60 dark:bg-amber-950/20 text-xs space-y-1.5">
+                  <p className="font-bold text-amber-800 dark:text-amber-300">To approve, give your reason: {overrideGrounds.join('; ')}.</p>
+                  <textarea rows={2} maxLength={1000} value={overrideReason} onChange={(event) => setOverrideReason(event.target.value)} placeholder="Why you approve anyway (recorded with your decision)" className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm" />
+                  <p className="text-[10px] text-slate-500">Not needed to request changes.</p>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 {selected.availableActions.map((item) => (
-                  <button key={item.action} type="button" disabled={saving !== null} onClick={() => void decide(item.action)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-60 ${ACTION_STYLES[item.action]}`}>
+                  <button key={item.action} type="button" disabled={saving !== null || ((item.action === 'SHARIAH_REVIEW' || item.action === 'APPROVED') && overrideMissing)} onClick={() => void decide(item.action)} className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer disabled:opacity-60 ${ACTION_STYLES[item.action]}`}>
                     {item.action !== 'CHANGES_REQUESTED' && <CheckCircle2 className="w-4 h-4" />}
                     {saving === item.action ? 'Saving…' : item.label}
                   </button>
@@ -310,10 +331,14 @@ export const AgreementReviewPanel: React.FC = () => {
             <ul className="space-y-1.5 text-xs">
               {selected.events.map((event) => (
                 <li key={event.id} className="flex flex-wrap gap-x-2 text-slate-600 dark:text-slate-300">
-                  <span className="text-slate-400 whitespace-nowrap">{formatDateTime(event.createdAt)}</span>
+                  <span className="text-slate-400 whitespace-nowrap">{formatDateTimeWithZone(event.createdAt)}</span>
                   <span className="font-semibold">{event.toStatus ? STATUS_LABELS[event.toStatus as AgreementStatus] ?? event.toStatus : event.eventType}</span>
-                  <span>by {event.actorId}{event.metadata?.role ? ` (${event.metadata.role})` : ''}</span>
+                  <span>by {event.metadata?.byName ?? event.actorId}{event.metadata?.role ? ` (${event.metadata.role})` : ''}</span>
                   {event.metadata?.note && <span className="italic">“{event.metadata.note}”</span>}
+                  {event.metadata?.versionHash && <span className="font-mono text-[10px] text-slate-400" title={event.metadata.versionHash}>v{event.metadata.version} · {event.metadata.versionHash.slice(0, 10)}…</span>}
+                  {event.metadata?.checks && (event.metadata.checks.fail.length > 0 || event.metadata.checks.warn.length > 0) && <span className="w-full text-[11px] text-slate-500">Checks when decided: {event.metadata.checks.fail.length ? <span className="text-rose-600">failed {event.metadata.checks.fail.join(', ')}</span> : null}{event.metadata.checks.fail.length && event.metadata.checks.warn.length ? '; ' : ''}{event.metadata.checks.warn.length ? <span className="text-amber-700">to confirm {event.metadata.checks.warn.join(', ')}</span> : null}</span>}
+                  {event.metadata?.aiAssisted && <span className="w-full text-[11px] text-purple-700 dark:text-purple-300">Note drafted with the AI gap scan, then confirmed by the reviewer.</span>}
+                  {event.metadata?.override && <span className="w-full text-[11px] text-amber-800 dark:text-amber-300"><strong>Approved despite:</strong> {event.metadata.override.grounds.join('; ')}. <strong>Reason:</strong> {event.metadata.override.reason}</span>}
                 </li>
               ))}
             </ul>

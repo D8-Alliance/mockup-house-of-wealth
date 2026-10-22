@@ -354,7 +354,7 @@ export const apiClient = {
   agreementPartyAction: (id: string, input: { action: AgreementPartyAction; signatureName?: string }) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/party-action`, { method: 'POST', body: JSON.stringify(input) }),
   getAgreementChecks: (id: string) => request<{ agreementId: string; version: number; checks: AgreementTextCheck[] }>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/checks`),
   scanAgreementGaps: (id: string) => request<BackendAiRun>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/gap-scan`, { method: 'POST' }),
-  reviewAgreement: (id: string, input: { reviewStatus: AgreementAction; note?: string }) => request(`/contract-intelligence/agreements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  reviewAgreement: (id: string, input: { reviewStatus: AgreementAction; note?: string; aiRunId?: string; overrideReason?: string }) => request(`/contract-intelligence/agreements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   downloadAgreement: async (id: string, format: 'docx' | 'pdf') => { const token = authService.getAuthState().session?.token; const response = await apiFetch(`${API_BASE_URL}/contract-intelligence/agreements/${encodeURIComponent(id)}/download/${format}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); if (!response.ok) throw new Error(await response.text() || 'Agreement download failed.'); const url = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = url; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || `agreement.${format}`; link.click(); URL.revokeObjectURL(url); },
   analyzeShariah: (input: { proposedContract: string; terms: string; projectId: string }) => request<BackendAiRun>('/ai/shariah/analyze', {
     method: 'POST',
@@ -1644,5 +1644,5 @@ export interface AgreementSummary {
 export interface AgreementDetail extends Omit<AgreementSummary, 'complianceStatus'> {
   complianceReport: { status?: string; checks?: Array<{ key: string; label: string; pass: boolean; severity: string }> } | null;
   versions: Array<{ id: string; version: number; content: { sections?: Array<{ number: string; title: string; paragraphs: string[] }>; approvedClauseIds?: string[]; shariahRuleIds?: string[] } }>;
-  events: Array<{ id: string; eventType: string; fromStatus: string | null; toStatus: string | null; actorId: string; createdAt: string; metadata: { note?: string | null; role?: string } | null }>;
+  events: Array<{ id: string; eventType: string; fromStatus: string | null; toStatus: string | null; actorId: string; createdAt: string; metadata: { note?: string | null; role?: string; byName?: string; version?: number; versionHash?: string | null; checks?: { fail: string[]; warn: string[] }; aiAssisted?: { runId: string }; override?: { grounds: string[]; reason: string } } | null }>;
 }
