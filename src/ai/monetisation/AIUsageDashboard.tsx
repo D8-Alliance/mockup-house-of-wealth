@@ -46,6 +46,9 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
   const [historyFilter, setHistoryFilter] = useState<string>('ALL');
   const [lastExecutedMessage, setLastExecutedMessage] = useState<string | null>(null);
 
+  // Administrators and reviewers are not charged: no balance to top up, no plan to upgrade.
+  const exempt = Boolean((balance as { creditExempt?: boolean }).creditExempt);
+
   const refresh = async () => {
     const [summary, transactions] = await Promise.all([apiClient.getMembershipCreditSummary(), apiClient.getMembershipCreditUsage()]);
     setBalance(summary as BackendCreditSummary);
@@ -93,25 +96,25 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-5 rounded-3xl bg-gradient-to-br from-purple-900 via-indigo-900 to-slate-900 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-purple-200 uppercase tracking-wider">Remaining Balance</span>
+            <span className="text-[11px] font-bold text-purple-200 uppercase tracking-wider">{exempt ? 'Staff access' : 'Remaining Balance'}</span>
             <div className="p-2 rounded-xl bg-purple-500/20 border border-purple-400/30">
               <Sparkles className="w-4 h-4 text-purple-300 animate-pulse" />
             </div>
           </div>
           <div className="my-2">
             <div className="text-3xl font-black font-mono tracking-tight text-white">
-              {balance.availableBalance}
+              {exempt ? 'Not charged' : balance.availableBalance}
             </div>
-            <span className="text-[10px] text-purple-200">AI Credits Available</span>
+            <span className="text-[10px] text-purple-200">{exempt ? 'Your AI use is recorded for audit, not billed' : 'AI Credits Available'}</span>
           </div>
           <div className="pt-2 border-t border-purple-800/60 flex items-center justify-between text-[10.5px]">
-            <span className="text-purple-300">Tier: <strong className="text-white">{balance.userTier}</strong></span>
-            <button
+            <span className="text-purple-300">{exempt ? 'Staff role' : <>Tier: <strong className="text-white">{balance.userTier}</strong></>}</span>
+            {!exempt && <button
               onClick={() => setShowTopUpModal(true)}
               className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1 cursor-pointer"
             >
               + Top Up
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -192,7 +195,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
               AI Operations & Credit Consumption Schedule
             </h2>
           </div>
-          <div className="flex items-center gap-2">
+          {!exempt && <div className="flex items-center gap-2">
             <button
               onClick={() => setShowTopUpModal(true)}
               className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-purple-600/20 cursor-pointer"
@@ -207,7 +210,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
                 Upgrade Plan
               </button>
             )}
-          </div>
+          </div>}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -238,7 +241,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
 
                 <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
                   <span className="text-[10px] text-slate-400">~{op.avgExecutionTimeSec}s avg</span>
-                  <button
+                  {exempt ? <span className="text-[10px] font-bold text-emerald-600">Included for staff</span> : <button
                     onClick={() => setActiveTestOp(op.key)}
                     className={`px-2.5 py-1.5 rounded-lg font-bold text-[10.5px] flex items-center gap-1 cursor-pointer transition-all ${
                       hasCredits 
@@ -247,7 +250,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
                     }`}
                   >
                     <Play className="w-3 h-3" /> Test & Consume
-                  </button>
+                  </button>}
                 </div>
               </div>
             );

@@ -17,6 +17,7 @@ interface AIContractAdvisorProps {
 export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, project: projectOverride }) => {
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState<ContractAdvisorProject[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState(projectOverride?.projectId || '');
   const [analysis, setAnalysis] = useState<Awaited<ReturnType<typeof AIService.analyzeContract>> | null>(null);
   const [error, setError] = useState('');
@@ -45,6 +46,7 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
           currency: item.countryNode?.currency || 'MYR',
         }));
         setProjects(mappedProjects);
+        setProjectsLoaded(true);
         setSelectedProjectId(mappedProjects[0]?.projectId || '');
       })
       .catch((loadError) => {
@@ -106,7 +108,7 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
                disabled={loading || projects.length === 0}
                className="rounded-lg border border-slate-300 bg-white px-2 py-1 font-bold text-slate-900"
              >
-               {projects.length === 0 && <option value="">Loading projects...</option>}
+               {projects.length === 0 && <option value="">{projectsLoaded ? 'No projects you can access' : 'Loading projects...'}</option>}
                {projects.map((item) => <option key={item.projectId} value={item.projectId}>{item.title}</option>)}
              </select>
            </label>

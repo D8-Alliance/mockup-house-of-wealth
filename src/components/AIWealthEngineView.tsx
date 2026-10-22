@@ -52,7 +52,7 @@ import { ShariahReviewInbox } from '../ai/components/ShariahReviewInbox';
 import { BuyAICreditsModal } from '../ai/monetisation/BuyAICreditsModal';
 import { aiMonetisationService } from '../ai/monetisation/aiMonetisationService';
 import { apiClient, BackendCreditSummary } from '../services/apiClient';
-import { AI_TAB_ROLES, canUseAiTab } from '../ai/aiTabAccess';
+import { AI_TAB_ROLES, canUseAiTab, hiddenAiTabs, SAMPLE_TABS } from '../ai/aiTabAccess';
 
 type BackendCreditSummaryView = Omit<BackendCreditSummary, 'userId'> & { userId?: string };
 
@@ -133,7 +133,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
     if (!canViewAiAdministration && (activeTab === 'governance-admin' || activeTab === 'admin-ai-analytics')) setActiveTab('overview');
     if (!canViewProjectFeasibility && activeTab === 'project-analyzer') setActiveTab('overview');
     if (!canViewCitationAudit && activeTab === 'citation-audit') setActiveTab('overview');
-    if (!canUseAiTab(activeTab, activeUser.role)) setActiveTab('overview');
+    if (!canUseAiTab(activeTab, activeUser.role) || hiddenAiTabs(activeUser.role).includes(activeTab)) setActiveTab('overview');
   }, [activeTab, activeUser.role, canViewAiAdministration, canViewProjectFeasibility, canViewCitationAudit]);
 
   if (aiModuleDisabled) {
@@ -158,6 +158,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
   const hiddenForRole: AIEngineTab[] = [
     ...(assetSide ? ['investment-matcher', 'portfolio-analysis', 'risk-analyzer', 'scenarios', 'pool-optimizer'] as AIEngineTab[] : []),
     ...(Object.keys(AI_TAB_ROLES) as AIEngineTab[]).filter((tab) => !canUseAiTab(tab, activeUser.role)),
+    ...(hiddenAiTabs(activeUser.role) as AIEngineTab[]),
   ];
   const tabs: { id: AIEngineTab; label: string; icon: React.ReactNode; badge?: string }[] = ([
     { id: 'overview', label: 'AI Suite Overview', icon: <BrainCircuit className="w-4 h-4" /> },
@@ -179,7 +180,9 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
      ] : []),
      { id: 'rag-knowledge-base', label: 'AI Knowledge Base', icon: <FileText className="w-4 h-4 text-purple-400" />, badge: 'RAG' },
      ...(canViewCitationAudit ? [{ id: 'citation-audit' as AIEngineTab, label: 'Citation Audit', icon: <ShieldCheck className="w-4 h-4 text-purple-400" />, badge: 'Audit' }] : []),
-  ] as { id: AIEngineTab; label: string; icon: React.ReactNode; badge?: string }[]).filter((tab) => !hiddenForRole.includes(tab.id));
+  ] as { id: AIEngineTab; label: string; icon: React.ReactNode; badge?: string }[]).filter((tab) => !hiddenForRole.includes(tab.id))
+    // Tools still on sample data say so.
+    .map((tab) => (SAMPLE_TABS.includes(tab.id) ? { ...tab, badge: 'Sample' } : tab));
 
   const primaryTabIds: AIEngineTab[] = ['overview', 'project-analyzer', 'contract-advisor', 'agreement-generation'];
   const primaryTabs = tabs.filter(tab => primaryTabIds.includes(tab.id));
@@ -376,7 +379,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
         {activeTab === 'ai-credits' && (
           <AIUsageDashboard 
             userId={activeUser.id || 'USR-8821'} 
-            onNavigateToMembership={onNavigateToMembership} 
+            onNavigateToMembership={creditBalance.creditExempt ? undefined : onNavigateToMembership} 
           />
         )}
         {activeTab === 'project-analyzer' && canViewProjectFeasibility && <AIProjectAnalyzer user={activeUser} />}

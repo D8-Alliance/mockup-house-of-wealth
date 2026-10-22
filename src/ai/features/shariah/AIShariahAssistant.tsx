@@ -12,6 +12,7 @@ interface ShariahAssistantProps {
 
 export const AIShariahAssistant: React.FC<ShariahAssistantProps> = ({ user }) => {
   const [projects, setProjects] = useState<ContractAdvisorProject[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [terms, setTerms] = useState('');
   const [run, setRun] = useState<BackendAiRun | null>(null);
@@ -32,6 +33,7 @@ export const AIShariahAssistant: React.FC<ShariahAssistantProps> = ({ user }) =>
         countryNodeId: item.countryNodeId,
       }));
       setProjects(mapped);
+      setProjectsLoaded(true);
       setSelectedProjectId(mapped[0]?.projectId || '');
     }).catch((loadError) => {
       if (!cancelled) setError(loadError instanceof Error ? loadError.message : 'Unable to load projects.');
@@ -87,7 +89,7 @@ export const AIShariahAssistant: React.FC<ShariahAssistantProps> = ({ user }) =>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="font-bold text-slate-700 dark:text-slate-300">Project
             <select value={selectedProjectId} onChange={(event) => setSelectedProjectId(event.target.value)} disabled={loading || projects.length === 0} className="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 font-normal text-slate-900">
-              {projects.length === 0 && <option value="">Loading projects...</option>}
+              {projects.length === 0 && <option value="">{projectsLoaded || error ? 'No projects you can access' : 'Loading projects...'}</option>}
               {projects.map((item) => <option key={item.projectId} value={item.projectId}>{item.title}</option>)}
             </select>
           </label>

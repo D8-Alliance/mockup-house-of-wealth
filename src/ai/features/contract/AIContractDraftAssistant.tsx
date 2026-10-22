@@ -15,6 +15,7 @@ interface AIContractDraftAssistantProps {
 
 export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> = ({ user, initialParams }) => {
   const [projects, setProjects] = useState<BackendProject[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState(initialParams?.projectId || '');
   const [selectedTemplate, setSelectedTemplate] = useState<NonNullable<ContractDraftParams['templateKey']>>('ijarah');
   const [loading, setLoading] = useState(false);
@@ -30,6 +31,7 @@ export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> =
     Promise.all([apiClient.getProjects(), apiClient.getShariahReviews(), apiClient.getShariahNotifications()]).then(([items, reviews, notificationItems]) => {
       if (cancelled) return;
       setProjects(items);
+      setProjectsLoaded(true);
       setProjectReviews(reviews);
       setNotifications(notificationItems);
       setSelectedProjectId((current) => current || items[0]?.projectId || '');
@@ -137,7 +139,7 @@ export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> =
             disabled={loading || projects.length === 0}
             className="mt-1 w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-semibold"
           >
-            {projects.length === 0 && <option value="">Loading projects...</option>}
+            {projects.length === 0 && <option value="">{projectsLoaded || error ? 'No projects you can access' : 'Loading projects...'}</option>}
             {projects.map((item) => <option key={item.projectId} value={item.projectId}>{item.projectName}</option>)}
           </select>
         </label>
@@ -156,7 +158,7 @@ export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> =
               disabled
               className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-semibold"
             >
-              <option value={project?.proposedShariahContract || ''}>{project?.proposedShariahContract || 'Loading projects...'}</option>
+              <option value={project?.proposedShariahContract || ''}>{project?.proposedShariahContract || (projectsLoaded || error ? 'Choose a project first' : 'Loading projects...')}</option>
             </select>
           </div>
 

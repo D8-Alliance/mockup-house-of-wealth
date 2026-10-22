@@ -13,6 +13,20 @@ export const AI_TAB_ROLES = {
   'due-diligence': DUE_DILIGENCE,
 } as const;
 
+/**
+ * Reviewers (Legal, Shariah) decide on others' work; they do not draft agreements or term sheets,
+ * and have no projects of their own to analyse. Their reviews are in My reviews and Shariah Board Reviews.
+ */
+export const REVIEWER_ONLY_ROLES = ['Legal Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'];
+/** Drafting and analysis tools hidden from reviewers. */
+export const DRAFTING_TABS = ['project-analyzer', 'contract-advisor', 'agreement-generation'];
+/** Tools that still run on sample data (PENDING_ACTIVITIES item 23): hidden from reviewers, labelled Sample for others. */
+export const SAMPLE_TABS = ['investment-matcher', 'portfolio-analysis', 'risk-analyzer', 'scenarios', 'pool-optimizer'];
+
+export function hiddenAiTabs(role: string): string[] {
+  return REVIEWER_ONLY_ROLES.includes(role) ? [...DRAFTING_TABS, ...SAMPLE_TABS] : [];
+}
+
 export function canUseAiTab(tab: string, role: string): boolean {
   const allowed = (AI_TAB_ROLES as Record<string, readonly string[]>)[tab];
   return !allowed || allowed.includes(role);
