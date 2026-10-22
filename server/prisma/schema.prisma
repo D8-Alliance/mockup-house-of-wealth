@@ -224,6 +224,10 @@ model Project {
   fundingRequired         Decimal  @db.Decimal(18, 2)
   proposedShariahContract String
   sponsorEntityType       String?
+  /// Expected annual return in percent, as the sponsor projects it (not a promise to investors).
+  expectedYieldPct        Decimal? @db.Decimal(5, 2)
+  tenureMonths            Int?
+  location                String?
   status                  String
   projectSponsorId        String
   createdAt               DateTime @default(now())

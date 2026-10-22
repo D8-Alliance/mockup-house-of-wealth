@@ -140,7 +140,7 @@ export const apiClient = {
   analyzeProjectDocument: (projectId: string, documentId: string) => request<BackendDocumentAnalysis>(`/ai/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/analyze`, { method: 'POST' }),
   getProjectLifecycle: (projectId: string) => request<BackendProjectLifecycle>(`/projects/${encodeURIComponent(projectId)}/lifecycle`),
   /** Corrects a draft project's details (refused once it is submitted for review). */
-  updateProjectDetails: (projectId: string, input: { projectName?: string; description?: string; sector?: string; sponsorEntityType?: string; proposedShariahContract?: string; totalProjectCost?: number; fundingRequired?: number }) => request<BackendProject>(`/projects/${encodeURIComponent(projectId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  updateProjectDetails: (projectId: string, input: { projectName?: string; description?: string; sector?: string; sponsorEntityType?: string; proposedShariahContract?: string; totalProjectCost?: number; fundingRequired?: number; expectedYieldPct?: number; tenureMonths?: number; location?: string }) => request<BackendProject>(`/projects/${encodeURIComponent(projectId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
   updateProjectStatus: (projectId: string, input: { status: string; note?: string }) => request<BackendProject>(`/projects/${encodeURIComponent(projectId)}/status`, { method: 'POST', body: JSON.stringify(input) }),
   updateProjectMilestone: (projectId: string, milestoneId: string, input: { completionPct?: number; status?: string; shariahSignoff?: boolean; auditorSignoff?: boolean }) => request(`/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(milestoneId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
   createProject: (input: CreateProjectInput) => request<BackendProject>('/projects', {
@@ -1263,6 +1263,9 @@ export interface BackendProject {
   proposedShariahContract: string;
   status: string;
   sponsorEntityType?: string | null;
+  expectedYieldPct?: number | string | null;
+  tenureMonths?: number | null;
+  location?: string | null;
   countryNode?: { currency: string };
   projectSponsor?: { name: string };
   milestones?: BackendProjectMilestone[];
@@ -1408,6 +1411,9 @@ export interface CreateProjectInput {
   proposedShariahContract: string;
   projectSponsorId: string;
   sponsorEntityType?: string;
+  expectedYieldPct?: number;
+  tenureMonths?: number;
+  location?: string;
 }
 
 export interface BackendProjectDocument {

@@ -35,6 +35,17 @@ const EVIDENCE_REQUIREMENTS = [
 
 const EVIDENCE_DOCUMENT_SELECT = { id: true, fileName: true, mimeType: true, extractionStatus: true, createdAt: true, sha256: true, integrity: true } as const;
 
+/** Yield, tenure and location of a new project, dropping values outside sensible ranges (the create body has no DTO class to validate it). */
+export function projectTerms(dto: { expectedYieldPct?: number; tenureMonths?: number; location?: string }) {
+  const yieldPct = Number(dto.expectedYieldPct);
+  const tenure = Number(dto.tenureMonths);
+  return {
+    expectedYieldPct: dto.expectedYieldPct !== undefined && dto.expectedYieldPct !== null && Number.isFinite(yieldPct) && yieldPct >= 0 && yieldPct <= 100 ? yieldPct : null,
+    tenureMonths: Number.isInteger(tenure) && tenure >= 1 && tenure <= 600 ? tenure : null,
+    location: typeof dto.location === 'string' && dto.location.trim() ? dto.location.trim().slice(0, 200) : null,
+  };
+}
+
 @Injectable()
 export class ProjectsService {
   constructor(
@@ -564,6 +575,7 @@ export class ProjectsService {
     const changes = Object.fromEntries(Object.entries({
       projectName: text(dto.projectName), description: text(dto.description), sector: text(dto.sector), sponsorEntityType: text(dto.sponsorEntityType),
       proposedShariahContract: text(dto.proposedShariahContract), totalProjectCost: dto.totalProjectCost, fundingRequired: dto.fundingRequired, sponsorContribution: dto.sponsorContribution,
+      expectedYieldPct: dto.expectedYieldPct, tenureMonths: dto.tenureMonths, location: text(dto.location),
     }).filter(([, value]) => value !== undefined && value !== ''));
     if (!Object.keys(changes).length) throw new BadRequestException('Nothing to change.');
     const updated = await this.prisma.project.update({ where: { projectId }, data: changes });
@@ -596,6 +608,7 @@ export class ProjectsService {
         fundingRequired: dto.fundingRequired,
         proposedShariahContract: dto.proposedShariahContract,
         sponsorEntityType: dto.sponsorEntityType?.trim() || null,
+        ...projectTerms(dto),
         status: 'DRAFT',
         // Sponsors may only create drafts assigned to themselves.
         projectSponsorId: user.role === 'Project Sponsor' ? user.userId : dto.projectSponsorId,

@@ -308,6 +308,9 @@ export interface CreateProjectDto {
   proposedShariahContract: string;
   projectSponsorId: string;
   sponsorEntityType?: string;
+  expectedYieldPct?: number;
+  tenureMonths?: number;
+  location?: string;
 }
 
 export interface UpdateProjectStatusDto { status: string; note?: string; }

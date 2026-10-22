@@ -53,6 +53,14 @@ const mapShariahContract = (contract: string): SponsorProject['shariahContract']
   return contract as SponsorProject['shariahContract'];
 };
 
+/** "8.5% p.a." from the stored percentage; the form keeps the label, the server keeps the number. */
+const yieldLabel = (value: number | string | null | undefined) => (value === null || value === undefined || value === '' ? 'Pending assessment' : `${Number(value)}% p.a.`);
+
+function projectTermsInput(project: SponsorProject) {
+  const yieldPct = parseFloat(project.expectedYield);
+  return { expectedYieldPct: Number.isFinite(yieldPct) ? yieldPct : undefined, tenureMonths: project.tenureMonths > 0 ? project.tenureMonths : undefined, location: project.location.trim() || undefined };
+}
+
 export const ProjectSponsorView: React.FC = () => {
   // The tenant the server resolved for this sign-in; a Keycloak token carries no organisation claim.
   const { tenantContext } = useRBAC();
@@ -110,9 +118,9 @@ export const ProjectSponsorView: React.FC = () => {
           shariahContract: mapShariahContract(item.proposedShariahContract),
           targetFunding: Number(item.fundingRequired),
           raisedFunding: 0,
-          expectedYield: 'Pending assessment',
-          tenureMonths: 0,
-          location: item.countryNodeId,
+          expectedYield: yieldLabel(item.expectedYieldPct),
+          tenureMonths: item.tenureMonths ?? 0,
+          location: item.location || item.countryNodeId,
           country: item.countryNodeId,
           workflowStage: stageOf(item.status),
           serverStatus: item.status,
@@ -155,8 +163,8 @@ export const ProjectSponsorView: React.FC = () => {
 
   const handleCreateProject = async (newProj: SponsorProject, documents: { businessPlan?: File; financialProjection?: File }) => {
     if (editingProject) {
-      const saved = await apiClient.updateProjectDetails(editingProject.id, { projectName: newProj.title, description: newProj.description, sector: newProj.category, sponsorEntityType: newProj.orgType, proposedShariahContract: newProj.shariahContract, totalProjectCost: newProj.targetFunding, fundingRequired: newProj.targetFunding });
-      replaceProject({ ...editingProject, title: saved.projectName, description: saved.description, orgType: saved.sponsorEntityType || newProj.orgType, category: newProj.category, shariahContract: newProj.shariahContract, targetFunding: Number(saved.fundingRequired) });
+      const saved = await apiClient.updateProjectDetails(editingProject.id, { projectName: newProj.title, description: newProj.description, sector: newProj.category, sponsorEntityType: newProj.orgType, proposedShariahContract: newProj.shariahContract, totalProjectCost: newProj.targetFunding, fundingRequired: newProj.targetFunding, ...projectTermsInput(newProj) });
+      replaceProject({ ...editingProject, title: saved.projectName, description: saved.description, orgType: saved.sponsorEntityType || newProj.orgType, category: newProj.category, shariahContract: newProj.shariahContract, targetFunding: Number(saved.fundingRequired), expectedYield: yieldLabel(saved.expectedYieldPct), tenureMonths: saved.tenureMonths ?? 0, location: saved.location || editingProject.location });
       setEditingProject(null);
       return;
     }
@@ -176,6 +184,7 @@ export const ProjectSponsorView: React.FC = () => {
       proposedShariahContract: newProj.shariahContract,
       projectSponsorId: tenantContext.userId,
       sponsorEntityType: newProj.orgType,
+      ...projectTermsInput(newProj),
     });
     void apiClient.getMembershipCreditSummary().then(summary => setCreditBalance({ userId: summary.userId, totalCredits: summary.totalPoolCredits, usedCredits: summary.usedCredits, availableCredits: summary.availableBalance, monthlyAllowance: summary.monthlyAllowance, purchasedCredits: summary.purchasedCredits ?? 0, resetDate: summary.resetDate })).catch(() => undefined);
 

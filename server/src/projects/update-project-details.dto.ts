@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 /** The details a sponsor can correct while the project is a draft. */
 export class UpdateProjectDetailsDto {
@@ -11,4 +11,7 @@ export class UpdateProjectDetailsDto {
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1e13) totalProjectCost?: number;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1e13) fundingRequired?: number;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1e13) sponsorContribution?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(100) expectedYieldPct?: number;
+  @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(600) tenureMonths?: number;
+  @IsOptional() @IsString() @MaxLength(200) location?: string;
 }

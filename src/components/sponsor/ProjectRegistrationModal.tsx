@@ -21,9 +21,10 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
   const [category, setCategory] = useState<SponsorProject['category']>('Green Energy & Solar');
   const [shariahContract, setShariahContract] = useState<SponsorProject['shariahContract']>('Ijarah (Lease)');
   const [targetFunding, setTargetFunding] = useState('5000000');
-  const [expectedYield, setExpectedYield] = useState('8.8% p.a.');
-  const [tenureMonths, setTenureMonths] = useState('48');
-  const [location, setLocation] = useState('Kuantan, Pahang');
+  // Blank until the sponsor fills them: a sample figure left in place would be saved as the project's own.
+  const [expectedYield, setExpectedYield] = useState('');
+  const [tenureMonths, setTenureMonths] = useState('');
+  const [location, setLocation] = useState('');
   const [country, setCountry] = useState('Malaysia');
   const [description, setDescription] = useState('');
 
@@ -41,6 +42,10 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
     setShariahContract(editing.shariahContract);
     setTargetFunding(String(editing.targetFunding || ''));
     setDescription(editing.description);
+    const savedYield = parseFloat(editing.expectedYield);
+    setExpectedYield(Number.isFinite(savedYield) ? String(savedYield) : '');
+    setTenureMonths(editing.tenureMonths > 0 ? String(editing.tenureMonths) : '');
+    setLocation(editing.location && editing.location !== editing.country ? editing.location : '');
     setSubmitError('');
   }, [isOpen, editing]);
 
@@ -61,8 +66,8 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
       shariahContract,
       targetFunding: parseFloat(targetFunding) || 1000000,
       raisedFunding: 0,
-      expectedYield,
-      tenureMonths: parseInt(tenureMonths, 10) || 36,
+      expectedYield: expectedYield ? `${expectedYield}% p.a.` : 'Pending assessment',
+      tenureMonths: parseInt(tenureMonths, 10) || 0,
       location,
       country,
       workflowStage: 'Draft',
@@ -190,9 +195,13 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
               />
             </div>
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Expected Yield</label>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Expected Yield (% a year)</label>
               <input
-                type="text"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                placeholder="e.g. 8.5"
                 value={expectedYield}
                 onChange={(e) => setExpectedYield(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
@@ -203,12 +212,27 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
               <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Tenure (Months)</label>
               <input
                 type="number"
+                min="1"
+                max="600"
+                placeholder="e.g. 48"
                 value={tenureMonths}
                 onChange={(e) => setTenureMonths(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
                 required
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Location</label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Kuantan, Pahang"
+              maxLength={200}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+            />
           </div>
 
           <div>
