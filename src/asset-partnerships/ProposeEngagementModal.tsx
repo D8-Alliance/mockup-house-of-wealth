@@ -13,7 +13,7 @@ const typesMatch = (needType: string, assetType: string) => needType === assetTy
 const CLOSED_PROJECT = ['COMPLETED', 'REJECTED'];
 
 type Props =
-  | { mode: 'OFFER'; need: ProjectAssetNeed; organisationId: string; onClose: () => void; onCreated: (engagement: AssetEngagement) => void; onRegisterAsset?: (type: AssetTypeCode) => void }
+  | { mode: 'OFFER'; need: ProjectAssetNeed; organisationId: string; onClose: () => void; onCreated: (engagement: AssetEngagement) => void; onRegisterAsset?: (type: AssetTypeCode) => void; /** Assets already under discussion for this project: continue those offers instead. */ busyAssetIds?: string[] }
   | { mode: 'REQUEST'; asset: ListedAsset; organisationId: string; onClose: () => void; onCreated: (engagement: AssetEngagement) => void };
 
 /**
@@ -23,6 +23,7 @@ type Props =
 export const ProposeEngagementModal: React.FC<Props> = (props) => {
   const { mode, organisationId, onClose, onCreated } = props;
   const [assets, setAssets] = useState<RegisteredAsset[]>([]);
+  const [busyCount, setBusyCount] = useState(0);
   const [projects, setProjects] = useState<BackendProject[]>([]);
   const [needs, setNeeds] = useState<ProjectAssetNeed[]>([]);
   const [assetId, setAssetId] = useState('');
@@ -40,7 +41,8 @@ export const ProposeEngagementModal: React.FC<Props> = (props) => {
   useEffect(() => {
     const load = mode === 'OFFER'
       ? apiClient.getAssets('VERIFIED').then((list) => {
-        const suitable = list.filter((asset) => typesMatch(props.need.assetType, asset.assetType));
+        const suitable = list.filter((asset) => typesMatch(props.need.assetType, asset.assetType) && !(props.busyAssetIds ?? []).includes(asset.id));
+        setBusyCount(list.filter((asset) => (props.busyAssetIds ?? []).includes(asset.id)).length);
         setAssets(suitable);
         if (suitable.length === 1) setAssetId(suitable[0].id);
       })
@@ -98,12 +100,13 @@ export const ProposeEngagementModal: React.FC<Props> = (props) => {
         {loading ? <p className="text-xs text-slate-400">Loading…</p> : mode === 'OFFER' ? (
           <div>
             <label htmlFor="propose-asset" className={LABEL}>Your verified asset</label>
+            {busyCount > 0 && assets.length > 0 && <p className="mb-1 text-[11px] text-slate-500">{busyCount} of your assets {busyCount === 1 ? 'is' : 'are'} already under discussion for this project and not listed here.</p>}
             {assets.length ? (
               <select id="propose-asset" required value={assetId} onChange={(e) => setAssetId(e.target.value)} className={`${INPUT} cursor-pointer`}>
                 <option value="">Choose…</option>
                 {assets.map((asset) => <option key={asset.id} value={asset.id}>{asset.name} ({asset.id})</option>)}
               </select>
-            ) : <p className="p-3 rounded-xl bg-amber-500/10 text-amber-700 text-xs">You have no verified {ASSET_TYPE_LABELS[props.need.assetType].toLowerCase()} asset. Register one in Asset Register and have it verified first.{props.onRegisterAsset && <button type="button" onClick={() => props.onRegisterAsset?.(props.need.assetType)} className="ml-2 underline font-bold cursor-pointer">Register {ASSET_TYPE_LABELS[props.need.assetType].toLowerCase()} now</button>}</p>}
+            ) : busyCount > 0 ? <p className="p-3 rounded-xl bg-sky-500/10 text-sky-800 dark:text-sky-300 text-xs">Your matching asset is already under discussion for this project. Close this and open that offer (My offers &amp; requests) to change its terms with a counter-offer.</p> : <p className="p-3 rounded-xl bg-amber-500/10 text-amber-700 text-xs">You have no verified {ASSET_TYPE_LABELS[props.need.assetType].toLowerCase()} asset. Register one in Asset Register and have it verified first.{props.onRegisterAsset && <button type="button" onClick={() => props.onRegisterAsset?.(props.need.assetType)} className="ml-2 underline font-bold cursor-pointer">Register {ASSET_TYPE_LABELS[props.need.assetType].toLowerCase()} now</button>}</p>}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

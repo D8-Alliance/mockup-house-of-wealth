@@ -145,6 +145,8 @@ export const AssetPartnershipsView: React.FC<{ onOpenAgreement?: () => void; onO
             {needs.map((need) => {
               const status = NEED_STATUS[need.status];
               const offered = need.myEngagementIds?.length ?? 0;
+              // An offer still under discussion is continued, not made again.
+              const openOffer = engagements.find((engagement) => engagement.need?.id === need.id && engagement.myParty === 'OWNER' && (engagement.status === 'PROPOSED' || engagement.status === 'ACCEPTED'));
               return (
                 <div key={need.id} className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 space-y-2">
                   <div className="flex justify-between items-start gap-2">
@@ -163,7 +165,10 @@ export const AssetPartnershipsView: React.FC<{ onOpenAgreement?: () => void; onO
                     {side === 'OWNER' ? (
                       <>
                         <span className="text-[11px] text-slate-400">{offered ? `You made ${offered} offer${offered > 1 ? 's' : ''}` : ''}</span>
-                        <button type="button" onClick={() => setOfferFor(need)} className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer">Offer an asset</button>
+                        <span className="flex flex-wrap gap-2">
+                          {openOffer && <button type="button" onClick={() => setSelected(openOffer)} className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer">{openOffer.canRespond ? 'Open your offer: your response is needed' : 'Open your offer'}</button>}
+                          <button type="button" onClick={() => setOfferFor(need)} className={openOffer ? 'px-4 py-1.5 rounded-xl border border-emerald-500/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold cursor-pointer' : 'px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer'}>{openOffer ? 'Offer another asset' : 'Offer an asset'}</button>
+                        </span>
                       </>
                     ) : (
                       <>
@@ -219,7 +224,7 @@ export const AssetPartnershipsView: React.FC<{ onOpenAgreement?: () => void; onO
       <ModalPortal>
         {compareNeedId && !selected && <OfferComparisonModal needId={compareNeedId} refreshKey={compareRefresh} onOpen={(engagement) => setSelected(engagement)} onClose={() => setCompareNeedId(null)} />}
         {selected && <EngagementDetailModal engagement={selected} isSuperAdmin={currentRole === 'Super Admin'} onChanged={replace} onClose={() => setSelected(null)} onOpenAgreement={onOpenAgreement ? () => { setSelected(null); onOpenAgreement(); } : undefined} onOpenContracts={onOpenContracts ? () => { setSelected(null); onOpenContracts(); } : undefined} />}
-        {offerFor && <ProposeEngagementModal mode="OFFER" need={offerFor} organisationId={tenantContext.organisationId} onClose={() => setOfferFor(null)} onRegisterAsset={onOpenAssetRegister ? (type) => { setOfferFor(null); onOpenAssetRegister(type); } : undefined} onCreated={(engagement) => { setOfferFor(null); setTab('engagements'); replace(engagement); }} />}
+        {offerFor && <ProposeEngagementModal mode="OFFER" need={offerFor} busyAssetIds={engagements.filter((engagement) => engagement.project.projectId === offerFor.projectId && (engagement.status === 'PROPOSED' || engagement.status === 'ACCEPTED')).map((engagement) => engagement.asset.id)} organisationId={tenantContext.organisationId} onClose={() => setOfferFor(null)} onRegisterAsset={onOpenAssetRegister ? (type) => { setOfferFor(null); onOpenAssetRegister(type); } : undefined} onCreated={(engagement) => { setOfferFor(null); setTab('engagements'); replace(engagement); }} />}
         {requestFor && <ProposeEngagementModal mode="REQUEST" asset={requestFor} organisationId={tenantContext.organisationId} onClose={() => setRequestFor(null)} onCreated={(engagement) => { setRequestFor(null); setTab('engagements'); replace(engagement); }} />}
         {needForm && <NeedFormModal organisationId={tenantContext.organisationId} onClose={() => setNeedForm(false)} onCreated={() => { setNeedForm(false); setTab('needs'); void load(); }} />}
       </ModalPortal>
