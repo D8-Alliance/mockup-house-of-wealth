@@ -78,3 +78,45 @@ export function publicDetails(assetType: string, details: AssetDetails | null): 
 export function regionOf(details: AssetDetails | null): string {
   return [details?.district, details?.state].filter(Boolean).join(', ');
 }
+
+
+/** Calendar months in a period, counting both dates: 1 Jan to 30 Jun is 6, 1 Nov to 31 Jan is 3. */
+export function monthsBetween(start: Date, end: Date): number {
+  if (end < start) return 0;
+  const daysInEndMonth = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
+  const whole = (end.getUTCFullYear() - start.getUTCFullYear()) * 12 + (end.getUTCMonth() - start.getUTCMonth());
+  const part = (end.getUTCDate() - start.getUTCDate() + 1) / daysInEndMonth;
+  return Math.max(0, Math.round((whole + part) * 10) / 10);
+}
+
+export interface OfferMetrics {
+  months: number;
+  /** Ijarah: the rent per month, whether quoted monthly or for the whole period. */
+  monthlyRent: number | null;
+  /** Ijarah: the rent over the whole offered period. */
+  totalRent: number | null;
+  /** Share of the need's period the offer covers, in percent; null when the need has no dates. */
+  coveragePct: number | null;
+}
+
+/** Figures that make offers comparable side by side, whatever way their rent is quoted. */
+export function offerMetrics(akad: Akad, terms: EngagementTerms, start: Date, end: Date, needStart: Date | null, needEnd: Date | null): OfferMetrics {
+  const months = monthsBetween(start, end);
+  let monthlyRent: number | null = null;
+  let totalRent: number | null = null;
+  if (akad === 'IJARAH' && terms.rentAmount) {
+    if (terms.rentFrequency === 'WHOLE_PERIOD') {
+      totalRent = terms.rentAmount;
+      monthlyRent = months ? Math.round((terms.rentAmount / months) * 100) / 100 : null;
+    } else {
+      monthlyRent = terms.rentAmount;
+      totalRent = Math.round(terms.rentAmount * months * 100) / 100;
+    }
+  }
+  let coveragePct: number | null = null;
+  if (needStart && needEnd && needEnd > needStart) {
+    const overlap = Math.min(end.getTime(), needEnd.getTime()) - Math.max(start.getTime(), needStart.getTime());
+    coveragePct = Math.max(0, Math.min(100, Math.round((overlap / (needEnd.getTime() - needStart.getTime())) * 100)));
+  }
+  return { months, monthlyRent, totalRent, coveragePct };
+}

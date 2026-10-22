@@ -1,4 +1,16 @@
-import { cleanTerms, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch } from './asset-partnership-rules';
+import { cleanTerms, offerMetrics, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch } from './asset-partnership-rules';
+
+describe('comparing offers', () => {
+  const d = (value: string) => new Date(value);
+  it('puts monthly and whole-period rent on the same footing, and measures how much of the needed period is covered', () => {
+    const monthly = offerMetrics('IJARAH', { rentAmount: 2000, rentFrequency: 'MONTHLY' }, d('2027-01-01'), d('2027-06-30'), d('2027-01-01'), d('2027-12-31'));
+    expect(monthly).toMatchObject({ months: 6, monthlyRent: 2000, totalRent: 12000 });
+    expect(monthly.coveragePct).toBeGreaterThanOrEqual(49);
+    const whole = offerMetrics('IJARAH', { rentAmount: 12000, rentFrequency: 'WHOLE_PERIOD' }, d('2027-01-01'), d('2027-06-30'), null, null);
+    expect(whole).toMatchObject({ monthlyRent: 2000, totalRent: 12000, coveragePct: null });
+    expect(offerMetrics('MUSHARAKAH', { contributionValue: 400000, profitSharePct: 30 }, d('2027-01-01'), d('2027-12-31'), null, null)).toMatchObject({ monthlyRent: null, totalRent: null, months: 12 });
+  });
+});
 
 describe('asset partnership rules', () => {
   it('needs a known rent and upkeep for Ijarah, and the agreed value and profit share for Musharakah', () => {

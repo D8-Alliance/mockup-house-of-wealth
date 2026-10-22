@@ -7,6 +7,7 @@ import { EngagementDetailModal } from './EngagementDetailModal';
 import { ModalPortal } from '../components/ModalPortal';
 import { NeedFormModal } from './NeedFormModal';
 import { ProposeEngagementModal } from './ProposeEngagementModal';
+import { OfferComparisonModal } from './OfferComparisonModal';
 import { AKAD_LABELS, describeTerms, ENGAGEMENT_STATUS, NEED_STATUS, nextStep, PREFERRED_AKAD_LABELS } from './partnershipLabels';
 
 const OWNER_ROLES = ['Asset Owner', 'Asset Manager'];
@@ -51,6 +52,8 @@ export const AssetPartnershipsView: React.FC<{ onOpenAgreement?: () => void }> =
   const [offerFor, setOfferFor] = useState<ProjectAssetNeed | null>(null);
   const [requestFor, setRequestFor] = useState<ListedAsset | null>(null);
   const [needForm, setNeedForm] = useState(false);
+  const [compareNeedId, setCompareNeedId] = useState<string | null>(null);
+  const [compareRefresh, setCompareRefresh] = useState(0);
 
   useEffect(() => setTab(TABS[side][0].id), [side]);
 
@@ -76,6 +79,7 @@ export const AssetPartnershipsView: React.FC<{ onOpenAgreement?: () => void }> =
   useEffect(() => { void load(); }, [load, currentRole]);
 
   const replace = (engagement: AssetEngagement) => {
+    setCompareRefresh((value) => value + 1);
     setEngagements((current) => [engagement, ...current.filter((item) => item.id !== engagement.id)]);
     setSelected(engagement);
     void load();
@@ -163,7 +167,8 @@ export const AssetPartnershipsView: React.FC<{ onOpenAgreement?: () => void }> =
                       </>
                     ) : (
                       <>
-                        <span className="text-[11px] text-slate-400">{need.offerCount ?? 0} offer(s) · {need.approvedCount} approved</span>
+                        <span className="text-[11px] text-slate-400">{need.offerCount ?? 0} offer(s) · {need.approvedCount} of {need.quantity} approved</span>
+                        {(need.offerCount ?? 0) > 0 && <button type="button" onClick={() => setCompareNeedId(need.id)} className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer">Compare offers</button>}
                         {need.status !== 'FILLED' && <button type="button" onClick={() => void apiClient.setAssetNeedStatus(need.id, need.status === 'OPEN' ? 'CLOSED' : 'OPEN').then(load).catch((cause) => setError(apiErrorMessage(cause, 'Not changed.')))} className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-xs font-bold cursor-pointer">{need.status === 'OPEN' ? 'Close' : 'Reopen'}</button>}
                       </>
                     )}
@@ -212,6 +217,7 @@ export const AssetPartnershipsView: React.FC<{ onOpenAgreement?: () => void }> =
 
       {/* Above the sticky header: this page is inside an animated (transformed) container. */}
       <ModalPortal>
+        {compareNeedId && !selected && <OfferComparisonModal needId={compareNeedId} refreshKey={compareRefresh} onOpen={(engagement) => setSelected(engagement)} onClose={() => setCompareNeedId(null)} />}
         {selected && <EngagementDetailModal engagement={selected} isSuperAdmin={currentRole === 'Super Admin'} onChanged={replace} onClose={() => setSelected(null)} onOpenAgreement={onOpenAgreement ? () => { setSelected(null); onOpenAgreement(); } : undefined} />}
         {offerFor && <ProposeEngagementModal mode="OFFER" need={offerFor} organisationId={tenantContext.organisationId} onClose={() => setOfferFor(null)} onCreated={(engagement) => { setOfferFor(null); setTab('engagements'); replace(engagement); }} />}
         {requestFor && <ProposeEngagementModal mode="REQUEST" asset={requestFor} organisationId={tenantContext.organisationId} onClose={() => setRequestFor(null)} onCreated={(engagement) => { setRequestFor(null); setTab('engagements'); replace(engagement); }} />}

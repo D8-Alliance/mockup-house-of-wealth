@@ -401,6 +401,7 @@ export const apiClient = {
   createAssetNeed: (input: AssetNeedInput) => request<ProjectAssetNeed>('/asset-partnerships/needs', { method: 'POST', body: JSON.stringify(input) }),
   setAssetNeedStatus: (id: string, status: 'OPEN' | 'CLOSED') => request<ProjectAssetNeed>(`/asset-partnerships/needs/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   getAssetEngagements: () => request<AssetEngagement[]>('/asset-partnerships/engagements'),
+  getNeedOffers: (needId: string) => request<OfferComparison>(`/asset-partnerships/needs/${encodeURIComponent(needId)}/offers`),
   createAssetEngagement: (input: EngagementInput) => request<AssetEngagement>('/asset-partnerships/engagements', { method: 'POST', body: JSON.stringify(input) }),
   respondAssetEngagement: (id: string, input: { action: 'ACCEPT' | 'DECLINE' | 'COUNTER'; akad?: PartnershipAkad; terms?: EngagementTerms; startDate?: string; endDate?: string; note?: string }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/respond`, { method: 'POST', body: JSON.stringify(input) }),
   withdrawAssetEngagement: (id: string, note?: string) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/withdraw`, { method: 'POST', body: JSON.stringify({ note }) }),
@@ -708,6 +709,13 @@ export interface EngagementHistoryEntry {
   terms?: EngagementTerms;
   startDate?: string;
   endDate?: string;
+}
+
+/** Every offer for one need, with figures that make them comparable. */
+export interface OfferComparison {
+  need: { id: string; title: string; assetType: AssetTypeCode; quantity: number; status: string; startDate: string | null; endDate: string | null; location: string; preferredAkad: PreferredAkad };
+  held: number;
+  offers: Array<AssetEngagement & { metrics: { months: number; monthlyRent: number | null; totalRent: number | null; coveragePct: number | null }; documentIssues: number }>;
 }
 
 export interface AssetEngagement {

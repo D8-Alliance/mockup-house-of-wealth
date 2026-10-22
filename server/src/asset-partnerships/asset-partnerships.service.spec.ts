@@ -100,6 +100,27 @@ describe('AssetPartnershipsService', () => {
     await expect(service.withdraw(owner, 'ENG-MYS-0000001', { note: 'Sold the machine.' })).resolves.toMatchObject({ status: 'WITHDRAWN', canWithdraw: false });
   });
 
+  it('refuses to accept more assets than the need asked for', async () => {
+    prisma.assetEngagement.findFirst.mockResolvedValueOnce(row());
+    prisma.projectAssetNeed.findUnique.mockResolvedValueOnce({ quantity: 1, status: 'OPEN' });
+    prisma.assetEngagement.count.mockResolvedValueOnce(1);
+    await expect(service.respond(sponsor, 'ENG-MYS-0000001', { action: 'ACCEPT' })).rejects.toThrow('already has 1 of 1 asset accepted or approved');
+  });
+
+  it('closes the other open offers, and tells their owners, once the need is filled', async () => {
+    const accepted = row({ status: 'ACCEPTED', awaiting: 'REVIEW', legalApprovedBy: legal.userId });
+    prisma.assetEngagement.findFirst.mockResolvedValueOnce(accepted);
+    prisma.assetEngagement.updateMany.mockResolvedValue({ count: 1 });
+    prisma.assetEngagement.findUniqueOrThrow.mockResolvedValueOnce(row({ status: 'APPROVED', legalApprovedBy: legal.userId, shariahApprovedBy: shariah.userId }));
+    prisma.projectAssetNeed.findUnique.mockResolvedValueOnce({ quantity: 1, status: 'OPEN' });
+    prisma.assetEngagement.count.mockResolvedValueOnce(1);
+    prisma.assetEngagement.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([row({ id: 'ENG-MYS-OTHER001', asset: { ...row().asset, ownerUserId: 'USR-AO2' } })]);
+    await service.review(shariah, accepted.id, { decision: 'APPROVE', note: 'Akad sound.' });
+    expect(prisma.assetEngagement.updateMany).toHaveBeenLastCalledWith({ where: { id: 'ENG-MYS-OTHER001', status: 'PROPOSED' }, data: expect.objectContaining({ status: 'DECLINED', awaiting: 'NONE' }) });
+    expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-AO2', title: 'Offer closed' }));
+    prisma.assetEngagement.updateMany.mockReset();
+  });
+
   it('refuses to accept when the asset is already committed for an overlapping period', async () => {
     prisma.assetEngagement.findFirst.mockResolvedValueOnce(row());
     prisma.assetEngagement.findMany.mockResolvedValueOnce([{ id: 'ENG-MYS-OTHER001', startDate: new Date('2027-03-01'), endDate: new Date('2027-09-01') }]);

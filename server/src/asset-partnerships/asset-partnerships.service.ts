@@ -8,7 +8,7 @@ import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { newCountryScopedId } from '../users/user-identity';
 import { AssetListingDto, CreateAssetNeedDto, CreateEngagementDto, RespondEngagementDto, ReviewEngagementDto, UpdateNeedStatusDto, WithdrawEngagementDto } from './asset-partnership.dto';
-import { Akad, cleanTerms, CLOSED_PROJECT_STATUSES, EngagementTerms, HOLDING_ENGAGEMENT_STATUSES, OPEN_ENGAGEMENT_STATUSES, otherParty, Party, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch } from './asset-partnership-rules';
+import { Akad, cleanTerms, CLOSED_PROJECT_STATUSES, EngagementTerms, HOLDING_ENGAGEMENT_STATUSES, offerMetrics, OPEN_ENGAGEMENT_STATUSES, otherParty, Party, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch } from './asset-partnership-rules';
 
 /** Roles that act for a delivery partner (PDP) and its projects. */
 export const PDP_ROLES: ReadonlySet<string> = new Set(['Project Sponsor', 'Project Manager', 'Organization Admin']);
@@ -32,7 +32,7 @@ interface HistoryEntry {
 }
 
 const ENGAGEMENT_INCLUDE = {
-  asset: { select: { id: true, assetType: true, name: true, location: true, titleReference: true, details: true, estimatedValue: true, currency: true, isEncumbered: true, encumbranceNote: true, intendedUse: true, status: true, ownerUserId: true, organisation: { select: { name: true } } } },
+  asset: { select: { id: true, assetType: true, name: true, location: true, titleReference: true, details: true, estimatedValue: true, currency: true, isEncumbered: true, encumbranceNote: true, intendedUse: true, status: true, ownerUserId: true, checkFindings: true, organisation: { select: { name: true } } } },
   project: { select: { projectId: true, projectCode: true, projectName: true, sector: true, status: true, projectSponsorId: true, organisation: { select: { name: true } } } },
   need: { select: { id: true, title: true, quantity: true, createdBy: true } },
 } satisfies Prisma.AssetEngagementInclude;
@@ -140,7 +140,32 @@ export class AssetPartnershipsService {
     if (!need) throw new NotFoundException('Need not found.');
     const updated = await this.prisma.projectAssetNeed.update({ where: { id }, data: { status: input.status } });
     await this.audit.recordActor(actor, { action: input.status === 'CLOSED' ? 'asset_need.close' : 'asset_need.reopen', resourceType: 'ProjectAssetNeed', resourceId: id, organisationId: need.organisationId, countryNodeId: need.countryNodeId });
+    if (input.status === 'CLOSED') await this.closeOpenOffers(id, 'The delivery partner closed this need, so the offer was closed.');
     return updated;
+  }
+
+  /**
+   * Every offer and request for one need side by side, with figures that make them comparable:
+   * rent per month and over the period, the share of the needed period covered, and document issues.
+   */
+  async compareOffers(actor: AuthenticatedUser, needId: string) {
+    const need = await this.prisma.projectAssetNeed.findUnique({ where: { id: needId } });
+    const allowed = need && (actor.role === 'Super Admin' || (need.countryNodeId === actor.countryNodeId && ((PDP_ROLES.has(actor.role) && need.organisationId === actor.organisationId) || REVIEWERS.has(actor.role))));
+    if (!need || !allowed) throw new NotFoundException('Need not found.');
+    const rows = await this.prisma.assetEngagement.findMany({ where: { needId, status: { not: 'WITHDRAWN' } }, orderBy: { createdAt: 'asc' }, include: ENGAGEMENT_INCLUDE });
+    const held = rows.filter((row) => HOLDING_ENGAGEMENT_STATUSES.includes(row.status)).length;
+    return {
+      need: { id: need.id, title: need.title, assetType: need.assetType, quantity: need.quantity, status: need.status, startDate: day(need.startDate), endDate: day(need.endDate), location: need.location, preferredAkad: need.preferredAkad },
+      held,
+      offers: rows.map((row) => {
+        const findings = Array.isArray(row.asset.checkFindings) ? row.asset.checkFindings as Array<{ result?: string }> : [];
+        return {
+          ...this.view(actor, row),
+          metrics: offerMetrics(row.akad as Akad, row.terms as EngagementTerms, row.startDate, row.endDate, need.startDate, need.endDate),
+          documentIssues: findings.filter((finding) => finding.result === 'MISMATCH' || finding.result === 'NOT_FOUND').length,
+        };
+      }),
+    };
   }
 
   // ---- Engagements: offers, requests, negotiation and approval ----
@@ -230,6 +255,7 @@ export class AssetPartnershipsService {
 
     if (input.action === 'ACCEPT') {
       await this.assertAssetFree(engagement);
+      if (engagement.needId) await this.assertNeedHasRoom(engagement.needId, engagement.id);
       data = { status: 'ACCEPTED', awaiting: 'REVIEW', history: [...history, this.entry(actor, party, 'ACCEPTED', input.note)] as unknown as Prisma.InputJsonValue };
       notice = ['Asset partnership accepted', `${engagement.asset.name} for ${engagement.project.projectName} was accepted and now goes to Legal and Shariah review.`];
     } else if (input.action === 'DECLINE') {
@@ -372,7 +398,28 @@ export class AssetPartnershipsService {
     const need = await this.prisma.projectAssetNeed.findUnique({ where: { id: needId }, select: { quantity: true, status: true } });
     if (!need || need.status !== 'OPEN') return;
     const approved = await this.prisma.assetEngagement.count({ where: { needId, status: 'APPROVED' } });
-    if (approved >= need.quantity) await this.prisma.projectAssetNeed.update({ where: { id: needId }, data: { status: 'FILLED' } });
+    if (approved < need.quantity) return;
+    await this.prisma.projectAssetNeed.update({ where: { id: needId }, data: { status: 'FILLED' } });
+    await this.closeOpenOffers(needId, 'The need has been filled by other assets, so this offer was closed. Thank you for offering.');
+  }
+
+  /** A need takes no more accepted or approved assets than it asked for. */
+  private async assertNeedHasRoom(needId: string, engagementId: string) {
+    const need = await this.prisma.projectAssetNeed.findUnique({ where: { id: needId }, select: { quantity: true, status: true } });
+    if (!need) return;
+    if (need.status !== 'OPEN') throw new ConflictException('This need is no longer open (filled or closed).');
+    const held = await this.prisma.assetEngagement.count({ where: { needId, id: { not: engagementId }, status: { in: HOLDING_ENGAGEMENT_STATUSES } } });
+    if (held >= need.quantity) throw new ConflictException(`This need already has ${held} of ${need.quantity} asset${need.quantity === 1 ? '' : 's'} accepted or approved. Decline this offer, or withdraw another first.`);
+  }
+
+  /** Declines the offers and requests still under discussion for a need that is filled or closed, and tells their owners. */
+  private async closeOpenOffers(needId: string, reason: string) {
+    const open = await this.prisma.assetEngagement.findMany({ where: { needId, status: 'PROPOSED' }, include: ENGAGEMENT_INCLUDE });
+    for (const row of open) {
+      const history = [...(row.history as unknown as HistoryEntry[]), { at: new Date().toISOString(), by: 'SYSTEM', byName: 'Wealth Pooling', party: 'PDP' as const, action: 'DECLINED', note: reason }];
+      const closed = await this.prisma.assetEngagement.updateMany({ where: { id: row.id, status: 'PROPOSED' }, data: { status: 'DECLINED', awaiting: 'NONE', history: history as unknown as Prisma.InputJsonValue } });
+      if (closed.count) await this.notifyParty(row, 'OWNER', 'Offer closed', `${row.asset.name} for ${row.project.projectName}: ${reason}`);
+    }
   }
 
   private entry(actor: AuthenticatedUser, party: Party | 'REVIEW', action: string, note?: string, offer?: { akad: Akad; terms: EngagementTerms; startDate: string; endDate: string }): HistoryEntry {

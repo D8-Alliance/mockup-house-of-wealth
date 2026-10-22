@@ -34,6 +34,10 @@ export class AssetPartnershipsController {
   @Roles(...PDP)
   createNeed(@CurrentUser() actor: AuthenticatedUser, @Body() body: CreateAssetNeedDto) { return this.partnerships.createNeed(actor, body); }
 
+  @Get('needs/:id/offers')
+  @Roles(...PDP, ...REVIEWERS)
+  compareOffers(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.partnerships.compareOffers(actor, id); }
+
   @Patch('needs/:id/status')
   @Roles(...PDP)
   needStatus(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() body: UpdateNeedStatusDto) { return this.partnerships.updateNeedStatus(actor, id, body); }
