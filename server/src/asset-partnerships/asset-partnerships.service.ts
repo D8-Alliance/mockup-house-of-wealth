@@ -6,7 +6,7 @@ import { AssetDetails } from '../assets/asset-checks';
 import { ASSET_OWNER_ROLES } from '../assets/assets.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
-import { checkSummary, partnershipChecks, ReviewCheck } from './partnership-review-checks';
+import { checkSummary, overrideGrounds, partnershipChecks, ReviewCheck } from './partnership-review-checks';
 import { entryHash, recordFingerprint, termsHash, verifyEntries } from './engagement-record';
 import { renderEngagementRecordPdf } from './engagement-record-pdf';
 import { formatLocalDateTime } from '../tenancy/country-time';
@@ -42,6 +42,8 @@ interface HistoryEntry {
   aiAssisted?: { runId: string };
   /** Review decisions: the asset's documents (and their SHA-256) when the reviewer decided. */
   documents?: Array<{ type: string; fileName: string; sha256: string }>;
+  /** An approval given despite failed checks, an AI suggestion against it, or a note reading as a refusal, and why. */
+  override?: { grounds: string[]; reason: string };
 }
 
 const ENGAGEMENT_INCLUDE = {
@@ -394,12 +396,18 @@ export class AssetPartnershipsService {
     const flagged = checkSummary(await this.checksFor(engagement).catch(() => []), track);
     const documents = await this.prisma.assetDocument.findMany({ where: { assetId: engagement.assetId }, select: { documentType: true, fileName: true, sha256: true }, orderBy: { createdAt: 'asc' } }).catch(() => [] as Array<{ documentType: string; fileName: string; sha256: string }>);
     let aiAssisted: { runId: string } | undefined;
+    let aiSuggested: string | null = null;
     if (input.aiRunId) {
-      const run = await this.prisma.aiRun.findFirst({ where: { id: input.aiRunId, userId: actor.userId, featureKey: 'partnership_review_assistant' }, select: { id: true, input: true } });
+      const run = await this.prisma.aiRun.findFirst({ where: { id: input.aiRunId, userId: actor.userId, featureKey: 'partnership_review_assistant' }, select: { id: true, input: true, output: true } });
       if (!run || (run.input as { subjectId?: string } | null)?.subjectId !== engagement.id) throw new BadRequestException('That AI draft is not for this partnership.');
       aiAssisted = { runId: run.id };
+      aiSuggested = String((run.output as { recommendation?: { suggestedDecision?: unknown } } | null)?.recommendation?.suggestedDecision ?? '').toUpperCase() || null;
     }
-    const decided = (action: string) => ({ ...this.entry(actor, 'REVIEW', action, input.note), checks: { fail: flagged.fail, warn: flagged.warn }, ...(aiAssisted ? { aiAssisted } : {}), documents: documents.map((document) => ({ type: document.documentType, fileName: document.fileName, sha256: document.sha256 })) });
+    // Approving against the checks, the AI's suggestion or one's own note needs a stated reason, kept with the decision.
+    const grounds = input.decision === 'APPROVE' ? overrideGrounds({ failed: flagged.fail, aiSuggested, note: input.note }) : [];
+    if (grounds.length && (input.overrideReason ?? '').length < 10) throw new BadRequestException(`Give your reason for approving: ${grounds.join('; ')}.`);
+    const override = grounds.length ? { grounds, reason: input.overrideReason! } : undefined;
+    const decided = (action: string) => ({ ...this.entry(actor, 'REVIEW', action, input.note), checks: { fail: flagged.fail, warn: flagged.warn }, ...(aiAssisted ? { aiAssisted } : {}), ...(override ? { override } : {}), documents: documents.map((document) => ({ type: document.documentType, fileName: document.fileName, sha256: document.sha256 })) });
     const field = track === 'LEGAL' ? { legalApprovedBy: null } : { shariahApprovedBy: null };
     let data: Prisma.AssetEngagementUpdateManyMutationInput;
     let finished = false;
@@ -645,6 +653,7 @@ export class AssetPartnershipsService {
           ...(entry.statement ? [entry.statement] : []),
           ...(entry.checks && (entry.checks.fail.length || entry.checks.warn.length) ? [`Checks when decided: failed ${entry.checks.fail.join(', ') || 'none'}; to confirm ${entry.checks.warn.join(', ') || 'none'}.`] : []),
           ...(entry.aiAssisted ? [`Review note drafted with the AI review assistant (run ${entry.aiAssisted.runId}).`] : []),
+          ...(entry.override ? [`Approved despite: ${entry.override.grounds.join('; ')}. Reason given: ${entry.override.reason}`] : []),
           ...(entry.documents?.length ? [`Documents on file: ${entry.documents.map((document) => `${document.type} ${document.sha256.slice(0, 12)}…`).join('; ')}`] : []),
           ...record.views.filter((seen) => seen.entryIndex === index).map((seen) => `Seen by ${seen.byName} on ${local(seen.at)}.`),
         ],

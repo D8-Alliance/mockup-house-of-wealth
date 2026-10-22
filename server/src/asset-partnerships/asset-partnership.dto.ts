@@ -94,4 +94,6 @@ export class ReviewEngagementDto {
   @Transform(trim) @IsString() @MinLength(3) @MaxLength(2000) note!: string;
   /** The AI review assistant's run whose draft note the reviewer used, so the record shows the note was AI-assisted. */
   @IsOptional() @IsString() @MaxLength(60) aiRunId?: string;
+  /** Approving despite failed checks, an AI suggestion to change or reject, or a note that reads as a refusal: why. */
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) overrideReason?: string;
 }

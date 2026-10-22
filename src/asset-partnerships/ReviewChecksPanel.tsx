@@ -19,7 +19,7 @@ const text = (value: unknown): string | null => (typeof value === 'string' && va
  * checks (instant, always the same for the same data), and on request an AI summary, questions for
  * the parties and a draft note the reviewer can use.
  */
-export const ReviewChecksPanel: React.FC<{ engagementId: string; defaultTrack: Track; onUseNote: (note: string, aiRunId: string) => void }> = ({ engagementId, defaultTrack, onUseNote }) => {
+export const ReviewChecksPanel: React.FC<{ engagementId: string; defaultTrack: Track; onUseNote: (note: string, aiRunId: string) => void; /** What failed on the reviewer's own track, and what the AI suggested: approving against them needs a reason. */ onSignals?: (signals: { failed: string[]; aiSuggested: string | null }) => void }> = ({ engagementId, defaultTrack, onUseNote, onSignals }) => {
   const [checks, setChecks] = useState<PartnershipReviewCheck[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [track, setTrack] = useState<Track>(defaultTrack);
@@ -33,6 +33,12 @@ export const ReviewChecksPanel: React.FC<{ engagementId: string; defaultTrack: T
     apiClient.getPartnershipChecks(engagementId).then((result) => setChecks(result.checks)).catch((cause) => setError(apiErrorMessage(cause, 'The checks could not be loaded.')));
   }, [engagementId]);
   useEffect(() => { setAssist(null); setAssistError(null); }, [track]);
+  useEffect(() => {
+    if (!checks || !onSignals) return;
+    const failed = checks.filter((check) => (check.track === defaultTrack || check.track === 'BOTH') && check.status === 'FAIL').map((check) => check.label);
+    const suggestion = (assist?.output?.recommendation as Record<string, unknown> | undefined)?.suggestedDecision;
+    onSignals({ failed, aiSuggested: typeof suggestion === 'string' ? suggestion.toUpperCase() : null });
+  }, [checks, assist, defaultTrack, onSignals]);
 
   const mine = (checks ?? []).filter((check) => check.track === track || check.track === 'BOTH').sort((a, b) => ORDER[a.status] - ORDER[b.status]);
   const count = (status: PartnershipReviewCheck['status']) => mine.filter((check) => check.status === status).length;

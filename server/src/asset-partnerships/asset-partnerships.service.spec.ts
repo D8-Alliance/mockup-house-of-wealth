@@ -39,6 +39,7 @@ describe('AssetPartnershipsService', () => {
     userRoleAssignment: { findMany: jest.fn().mockResolvedValue([]) },
     assetDocument: { findMany: jest.fn().mockResolvedValue([{ documentType: 'OWNERSHIP', fileName: 'geran.pdf', sha256: 'a1b2c3' }]) },
     aiRun: { findFirst: jest.fn() },
+    pdpApplication: { findFirst: jest.fn().mockResolvedValue(null) },
     auditEvent: { findFirst: jest.fn().mockResolvedValue(null), findMany: jest.fn().mockResolvedValue([]) },
   };
   const audit = { recordActor: jest.fn().mockResolvedValue(undefined), record: jest.fn().mockResolvedValue(undefined) };
@@ -184,6 +185,24 @@ describe('AssetPartnershipsService', () => {
     prisma.assetEngagement.findFirst.mockResolvedValueOnce(accepted);
     prisma.aiRun.findFirst.mockResolvedValueOnce({ id: 'RUN-8', input: { subjectId: 'ENG-OTHER' } });
     await expect(service.review(legal, accepted.id, { decision: 'APPROVE', note: 'Terms clear.', aiRunId: 'RUN-8' })).rejects.toThrow('not for this partnership');
+  });
+
+  it('asks for a reason to approve despite a failed check, an AI suggestion or a note that reads as a refusal, and keeps it', async () => {
+    const accepted = row({ status: 'ACCEPTED', awaiting: 'REVIEW' });
+    (prisma.asset as unknown as { findUnique: jest.Mock }).findUnique = jest.fn().mockResolvedValue({ assetType: 'MACHINERY', status: 'SUBMITTED', isEncumbered: false, estimatedValue: 280000, valuationDate: new Date(), details: {}, checkFindings: [], documents: [{ documentType: 'OWNERSHIP' }, { documentType: 'SERIAL_PLATE' }] });
+    prisma.assetEngagement.findFirst.mockResolvedValueOnce(accepted);
+    await expect(service.review(legal, accepted.id, { decision: 'APPROVE', note: 'Terms clear.' })).rejects.toThrow('Asset verified');
+
+    prisma.assetEngagement.findFirst.mockResolvedValueOnce(accepted);
+    prisma.assetEngagement.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.assetEngagement.findUniqueOrThrow.mockResolvedValueOnce(row({ status: 'ACCEPTED', legalApprovedBy: legal.userId }));
+    await service.review(legal, accepted.id, { decision: 'APPROVE', note: 'Terms clear.', overrideReason: 'Verification is a formality here: the verifier confirmed by phone, record to follow.' });
+    expect(prisma.assetEngagement.updateMany.mock.calls[0][0].data.history[0].override).toMatchObject({ grounds: [expect.stringContaining('Asset verified')], reason: expect.stringContaining('formality') });
+    delete (prisma.asset as unknown as { findUnique?: jest.Mock }).findUnique;
+
+    prisma.assetEngagement.findFirst.mockResolvedValueOnce(accepted);
+    prisma.aiRun.findFirst.mockResolvedValueOnce({ id: 'RUN-7', input: { subjectId: accepted.id }, output: { recommendation: { suggestedDecision: 'REQUEST_CHANGES' } } });
+    await expect(service.review(legal, accepted.id, { decision: 'APPROVE', note: 'The partnership cannot be approved yet.', aiRunId: 'RUN-7' })).rejects.toThrow(/asking for changes.*reads as a refusal/);
   });
 
   it('refuses a counter-offer that changes nothing', async () => {

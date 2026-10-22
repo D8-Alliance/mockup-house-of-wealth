@@ -53,6 +53,15 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
   const [accepting, setAccepting] = useState(false);
   const [acceptConfirmed, setAcceptConfirmed] = useState(false);
   const [aiRunId, setAiRunId] = useState<string | null>(null);
+  // Approving despite failed checks, an AI suggestion to change or reject, or a note that reads as a refusal needs a reason.
+  const [signals, setSignals] = useState<{ failed: string[]; aiSuggested: string | null }>({ failed: [], aiSuggested: null });
+  const [overrideReason, setOverrideReason] = useState('');
+  const overrideGrounds = [
+    ...(signals.failed.length ? [`${signals.failed.length} check${signals.failed.length > 1 ? 's' : ''} failed: ${signals.failed.join(', ')}`] : []),
+    ...(aiRunId && signals.aiSuggested && signals.aiSuggested !== 'APPROVE' ? [`the AI review assistant suggested ${signals.aiSuggested === 'REJECT' ? 'rejecting' : 'asking for changes'}`] : []),
+    ...(/\b(cannot|can ?not|could not|should not|not) be approved\b|\btidak (boleh |dapat )?(di)?lulus/i.test(note) ? ['your review note reads as a refusal'] : []),
+  ];
+  const overrideMissing = overrideGrounds.length > 0 && overrideReason.trim().length < 10;
   const [record, setRecord] = useState<EngagementRecord | null>(null);
   const myOrganisation = engagement.myParty === 'OWNER' ? engagement.ownerOrganisationName : engagement.project.organisationName;
   // A party opening the partnership after the other side changed it is recorded; the history is checked against the audit log.
@@ -86,6 +95,7 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
       setAccepting(false);
       setAcceptConfirmed(false);
       setAiRunId(null);
+      setOverrideReason('');
     } catch (cause) {
       setError(apiErrorMessage(cause, 'The change was not saved.'));
     } finally {
@@ -160,6 +170,7 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
                 {entry.note && <div className="text-slate-500 italic">"{entry.note}"</div>}
                 {entry.statement && <div className="text-emerald-700 dark:text-emerald-300 font-semibold">{entry.statement}</div>}
                 {entry.aiAssisted && <div className="text-[11px] text-purple-700 dark:text-purple-300">Review note drafted with the AI review assistant, then confirmed by the reviewer.</div>}
+                {entry.override && <div className="mt-1 p-2 rounded-lg bg-amber-500/10 text-[11px] text-amber-800 dark:text-amber-300"><strong>Approved despite:</strong> {entry.override.grounds.join('; ')}. <strong>Reason given:</strong> {entry.override.reason}</div>}
                 {entry.documents && entry.documents.length > 0 && <details className="text-[11px] text-slate-500"><summary className="cursor-pointer">{entry.documents.length} document{entry.documents.length > 1 ? 's' : ''} on file when decided</summary><ul className="pl-4 list-disc">{entry.documents.map((document) => <li key={document.sha256}>{document.type.replace(/_/g, ' ').toLowerCase()}: {document.fileName} <span className="font-mono">SHA-256 {document.sha256.slice(0, 12)}…</span></li>)}</ul></details>}
                 {record?.views.filter((seen) => seen.entryIndex === index).map((seen) => <div key={seen.at} className="mt-1 text-[11px] text-slate-400 flex items-center gap-1"><Eye className="w-3 h-3" />Seen by {seen.byName} · {formatDateTimeWithZone(seen.at)}</div>)}
                 {entry.checks && (entry.checks.fail.length > 0 || entry.checks.warn.length > 0) && <div className="mt-1 text-[11px] text-slate-500">Checks when decided: {entry.checks.fail.length ? <span className="text-rose-600">failed: {entry.checks.fail.join(', ')}</span> : null}{entry.checks.fail.length && entry.checks.warn.length ? '; ' : ''}{entry.checks.warn.length ? <span className="text-amber-700">to confirm: {entry.checks.warn.join(', ')}</span> : null}</div>}
@@ -168,7 +179,7 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
           </ol>
         </section>
 
-        {engagement.canReview && <ReviewChecksPanel engagementId={engagement.id} defaultTrack={reviewerTrack} onUseNote={(text, runId) => { setNote(text); setAiRunId(runId); }} />}
+        {engagement.canReview && <ReviewChecksPanel engagementId={engagement.id} defaultTrack={reviewerTrack} onUseNote={(text, runId) => { setNote(text); setAiRunId(runId); }} onSignals={setSignals} />}
 
         {(engagement.canRespond || engagement.canReview || engagement.canWithdraw) && (
           <section className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-700">
@@ -227,11 +238,18 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
                   <button type="button" disabled={busy} onClick={() => setConfirming(true)} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Review and send</button>
                 </>
               )}
+              {engagement.canReview && overrideGrounds.length > 0 && (
+                <div className="w-full p-3 rounded-xl border border-amber-300 bg-amber-50/60 dark:bg-amber-950/20 text-xs space-y-1.5">
+                  <p className="font-bold text-amber-800 dark:text-amber-300">To approve, give your reason: {overrideGrounds.join('; ')}.</p>
+                  <textarea rows={2} maxLength={1000} value={overrideReason} onChange={(event) => setOverrideReason(event.target.value)} placeholder="Why you approve anyway (recorded with your decision and shown to both parties)" className={INPUT} />
+                  <p className="text-[10px] text-slate-500">Not needed to ask for changes or to reject. If your note says it cannot be approved, consider Request changes instead.</p>
+                </div>
+              )}
               {engagement.canReview && (
                 <>
                   <button type="button" disabled={busy || note.trim().length < 3} onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'REJECT', note, ...(isSuperAdmin ? { track } : {}), ...(aiRunId ? { aiRunId } : {}) }))} className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-600 text-xs font-bold cursor-pointer disabled:opacity-50">Reject</button>
                   <button type="button" disabled={busy || note.trim().length < 3} title="Send it back to the parties to correct the terms; both reviews start again" onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'REQUEST_CHANGES', note, ...(isSuperAdmin ? { track } : {}), ...(aiRunId ? { aiRunId } : {}) }))} className="px-4 py-2 rounded-xl border border-amber-400 text-amber-700 dark:text-amber-300 text-xs font-bold cursor-pointer disabled:opacity-50">Request changes</button>
-                  <button type="button" disabled={busy || note.trim().length < 3} onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'APPROVE', note, ...(isSuperAdmin ? { track } : {}), ...(aiRunId ? { aiRunId } : {}) }))} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Approve</button>
+                  <button type="button" disabled={busy || note.trim().length < 3 || overrideMissing} onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'APPROVE', note, ...(isSuperAdmin ? { track } : {}), ...(aiRunId ? { aiRunId } : {}), ...(overrideGrounds.length ? { overrideReason: overrideReason.trim() } : {}) }))} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Approve</button>
                 </>
               )}
             </div>

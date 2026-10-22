@@ -417,7 +417,7 @@ export const apiClient = {
   withdrawAssetEngagement: (id: string, note?: string) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/withdraw`, { method: 'POST', body: JSON.stringify({ note }) }),
   getPartnershipChecks: (id: string) => request<{ engagementId: string; checks: PartnershipReviewCheck[]; generatedAt: string }>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/checks`),
   askPartnershipReviewAssistant: (id: string, track: 'LEGAL' | 'SHARIAH') => request<BackendAiRun & { track: string; failing: number }>(`/ai/asset-partnerships/engagements/${encodeURIComponent(id)}/review-assist`, { method: 'POST', body: JSON.stringify({ track }) }),
-  reviewAssetEngagement: (id: string, input: { decision: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES'; note: string; track?: 'LEGAL' | 'SHARIAH'; aiRunId?: string }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  reviewAssetEngagement: (id: string, input: { decision: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES'; note: string; track?: 'LEGAL' | 'SHARIAH'; aiRunId?: string; overrideReason?: string }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   withdrawAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/withdraw`, { method: 'POST' }),
   reviewAsset: (id: string, decision: 'VERIFIED' | 'CHANGES_REQUESTED' | 'REJECTED', note: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
   downloadKycDocumentForReview: (applicationId: string, documentId: string) => openAuthenticatedFile(`/kyc/applications/${encodeURIComponent(applicationId)}/documents/${encodeURIComponent(documentId)}/download`),
@@ -731,6 +731,8 @@ export interface EngagementHistoryEntry {
   /** Review decisions drafted with the AI review assistant, and the asset's documents (SHA-256) at the time. */
   aiAssisted?: { runId: string };
   documents?: Array<{ type: string; fileName: string; sha256: string }>;
+  /** An approval given despite failed checks, an AI suggestion against it, or a note reading as a refusal, and why. */
+  override?: { grounds: string[]; reason: string };
 }
 
 /** The history checked against the audit log, and when each party saw the other side's changes. */

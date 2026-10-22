@@ -147,3 +147,18 @@ export function checkSummary(checks: ReviewCheck[], track?: 'LEGAL' | 'SHARIAH')
     pass: mine.filter((check) => check.status === 'PASS').length,
   };
 }
+
+/** A note that reads like a refusal ("cannot be approved", "tidak boleh diluluskan"), used with an approval. */
+export const NOTE_READS_AS_REFUSAL = /\b(cannot|can ?not|could not|should not|not) be approved\b|\btidak (boleh |dapat )?(di)?lulus/i;
+
+/**
+ * Why approving needs a stated reason: failed checks, an AI suggestion other than approval, or a note
+ * that reads as a refusal. Empty when the approval needs no explanation.
+ */
+export function overrideGrounds(input: { failed: string[]; aiSuggested?: string | null; note: string }): string[] {
+  const grounds: string[] = [];
+  if (input.failed.length) grounds.push(`${input.failed.length} check${input.failed.length > 1 ? 's' : ''} failed: ${input.failed.join(', ')}`);
+  if (input.aiSuggested && input.aiSuggested !== 'APPROVE') grounds.push(`the AI review assistant suggested ${input.aiSuggested === 'REJECT' ? 'rejecting' : 'asking for changes'}`);
+  if (NOTE_READS_AS_REFUSAL.test(input.note)) grounds.push('the review note reads as a refusal');
+  return grounds;
+}
