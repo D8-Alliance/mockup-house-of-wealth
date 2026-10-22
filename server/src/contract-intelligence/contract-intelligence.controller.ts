@@ -5,7 +5,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { CreateContractClauseDto, CreateContractInputSchemaDto, CreateContractTemplateDto, CreateDocumentVersionDto, CreateShariahRuleDto } from './contract-intelligence.dto';
 import { ContractIntelligenceService } from './contract-intelligence.service';
 import { AgreementGenerationService } from './agreement-generation.service';
-import { AgreementReviewDto, AgreementWizardDto } from './agreement.dto';
+import { AgreementPartyActionDto, AgreementReviewDto, AgreementWizardDto } from './agreement.dto';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 
@@ -18,6 +18,7 @@ export class ContractIntelligenceController {
   @Get('agreements') listAgreements(@CurrentUser() actor: AuthenticatedUser) { return this.agreements.list(actor); }
   @Post('agreements/drafts') createAgreementDraft(@Body() input: AgreementWizardDto, @CurrentUser() actor: AuthenticatedUser) { return this.agreements.createDraft(actor, input); }
   @Get('agreements/:agreementId') agreement(@Param('agreementId') id: string, @CurrentUser() actor: AuthenticatedUser) { return this.agreements.get(actor, id); }
+  @Post('agreements/:agreementId/party-action') partyAction(@Param('agreementId') id: string, @Body() input: AgreementPartyActionDto, @CurrentUser() actor: AuthenticatedUser) { return this.agreements.partyAction(actor, id, input); }
   @Post('agreements/:agreementId/review') reviewAgreement(@Param('agreementId') id: string, @Body() input: AgreementReviewDto, @CurrentUser() actor: AuthenticatedUser) { return this.agreements.review(actor, id, input); }
   @Get('agreements/:agreementId/download/:format') async downloadAgreement(@Param('agreementId') id: string, @Param('format') format: 'docx' | 'pdf', @CurrentUser() actor: AuthenticatedUser, @Res() response: Response) { if (!['docx', 'pdf'].includes(format)) return response.status(400).json({ message: 'Format must be docx or pdf' }); const result = await this.agreements.render(actor, id, format); return response.set({ 'Content-Type': result.contentType, 'Content-Disposition': `attachment; filename="${result.filename}"` }).send(result.buffer); }
 

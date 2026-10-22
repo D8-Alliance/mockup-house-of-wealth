@@ -17,6 +17,21 @@ export interface AgreementPrefill {
   values: Record<string, string>;
   /** What it was filled from, shown to the drafter, e.g. "partnership ENG-MYS-…". */
   source?: string;
+  /** The partnership whose one agreement this drafts (or revises). */
+  engagementId?: string;
+}
+
+let pendingAgreementId: string | null = null;
+
+/** Asks the Contracts page to open this agreement when it next loads. */
+export function openAgreementRecord(id: string): void {
+  pendingAgreementId = id;
+}
+
+export function takeAgreementRecord(): string | null {
+  const id = pendingAgreementId;
+  pendingAgreementId = null;
+  return id;
 }
 
 let pendingPrefill: AgreementPrefill | null = null;

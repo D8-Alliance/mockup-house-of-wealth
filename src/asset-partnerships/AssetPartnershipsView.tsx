@@ -38,7 +38,7 @@ const DETAIL_KEYS: Record<string, string[]> = {
 const summary = (asset: ListedAsset) => (DETAIL_KEYS[asset.assetType] ?? []).map((key) => (asset.details as Record<string, unknown>)[key]).filter((value) => value !== undefined && value !== '').join(' · ');
 
 /** Asset owners and delivery partners bring verified assets into projects; Legal and Shariah approve. */
-export const AssetPartnershipsView: React.FC<{ onOpenAgreement?: () => void; onOpenAssetRegister?: (type?: AssetTypeCode) => void }> = ({ onOpenAgreement, onOpenAssetRegister }) => {
+export const AssetPartnershipsView: React.FC<{ onOpenAgreement?: () => void; onOpenContracts?: () => void; onOpenAssetRegister?: (type?: AssetTypeCode) => void }> = ({ onOpenAgreement, onOpenContracts, onOpenAssetRegister }) => {
   const { currentRole, tenantContext } = useRBAC();
   const side: Side = OWNER_ROLES.includes(currentRole) ? 'OWNER' : PDP_ROLES.includes(currentRole) ? 'PDP' : 'REVIEWER';
   const [tab, setTab] = useState<Tab>(TABS[side][0].id);
@@ -218,7 +218,7 @@ export const AssetPartnershipsView: React.FC<{ onOpenAgreement?: () => void; onO
       {/* Above the sticky header: this page is inside an animated (transformed) container. */}
       <ModalPortal>
         {compareNeedId && !selected && <OfferComparisonModal needId={compareNeedId} refreshKey={compareRefresh} onOpen={(engagement) => setSelected(engagement)} onClose={() => setCompareNeedId(null)} />}
-        {selected && <EngagementDetailModal engagement={selected} isSuperAdmin={currentRole === 'Super Admin'} onChanged={replace} onClose={() => setSelected(null)} onOpenAgreement={onOpenAgreement ? () => { setSelected(null); onOpenAgreement(); } : undefined} />}
+        {selected && <EngagementDetailModal engagement={selected} isSuperAdmin={currentRole === 'Super Admin'} onChanged={replace} onClose={() => setSelected(null)} onOpenAgreement={onOpenAgreement ? () => { setSelected(null); onOpenAgreement(); } : undefined} onOpenContracts={onOpenContracts ? () => { setSelected(null); onOpenContracts(); } : undefined} />}
         {offerFor && <ProposeEngagementModal mode="OFFER" need={offerFor} organisationId={tenantContext.organisationId} onClose={() => setOfferFor(null)} onRegisterAsset={onOpenAssetRegister ? (type) => { setOfferFor(null); onOpenAssetRegister(type); } : undefined} onCreated={(engagement) => { setOfferFor(null); setTab('engagements'); replace(engagement); }} />}
         {requestFor && <ProposeEngagementModal mode="REQUEST" asset={requestFor} organisationId={tenantContext.organisationId} onClose={() => setRequestFor(null)} onCreated={(engagement) => { setRequestFor(null); setTab('engagements'); replace(engagement); }} />}
         {needForm && <NeedFormModal organisationId={tenantContext.organisationId} onClose={() => setNeedForm(false)} onCreated={() => { setNeedForm(false); setTab('needs'); void load(); }} />}

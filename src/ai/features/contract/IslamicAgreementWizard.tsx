@@ -49,6 +49,8 @@ export const IslamicAgreementWizard: React.FC = () => {
   const [sources, setSources] = useState<{ engagements: AssetEngagement[]; assets: RegisteredAsset[]; projects: BackendProject[]; organisationName: string }>({ engagements: [], assets: [], projects: [], organisationName: '' });
   const [source, setSource] = useState('');
   const [filledFrom, setFilledFrom] = useState(prefill?.source ?? '');
+  // Set when drafting a partnership's agreement: the server keeps one agreement per partnership and adds versions.
+  const [engagementId, setEngagementId] = useState(prefill?.engagementId ?? '');
   useEffect(() => {
     const ownerSide = currentRole === 'Asset Owner' || currentRole === 'Asset Manager';
     void Promise.all([
@@ -64,13 +66,14 @@ export const IslamicAgreementWizard: React.FC = () => {
     setSource(key);
     setDraft(null);
     setError('');
+    setEngagementId('');
     if (!key) { setFilledFrom(''); return; }
     const [kind, id] = [key.slice(0, key.indexOf(':')), key.slice(key.indexOf(':') + 1)];
     let start: AgreementStart | null = null;
     let label = '';
     if (kind === 'eng') {
       const engagement = sources.engagements.find((item) => item.id === id);
-      if (engagement) { start = startFromEngagement(engagement); label = `partnership ${engagement.id}`; }
+      if (engagement) { start = startFromEngagement(engagement); label = `partnership ${engagement.id}`; setEngagementId(engagement.id); }
     } else if (kind === 'asset') {
       const asset = sources.assets.find((item) => item.id === id);
       const type = requestedType === 'MUSHARAKAH' || (!requestedType && asset?.intendedUse === 'MUSHARAKAH') ? 'MUSHARAKAH' : 'IJARAH';
@@ -95,7 +98,7 @@ export const IslamicAgreementWizard: React.FC = () => {
     const missing = currentFields.filter((item) => item.required && !values[item.key]?.trim()).map((item) => item.label);
     if (!projectName.trim() || missing.length) { setError(`Complete required fields: ${['Project name', ...missing.filter((item) => item !== 'Project name')].join(', ')}`); return; }
     setLoading(true); setError('');
-    try { setDraft(await apiClient.createAgreementDraft({ contractType, projectName, jurisdiction, wizardData: { ...values, projectName } })); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to generate agreement.'); } finally { setLoading(false); }
+    try { setDraft(await apiClient.createAgreementDraft({ contractType, projectName, jurisdiction, engagementId: engagementId || undefined, wizardData: { ...values, projectName } })); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Unable to generate agreement.'); } finally { setLoading(false); }
   };
 
   return <div className="space-y-5 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800">

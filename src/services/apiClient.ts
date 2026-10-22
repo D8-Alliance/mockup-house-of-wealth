@@ -347,9 +347,11 @@ export const apiClient = {
     method: 'POST',
     body: JSON.stringify(input),
   }),
-  createAgreementDraft: (input: { contractType: string; projectName: string; jurisdiction: string; projectId?: string; wizardData: Record<string, unknown> }) => request<BackendAgreementDraft>('/contract-intelligence/agreements/drafts', { method: 'POST', body: JSON.stringify(input) }),
+  createAgreementDraft: (input: { contractType: string; projectName: string; jurisdiction: string; projectId?: string; engagementId?: string; wizardData: Record<string, unknown> }) => request<BackendAgreementDraft>('/contract-intelligence/agreements/drafts', { method: 'POST', body: JSON.stringify(input) }),
   listAgreements: () => request<AgreementSummary[]>('/contract-intelligence/agreements'),
   getAgreement: (id: string) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}`),
+  /** A party to a partnership agreement agrees to the latest draft, or signs with their typed full name. */
+  agreementPartyAction: (id: string, input: { action: AgreementPartyAction; signatureName?: string }) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/party-action`, { method: 'POST', body: JSON.stringify(input) }),
   reviewAgreement: (id: string, input: { reviewStatus: AgreementAction; note?: string }) => request(`/contract-intelligence/agreements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   downloadAgreement: async (id: string, format: 'docx' | 'pdf') => { const token = authService.getAuthState().session?.token; const response = await apiFetch(`${API_BASE_URL}/contract-intelligence/agreements/${encodeURIComponent(id)}/download/${format}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); if (!response.ok) throw new Error(await response.text() || 'Agreement download failed.'); const url = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = url; link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || `agreement.${format}`; link.click(); URL.revokeObjectURL(url); },
   analyzeShariah: (input: { proposedContract: string; terms: string; projectId: string }) => request<BackendAiRun>('/ai/shariah/analyze', {
@@ -740,6 +742,8 @@ export interface AssetEngagement {
   need: { id: string; title: string; quantity: number } | null;
   legalApprovedAt: string | null;
   shariahApprovedAt: string | null;
+  /** The one agreement drafted for this partnership, once either side drafts it. */
+  agreement?: { id: string; contractNumber: string; status: AgreementStatus } | null;
   history: EngagementHistoryEntry[];
   createdAt: string;
   updatedAt: string;
@@ -1572,6 +1576,8 @@ function mapPdpApplication(application: BackendPdpApplication): PDPApplication {
 export type AgreementStatus = 'DRAFT' | 'LEGAL_REVIEW' | 'SHARIAH_REVIEW' | 'APPROVED' | 'CHANGES_REQUESTED' | 'EXECUTION';
 export type AgreementAction = 'LEGAL_REVIEW' | 'SHARIAH_REVIEW' | 'APPROVED' | 'CHANGES_REQUESTED' | 'EXECUTION';
 export interface AgreementAvailableAction { action: AgreementAction; label: string }
+export type AgreementPartyAction = 'CONSENT' | 'SIGN';
+export interface AgreementPartyRow { id?: string; role: 'OWNER' | 'PDP' | null; organisationId: string | null; displayName: string; consentedVersion: number | null; consentedAt?: string | null; signedAt: string | null; signatureName?: string | null }
 
 export interface AgreementSummary {
   id: string;
@@ -1586,6 +1592,11 @@ export interface AgreementSummary {
   updatedAt: string;
   complianceStatus: string | null;
   availableActions: AgreementAvailableAction[];
+  /** Partnership agreements: what the viewer's side can do (agree to the latest version, sign). */
+  partyActions?: Array<{ action: AgreementPartyAction; label: string }>;
+  engagementId?: string | null;
+  latestVersion?: number;
+  parties?: AgreementPartyRow[];
 }
 
 export interface AgreementDetail extends Omit<AgreementSummary, 'complianceStatus'> {

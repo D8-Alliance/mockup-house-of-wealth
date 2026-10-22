@@ -172,11 +172,21 @@ export class AssetPartnershipsService {
 
   async listEngagements(actor: AuthenticatedUser) {
     const rows = await this.prisma.assetEngagement.findMany({ where: this.engagementScope(actor), orderBy: { updatedAt: 'desc' }, include: ENGAGEMENT_INCLUDE });
-    return rows.map((row) => this.view(actor, row));
+    return this.withAgreements(rows.map((row) => this.view(actor, row)));
   }
 
   async getEngagement(actor: AuthenticatedUser, id: string) {
-    return this.view(actor, await this.findEngagement(actor, id));
+    return (await this.withAgreements([this.view(actor, await this.findEngagement(actor, id))]))[0];
+  }
+
+  /** The one agreement drafted for each approved partnership, so either side opens it instead of drafting another. */
+  private async withAgreements<T extends { id: string; status: string }>(views: T[]) {
+    const approved = views.filter((view) => view.status === 'APPROVED').map((view) => view.id);
+    const contracts = approved.length ? await this.prisma.contract.findMany({ where: { engagementId: { in: approved } }, select: { id: true, engagementId: true, contractNumber: true, status: true } }) : [];
+    return views.map((view) => {
+      const contract = contracts.find((item) => item.engagementId === view.id);
+      return { ...view, agreement: contract ? { id: contract.id, contractNumber: contract.contractNumber, status: contract.status } : null };
+    });
   }
 
   /** An asset owner offers an asset against a need (OFFER), or a delivery partner asks for a listed asset (REQUEST). */

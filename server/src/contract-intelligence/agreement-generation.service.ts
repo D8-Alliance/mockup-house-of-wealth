@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx';
 import PDFDocument from 'pdfkit';
 import { Prisma } from '@prisma/client';
@@ -9,8 +9,10 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { ContractClauseRetriever } from '../ai/contract-clause-retriever.service';
-import { AGREEMENT_TYPES, AgreementReviewDto, AgreementType, AgreementWizardDto } from './agreement.dto';
-import { agreementTypeBlocker, availableActions, canSeeAgreement, DRAFTER_ROLES, isAgreementReviewer, reviewBlocker } from './agreement-review-rules';
+import { AGREEMENT_TYPES, AgreementPartyActionDto, AgreementReviewDto, AgreementType, AgreementWizardDto } from './agreement.dto';
+import { agreementTypeBlocker, availableActions, canSeeAgreement, DRAFTER_ROLES, isAgreementReviewer, partyActions, reviewBlocker } from './agreement-review-rules';
+import { NotificationService } from '../notifications/notification.service';
+import { UserRole as PrismaUserRole } from '@prisma/client';
 import { getJurisdictionProfile } from './jurisdiction-profiles';
 
 type Section = { number: string; title: string; paragraphs: string[] };
@@ -22,17 +24,74 @@ const labels: Record<AgreementType, string> = { IJARAH: 'Ijarah Agreement', MUSH
 
 @Injectable()
 export class AgreementGenerationService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly retriever: ContractClauseRetriever, private readonly ai: AiService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly retriever: ContractClauseRetriever, private readonly ai: AiService, @Optional() private readonly notifications?: NotificationService) {}
 
   async createDraft(actor: AuthenticatedUser, input: AgreementWizardDto) {
     if (!(DRAFTER_ROLES as readonly string[]).includes(actor.role)) throw new ForbiddenException('Only project sponsors, project managers, asset owners and administrators can draft agreements.');
     const typeBlocked = agreementTypeBlocker(actor.role, input.contractType);
     if (typeBlocked) throw new ForbiddenException(typeBlocked);
+    if (input.engagementId) return this.draftForPartnership(actor, input, input.engagementId);
     if (input.projectId) {
       const project = await this.prisma.project.findUnique({ where: { projectId: input.projectId }, select: { organisationId: true, countryNodeId: true } });
       if (!project) throw new NotFoundException('Project not found.');
       assertTenantScope(actor, project, 'Project');
     }
+    const { content, compliance, sections, clauses, rules, aiSkippedReason } = await this.compose(actor, input);
+    const contract = await this.prisma.contract.create({ data: { ...this.scope(actor), contractNumber: this.newContractNumber(), contractType: input.contractType, title: labels[input.contractType], templateId: input.templateId, status: 'DRAFT', wizardData: input.wizardData as object, complianceReport: compliance as object, createdBy: actor.userId, versions: { create: { version: 1, content, status: 'DRAFT', createdBy: actor.userId } }, events: { create: { eventType: 'DRAFT_CREATED', toStatus: 'DRAFT', actorId: actor.userId, metadata: { contractType: input.contractType } } } }, include: { versions: true } });
+    await this.auditRecord(actor, 'agreement.draft_created', contract.id, { contractType: input.contractType, complianceStatus: compliance.status, approvedClauseCount: clauses.length, aiSkippedReason });
+    return { contract, compliance, sections, variables: this.variables(input.wizardData), approvedClauses: clauses, shariahRules: rules };
+  }
+
+  /**
+   * An approved asset partnership has one agreement. Either side drafts it; a later draft from either
+   * side becomes a new version of the same agreement while it is a draft or sent back for changes.
+   * The side that writes a version agrees to it; the other side must agree too before legal review.
+   */
+  private async draftForPartnership(actor: AuthenticatedUser, input: AgreementWizardDto, engagementId: string) {
+    const engagement = await this.prisma.assetEngagement.findUnique({ where: { id: engagementId }, select: { id: true, status: true, akad: true, countryNodeId: true, ownerOrganisationId: true, pdpOrganisationId: true, asset: { select: { name: true } }, project: { select: { projectName: true } } } });
+    if (!engagement) throw new NotFoundException('Asset partnership not found.');
+    const side = actor.organisationId === engagement.ownerOrganisationId ? 'OWNER' : actor.organisationId === engagement.pdpOrganisationId ? 'PDP' : null;
+    if (!side || actor.countryNodeId !== engagement.countryNodeId) throw new ForbiddenException('Only the asset owner or the delivery partner of this partnership can draft its agreement.');
+    if (engagement.status !== 'APPROVED') throw new BadRequestException('The partnership must be approved by Legal and Shariah before its agreement is drafted.');
+    if (input.contractType !== engagement.akad) throw new BadRequestException(`This partnership was agreed as ${labels[engagement.akad as AgreementType] ?? engagement.akad}; draft that agreement.`);
+    const existing = await this.prisma.contract.findUnique({ where: { engagementId }, include: { versions: { orderBy: { version: 'desc' }, take: 1 } } });
+    if (existing && !['DRAFT', 'CHANGES_REQUESTED'].includes(existing.status)) throw new ConflictException(`The agreement for this partnership (${existing.contractNumber}) is already past drafting and can no longer be revised.`);
+    const { content, compliance, sections, clauses, rules, aiSkippedReason } = await this.compose(actor, input);
+    const now = new Date();
+    const consent = (version: number) => ({ consentedVersion: version, consentedAt: now, consentedBy: actor.userId });
+    let contract: { id: string; contractNumber: string };
+    let version = 1;
+    if (!existing) {
+      const organisations = await this.prisma.organisation.findMany({ where: { id: { in: [engagement.ownerOrganisationId, engagement.pdpOrganisationId] } }, select: { id: true, name: true } });
+      const nameOf = (id: string) => organisations.find((organisation) => organisation.id === id)?.name ?? id;
+      const ijarah = engagement.akad === 'IJARAH';
+      contract = await this.prisma.contract.create({ data: {
+        organisationId: actor.organisationId, countryNodeId: engagement.countryNodeId, engagementId, contractNumber: this.newContractNumber(), contractType: input.contractType, title: labels[input.contractType], templateId: input.templateId, status: 'DRAFT', wizardData: input.wizardData as object, complianceReport: compliance as object, createdBy: actor.userId,
+        versions: { create: { version: 1, content, status: 'DRAFT', createdBy: actor.userId } },
+        parties: { create: [
+          { partyType: ijarah ? 'LESSOR' : 'PARTNER', role: 'OWNER', displayName: nameOf(engagement.ownerOrganisationId), organisationId: engagement.ownerOrganisationId, ...(side === 'OWNER' ? consent(1) : {}) },
+          { partyType: ijarah ? 'LESSEE' : 'PARTNER', role: 'PDP', displayName: nameOf(engagement.pdpOrganisationId), organisationId: engagement.pdpOrganisationId, ...(side === 'PDP' ? consent(1) : {}) },
+        ] },
+        events: { create: { eventType: 'DRAFT_CREATED', toStatus: 'DRAFT', actorId: actor.userId, metadata: { contractType: input.contractType, engagementId, role: actor.role, note: `Drafted by the ${side === 'OWNER' ? 'asset owner' : 'delivery partner'}` } } },
+      } });
+    } else {
+      version = (existing.versions[0]?.version ?? 0) + 1;
+      contract = await this.prisma.$transaction(async (tx) => {
+        await tx.contractVersion.create({ data: { contractId: existing.id, version, content, status: 'DRAFT', createdBy: actor.userId } });
+        await tx.contractParty.updateMany({ where: { contractId: existing.id, role: side }, data: consent(version) });
+        await tx.contractEvent.create({ data: { contractId: existing.id, eventType: 'REVISED', fromStatus: existing.status, toStatus: existing.status, actorId: actor.userId, metadata: { version, role: actor.role, note: `Version ${version} by the ${side === 'OWNER' ? 'asset owner' : 'delivery partner'}` } } });
+        return tx.contract.update({ where: { id: existing.id }, data: { wizardData: input.wizardData as object, complianceReport: compliance as object, lastGeneratedAt: now } });
+      });
+    }
+    await this.auditRecord(actor, existing ? 'agreement.revised' : 'agreement.draft_created', contract.id, { contractType: input.contractType, engagementId, version, complianceStatus: compliance.status, approvedClauseCount: clauses.length, aiSkippedReason });
+    const otherOrganisation = side === 'OWNER' ? engagement.pdpOrganisationId : engagement.ownerOrganisationId;
+    await this.notifyOrganisation(otherOrganisation, engagement.countryNodeId, contract.id, `agreement-v${version}`, `Agreement for ${engagement.asset.name}: please review`, `The ${side === 'OWNER' ? 'asset owner' : 'delivery partner'} ${existing ? `revised the agreement to version ${version}` : 'drafted the agreement'} for ${engagement.asset.name} in ${engagement.project.projectName} (${contract.contractNumber}). Read it and agree, or draft a revision.`);
+    const full = await this.prisma.contract.findUniqueOrThrow({ where: { id: contract.id }, include: { versions: { orderBy: { version: 'desc' } } } });
+    return { contract: full, compliance, sections, variables: this.variables(input.wizardData), approvedClauses: clauses, shariahRules: rules };
+  }
+
+  /** The agreement text from the wizard facts, approved clauses and Shariah rules, with an optional AI drafting note. */
+  private async compose(actor: AuthenticatedUser, input: AgreementWizardDto) {
     const clauses = await this.retriever.retrieveClauses(actor, { contractType: input.contractType, jurisdiction: input.jurisdiction, industry: this.value(input.wizardData, 'industry') });
     const rules = await this.retriever.retrieveShariahRules(actor, { contractType: input.contractType, jurisdiction: input.jurisdiction });
     const compliance = this.checkCompliance(input.contractType, input.wizardData);
@@ -47,26 +106,73 @@ export class AgreementGenerationService {
     }
     const sections = this.buildSections(input, clauses.clauses, rules, aiSections.output?.recommendation);
     const content = { sections, variables: this.variables(input.wizardData), approvedClauseIds: clauses.clauses.map((item) => item.id), shariahRuleIds: rules.map((item) => item.id), aiOutput: aiSections.output || null, aiSkippedReason } as unknown as Prisma.InputJsonValue;
-    const contract = await this.prisma.contract.create({ data: { ...this.scope(actor), contractNumber: `HOF-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${randomUUID().slice(0, 8).toUpperCase()}`, contractType: input.contractType, title: labels[input.contractType], templateId: input.templateId, status: 'DRAFT', wizardData: input.wizardData as object, complianceReport: compliance as object, createdBy: actor.userId, versions: { create: { version: 1, content, status: 'DRAFT', createdBy: actor.userId } }, events: { create: { eventType: 'DRAFT_CREATED', toStatus: 'DRAFT', actorId: actor.userId, metadata: { contractType: input.contractType } } } }, include: { versions: true } });
-    await this.auditRecord(actor, 'agreement.draft_created', contract.id, { contractType: input.contractType, complianceStatus: compliance.status, approvedClauseCount: clauses.clauses.length, aiSkippedReason });
-    return { contract, compliance, sections, variables: this.variables(input.wizardData), approvedClauses: clauses.clauses, shariahRules: rules };
+    return { content, compliance, sections, clauses: clauses.clauses, rules, aiSkippedReason };
+  }
+
+  /** A party agrees to the latest draft, or signs the approved agreement; both signatures execute it. */
+  async partyAction(actor: AuthenticatedUser, id: string, input: AgreementPartyActionDto) {
+    const contract = await this.get(actor, id);
+    const party = contract.parties.find((item) => item.role && item.organisationId === actor.organisationId);
+    if (!party || !contract.partyActions.some((item) => item.action === input.action)) {
+      throw new BadRequestException(input.action === 'CONSENT' ? 'There is no new version for your side to agree to.' : 'This agreement is not waiting for your signature.');
+    }
+    const latest = contract.versions[0]?.version ?? 1;
+    const other = contract.parties.find((item) => item.role && item.id !== party.id);
+    const sideName = party.role === 'OWNER' ? 'asset owner' : 'delivery partner';
+    if (input.action === 'CONSENT') {
+      await this.prisma.$transaction([
+        this.prisma.contractParty.update({ where: { id: party.id }, data: { consentedVersion: latest, consentedAt: new Date(), consentedBy: actor.userId } }),
+        this.prisma.contractEvent.create({ data: { contractId: id, eventType: 'PARTY_CONSENTED', actorId: actor.userId, metadata: { version: latest, role: actor.role, note: `The ${sideName} agreed to version ${latest}` } } }),
+      ]);
+      await this.auditRecord(actor, 'agreement.party_consented', id, { version: latest, side: party.role });
+      if (other?.organisationId) {
+        const both = other.consentedVersion === latest;
+        await this.notifyOrganisation(other.organisationId, contract.countryNodeId, id, `consent-v${latest}-${party.role}`, both ? 'Agreement ready for legal review' : 'Agreement: the other side agreed', both ? `Both sides agreed to version ${latest} of ${contract.contractNumber}. It can now be submitted for legal review.` : `The ${sideName} agreed to version ${latest} of ${contract.contractNumber}. Read it and agree, or draft a revision.`);
+      }
+    } else {
+      const typed = input.signatureName?.trim() ?? '';
+      if (!typed || typed.toLowerCase() !== actor.name.trim().toLowerCase()) throw new BadRequestException(`Type your full name exactly as registered (${actor.name}) to sign.`);
+      const executed = await this.prisma.$transaction(async (tx) => {
+        const signed = await tx.contractParty.updateMany({ where: { id: party.id, signedAt: null }, data: { signedAt: new Date(), signedBy: actor.userId, signatureName: typed } });
+        if (!signed.count) throw new ConflictException('Your side has already signed.');
+        await tx.contractEvent.create({ data: { contractId: id, eventType: 'PARTY_SIGNED', actorId: actor.userId, metadata: { version: latest, role: actor.role, note: `Signed for the ${sideName} by ${typed}` } } });
+        const unsigned = await tx.contractParty.count({ where: { contractId: id, role: { not: null }, signedAt: null } });
+        if (unsigned) return false;
+        const claimed = await tx.contract.updateMany({ where: { id, status: 'APPROVED' }, data: { status: 'EXECUTION' } });
+        if (!claimed.count) throw new ConflictException('This agreement was changed by someone else. Reload and try again.');
+        await tx.contractEvent.create({ data: { contractId: id, eventType: 'STATUS_CHANGED', fromStatus: 'APPROVED', toStatus: 'EXECUTION', actorId: actor.userId, metadata: { note: 'Signed by both parties', role: actor.role } } });
+        await tx.contractApproval.create({ data: { contractId: id, versionId: contract.versions[0]?.id || '', approverId: actor.userId, status: 'EXECUTION', decisionNote: 'Signed by both parties', decidedAt: new Date() } });
+        return true;
+      });
+      await this.auditRecord(actor, 'agreement.party_signed', id, { version: latest, side: party.role, executed });
+      for (const recipient of contract.parties.filter((item) => item.role && item.organisationId && (executed || item.id !== party.id))) {
+        await this.notifyOrganisation(recipient.organisationId!, contract.countryNodeId, id, executed ? 'executed' : `signed-${party.role}`, executed ? 'Agreement signed by both sides' : 'Agreement: the other side signed', executed ? `${contract.contractNumber} is signed by both sides and now in force.` : `The ${sideName} signed ${contract.contractNumber}. Sign it to put it in force.`);
+      }
+    }
+    return this.get(actor, id);
   }
 
   async get(actor: AuthenticatedUser, id: string) {
     const contract = await this.prisma.contract.findUnique({ where: { id }, include: { versions: { orderBy: { version: 'desc' } }, parties: true, approvals: { orderBy: { decidedAt: 'asc' } }, events: { orderBy: { createdAt: 'desc' } } } });
     if (!contract) throw new NotFoundException('Agreement not found');
     if (!canSeeAgreement(actor, contract)) throw new ForbiddenException('Agreement is outside your scope');
-    return { ...contract, availableActions: availableActions(actor, contract) };
+    const shape = { ...contract, latestVersion: contract.versions[0]?.version ?? 1 };
+    return { ...contract, latestVersion: shape.latestVersion, availableActions: availableActions(actor, shape), partyActions: partyActions(actor, shape) };
   }
 
   /** Agreements the actor can see, newest first, each with the actions the actor can take now. */
   async list(actor: AuthenticatedUser) {
     // Reviewers see the country's submitted agreements plus their own organisation's drafts.
+    // Both sides of an asset partnership see its agreement, whichever side drafted it.
+    const asParty = { countryNodeId: actor.countryNodeId, parties: { some: { organisationId: actor.organisationId, role: { not: null } } } };
     const where = isAgreementReviewer(actor.role)
-      ? { OR: [{ countryNodeId: actor.countryNodeId, status: { not: 'DRAFT' } }, tenantScopeFilter(actor)] }
-      : tenantScopeFilter(actor);
-    const contracts = await this.prisma.contract.findMany({ where: { ...where, contractType: { in: [...AGREEMENT_TYPES] } }, orderBy: { updatedAt: 'desc' }, take: 100, select: { id: true, contractNumber: true, title: true, contractType: true, status: true, createdBy: true, organisationId: true, countryNodeId: true, createdAt: true, updatedAt: true, complianceReport: true, approvals: { select: { approverId: true, status: true, decidedAt: true } } } });
-    return contracts.map(({ approvals, complianceReport, ...contract }) => ({ ...contract, complianceStatus: (complianceReport as { status?: string } | null)?.status ?? null, availableActions: availableActions(actor, { ...contract, approvals }) }));
+      ? { OR: [{ countryNodeId: actor.countryNodeId, status: { not: 'DRAFT' } }, tenantScopeFilter(actor), asParty] }
+      : { OR: [tenantScopeFilter(actor), asParty] };
+    const contracts = await this.prisma.contract.findMany({ where: { ...where, contractType: { in: [...AGREEMENT_TYPES] } }, orderBy: { updatedAt: 'desc' }, take: 100, select: { id: true, contractNumber: true, title: true, contractType: true, status: true, createdBy: true, organisationId: true, countryNodeId: true, createdAt: true, updatedAt: true, complianceReport: true, engagementId: true, approvals: { select: { approverId: true, status: true, decidedAt: true } }, parties: { select: { role: true, organisationId: true, displayName: true, consentedVersion: true, signedAt: true } }, versions: { select: { version: true }, orderBy: { version: 'desc' }, take: 1 } } });
+    return contracts.map(({ approvals, complianceReport, versions, ...contract }) => {
+      const shape = { ...contract, approvals, latestVersion: versions[0]?.version ?? 1 };
+      return { ...contract, latestVersion: shape.latestVersion, complianceStatus: (complianceReport as { status?: string } | null)?.status ?? null, availableActions: availableActions(actor, shape), partyActions: partyActions(actor, shape) };
+    });
   }
 
   async review(actor: AuthenticatedUser, id: string, input: AgreementReviewDto) {
@@ -89,10 +195,15 @@ export class AgreementGenerationService {
       return tx.contract.findUniqueOrThrow({ where: { id } });
     });
     await this.auditRecord(actor, 'agreement.review_status_changed', id, { fromStatus: contract.status, toStatus: input.reviewStatus, note: input.note, role: actor.role });
+    if (input.reviewStatus === 'APPROVED' || input.reviewStatus === 'CHANGES_REQUESTED') {
+      for (const party of contract.parties.filter((item) => item.role && item.organisationId)) {
+        await this.notifyOrganisation(party.organisationId!, contract.countryNodeId, id, `review-${input.reviewStatus}-${updated.updatedAt.toISOString()}`, input.reviewStatus === 'APPROVED' ? 'Agreement approved: ready to sign' : 'Agreement: changes requested', input.reviewStatus === 'APPROVED' ? `${contract.contractNumber} passed legal and Shariah review. Each side now signs it.` : `${contract.contractNumber}: ${input.note ?? 'changes were requested'}. Either side drafts a revision, then both agree again.`);
+      }
+    }
     return updated;
   }
 
-  async render(actor: AuthenticatedUser, id: string, format: 'docx' | 'pdf') { const contract = await this.get(actor, id); const version = contract.versions[0]; const body = version?.content as { sections?: Section[]; variables?: Record<string, string> } | undefined; const sections = body?.sections || []; const filename = `${contract.contractNumber}-${contract.contractType.toLowerCase()}.${format}`; const buffer = format === 'docx' ? await this.docx(contract, sections) : await this.pdf(contract, sections); await this.auditRecord(actor, 'agreement.document_generated', id, { format, version: version?.version || 1 }); return { filename, contentType: format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf', buffer }; }
+  async render(actor: AuthenticatedUser, id: string, format: 'docx' | 'pdf') { const contract = await this.get(actor, id); const version = contract.versions[0]; const body = version?.content as { sections?: Section[]; variables?: Record<string, string> } | undefined; const parties = contract.parties.filter((party) => party.role); const sections = (body?.sections || []).map((section) => (parties.length && section.title === 'Signatures' ? { ...section, paragraphs: parties.map((party) => `For the ${party.role === 'OWNER' ? 'asset owner' : 'delivery partner'}, ${party.displayName}: ${party.signedAt ? `signed electronically by ${party.signatureName} on ${party.signedAt.toISOString().slice(0, 10)}` : 'not signed yet'}.`) } : section)); const filename = `${contract.contractNumber}-${contract.contractType.toLowerCase()}.${format}`; const buffer = format === 'docx' ? await this.docx(contract, sections) : await this.pdf(contract, sections); await this.auditRecord(actor, 'agreement.document_generated', id, { format, version: version?.version || 1 }); return { filename, contentType: format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf', buffer }; }
 
   private buildSections(input: AgreementWizardDto, clauses: Array<{ clauseTitle: string; clauseText: string; shariahReference: string | null }>, rules: Array<{ ruleName: string; description: string }>, ai: unknown): Section[] {
     const data = input.wizardData;
@@ -120,6 +231,15 @@ export class AgreementGenerationService {
 
   private variables(data: Record<string, unknown>) { return Object.fromEntries(Object.entries({ LESSOR_NAME: data.lessorName, LESSEE_NAME: data.lesseeName, ASSET_DESCRIPTION: data.assetDescription, CAPITAL_AMOUNT: data.capitalAmount, PROFIT_RATIO: data.profitSharing, PROJECT_NAME: data.projectName }).map(([key, value]) => [`{{${key}}}`, value == null ? `[${key}]` : String(value)])); }
   private value(data: Record<string, unknown>, key: string) { const value = data[key]; return value == null ? '' : Array.isArray(value) ? value.join(', ') : String(value); }
+  private newContractNumber() { return `HOF-${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}-${randomUUID().slice(0, 8).toUpperCase()}`; }
+
+  /** Tells the people of one party who can act on an agreement (drafters, owners, managers). */
+  private async notifyOrganisation(organisationId: string, countryNodeId: string, contractId: string, key: string, title: string, message: string) {
+    if (!this.notifications) return;
+    const roles = ['Asset_Owner', 'Asset_Manager', 'Project_Sponsor', 'Project_Manager', 'Organization_Admin'] as PrismaUserRole[];
+    const people = await this.prisma.userRoleAssignment.findMany({ where: { organisationId, countryNodeId, isActive: true, role: { in: roles } }, select: { userId: true } });
+    await Promise.all([...new Set(people.map((person) => person.userId))].map((userId) => this.notifications!.enqueue({ recipientUserId: userId, organisationId, countryNodeId, type: 'AGREEMENT', title, message, resourceType: 'Contract', resourceId: contractId, dedupeKey: `agreement:${contractId}:${key}:${userId}` }).catch(() => undefined)));
+  }
   private scope(actor: AuthenticatedUser) { return { organisationId: actor.organisationId, countryNodeId: actor.countryNodeId }; }
   private async auditRecord(actor: AuthenticatedUser, action: string, resourceId: string, metadata: Record<string, unknown>) { await this.audit.recordActor(actor, { action, resourceType: 'Contract', resourceId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata }); }
   private async docx(contract: { contractNumber: string; title: string | null; status: string }, sections: Section[]) {

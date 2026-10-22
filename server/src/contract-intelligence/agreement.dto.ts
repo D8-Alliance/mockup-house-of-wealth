@@ -1,4 +1,4 @@
-import { IsIn, IsObject, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsIn, IsObject, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { D8_JURISDICTIONS } from './jurisdiction-profiles';
 
 export const AGREEMENT_TYPES = ['IJARAH', 'MUSHARAKAH', 'MUDARABAH', 'WAKALAH', 'SUKUK'] as const;
@@ -11,6 +11,14 @@ export class AgreementWizardDto {
   @IsObject() wizardData!: Record<string, unknown>;
   @IsOptional() @IsString() projectId?: string;
   @IsOptional() @IsString() templateId?: string;
+  /** Drafting the agreement of an approved asset partnership: one agreement per partnership, revised in place. */
+  @IsOptional() @IsString() engagementId?: string;
+}
+
+export class AgreementPartyActionDto {
+  @IsIn(['CONSENT', 'SIGN']) action!: 'CONSENT' | 'SIGN';
+  /** SIGN: the signer's full name, typed as their electronic signature. */
+  @IsOptional() @IsString() @MaxLength(200) signatureName?: string;
 }
 
 export class AgreementReviewDto {

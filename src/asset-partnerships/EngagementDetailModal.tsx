@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AlertTriangle, FileSignature, X } from 'lucide-react';
-import { openAgreementFor } from '../ai/aiEngineNavigation';
+import { openAgreementFor, openAgreementRecord } from '../ai/aiEngineNavigation';
 import { startFromEngagement } from '../ai/features/contract/agreementPrefill';
 import { apiClient, apiErrorMessage, AssetEngagement } from '../services/apiClient';
 import { ASSET_TYPE_LABELS } from '../assets/assetLabels';
@@ -25,10 +25,14 @@ interface Props {
   onClose: () => void;
   /** Opens Agreement Generation; the agreement is filled from this partnership. */
   onOpenAgreement?: () => void;
+  /** Opens the Contracts page on the partnership's agreement. */
+  onOpenContracts?: () => void;
 }
 
 /** One offer or request: who, what, on which akad, its history, and the viewer's next action. */
-export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmin, onChanged, onClose, onOpenAgreement }) => {
+const AGREEMENT_STEP: Record<string, string> = { DRAFT: 'draft, waiting for both sides to agree', CHANGES_REQUESTED: 'changes requested by a reviewer', LEGAL_REVIEW: 'in legal review', SHARIAH_REVIEW: 'in Shariah review', APPROVED: 'approved, waiting for both signatures', EXECUTION: 'signed by both sides' };
+
+export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmin, onChanged, onClose, onOpenAgreement, onOpenContracts }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState('');
@@ -153,10 +157,15 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
         )}
         {engagement.status === 'APPROVED' && (
           <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 text-xs flex flex-wrap items-center justify-between gap-2">
-            <span>Approved. The asset is committed to this project for the period.</span>
-            {engagement.myParty && onOpenAgreement && (
-              <button type="button" onClick={() => { openAgreementFor(startFromEngagement(engagement)); onOpenAgreement(); }} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 cursor-pointer"><FileSignature className="w-3.5 h-3.5" />Draft the {AKAD_LABELS[engagement.akad]} agreement</button>
-            )}
+            <span>{engagement.agreement ? <>Approved. Agreement <strong>{engagement.agreement.contractNumber}</strong>: {AGREEMENT_STEP[engagement.agreement.status] ?? engagement.agreement.status}. One agreement for both sides: each side agrees to the same version, then both sign.</> : 'Approved. The asset is committed to this project for the period. Either side drafts the one agreement; the other side then agrees or drafts a revision.'}</span>
+            <span className="flex flex-wrap gap-2">
+              {engagement.agreement && onOpenContracts && (
+                <button type="button" onClick={() => { openAgreementRecord(engagement.agreement!.id); onOpenContracts(); }} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1.5 cursor-pointer"><FileSignature className="w-3.5 h-3.5" />Open the agreement</button>
+              )}
+              {engagement.myParty && onOpenAgreement && (!engagement.agreement || engagement.agreement.status === 'DRAFT' || engagement.agreement.status === 'CHANGES_REQUESTED') && (
+                <button type="button" onClick={() => { openAgreementFor({ ...startFromEngagement(engagement), engagementId: engagement.id }); onOpenAgreement(); }} className={`px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 cursor-pointer ${engagement.agreement ? 'border border-emerald-600 text-emerald-700 dark:text-emerald-300' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}><FileSignature className="w-3.5 h-3.5" />{engagement.agreement ? 'Draft a revision' : `Draft the ${AKAD_LABELS[engagement.akad]} agreement`}</button>
+              )}
+            </span>
           </div>
         )}
         {error && <p className="p-3 rounded-xl bg-rose-500/10 text-rose-600 text-xs font-bold">{error}</p>}

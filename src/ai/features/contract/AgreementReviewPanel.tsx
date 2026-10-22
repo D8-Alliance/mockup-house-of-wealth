@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Download, FileSignature, RefreshCw, X } from 'lucide-react';
-import { AgreementAction, AgreementDetail, AgreementStatus, AgreementSummary, apiClient, apiErrorMessage } from '../../../services/apiClient';
+import { AgreementAction, AgreementDetail, AgreementPartyAction, AgreementStatus, AgreementSummary, apiClient, apiErrorMessage } from '../../../services/apiClient';
+import { takeAgreementRecord } from '../../aiEngineNavigation';
+import { useRBAC } from '../../../rbac/RBACContext';
 import { formatDateTime } from '../../../utils/platformTime';
 
 const STATUS_LABELS: Record<AgreementStatus, string> = {
@@ -50,6 +52,9 @@ export const AgreementReviewPanel: React.FC = () => {
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState<AgreementAction | null>(null);
   const [actionError, setActionError] = useState('');
+  const [signatureName, setSignatureName] = useState('');
+  const [authorised, setAuthorised] = useState(false);
+  const { tenantContext } = useRBAC();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,6 +81,34 @@ export const AgreementReviewPanel: React.FC = () => {
     }
   };
 
+  // A partnership page may ask for one agreement to be opened straight away.
+  useEffect(() => {
+    const id = takeAgreementRecord();
+    if (id) void open(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Agreeing to the latest version, or signing it, for the viewer's side of a partnership agreement. */
+  const actAsParty = async (action: AgreementPartyAction) => {
+    if (!selected) return;
+    if (action === 'SIGN' && (!signatureName.trim() || !authorised)) {
+      setActionError('Type your full name and confirm you may sign for your organisation.');
+      return;
+    }
+    setSaving(action === 'SIGN' ? 'EXECUTION' : 'LEGAL_REVIEW');
+    setActionError('');
+    try {
+      await apiClient.agreementPartyAction(selected.id, { action, signatureName: action === 'SIGN' ? signatureName.trim() : undefined });
+      setSignatureName('');
+      setAuthorised(false);
+      await Promise.all([load(), open(selected.id)]);
+    } catch (cause) {
+      setActionError(apiErrorMessage(cause, action === 'SIGN' ? 'The signature was not saved.' : 'Your agreement was not saved.'));
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const decide = async (action: AgreementAction) => {
     if (!selected) return;
     if (action === 'CHANGES_REQUESTED' && !note.trim()) {
@@ -95,7 +128,12 @@ export const AgreementReviewPanel: React.FC = () => {
     }
   };
 
-  const visible = filter === 'mine' ? items.filter((item) => item.availableActions.length > 0) : items;
+  const needsMe = (item: AgreementSummary) => item.availableActions.length > 0 || (item.partyActions?.length ?? 0) > 0;
+  const visible = filter === 'mine' ? items.filter(needsMe) : items;
+  const parties = (selected?.parties ?? []).filter((party) => party.role);
+  const latest = selected?.latestVersion ?? selected?.versions[0]?.version ?? 1;
+  const myParty = parties.find((party) => party.organisationId === tenantContext.organisationId);
+  const partyActions = selected?.partyActions ?? [];
   const version = selected?.versions[0];
   const clauseCount = version?.content.approvedClauseIds?.length ?? 0;
   const ruleCount = version?.content.shariahRuleIds?.length ?? 0;
@@ -114,7 +152,7 @@ export const AgreementReviewPanel: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           {([['mine', 'Needs my action'], ['all', 'All I can see']] as const).map(([value, label]) => (
             <button key={value} type="button" onClick={() => setFilter(value)} className={`px-3 py-1 rounded-full text-[11px] font-bold border cursor-pointer ${filter === value ? 'bg-emerald-600 text-white border-emerald-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>
-              {label}{value === 'mine' ? ` (${items.filter((item) => item.availableActions.length > 0).length})` : ''}
+              {label}{value === 'mine' ? ` (${items.filter(needsMe).length})` : ''}
             </button>
           ))}
           <button type="button" onClick={() => void load()} className="p-1.5 rounded-full border border-slate-200 dark:border-slate-700 text-slate-500 cursor-pointer" title="Refresh">
@@ -143,7 +181,7 @@ export const AgreementReviewPanel: React.FC = () => {
                 <td className="py-2.5 px-3 text-slate-700 dark:text-slate-200">{item.title || item.contractType}</td>
                 <td className="py-2.5 px-3"><StatusChip status={item.status} /></td>
                 <td className="py-2.5 px-3 text-slate-500 whitespace-nowrap">{formatDateTime(item.updatedAt)}</td>
-                <td className="py-2.5 px-3 text-slate-700 dark:text-slate-200">{item.availableActions.map((action) => action.label).join(' / ') || '—'}</td>
+                <td className="py-2.5 px-3 text-slate-700 dark:text-slate-200">{[...(item.partyActions ?? []), ...item.availableActions].map((action) => action.label).join(' / ') || '—'}</td>
               </tr>
             ))}
             {!loading && visible.length === 0 && (
@@ -179,7 +217,42 @@ export const AgreementReviewPanel: React.FC = () => {
               </li>
             ))}
           </ol>
-          {selected.status === 'CHANGES_REQUESTED' && <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Changes were requested. The drafting organisation resubmits it for legal review.</p>}
+          {selected.status === 'CHANGES_REQUESTED' && <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">{parties.length ? 'Changes were requested. Either side drafts a revision from the partnership page; both agree to it, then it is resubmitted for legal review.' : 'Changes were requested. The drafting organisation resubmits it for legal review.'}</p>}
+
+          {parties.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-slate-500">One agreement for both sides of the asset partnership, now at version {latest}. Both sides agree to the same version before legal review, and both sign once it is approved.</p>
+              <div className="grid sm:grid-cols-2 gap-3 text-xs">
+                {parties.map((party) => (
+                  <div key={party.role} className={`rounded-xl p-3 ${party.signedAt || party.consentedVersion === latest ? 'bg-emerald-50 dark:bg-emerald-950/30' : 'bg-slate-50 dark:bg-slate-900/50'}`}>
+                    <div className="text-slate-500 font-bold">{party.role === 'OWNER' ? 'Asset owner' : 'Delivery partner'}{party === myParty ? ' (your side)' : ''}</div>
+                    <div className="font-extrabold text-slate-900 dark:text-white">{party.displayName}</div>
+                    <div className="text-slate-600 dark:text-slate-300">{party.signedAt ? `Signed by ${party.signatureName} on ${formatDateTime(party.signedAt)}` : party.consentedVersion === latest ? `Agreed to version ${latest}` : party.consentedVersion ? `Agreed to version ${party.consentedVersion}, not yet to version ${latest}` : 'Has not agreed yet'}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {partyActions.length > 0 && (
+            <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 p-4 space-y-2 text-xs">
+              {partyActions.some((item) => item.action === 'CONSENT') && (
+                <>
+                  <p className="text-slate-600 dark:text-slate-300">Read version {latest} below. Agreeing means your side accepts this text. If something must change, draft a revision from the partnership page instead; the other side then agrees to it.</p>
+                  <button type="button" disabled={saving !== null} onClick={() => void actAsParty('CONSENT')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer disabled:opacity-60"><CheckCircle2 className="w-4 h-4" />{saving ? 'Saving…' : `Agree to version ${latest}`}</button>
+                </>
+              )}
+              {partyActions.some((item) => item.action === 'SIGN') && (
+                <>
+                  <p className="text-slate-600 dark:text-slate-300">Sign electronically for {myParty?.displayName ?? 'your organisation'}. The agreement comes into force when both sides have signed.</p>
+                  <input value={signatureName} onChange={(event) => setSignatureName(event.target.value)} placeholder="Type your full name as registered" className="w-full sm:w-80 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm" />
+                  <label className="flex items-start gap-2 text-slate-600 dark:text-slate-300"><input type="checkbox" checked={authorised} onChange={(event) => setAuthorised(event.target.checked)} className="mt-0.5" />I have read version {latest} and I am authorised to sign it for {myParty?.displayName ?? 'my organisation'}.</label>
+                  <button type="button" disabled={saving !== null} onClick={() => void actAsParty('SIGN')} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold cursor-pointer disabled:opacity-60"><FileSignature className="w-4 h-4" />{saving ? 'Signing…' : 'Sign the agreement'}</button>
+                </>
+              )}
+              {actionError && selected.availableActions.length === 0 && <div className="flex items-start gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 font-semibold"><AlertTriangle className="w-4 h-4 shrink-0" />{actionError}</div>}
+            </div>
+          )}
 
           <div className="grid sm:grid-cols-3 gap-3 text-xs">
             <div className="rounded-xl bg-slate-50 dark:bg-slate-900/50 p-3">
@@ -225,7 +298,7 @@ export const AgreementReviewPanel: React.FC = () => {
                 ))}
               </div>
             </div>
-          ) : (
+          ) : partyActions.length > 0 ? null : (
             <p className="text-xs text-slate-500">No action for you at this stage. Each step is taken by a different person: the drafting organisation submits and executes, a Legal Officer gives the legal decision and a Shariah reviewer gives the Shariah decision.</p>
           )}
 

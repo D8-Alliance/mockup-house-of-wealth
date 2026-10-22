@@ -53,7 +53,21 @@ export const AGREEMENT_TRANSITIONS: Record<AgreementStatus, Partial<Record<Agree
 };
 
 export interface AgreementDecision { approverId: string; status: string; decidedAt: Date | null }
-export interface AgreementForReview { status: string; createdBy: string; organisationId: string; countryNodeId: string; approvals: AgreementDecision[] }
+/** A party to an asset partnership agreement (role OWNER or PDP); other agreements have no party roles. */
+export interface AgreementParty { role: string | null; organisationId: string | null; consentedVersion: number | null; signedAt: Date | null }
+export interface AgreementForReview { status: string; createdBy: string; organisationId: string; countryNodeId: string; approvals: AgreementDecision[]; parties?: AgreementParty[]; latestVersion?: number }
+export type PartyAction = 'CONSENT' | 'SIGN';
+
+const partnershipParties = (agreement: { parties?: AgreementParty[] }) => (agreement.parties ?? []).filter((party) => party.role);
+/** The actor's side of a partnership agreement, if their organisation is a party. */
+export function partyOf(actor: AuthenticatedUser, agreement: { parties?: AgreementParty[] }): AgreementParty | undefined {
+  return partnershipParties(agreement).find((party) => party.organisationId === actor.organisationId);
+}
+/** Both sides agreed to the latest version. */
+export function bothConsented(agreement: { parties?: AgreementParty[]; latestVersion?: number }): boolean {
+  const parties = partnershipParties(agreement);
+  return parties.length > 0 && parties.every((party) => party.consentedVersion === (agreement.latestVersion ?? 1));
+}
 
 const isReviewer = (role: string) => (LEGAL_ROLES as readonly string[]).includes(role) || (SHARIAH_ROLES as readonly string[]).includes(role);
 
@@ -61,8 +75,10 @@ const isReviewer = (role: string) => (LEGAL_ROLES as readonly string[]).includes
  * Reviewers work for the whole country (they rarely sit in the drafting organisation), but an
  * unsubmitted draft stays private to its organisation. Everyone else needs the organisation too.
  */
-export function canSeeAgreement(actor: AuthenticatedUser, agreement: Pick<AgreementForReview, 'organisationId' | 'countryNodeId' | 'status'>): boolean {
+export function canSeeAgreement(actor: AuthenticatedUser, agreement: Pick<AgreementForReview, 'organisationId' | 'countryNodeId' | 'status' | 'parties'>): boolean {
   if (isWithinTenantScope(actor, agreement)) return true;
+  // Both sides of a partnership see its one agreement, whoever drafted it.
+  if (partyOf(actor, agreement) && actor.countryNodeId === agreement.countryNodeId) return true;
   return isReviewer(actor.role) && actor.countryNodeId === agreement.countryNodeId && agreement.status !== 'DRAFT';
 }
 
@@ -84,8 +100,13 @@ export function reviewBlocker(actor: AuthenticatedUser, agreement: AgreementForR
   const transition = AGREEMENT_TRANSITIONS[agreement.status as AgreementStatus]?.[action];
   if (!transition) return `An agreement in ${agreement.status} cannot move to ${action}.`;
   if (!transition.roles.includes(actor.role)) return `Your role (${actor.role}) cannot take this step.`;
-  const inScope = transition.step === 'maker' ? isWithinTenantScope(actor, agreement) : actor.countryNodeId === agreement.countryNodeId;
+  const party = partyOf(actor, agreement);
+  const partnership = partnershipParties(agreement).length > 0;
+  const inScope = transition.step === 'maker' ? isWithinTenantScope(actor, agreement) || (Boolean(party) && actor.countryNodeId === agreement.countryNodeId) : actor.countryNodeId === agreement.countryNodeId;
   if (!inScope) return 'This agreement is outside your scope.';
+  if (transition.step !== 'maker' && party) return 'You belong to one of the parties, so a reviewer from outside both must decide.';
+  if (partnership && action === 'LEGAL_REVIEW' && !bothConsented(agreement)) return `Both parties must agree to version ${agreement.latestVersion ?? 1} before it goes to legal review.`;
+  if (partnership && action === 'EXECUTION') return 'Each party signs this agreement; it is executed once both have signed.';
   const round = currentRound(agreement.approvals);
   const submitter = round[0]?.approverId;
   const legalDecider = round.find((decision) => decision.status === 'SHARIAH_REVIEW')?.approverId;
@@ -94,6 +115,16 @@ export function reviewBlocker(actor: AuthenticatedUser, agreement: AgreementForR
   if (transition.step === 'shariah' && actor.userId === legalDecider) return 'You gave the legal approval, so another person must give the Shariah decision.';
   if (action === 'EXECUTION' && (actor.userId === legalDecider || actor.userId === shariahDecider)) return 'You reviewed this agreement, so another person must execute it.';
   return null;
+}
+
+/** What the actor's side of a partnership agreement can do now: agree to the latest draft, or sign once approved. */
+export function partyActions(actor: AuthenticatedUser, agreement: AgreementForReview): Array<{ action: PartyAction; label: string }> {
+  const party = partyOf(actor, agreement);
+  if (!party || !(DRAFTER_ROLES as readonly string[]).includes(actor.role)) return [];
+  const version = agreement.latestVersion ?? 1;
+  if ((agreement.status === 'DRAFT' || agreement.status === 'CHANGES_REQUESTED') && party.consentedVersion !== version) return [{ action: 'CONSENT', label: `Agree to version ${version}` }];
+  if (agreement.status === 'APPROVED' && !party.signedAt) return [{ action: 'SIGN', label: 'Sign the agreement' }];
+  return [];
 }
 
 /** The actions the actor can take now, for the review screen's buttons. */

@@ -1587,6 +1587,8 @@ model Contract {
   wizardData       Json?
   complianceReport Json?
   lastGeneratedAt  DateTime?
+  /// The asset partnership this agreement documents; one agreement per partnership.
+  engagementId     String?   @unique
   organisationId   String
   countryNodeId    String
   createdBy        String
@@ -1754,6 +1756,16 @@ model ContractParty {
   displayName    String
   userId         String?
   organisationId String?
+  /// OWNER or PDP on an asset partnership agreement; null on other agreements.
+  role             String?
+  /// The agreement version this party agreed to; a new version needs agreeing again.
+  consentedVersion Int?
+  consentedAt      DateTime?
+  consentedBy      String?
+  signedAt         DateTime?
+  signedBy         String?
+  /// The full name the signer typed as their electronic signature.
+  signatureName    String?
   createdAt      DateTime @default(now())
 
   contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)

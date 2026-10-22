@@ -116,7 +116,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'asset-partnerships' && (
         <RoleGuard tab="asset-partnerships">
-          <AssetPartnershipsView onOpenAgreement={() => setTab('ai-engine')} onOpenAssetRegister={onOpenAssetRegister} />
+          <AssetPartnershipsView onOpenAgreement={() => setTab('ai-engine')} onOpenContracts={() => setTab('contracts')} onOpenAssetRegister={onOpenAssetRegister} />
         </RoleGuard>
       )}
 
