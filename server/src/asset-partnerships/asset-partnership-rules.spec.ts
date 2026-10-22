@@ -1,4 +1,4 @@
-import { cleanTerms, offerMetrics, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch } from './asset-partnership-rules';
+import { cleanTerms, demandLevel, offerMetrics, scoreOffers, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch } from './asset-partnership-rules';
 
 describe('comparing offers', () => {
   const d = (value: string) => new Date(value);
@@ -36,5 +36,34 @@ describe('asset partnership rules', () => {
     expect(publicDetails('MACHINERY', machine)).toEqual({ manufacturer: 'Komatsu', model: 'PC200-8', yearOfManufacture: 2019 });
     expect(publicDetails('LAND', { lotNumber: '4321', titleNumber: '98765', areaValue: 2.5, district: 'Hulu Langat', state: 'Selangor' })).toEqual({ areaValue: 2.5, district: 'Hulu Langat', state: 'Selangor' });
     expect(regionOf({ district: 'Hulu Langat', state: 'Selangor' })).toBe('Hulu Langat, Selangor');
+  });
+});
+
+describe('scoring offers', () => {
+  const base = { coveragePct: 100, documentIssues: 0, encumbered: false, demand: 'LOW' as const, profitSharePct: null };
+  it('gives the lowest rent full price marks and the others in proportion, and always the same result', () => {
+    const offers = [
+      { ...base, id: 'A', akad: 'IJARAH' as const, monthlyRent: 2000 },
+      { ...base, id: 'B', akad: 'IJARAH' as const, monthlyRent: 2500, coveragePct: 50, documentIssues: 1, encumbered: true, demand: 'HIGH' as const },
+    ];
+    const scores = scoreOffers(offers);
+    expect(scores.get('A')).toEqual({ total: 100, parts: { rent: 35, coverage: 25, documents: 20, encumbrance: 10, availability: 10 } });
+    expect(scores.get('B')).toEqual({ total: 56, parts: { rent: 28, coverage: 12.5, documents: 15, encumbrance: 0, availability: 0 } });
+    expect(scoreOffers(offers)).toEqual(scores);
+  });
+
+  it('compares Musharakah offers by the owner\'s profit share, never against rent', () => {
+    const scores = scoreOffers([
+      { ...base, id: 'R', akad: 'IJARAH', monthlyRent: 9000 },
+      { ...base, id: 'M', akad: 'MUSHARAKAH', monthlyRent: null, profitSharePct: 30 },
+      { ...base, id: 'N', akad: 'MUSHARAKAH', monthlyRent: null, profitSharePct: 40, demand: 'MEDIUM' },
+    ]);
+    expect(scores.get('R')?.parts.rent).toBe(35);
+    expect(scores.get('M')?.parts.rent).toBe(35);
+    expect(scores.get('N')?.parts).toMatchObject({ rent: 26.3, availability: 5 });
+  });
+
+  it('turns other projects\' interest into a level only', () => {
+    expect([0, 1, 2, 5].map(demandLevel)).toEqual(['LOW', 'MEDIUM', 'HIGH', 'HIGH']);
   });
 });

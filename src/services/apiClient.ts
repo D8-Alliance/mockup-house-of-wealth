@@ -396,6 +396,8 @@ export const apiClient = {
   downloadAssetDocument: (id: string, documentId: string) => openAuthenticatedFile(`/assets/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}/download`),
   getAssetStructuring: (id: string) => request<AssetStructuringGuidance>(`/assets/${encodeURIComponent(id)}/structuring`),
   /** AI suggestion while offering an asset to a project need: akad, indicative terms, points to watch. */
+  /** AI explanation of the scored comparison of offers; offers are named Offer A, B… in the answer. */
+  explainOfferComparison: (needId: string) => request<BackendAiRun & { labels: Record<string, string> }>(`/ai/asset-partnerships/needs/${encodeURIComponent(needId)}/compare-explain`, { method: 'POST' }),
   askOfferAdvisor: (needId: string, assetId: string) => request<BackendAiRun>(`/ai/asset-partnerships/needs/${encodeURIComponent(needId)}/advise`, { method: 'POST', body: JSON.stringify({ assetId }) }),
   askAssetAdvisor: (id: string, question?: string) => request<BackendAiRun>(`/ai/assets/${encodeURIComponent(id)}/advise`, { method: 'POST', body: JSON.stringify({ question }) }),
   submitAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/submit`, { method: 'POST', body: JSON.stringify({ ownership: true, halalUse: true, accuracy: true }) }),
@@ -720,8 +722,14 @@ export interface EngagementHistoryEntry {
 export interface OfferComparison {
   need: { id: string; title: string; assetType: AssetTypeCode; quantity: number; status: string; startDate: string | null; endDate: string | null; location: string; preferredAkad: PreferredAkad };
   held: number;
-  offers: Array<AssetEngagement & { metrics: { months: number; monthlyRent: number | null; totalRent: number | null; coveragePct: number | null }; documentIssues: number }>;
+  /** Fixed weights of the score, out of 100. */
+  weights: Record<OfferScorePart, number>;
+  /** Assets of this type still being verified in the country; they cannot be offered yet. */
+  awaitingVerification: number;
+  offers: Array<AssetEngagement & { metrics: { months: number; monthlyRent: number | null; totalRent: number | null; coveragePct: number | null }; documentIssues: number; demand: 'LOW' | 'MEDIUM' | 'HIGH'; live: boolean; score: { total: number; parts: Record<OfferScorePart, number> } | null }>;
 }
+
+export type OfferScorePart = 'rent' | 'coverage' | 'documents' | 'encumbrance' | 'availability';
 
 export interface AssetEngagement {
   id: string;

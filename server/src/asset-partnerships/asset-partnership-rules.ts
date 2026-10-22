@@ -120,3 +120,51 @@ export function offerMetrics(akad: Akad, terms: EngagementTerms, start: Date, en
   }
   return { months, monthlyRent, totalRent, coveragePct };
 }
+
+/**
+ * Fixed weights for comparing offers, shown to the delivery partner. The score is worked out by the
+ * system so the same offers always score the same; AI only explains it.
+ */
+export const OFFER_SCORE_WEIGHTS = { rent: 35, coverage: 25, documents: 20, encumbrance: 10, availability: 10 } as const;
+
+/** How much other projects want the same asset over the same period: a level, never names or numbers. */
+export type DemandLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+export const demandLevel = (otherOpenOffers: number): DemandLevel => (otherOpenOffers >= 2 ? 'HIGH' : otherOpenOffers === 1 ? 'MEDIUM' : 'LOW');
+
+export interface ScoreInput {
+  id: string;
+  akad: Akad;
+  monthlyRent: number | null;
+  profitSharePct: number | null;
+  coveragePct: number | null;
+  documentIssues: number;
+  encumbered: boolean;
+  demand: DemandLevel;
+}
+export interface OfferScore { total: number; parts: Record<keyof typeof OFFER_SCORE_WEIGHTS, number> }
+
+/**
+ * Scores live offers out of 100. Price is compared only within the same akad: the lowest monthly rent
+ * among Ijarah offers, or the lowest owner's profit share among Musharakah offers, gets full marks and
+ * the others in proportion. An offer alone in its akad gets full price marks.
+ */
+export function scoreOffers(offers: ScoreInput[]): Map<string, OfferScore> {
+  const w = OFFER_SCORE_WEIGHTS;
+  const price = (offer: ScoreInput) => (offer.akad === 'IJARAH' ? offer.monthlyRent : offer.profitSharePct);
+  const lowest = (akad: Akad) => Math.min(...offers.filter((offer) => offer.akad === akad).map((offer) => price(offer) ?? Infinity));
+  const scores = new Map<string, OfferScore>();
+  for (const offer of offers) {
+    const own = price(offer);
+    const best = lowest(offer.akad);
+    const parts = {
+      rent: own && Number.isFinite(best) ? (best / own) * w.rent : w.rent,
+      coverage: offer.coveragePct === null ? w.coverage : (offer.coveragePct / 100) * w.coverage,
+      documents: Math.max(0, w.documents - offer.documentIssues * 5),
+      encumbrance: offer.encumbered ? 0 : w.encumbrance,
+      availability: offer.demand === 'HIGH' ? 0 : offer.demand === 'MEDIUM' ? w.availability / 2 : w.availability,
+    };
+    const rounded = Object.fromEntries(Object.entries(parts).map(([key, value]) => [key, Math.round(value * 10) / 10])) as OfferScore['parts'];
+    scores.set(offer.id, { total: Math.round(Object.values(parts).reduce((sum, value) => sum + value, 0)), parts: rounded });
+  }
+  return scores;
+}

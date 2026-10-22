@@ -167,10 +167,26 @@ describe('AssetPartnershipsService', () => {
     prisma.project.findFirst.mockResolvedValueOnce({ projectId: 'PRJ-1', organisationId: 'ORG-FELDA', status: 'DRAFT' });
     (prisma.project as unknown as { findUnique: jest.Mock }).findUnique = jest.fn().mockResolvedValue({ projectName: 'FELDA replanting', organisation: { name: 'FELDA' } });
     prisma.userRoleAssignment.findMany.mockResolvedValueOnce([{ userId: 'USR-AO', organisationId: 'ORG-AO' }, { userId: 'USR-AO', organisationId: 'ORG-AO-2' }, { userId: 'USR-AM', organisationId: 'ORG-AO' }]);
+    prisma.asset.findMany.mockResolvedValueOnce([]);
     await service.createNeed(sponsor, { projectId: 'PRJ-1', assetType: 'MACHINERY', title: 'Excavators for land clearing', quantity: 3 });
     expect(prisma.userRoleAssignment.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ countryNodeId: 'CN-MYS', organisationId: { not: 'ORG-FELDA' } }) }));
     expect(notifications.enqueue).toHaveBeenCalledTimes(3);
     expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-AO', type: 'ASSET_NEED', resourceType: 'ProjectAssetNeed', message: expect.stringContaining('FELDA needs 3 × machinery for FELDA replanting') }));
+  });
+
+  it('tells owners of matching assets not yet verified to act, and asks verifiers to look at submitted ones first', async () => {
+    const needs = prisma.projectAssetNeed as unknown as { create: jest.Mock };
+    needs.create = jest.fn().mockImplementation(async ({ data }) => data);
+    prisma.project.findFirst.mockResolvedValueOnce({ projectId: 'PRJ-1', organisationId: 'ORG-FELDA', status: 'DRAFT' });
+    (prisma.project as unknown as { findUnique: jest.Mock }).findUnique = jest.fn().mockResolvedValue({ projectName: 'FELDA replanting', organisation: { name: 'FELDA' } });
+    prisma.userRoleAssignment.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([{ userId: 'USR-CA', organisationId: 'ORG-REGULATOR' }, { userId: 'USR-LO', organisationId: 'ORG-AO' }]);
+    prisma.asset.findMany.mockResolvedValueOnce([{ id: 'AST-1', name: 'Excavator Hitachi', status: 'SUBMITTED', ownerUserId: 'USR-AO', organisationId: 'ORG-AO' }, { id: 'AST-2', name: 'Bulldozer', status: 'DRAFT', ownerUserId: 'USR-AO2', organisationId: 'ORG-AO2' }]);
+    await service.createNeed(sponsor, { projectId: 'PRJ-1', assetType: 'MACHINERY', title: 'Excavators for land clearing', quantity: 3 });
+    expect(prisma.asset.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ assetType: { in: ['MACHINERY', 'EQUIPMENT'] }, status: { in: ['DRAFT', 'SUBMITTED', 'CHANGES_REQUESTED'] } }) }));
+    expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-AO2', title: 'Verify your asset to take part', message: expect.stringContaining('upload its documents') }));
+    expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-CA', title: 'Asset to verify first', resourceId: 'AST-1' }));
+    // A verifier never gets an asset from their own organisation.
+    expect(notifications.enqueue).not.toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-LO' }));
   });
 
   it('lets an owner offer only a verified asset to delivery partners', async () => {

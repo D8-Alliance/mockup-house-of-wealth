@@ -52,6 +52,11 @@ export class AiController {
   @Roles('Super Admin', 'Asset Owner', 'Asset Manager')
   assetOfferAdvisor(@CurrentUser() actor: AuthenticatedUser, @Param('needId') needId: string, @Body() input: AssetOfferAdvisorDto) { return this.ai.assetOfferAdvisor(actor, needId, input.assetId); }
 
+  /** Explains the scored comparison of offers for a need to its delivery partner. */
+  @Post('asset-partnerships/needs/:needId/compare-explain')
+  @Roles('Super Admin', 'Project Sponsor', 'Project Manager', 'Organization Admin')
+  explainOfferComparison(@CurrentUser() actor: AuthenticatedUser, @Param('needId') needId: string) { return this.ai.explainOfferComparison(actor, needId); }
+
   @Post('contract-advisor/analyze')
   @Roles('Super Admin', 'AI Administrator', 'Shariah Reviewer', 'Shariah Advisor', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office')
   contractAdvisor(@CurrentUser() actor: AuthenticatedUser, @Body() input: ContractAdvisorDto) { return this.ai.contractAdvisor(actor, input); }

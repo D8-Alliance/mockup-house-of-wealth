@@ -19,7 +19,8 @@ import { RAG_EMBEDDING_DIMENSIONS, RagEmbeddingService } from './rag-embedding.s
 import { assertRagTransition, canManageRagScope, isRagManager, ragManagementWhere, RagScope, ragScopeKey, ragVisibilitySql, ragVisibilityWhere } from './rag-scope';
 import { MembershipService } from '../membership/membership.service';
 import { ContractClauseRetriever } from './contract-clause-retriever.service';
-import { OFFER_ADVISOR_SYSTEM_PROMPT } from './offer-advisor-prompt';
+import { OFFER_ADVISOR_SYSTEM_PROMPT, OFFER_COMPARISON_SYSTEM_PROMPT } from './offer-advisor-prompt';
+import { AssetPartnershipsService } from '../asset-partnerships/asset-partnerships.service';
 
 export interface RagSearchResult { id: string; documentId: string; content: string; title: string; sourceType: string; scope: string; pageStart?: number | null; pageEnd?: number | null; paragraphRefs?: string[]; effectiveFrom?: string | null; retrieval?: 'keyword' | 'vector' | 'hybrid'; score?: number }
 
@@ -36,6 +37,7 @@ export class AiService {
     @Inject('AI_PROVIDER') private readonly provider: AiProvider,
     // Optional so the AI service still builds where assets are not wired in (tests, worker).
     @Optional() private readonly assets?: AssetsService,
+    @Optional() private readonly partnerships?: AssetPartnershipsService,
   ) {}
 
   /**
@@ -173,6 +175,32 @@ export class AiService {
         preferredAkad: need.preferredAkad, project: need.project.projectName, sector: need.project.sector, deliveryPartner: need.project.organisation.name,
       },
     }, undefined, OFFER_ADVISOR_SYSTEM_PROMPT);
+  }
+
+  /**
+   * Explains the platform's scored comparison of offers for a need. Offers go to the model as
+   * "Offer A, B…" with their figures only: no owner names and nothing about other projects but a level.
+   */
+  async explainOfferComparison(actor: AuthenticatedUser, needId: string) {
+    if (!this.partnerships) throw new ServiceUnavailableException('Asset partnerships are not available.');
+    const comparison = await this.partnerships.compareOffers(actor, needId);
+    const live = comparison.offers.filter((offer) => offer.live && offer.score);
+    if (live.length < 2) throw new BadRequestException('There is nothing to compare yet: at least two open offers are needed.');
+    const labels = new Map(live.map((offer, index) => [offer.id, `Offer ${String.fromCharCode(65 + index)}`]));
+    const termsOf = (offer: { terms: unknown }) => (offer.terms ?? {}) as { profitSharePct?: number; contributionValue?: number; currency?: string };
+    const prompt = 'Explain how these offers compare and what the delivery partner should check before deciding.';
+    const run = await this.run(actor, 'offer_comparison', 'COMPARE_OFFERS', prompt, {
+      subjectId: needId,
+      need: { title: comparison.need.title, assetType: comparison.need.assetType, quantity: comparison.need.quantity, startDate: comparison.need.startDate, endDate: comparison.need.endDate, preferredAkad: comparison.need.preferredAkad, alreadyHeld: comparison.held },
+      weights: comparison.weights,
+      awaitingVerification: comparison.awaitingVerification,
+      offers: live.map((offer) => ({
+        label: labels.get(offer.id), akad: offer.akad, assetType: offer.asset.assetType, region: offer.asset.region, status: offer.status,
+        months: offer.metrics.months, monthlyRent: offer.metrics.monthlyRent, totalRent: offer.metrics.totalRent, profitSharePct: termsOf(offer).profitSharePct ?? null, contributionValue: termsOf(offer).contributionValue ?? null, currency: termsOf(offer).currency ?? null,
+        coveragePct: offer.metrics.coveragePct, documentIssues: offer.documentIssues, underFinancing: offer.asset.isEncumbered, demand: offer.demand, score: offer.score,
+      })),
+    }, undefined, OFFER_COMPARISON_SYSTEM_PROMPT);
+    return { ...run, labels: Object.fromEntries(labels) };
   }
 
   async contractAdvisor(actor: AuthenticatedUser, input: ContractAdvisorDto) {
@@ -1037,7 +1065,7 @@ export class AiService {
   }
 
   private async run(actor: AuthenticatedUser, featureKey: string, action: string, prompt: string, context: Record<string, unknown>, conversationId?: string, systemPrompt?: string) {
-    const operationKey = featureKey === 'contract_draft' ? 'CONTRACT_ANALYSIS' : featureKey === 'contract_advisor' || featureKey === 'asset_advisor' || featureKey === 'asset_offer_advisor' ? 'CONTRACT_ANALYSIS' : featureKey === 'due_diligence_assistant' ? 'DUE_DILIGENCE' : featureKey === 'project_feasibility' ? 'FULL_PROJECT_INTELLIGENCE' : featureKey === 'chat' ? 'SIMPLE_QUERY' : featureKey === 'shariah_assistant' ? 'RISK_ANALYSIS' : 'PROJECT_SUMMARY';
+    const operationKey = featureKey === 'contract_draft' ? 'CONTRACT_ANALYSIS' : featureKey === 'contract_advisor' || featureKey === 'asset_advisor' || featureKey === 'asset_offer_advisor' || featureKey === 'offer_comparison' ? 'CONTRACT_ANALYSIS' : featureKey === 'due_diligence_assistant' ? 'DUE_DILIGENCE' : featureKey === 'project_feasibility' ? 'FULL_PROJECT_INTELLIGENCE' : featureKey === 'chat' ? 'SIMPLE_QUERY' : featureKey === 'shariah_assistant' ? 'RISK_ANALYSIS' : 'PROJECT_SUMMARY';
     const charge = await this.membership.consumeCredits(actor, operationKey, String(context.projectId || context.subjectId || featureKey));
     const requestId = randomUUID();
     const run = await this.prisma.aiRun.create({ data: { requestId, featureKey, action, userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, conversationId, input: context as Prisma.InputJsonValue, output: { charge: { cost: charge.cost ?? 0, usageTransactionId: charge.usageTransactionId ?? null, exempt: 'exempt' in charge && charge.exempt === true } }, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });

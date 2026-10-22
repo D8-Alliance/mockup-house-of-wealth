@@ -9,5 +9,6 @@ import { AssetPartnershipsService } from './asset-partnerships.service';
   imports: [AuditModule, FeatureModuleModule, NotificationModule],
   controllers: [AssetPartnershipsController],
   providers: [AssetPartnershipsService],
+  exports: [AssetPartnershipsService],
 })
 export class AssetPartnershipsModule {}

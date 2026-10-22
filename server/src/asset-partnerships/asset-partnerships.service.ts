@@ -8,7 +8,7 @@ import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { newCountryScopedId } from '../users/user-identity';
 import { AssetListingDto, CreateAssetNeedDto, CreateEngagementDto, RespondEngagementDto, ReviewEngagementDto, UpdateNeedStatusDto, WithdrawEngagementDto } from './asset-partnership.dto';
-import { Akad, cleanTerms, CLOSED_PROJECT_STATUSES, EngagementTerms, HOLDING_ENGAGEMENT_STATUSES, offerMetrics, OPEN_ENGAGEMENT_STATUSES, otherParty, Party, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch } from './asset-partnership-rules';
+import { Akad, cleanTerms, CLOSED_PROJECT_STATUSES, EngagementTerms, HOLDING_ENGAGEMENT_STATUSES, offerMetrics, OPEN_ENGAGEMENT_STATUSES, otherParty, Party, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch, demandLevel, OFFER_SCORE_WEIGHTS, scoreOffers } from './asset-partnership-rules';
 
 /** Roles that act for a delivery partner (PDP) and its projects. */
 export const PDP_ROLES: ReadonlySet<string> = new Set(['Project Sponsor', 'Project Manager', 'Organization Admin']);
@@ -38,6 +38,8 @@ const ENGAGEMENT_INCLUDE = {
 } satisfies Prisma.AssetEngagementInclude;
 type EngagementRow = Prisma.AssetEngagementGetPayload<{ include: typeof ENGAGEMENT_INCLUDE }>;
 
+/** Offers still in play for a need: under discussion, accepted or approved. */
+const LIVE_STATUSES = ['PROPOSED', 'ACCEPTED', 'APPROVED'];
 const NEED_TYPE_NAMES: Record<string, string> = { LAND: 'land', BUILDING: 'building', MACHINERY: 'machinery', VEHICLE: 'heavy vehicle', EQUIPMENT: 'equipment', OTHER: 'asset' };
 
 const day = (date: Date | null | undefined) => (date ? date.toISOString().slice(0, 10) : null);
@@ -154,17 +156,29 @@ export class AssetPartnershipsService {
     if (!need || !allowed) throw new NotFoundException('Need not found.');
     const rows = await this.prisma.assetEngagement.findMany({ where: { needId, status: { not: 'WITHDRAWN' } }, orderBy: { createdAt: 'asc' }, include: ENGAGEMENT_INCLUDE });
     const held = rows.filter((row) => HOLDING_ENGAGEMENT_STATUSES.includes(row.status)).length;
+    const live = rows.filter((row) => LIVE_STATUSES.includes(row.status));
+    // Other projects' open offers for the same assets over overlapping periods. Only a level is shown.
+    const competing = live.length ? await this.prisma.assetEngagement.findMany({ where: { assetId: { in: live.map((row) => row.assetId) }, status: { in: OPEN_ENGAGEMENT_STATUSES }, NOT: { needId } }, select: { id: true, assetId: true, projectId: true, startDate: true, endDate: true } }) : [];
+    const types = need.assetType === 'MACHINERY' || need.assetType === 'EQUIPMENT' ? ['MACHINERY', 'EQUIPMENT'] : [need.assetType];
+    const awaitingVerification = await this.prisma.asset.count({ where: { countryNodeId: need.countryNodeId, assetType: { in: types }, status: { in: ['SUBMITTED', 'CHANGES_REQUESTED'] }, organisationId: { not: need.organisationId } } });
+    const offers = rows.map((row) => {
+      const findings = Array.isArray(row.asset.checkFindings) ? row.asset.checkFindings as Array<{ result?: string }> : [];
+      const others = competing.filter((other) => other.assetId === row.assetId && other.projectId !== row.projectId && periodsOverlap(other, row)).length;
+      return {
+        ...this.view(actor, row),
+        metrics: offerMetrics(row.akad as Akad, row.terms as EngagementTerms, row.startDate, row.endDate, need.startDate, need.endDate),
+        documentIssues: findings.filter((finding) => finding.result === 'MISMATCH' || finding.result === 'NOT_FOUND').length,
+        demand: demandLevel(others),
+        live: LIVE_STATUSES.includes(row.status),
+      };
+    });
+    const scores = scoreOffers(offers.filter((offer) => offer.live).map((offer) => ({ id: offer.id, akad: offer.akad as Akad, monthlyRent: offer.metrics.monthlyRent, profitSharePct: (offer.terms as EngagementTerms).profitSharePct ?? null, coveragePct: offer.metrics.coveragePct, documentIssues: offer.documentIssues, encumbered: offer.asset.isEncumbered, demand: offer.demand })));
     return {
       need: { id: need.id, title: need.title, assetType: need.assetType, quantity: need.quantity, status: need.status, startDate: day(need.startDate), endDate: day(need.endDate), location: need.location, preferredAkad: need.preferredAkad },
       held,
-      offers: rows.map((row) => {
-        const findings = Array.isArray(row.asset.checkFindings) ? row.asset.checkFindings as Array<{ result?: string }> : [];
-        return {
-          ...this.view(actor, row),
-          metrics: offerMetrics(row.akad as Akad, row.terms as EngagementTerms, row.startDate, row.endDate, need.startDate, need.endDate),
-          documentIssues: findings.filter((finding) => finding.result === 'MISMATCH' || finding.result === 'NOT_FOUND').length,
-        };
-      }),
+      weights: OFFER_SCORE_WEIGHTS,
+      awaitingVerification,
+      offers: offers.map((offer) => ({ ...offer, score: scores.get(offer.id) ?? null })),
     };
   }
 
@@ -501,10 +515,13 @@ export class AssetPartnershipsService {
    */
   private async notifyAssetOwnersOfNeed(need: { id: string; projectId: string; organisationId: string; countryNodeId: string; assetType: string; quantity: number; title: string }) {
     if (!this.notifications) return;
-    const [project, owners] = await Promise.all([
+    const types = need.assetType === 'MACHINERY' || need.assetType === 'EQUIPMENT' ? ['MACHINERY', 'EQUIPMENT'] : [need.assetType];
+    const [project, owners, unverified] = await Promise.all([
       this.prisma.project.findUnique({ where: { projectId: need.projectId }, select: { projectName: true, organisation: { select: { name: true } } } }),
       this.prisma.userRoleAssignment.findMany({ where: { role: { in: ['Asset_Owner', 'Asset_Manager'] as PrismaUserRole[] }, isActive: true, countryNodeId: need.countryNodeId, organisationId: { not: need.organisationId } }, select: { userId: true, organisationId: true } }),
+      this.prisma.asset.findMany({ where: { countryNodeId: need.countryNodeId, assetType: { in: types }, status: { in: ['DRAFT', 'SUBMITTED', 'CHANGES_REQUESTED'] }, organisationId: { not: need.organisationId } }, select: { id: true, name: true, status: true, ownerUserId: true, organisationId: true } }),
     ]);
+    await this.alertUnverifiedAssets(need, project?.projectName ?? 'a project', unverified);
     const type = (NEED_TYPE_NAMES[need.assetType] ?? need.assetType.toLowerCase());
     const message = `${project?.organisation.name ?? 'A delivery partner'} needs ${need.quantity} × ${type} for ${project?.projectName ?? 'a project'}: ${need.title}. Offer a verified asset, or register one to take part.`;
     // One per user and organisation: notifications are shown in the organisation the user signs in for.
@@ -513,6 +530,29 @@ export class AssetPartnershipsService {
       recipientUserId: owner.userId, organisationId: owner.organisationId, countryNodeId: need.countryNodeId, type: 'ASSET_NEED',
       title: 'A project is looking for assets', message, resourceType: 'ProjectAssetNeed', resourceId: need.id, dedupeKey: `asset-need:${need.id}:${owner.userId}:${owner.organisationId}`,
     }).catch(() => undefined)));
+  }
+
+  /**
+   * Only verified assets can be offered. Owners whose asset of the needed type is not verified yet are
+   * told what to do to take part, and the country's verifiers are asked to look at submitted ones first.
+   */
+  private async alertUnverifiedAssets(need: { id: string; countryNodeId: string; title: string }, projectName: string, assets: Array<{ id: string; name: string; status: string; ownerUserId: string; organisationId: string }>) {
+    if (!this.notifications || !assets.length) return;
+    const step: Record<string, string> = { DRAFT: 'upload its documents and submit it for verification', SUBMITTED: 'it is waiting for verification; reply quickly if the verifier asks for anything', CHANGES_REQUESTED: 'make the changes the verifier asked for and submit it again' };
+    await Promise.all(assets.map((asset) => this.notifications!.enqueue({
+      recipientUserId: asset.ownerUserId, organisationId: asset.organisationId, countryNodeId: need.countryNodeId, type: 'ASSET_NEED',
+      title: 'Verify your asset to take part', message: `${projectName} needs this type of asset (${need.title}). ${asset.name} is not verified yet: ${step[asset.status]}. Only verified assets can be offered, so act soon.`,
+      resourceType: 'Asset', resourceId: asset.id, dedupeKey: `asset-need-verify:${need.id}:${asset.id}`,
+    }).catch(() => undefined)));
+    const submitted = assets.filter((asset) => asset.status === 'SUBMITTED');
+    if (!submitted.length) return;
+    const verifiers = await this.prisma.userRoleAssignment.findMany({ where: { role: { in: ['Country_Admin', 'Legal_Officer'] as PrismaUserRole[] }, isActive: true, countryNodeId: need.countryNodeId }, select: { userId: true, organisationId: true } });
+    const unique = [...new Map(verifiers.map((verifier) => [`${verifier.userId}|${verifier.organisationId}`, verifier])).values()];
+    await Promise.all(unique.flatMap((verifier) => submitted.filter((asset) => asset.organisationId !== verifier.organisationId).map((asset) => this.notifications!.enqueue({
+      recipientUserId: verifier.userId, organisationId: verifier.organisationId, countryNodeId: need.countryNodeId, type: 'ASSET_VERIFICATION',
+      title: 'Asset to verify first', message: `A project needs this type of asset. ${asset.name} is waiting for verification; verifying it soon lets its owner offer it.`,
+      resourceType: 'Asset', resourceId: asset.id, dedupeKey: `asset-need-verifier:${need.id}:${asset.id}:${verifier.userId}`,
+    }).catch(() => undefined))));
   }
 
   private async notifyReviewers(row: EngagementRow) {
