@@ -66,7 +66,11 @@ export const EngagementTermsFields: React.FC<{ value: EngagementDraft; onChange:
               <label htmlFor={`${idPrefix}-share`} className={LABEL}>Owner's profit share (%)</label>
               <input id={`${idPrefix}-share`} type="number" min={0.01} max={99.99} step="0.01" value={value.terms.profitSharePct ?? ''} onChange={(e) => setTerms({ profitSharePct: number(e.target.value) })} className={INPUT} />
             </div>
-            <div className="hidden sm:block" />
+            <div>
+              <label htmlFor={`${idPrefix}-pdp-capital`} className={LABEL}>Delivery partner's capital, {value.terms.currency ?? 'MYR'}</label>
+              <input id={`${idPrefix}-pdp-capital`} type="number" min={0} step="0.01" placeholder="0 if none" value={value.terms.pdpContributionValue ?? ''} onChange={(e) => setTerms({ pdpContributionValue: number(e.target.value) })} className={INPUT} />
+              <p className="mt-1 text-[10px] text-slate-400">Needed before acceptance: losses are shared by capital.</p>
+            </div>
           </>
         )}
         <div>

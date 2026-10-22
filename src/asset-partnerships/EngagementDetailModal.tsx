@@ -149,6 +149,7 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
               {engagement.canReview && (
                 <>
                   <button type="button" disabled={busy || note.trim().length < 3} onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'REJECT', note, ...(isSuperAdmin ? { track } : {}) }))} className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-600 text-xs font-bold cursor-pointer disabled:opacity-50">Reject</button>
+                  <button type="button" disabled={busy || note.trim().length < 3} title="Send it back to the parties to correct the terms; both reviews start again" onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'REQUEST_CHANGES', note, ...(isSuperAdmin ? { track } : {}) }))} className="px-4 py-2 rounded-xl border border-amber-400 text-amber-700 dark:text-amber-300 text-xs font-bold cursor-pointer disabled:opacity-50">Request changes</button>
                   <button type="button" disabled={busy || note.trim().length < 3} onClick={() => void run(() => apiClient.reviewAssetEngagement(engagement.id, { decision: 'APPROVE', note, ...(isSuperAdmin ? { track } : {}) }))} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Approve</button>
                 </>
               )}

@@ -11,7 +11,8 @@ export const RENT_FREQUENCIES = ['MONTHLY', 'WHOLE_PERIOD'] as const;
 /** Day-to-day upkeep (fuel, operator, routine servicing). Major maintenance and takaful stay with the owner in an Ijarah. */
 export const UPKEEP_PARTIES = ['OWNER', 'LESSEE'] as const;
 export const RESPONSES = ['ACCEPT', 'DECLINE', 'COUNTER'] as const;
-export const REVIEW_DECISIONS = ['APPROVE', 'REJECT'] as const;
+/** REQUEST_CHANGES sends an accepted offer back to the parties to correct its terms; REJECT ends it. */
+export const REVIEW_DECISIONS = ['APPROVE', 'REJECT', 'REQUEST_CHANGES'] as const;
 export const REVIEW_TRACKS = ['LEGAL', 'SHARIAH'] as const;
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
@@ -52,6 +53,8 @@ export class EngagementTermsDto {
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1e12) contributionValue?: number;
   /** The owner's share of the venture's profit, in percent. */
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0.01) @Max(99.99) profitSharePct?: number;
+  /** Musharakah: the delivery partner's capital (cash or in kind), so losses can be shared by capital. 0 is allowed. */
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1e12) pdpContributionValue?: number;
   @IsOptional() @IsIn(PAYOUT_CURRENCIES) currency?: string;
 }
 

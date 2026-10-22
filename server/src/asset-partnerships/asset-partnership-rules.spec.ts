@@ -1,4 +1,4 @@
-import { cleanTerms, demandLevel, offerMetrics, scoreOffers, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch } from './asset-partnership-rules';
+import { capitalShares, cleanTerms, demandLevel, offerMetrics, scoreOffers, periodsOverlap, publicDetails, regionOf, termsProblems, typesMatch } from './asset-partnership-rules';
 
 describe('comparing offers', () => {
   const d = (value: string) => new Date(value);
@@ -65,5 +65,13 @@ describe('scoring offers', () => {
 
   it('turns other projects\' interest into a level only', () => {
     expect([0, 1, 2, 5].map(demandLevel)).toEqual(['LOW', 'MEDIUM', 'HIGH', 'HIGH']);
+  });
+});
+
+describe('Musharakah capital shares', () => {
+  it('works out each side\'s share of capital once both contributions are known', () => {
+    expect(capitalShares({ contributionValue: 500000, pdpContributionValue: 500000 })).toEqual({ owner: 50, pdp: 50 });
+    expect(capitalShares({ contributionValue: 500000, pdpContributionValue: 0 })).toEqual({ owner: 100, pdp: 0 });
+    expect(capitalShares({ contributionValue: 500000 })).toBeNull();
   });
 });

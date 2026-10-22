@@ -60,7 +60,7 @@ export function startFromEngagement(engagement: AssetEngagement): AgreementStart
     values: {
       projectType: `${engagement.project.sector}: ${engagement.project.projectName} (${engagement.project.projectCode})`,
       partners: `${owner} (asset contributor); ${pdp} (managing partner, delivery partner)`,
-      contributions: `${owner}: ${asset}, contributed in kind at an agreed value of ${formatMoney(terms.contributionValue ?? 0, currency)}. ${pdp}: [state its capital contribution].`,
+      contributions: `${owner}: ${asset}, contributed in kind at an agreed value of ${formatMoney(terms.contributionValue ?? 0, currency)}. ${pdp}: ${terms.pdpContributionValue === undefined ? '[state its capital contribution]' : `${formatMoney(terms.pdpContributionValue, currency)} in capital`}.`,
       profitSharing: `${owner} ${ownerShare}%; ${pdp} ${Math.round((100 - ownerShare) * 100) / 100}% of distributable profit.`,
       lossAllocation: 'Losses are borne in proportion to each partner\'s capital contribution.',
       managementRights: `${pdp} manages the project's operations; decisions affecting the contributed asset need ${owner}'s consent.`,

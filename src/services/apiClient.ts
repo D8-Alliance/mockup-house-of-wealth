@@ -412,7 +412,7 @@ export const apiClient = {
   createAssetEngagement: (input: EngagementInput) => request<AssetEngagement>('/asset-partnerships/engagements', { method: 'POST', body: JSON.stringify(input) }),
   respondAssetEngagement: (id: string, input: { action: 'ACCEPT' | 'DECLINE' | 'COUNTER'; akad?: PartnershipAkad; terms?: EngagementTerms; startDate?: string; endDate?: string; note?: string }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/respond`, { method: 'POST', body: JSON.stringify(input) }),
   withdrawAssetEngagement: (id: string, note?: string) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/withdraw`, { method: 'POST', body: JSON.stringify({ note }) }),
-  reviewAssetEngagement: (id: string, input: { decision: 'APPROVE' | 'REJECT'; note: string; track?: 'LEGAL' | 'SHARIAH' }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  reviewAssetEngagement: (id: string, input: { decision: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES'; note: string; track?: 'LEGAL' | 'SHARIAH' }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   withdrawAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/withdraw`, { method: 'POST' }),
   reviewAsset: (id: string, decision: 'VERIFIED' | 'CHANGES_REQUESTED' | 'REJECTED', note: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
   downloadKycDocumentForReview: (applicationId: string, documentId: string) => openAuthenticatedFile(`/kyc/applications/${encodeURIComponent(applicationId)}/documents/${encodeURIComponent(documentId)}/download`),
@@ -689,6 +689,8 @@ export interface EngagementTerms {
   upkeepBy?: 'OWNER' | 'LESSEE';
   contributionValue?: number;
   profitSharePct?: number;
+  /** Musharakah: the delivery partner's capital contribution. */
+  pdpContributionValue?: number;
   currency?: string;
 }
 

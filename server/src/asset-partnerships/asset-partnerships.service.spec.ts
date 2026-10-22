@@ -121,6 +121,29 @@ describe('AssetPartnershipsService', () => {
     prisma.assetEngagement.updateMany.mockReset();
   });
 
+  it('sends an accepted offer back to the side that wrote its terms when a reviewer asks for changes', async () => {
+    const proposed = { at: '2026-10-21T09:08:00Z', by: 'USR-AO', byName: 'Amran', party: 'OWNER', action: 'PROPOSED' };
+    const acceptedEntry = { at: '2026-10-21T09:17:00Z', by: 'USR-PS', byName: 'Umar', party: 'PDP', action: 'ACCEPTED' };
+    const accepted = row({ status: 'ACCEPTED', awaiting: 'REVIEW', history: [proposed, acceptedEntry] });
+    prisma.assetEngagement.findFirst.mockResolvedValueOnce(accepted);
+    prisma.assetEngagement.updateMany.mockResolvedValueOnce({ count: 1 });
+    prisma.assetEngagement.findUniqueOrThrow.mockResolvedValueOnce(row({ status: 'PROPOSED', awaiting: 'OWNER' }));
+    await service.review(legal, accepted.id, { decision: 'REQUEST_CHANGES', note: 'Confirm the profit share: 6% looks like a typo.' });
+    const data = prisma.assetEngagement.updateMany.mock.calls[0][0].data;
+    expect(data).toMatchObject({ status: 'PROPOSED', awaiting: 'OWNER', legalApprovedBy: null, shariahApprovedBy: null });
+    expect(data.history[2]).toMatchObject({ party: 'REVIEW', action: 'LEGAL_CHANGES_REQUESTED' });
+    expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-AO', title: 'Legal review: changes requested' }));
+
+    // The owner must correct the terms; accepting them unchanged is refused.
+    prisma.assetEngagement.findFirst.mockResolvedValueOnce(row({ status: 'PROPOSED', awaiting: 'OWNER', history: [...data.history] }));
+    await expect(service.respond(owner, accepted.id, { action: 'ACCEPT' })).rejects.toThrow('counter-offer');
+  });
+
+  it("needs the delivery partner's capital before a Musharakah is accepted", async () => {
+    prisma.assetEngagement.findFirst.mockResolvedValueOnce(row({ akad: 'MUSHARAKAH', terms: { contributionValue: 500000, profitSharePct: 60, currency: 'MYR' } }));
+    await expect(service.respond(sponsor, 'ENG-MYS-0000001', { action: 'ACCEPT' })).rejects.toThrow('capital contribution');
+  });
+
   it('refuses to accept when the asset is already committed for an overlapping period', async () => {
     prisma.assetEngagement.findFirst.mockResolvedValueOnce(row());
     prisma.assetEngagement.findMany.mockResolvedValueOnce([{ id: 'ENG-MYS-OTHER001', startDate: new Date('2027-03-01'), endDate: new Date('2027-09-01') }]);

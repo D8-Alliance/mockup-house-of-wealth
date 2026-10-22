@@ -9,6 +9,8 @@ export interface EngagementTerms {
   upkeepBy?: 'OWNER' | 'LESSEE';
   contributionValue?: number;
   profitSharePct?: number;
+  /** Musharakah: the delivery partner's capital contribution. */
+  pdpContributionValue?: number;
   currency?: string;
 }
 
@@ -51,7 +53,16 @@ export function termsProblems(akad: Akad, terms: EngagementTerms, startDate: str
 export function cleanTerms(akad: Akad, terms: EngagementTerms): EngagementTerms {
   return akad === 'IJARAH'
     ? { rentAmount: terms.rentAmount, rentFrequency: terms.rentFrequency, upkeepBy: terms.upkeepBy, currency: terms.currency }
-    : { contributionValue: terms.contributionValue, profitSharePct: terms.profitSharePct, currency: terms.currency };
+    : { contributionValue: terms.contributionValue, profitSharePct: terms.profitSharePct, pdpContributionValue: terms.pdpContributionValue, currency: terms.currency };
+}
+
+/** Musharakah capital shares in percent; null until both contributions are known. Losses follow these shares. */
+export function capitalShares(terms: EngagementTerms): { owner: number; pdp: number } | null {
+  const owner = terms.contributionValue ?? 0;
+  const pdp = terms.pdpContributionValue;
+  if (pdp === undefined || owner + pdp <= 0) return null;
+  const ownerPct = Math.round((owner / (owner + pdp)) * 1000) / 10;
+  return { owner: ownerPct, pdp: Math.round((100 - ownerPct) * 10) / 10 };
 }
 
 export function periodsOverlap(a: { startDate: Date; endDate: Date }, b: { startDate: Date; endDate: Date }): boolean {

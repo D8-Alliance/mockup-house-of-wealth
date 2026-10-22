@@ -278,6 +278,8 @@ export class AssetPartnershipsService {
     let notice: [string, string];
 
     if (input.action === 'ACCEPT') {
+      if (history[history.length - 1]?.action?.endsWith('_CHANGES_REQUESTED')) throw new BadRequestException('A reviewer asked for changes. Make a counter-offer with the corrected terms; the other side then accepts it.');
+      if (engagement.akad === 'MUSHARAKAH' && (engagement.terms as EngagementTerms).pdpContributionValue === undefined) throw new BadRequestException("Add the delivery partner's capital contribution with a counter-offer before accepting (0 if none): losses in a Musharakah are shared by capital.");
       await this.assertAssetFree(engagement);
       if (engagement.needId) await this.assertNeedHasRoom(engagement.needId, engagement.id);
       data = { status: 'ACCEPTED', awaiting: 'REVIEW', history: [...history, this.entry(actor, party, 'ACCEPTED', input.note)] as unknown as Prisma.InputJsonValue };
@@ -344,6 +346,13 @@ export class AssetPartnershipsService {
     let finished = false;
     if (input.decision === 'REJECT') {
       data = { status: 'REJECTED', awaiting: 'NONE', history: [...history, this.entry(actor, 'REVIEW', `${track}_REJECTED`, input.note)] as unknown as Prisma.InputJsonValue };
+    } else if (input.decision === 'REQUEST_CHANGES') {
+      // Back to the side whose terms were accepted: it corrects them with a counter-offer, the other side
+      // accepts, and both reviews start again.
+      data = {
+        status: 'PROPOSED', awaiting: this.termsAuthor(engagement), legalApprovedBy: null, legalApprovedAt: null, shariahApprovedBy: null, shariahApprovedAt: null,
+        history: [...history, this.entry(actor, 'REVIEW', `${track}_CHANGES_REQUESTED`, input.note)] as unknown as Prisma.InputJsonValue,
+      };
     } else {
       const now = new Date();
       finished = Boolean(track === 'LEGAL' ? engagement.shariahApprovedBy : engagement.legalApprovedBy);
@@ -361,6 +370,8 @@ export class AssetPartnershipsService {
     if (finished && updated.needId) await this.markNeedFilled(updated.needId);
     const [title, message] = input.decision === 'REJECT'
       ? [`Asset partnership rejected by ${label}`, `${updated.asset.name} for ${updated.project.projectName}: ${input.note}`]
+      : input.decision === 'REQUEST_CHANGES'
+        ? [`${label} review: changes requested`, `${updated.asset.name} for ${updated.project.projectName}: ${input.note} The ${updated.awaiting === 'OWNER' ? 'asset owner' : 'delivery partner'} makes a counter-offer with the corrected terms; once accepted, it is reviewed again.`]
       : finished
         ? ['Asset partnership approved', `${updated.asset.name} is committed to ${updated.project.projectName} from ${day(updated.startDate)} to ${day(updated.endDate)}. The agreement can now be drafted.`]
         : [`${label} approval given`, `${updated.asset.name} for ${updated.project.projectName} now awaits the ${track === 'LEGAL' ? 'Shariah' : 'Legal'} approval.`];
@@ -370,6 +381,13 @@ export class AssetPartnershipsService {
   }
 
   // ---- Helpers ----
+
+  /** The side that wrote the terms now on the table: the last to propose or counter. */
+  private termsAuthor(engagement: { direction: string; history: unknown }): Party {
+    const history = engagement.history as unknown as HistoryEntry[];
+    const last = [...history].reverse().find((entry) => entry.action === 'PROPOSED' || entry.action === 'COUNTERED');
+    return last && (last.party === 'OWNER' || last.party === 'PDP') ? last.party : engagement.direction === 'OFFER' ? 'OWNER' : 'PDP';
+  }
 
   private assertPdp(actor: AuthenticatedUser) {
     if (!PDP_ROLES.has(actor.role)) throw new ForbiddenException('Only a delivery partner (Project Sponsor, Project Manager or Organization Admin) can do this.');
