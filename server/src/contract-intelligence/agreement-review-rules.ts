@@ -55,7 +55,7 @@ export const AGREEMENT_TRANSITIONS: Record<AgreementStatus, Partial<Record<Agree
 export interface AgreementDecision { approverId: string; status: string; decidedAt: Date | null }
 /** A party to an asset partnership agreement (role OWNER or PDP); other agreements have no party roles. */
 export interface AgreementParty { role: string | null; organisationId: string | null; consentedVersion: number | null; signedAt: Date | null }
-export interface AgreementForReview { status: string; createdBy: string; organisationId: string; countryNodeId: string; approvals: AgreementDecision[]; parties?: AgreementParty[]; latestVersion?: number }
+export interface AgreementForReview { status: string; createdBy: string; organisationId: string; countryNodeId: string; approvals: AgreementDecision[]; parties?: AgreementParty[]; latestVersion?: number; /** When the latest version was written. */ latestVersionAt?: Date }
 export type PartyAction = 'CONSENT' | 'SIGN';
 
 const partnershipParties = (agreement: { parties?: AgreementParty[] }) => (agreement.parties ?? []).filter((party) => party.role);
@@ -64,7 +64,7 @@ export function partyOf(actor: AuthenticatedUser, agreement: { parties?: Agreeme
   return partnershipParties(agreement).find((party) => party.organisationId === actor.organisationId);
 }
 /** Both sides agreed to the latest version. */
-export function bothConsented(agreement: { parties?: AgreementParty[]; latestVersion?: number }): boolean {
+export function bothConsented(agreement: { parties?: AgreementParty[]; latestVersion?: number; /** When the latest version was written. */ latestVersionAt?: Date }): boolean {
   const parties = partnershipParties(agreement);
   return parties.length > 0 && parties.every((party) => party.consentedVersion === (agreement.latestVersion ?? 1));
 }
@@ -105,6 +105,11 @@ export function reviewBlocker(actor: AuthenticatedUser, agreement: AgreementForR
   const inScope = transition.step === 'maker' ? isWithinTenantScope(actor, agreement) || (Boolean(party) && actor.countryNodeId === agreement.countryNodeId) : actor.countryNodeId === agreement.countryNodeId;
   if (!inScope) return 'This agreement is outside your scope.';
   if (transition.step !== 'maker' && party) return 'You belong to one of the parties, so a reviewer from outside both must decide.';
+  // After changes are requested, a partnership agreement goes back only as a new version, not the one sent back.
+  if (partnership && action === 'LEGAL_REVIEW' && agreement.status === 'CHANGES_REQUESTED') {
+    const requested = [...agreement.approvals].filter((decision) => decision.status === 'CHANGES_REQUESTED').map((decision) => decision.decidedAt?.getTime() ?? 0).sort((a, b) => b - a)[0] ?? 0;
+    if (!agreement.latestVersionAt || agreement.latestVersionAt.getTime() <= requested) return 'Changes were requested: either side drafts a revision from the partnership page first, then both agree to it.';
+  }
   if (partnership && action === 'LEGAL_REVIEW' && !bothConsented(agreement)) return `Both parties must agree to version ${agreement.latestVersion ?? 1} before it goes to legal review.`;
   if (partnership && action === 'EXECUTION') return 'Each party signs this agreement; it is executed once both have signed.';
   const round = currentRound(agreement.approvals);

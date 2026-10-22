@@ -118,6 +118,14 @@ describe('asset partnership agreements', () => {
     expect(reviewBlocker(legal, submitted, 'SHARIAH_REVIEW')).toBeNull();
   });
 
+  it('goes back to legal review after changes only as a new version', () => {
+    const parties = [party('OWNER', 'ORG-ALHIDAYAH', 1), party('PDP', 'ORG-FELCRA', 1)];
+    const sentBack = { ...deal('CHANGES_REQUESTED', 1, parties, [{ approverId: 'USR-AMRAN', status: 'LEGAL_REVIEW', decidedAt: at(1) }, { approverId: 'USR-LEGAL', status: 'CHANGES_REQUESTED', decidedAt: at(5) }]), latestVersionAt: at(0) };
+    expect(reviewBlocker(pdp, sentBack, 'LEGAL_REVIEW')).toMatch(/drafts a revision/);
+    const revised = { ...sentBack, latestVersion: 2, latestVersionAt: at(9), parties: [party('OWNER', 'ORG-ALHIDAYAH', 2), party('PDP', 'ORG-FELCRA', 2)] };
+    expect(reviewBlocker(pdp, revised, 'LEGAL_REVIEW')).toBeNull();
+  });
+
   it('is executed by both signatures, not by one side marking it executed', () => {
     const approved = deal('APPROVED', 1, [party('OWNER', 'ORG-ALHIDAYAH', 1, at(5)), party('PDP', 'ORG-FELCRA', 1)]);
     expect(reviewBlocker(pdp, approved, 'EXECUTION')).toMatch(/Each party signs/);

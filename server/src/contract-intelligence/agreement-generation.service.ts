@@ -166,7 +166,7 @@ export class AgreementGenerationService {
     const contract = await this.prisma.contract.findUnique({ where: { id }, include: { versions: { orderBy: { version: 'desc' } }, parties: true, approvals: { orderBy: { decidedAt: 'asc' } }, events: { orderBy: { createdAt: 'desc' } } } });
     if (!contract) throw new NotFoundException('Agreement not found');
     if (!canSeeAgreement(actor, contract)) throw new ForbiddenException('Agreement is outside your scope');
-    const shape = { ...contract, latestVersion: contract.versions[0]?.version ?? 1 };
+    const shape = { ...contract, latestVersion: contract.versions[0]?.version ?? 1, latestVersionAt: contract.versions[0]?.createdAt };
     return { ...contract, latestVersion: shape.latestVersion, availableActions: availableActions(actor, shape), partyActions: partyActions(actor, shape) };
   }
 
@@ -178,9 +178,9 @@ export class AgreementGenerationService {
     const where = isAgreementReviewer(actor.role)
       ? { OR: [{ countryNodeId: actor.countryNodeId, status: { not: 'DRAFT' } }, tenantScopeFilter(actor), asParty] }
       : { OR: [tenantScopeFilter(actor), asParty] };
-    const contracts = await this.prisma.contract.findMany({ where: { ...where, contractType: { in: [...AGREEMENT_TYPES] } }, orderBy: { updatedAt: 'desc' }, take: 100, select: { id: true, contractNumber: true, title: true, contractType: true, status: true, createdBy: true, organisationId: true, countryNodeId: true, createdAt: true, updatedAt: true, complianceReport: true, engagementId: true, approvals: { select: { approverId: true, status: true, decidedAt: true } }, parties: { select: { role: true, organisationId: true, displayName: true, consentedVersion: true, signedAt: true } }, versions: { select: { version: true }, orderBy: { version: 'desc' }, take: 1 } } });
+    const contracts = await this.prisma.contract.findMany({ where: { ...where, contractType: { in: [...AGREEMENT_TYPES] } }, orderBy: { updatedAt: 'desc' }, take: 100, select: { id: true, contractNumber: true, title: true, contractType: true, status: true, createdBy: true, organisationId: true, countryNodeId: true, createdAt: true, updatedAt: true, complianceReport: true, engagementId: true, approvals: { select: { approverId: true, status: true, decidedAt: true } }, parties: { select: { role: true, organisationId: true, displayName: true, consentedVersion: true, signedAt: true } }, versions: { select: { version: true, createdAt: true }, orderBy: { version: 'desc' }, take: 1 } } });
     return contracts.map(({ approvals, complianceReport, versions, ...contract }) => {
-      const shape = { ...contract, approvals, latestVersion: versions[0]?.version ?? 1 };
+      const shape = { ...contract, approvals, latestVersion: versions[0]?.version ?? 1, latestVersionAt: versions[0]?.createdAt };
       return { ...contract, latestVersion: shape.latestVersion, complianceStatus: (complianceReport as { status?: string } | null)?.status ?? null, availableActions: availableActions(actor, shape), partyActions: partyActions(actor, shape) };
     });
   }
