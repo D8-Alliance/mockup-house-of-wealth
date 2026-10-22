@@ -3,7 +3,9 @@ import { Handshake, X } from 'lucide-react';
 import { apiClient, apiErrorMessage, AssetEngagement, AssetTypeCode, BackendProject, ListedAsset, ProjectAssetNeed, RegisteredAsset } from '../services/apiClient';
 import { ASSET_TYPE_LABELS } from '../assets/assetLabels';
 import { emptyDraft, EngagementDraft, EngagementTermsFields, INPUT, LABEL } from './EngagementTermsFields';
-import { PREFERRED_AKAD_LABELS } from './partnershipLabels';
+import { TermsConfirm } from './TermsConfirm';
+import { draftWarnings } from './termsReview';
+import { PREFERRED_AKAD_LABELS, AKAD_LABELS, describeTerms } from './partnershipLabels';
 import { OfferSuggestion } from './OfferSuggestion';
 
 const machine = (type: string) => type === 'MACHINERY' || type === 'EQUIPMENT';
@@ -55,8 +57,13 @@ export const ProposeEngagementModal: React.FC<Props> = (props) => {
 
   const projectNeeds = needs.filter((need) => need.projectId === projectId);
 
+  // The offer or request is shown back, with likely mistakes, before it is sent.
+  const [confirming, setConfirming] = useState(false);
+  const chosenAsset = mode === 'OFFER' ? assets.find((asset) => asset.id === assetId) : undefined;
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!confirming) { setConfirming(true); return; }
     setSaving(true);
     setError(null);
     try {
@@ -129,7 +136,18 @@ export const ProposeEngagementModal: React.FC<Props> = (props) => {
         {mode === 'OFFER' && preferred && preferred !== 'EITHER' && <p className="text-[11px] text-slate-500">The project prefers {PREFERRED_AKAD_LABELS[preferred]}.</p>}
         {mode === 'OFFER' && <OfferSuggestion assetId={assetId} need={props.need} onUseAkad={(akad) => setDraft((current) => ({ ...current, akad }))} />}
 
-        <EngagementTermsFields idPrefix="propose" value={draft} onChange={setDraft} />
+        {!confirming && <EngagementTermsFields idPrefix="propose" value={draft} onChange={setDraft} />}
+        {confirming && (
+          <TermsConfirm
+            title={mode === 'OFFER' ? 'Check your offer before sending' : 'Check your request before sending'}
+            summary={`${AKAD_LABELS[draft.akad]}: ${describeTerms(draft.akad, draft.terms)}, ${draft.startDate} to ${draft.endDate}.`}
+            warnings={draftWarnings(draft, { assetValue: chosenAsset?.estimatedValue })}
+            busy={saving}
+            confirmLabel={mode === 'OFFER' ? 'Confirm and send offer' : 'Confirm and send request'}
+            onBack={() => setConfirming(false)}
+            onConfirm={() => void submit({ preventDefault: () => undefined } as React.FormEvent)}
+          />
+        )}
         <div>
           <label htmlFor="propose-message" className={LABEL}>Message (optional)</label>
           <textarea id="propose-message" rows={2} maxLength={2000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder={mode === 'OFFER' ? 'e.g. Comes with an operator; serviced every 500 hours.' : 'e.g. Needed for land clearing in phase 2.'} className={INPUT} />
@@ -137,7 +155,7 @@ export const ProposeEngagementModal: React.FC<Props> = (props) => {
         {error && <p className="p-3 rounded-xl bg-rose-500/10 text-rose-600 text-xs font-bold">{error}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">Cancel</button>
-          <button type="submit" disabled={saving || !ready} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-60">{saving ? 'Sending…' : mode === 'OFFER' ? 'Send offer' : 'Send request'}</button>
+          {!confirming && <button type="submit" disabled={saving || !ready} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-60">Review and send</button>}
         </div>
       </form>
     </div>

@@ -7,6 +7,8 @@ import { ASSET_TYPE_LABELS } from '../assets/assetLabels';
 import { EngagementDraft, EngagementTermsFields, INPUT, LABEL } from './EngagementTermsFields';
 import { AKAD_LABELS, describeTerms, ENGAGEMENT_STATUS, historyAction, nextStep, PARTY_LABELS } from './partnershipLabels';
 import { ReviewChecksPanel } from './ReviewChecksPanel';
+import { TermsConfirm } from './TermsConfirm';
+import { draftChanges, draftStore, draftWarnings, lastReviewFlags } from './termsReview';
 import { useRBAC } from '../rbac/RBACContext';
 
 const DETAIL_LABELS: Record<string, string> = {
@@ -42,9 +44,20 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
   const [draft, setDraft] = useState<EngagementDraft>({ akad: engagement.akad, terms: { ...engagement.terms }, startDate: engagement.startDate, endDate: engagement.endDate });
   const [track, setTrack] = useState<'LEGAL' | 'SHARIAH'>(engagement.legalApprovedAt ? 'SHARIAH' : 'LEGAL');
   const { currentRole } = useRBAC();
-  // The checks open on the reviewer's own track; a Super Admin sees the one still to sign.
   // After a reviewer asks for changes, the side whose turn it is corrects the terms; accepting them unchanged is refused.
   const changesRequested = engagement.status === 'PROPOSED' && Boolean(engagement.history[engagement.history.length - 1]?.action?.endsWith('_CHANGES_REQUESTED'));
+  // A counter-offer is reviewed before it is sent, and can be saved on this device without sending.
+  const [confirming, setConfirming] = useState(false);
+  const [draftNotice, setDraftNotice] = useState<string | null>(null);
+  const current = { akad: engagement.akad, terms: { ...engagement.terms }, startDate: engagement.startDate, endDate: engagement.endDate };
+  const startCounter = () => {
+    const saved = draftStore.load(engagement.id);
+    if (saved) { setDraft(saved.draft); setNote(saved.note); setDraftNotice(`Your saved draft from ${saved.savedAt.slice(0, 16).replace('T', ' ')} is restored.`); }
+    setCountering(true);
+  };
+  const saveDraft = () => setDraftNotice(draftStore.save(engagement.id, { draft, note, savedAt: new Date().toISOString() }) ? 'Draft saved on this device. Nothing was sent; the other side does not see it.' : 'This browser could not save the draft.');
+  const discardDraft = () => { draftStore.clear(engagement.id); setDraft(current); setNote(''); setDraftNotice('Saved draft discarded.'); };
+  // The checks open on the reviewer's own track; a Super Admin sees the one still to sign.
   const reviewerTrack: 'LEGAL' | 'SHARIAH' = ['Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'].includes(currentRole) ? 'SHARIAH' : currentRole === 'Super Admin' ? track : 'LEGAL';
   const status = ENGAGEMENT_STATUS[engagement.status];
   const details = Object.entries(engagement.asset.details ?? {}).filter(([key, value]) => DETAIL_LABELS[key] && value !== undefined && value !== '');
@@ -56,6 +69,8 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
       onChanged(await action());
       setNote('');
       setCountering(false);
+      setConfirming(false);
+      setDraftNotice(null);
     } catch (cause) {
       setError(apiErrorMessage(cause, 'The change was not saved.'));
     } finally {
@@ -127,7 +142,19 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
 
         {(engagement.canRespond || engagement.canReview || engagement.canWithdraw) && (
           <section className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-            {countering && <EngagementTermsFields idPrefix="counter" value={draft} onChange={setDraft} />}
+            {countering && draftNotice && <p className="p-2.5 rounded-xl bg-sky-500/10 text-sky-800 dark:text-sky-300 text-xs flex flex-wrap items-center justify-between gap-2"><span>{draftNotice}</span>{draftStore.load(engagement.id) && <button type="button" onClick={discardDraft} className="font-bold hover:underline cursor-pointer">Discard saved draft</button>}</p>}
+            {countering && !confirming && <EngagementTermsFields idPrefix="counter" value={draft} onChange={setDraft} />}
+            {countering && confirming && (
+              <TermsConfirm
+                title="Check your counter-offer before sending"
+                changes={draftChanges(current, draft)}
+                warnings={draftWarnings(draft, { assetValue: engagement.asset.estimatedValue, flagged: changesRequested ? lastReviewFlags(engagement.history) : [] })}
+                busy={busy}
+                confirmLabel="Confirm and send"
+                onBack={() => setConfirming(false)}
+                onConfirm={() => void run(async () => { const sent = await apiClient.respondAssetEngagement(engagement.id, { action: 'COUNTER', akad: draft.akad, terms: draft.terms, startDate: draft.startDate, endDate: draft.endDate, note: note || undefined }); draftStore.clear(engagement.id); return sent; })}
+              />
+            )}
             <div>
               <label htmlFor="engagement-note" className={LABEL}>{engagement.canReview ? 'Review note (required)' : 'Message (optional)'}</label>
               <textarea id="engagement-note" rows={2} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} className={INPUT} />
@@ -147,14 +174,15 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
               {engagement.canRespond && !countering && (
                 <>
                   <button type="button" disabled={busy} onClick={() => void run(() => apiClient.respondAssetEngagement(engagement.id, { action: 'DECLINE', note: note || undefined }))} className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-xs font-bold cursor-pointer disabled:opacity-50">Decline</button>
-                  <button type="button" disabled={busy} onClick={() => setCountering(true)} className="px-4 py-2 rounded-xl border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold cursor-pointer disabled:opacity-50">Counter-offer</button>
+                  <button type="button" disabled={busy} onClick={startCounter} className="px-4 py-2 rounded-xl border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold cursor-pointer disabled:opacity-50">Counter-offer</button>
                   {!changesRequested && <button type="button" disabled={busy} onClick={() => void run(() => apiClient.respondAssetEngagement(engagement.id, { action: 'ACCEPT', note: note || undefined }))} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Accept</button>}
                 </>
               )}
-              {engagement.canRespond && countering && (
+              {engagement.canRespond && countering && !confirming && (
                 <>
-                  <button type="button" disabled={busy} onClick={() => setCountering(false)} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">Cancel</button>
-                  <button type="button" disabled={busy} onClick={() => void run(() => apiClient.respondAssetEngagement(engagement.id, { action: 'COUNTER', akad: draft.akad, terms: draft.terms, startDate: draft.startDate, endDate: draft.endDate, note: note || undefined }))} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Send counter-offer</button>
+                  <button type="button" disabled={busy} onClick={() => { setCountering(false); setDraftNotice(null); }} className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer">Cancel</button>
+                  <button type="button" disabled={busy} onClick={saveDraft} className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-600 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer">Save draft</button>
+                  <button type="button" disabled={busy} onClick={() => setConfirming(true)} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Review and send</button>
                 </>
               )}
               {engagement.canReview && (
