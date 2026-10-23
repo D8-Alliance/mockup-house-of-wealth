@@ -2,7 +2,8 @@ import type PDFKit from 'pdfkit';
 import { AgreementFront, Section } from './agreement-document';
 
 /** How each party's execution block reads: signed on the Platform, or blank lines to sign by hand. */
-export interface ExecutionBlock { defined: string; name: string; registration: string; signed?: string }
+/** `signatory`: who signs on the Platform for a partnership party; `signed`: their signature once made. Neither: lines to sign by hand. */
+export interface ExecutionBlock { defined: string; name: string; registration: string; signatory?: { name: string; designation: string }; signed?: string }
 
 export interface AgreementLayout {
   contractNumber: string;
@@ -143,6 +144,10 @@ export function drawAgreement(doc: PDFKit.PDFDocument, layout: AgreementLayout):
     doc.moveDown(0.5);
     if (block.signed) {
       doc.font(SERIF_ITALIC).text(block.signed, { width, align: 'justify' });
+    } else if (block.signatory) {
+      doc.font(SERIF).text(`Name: ${block.signatory.name}`, { width });
+      doc.font(SERIF).text(`Designation: ${block.signatory.designation}`, { width });
+      doc.font(SERIF).text('Signature and date: signed electronically on the Platform, verified by a one-time code (pending)', { width });
     } else {
       for (const label of ['Signature', 'Name', 'Designation', 'Date']) doc.font(SERIF).text(`${label}: ________________________________________`, { width });
       doc.moveDown(0.4).font(SERIF).text('In the presence of:', { width });

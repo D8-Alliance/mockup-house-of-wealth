@@ -137,7 +137,7 @@ export class AgreementSigningService {
     const completedAt = new Date();
     const execution = (content?.front?.parties ?? []).map((party, index) => {
       const signer = parties.find((item) => item.role === (index === 0 ? 'OWNER' : 'PDP'));
-      return { defined: party.defined, name: party.name, registration: party.registration, signed: signer?.signedAt ? `Signed electronically on the Platform by ${signer.signatureName} on ${local(signer.signedAt)}, verified by a one-time code. See the Certificate of Completion.` : undefined };
+      return { defined: party.defined, name: party.name, registration: party.registration, signed: signer?.signedAt ? `Name: ${signer.signatureName}. Designation: ${contract.events.map((event) => (event.actorId === signer.signedBy && event.eventType === 'PARTY_SIGNED' ? (event.metadata as { role?: string } | null)?.role : undefined)).find(Boolean) ?? 'Authorised signatory'}. Signed electronically on the Platform on ${local(signer.signedAt)}, verified by a one-time code. See the Certificate of Completion.` : undefined };
     });
     const layout = { contractNumber: contract.contractNumber, title: contract.title ?? contract.contractType, version: version.version, status: 'Executed', dated: datedLine(completedAt), front: content?.front ?? null, sections, execution };
     const pdf = await renderSignedAgreementPdf(layout, { contractNumber: contract.contractNumber, title: contract.title ?? contract.contractType, version: version.version, versionSha256: entryHash(version.content), completedAt: local(completedAt), signers, approvals });

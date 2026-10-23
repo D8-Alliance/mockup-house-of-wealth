@@ -301,9 +301,10 @@ export class AgreementGenerationService {
     // Older drafts end with a Signatures section; it shows who has signed.
     const sections = (body?.sections || []).map((section) => (parties.length && section.title === 'Signatures' ? { ...section, paragraphs: parties.map((party) => `For the ${party.role === 'OWNER' ? 'asset owner' : 'delivery partner'}, ${party.displayName}: ${party.signedAt ? `signed electronically by ${party.signatureName} on ${party.signedAt.toISOString().slice(0, 10)}` : 'not signed yet'}.`) } : section));
     const executedAt = contract.events.find((event) => event.toStatus === 'EXECUTION')?.createdAt;
+    const signatories = await this.signatories(contract);
     const execution: ExecutionBlock[] = (body?.front?.parties ?? []).map((party, index) => {
       const signer = parties.find((item) => item.role === (index === 0 ? 'OWNER' : 'PDP'));
-      return { defined: party.defined, name: party.name, registration: party.registration, signed: signer?.signedAt ? `Signed electronically on the Platform by ${signer.signatureName} on ${formatLocalDateTime(signer.signedAt, contract.countryNodeId)}, verified by a one-time code. See the Certificate of Completion in the signed copy.` : undefined };
+      return { defined: party.defined, name: party.name, registration: party.registration, signatory: signer ? signatories.get(signer.id) : undefined, signed: signer?.signedAt ? `Signed electronically on the Platform by ${signer.signatureName} on ${formatLocalDateTime(signer.signedAt, contract.countryNodeId)}, verified by a one-time code. See the Certificate of Completion in the signed copy.` : undefined };
     });
     const layout = { contractNumber: contract.contractNumber, title: contract.title || 'Islamic Finance Agreement', version: version?.version ?? 1, status: contract.status === 'EXECUTION' ? 'Executed' : contract.status.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase()), dated: executedAt ? datedLine(executedAt) : undefined, front: body?.front ?? null, sections, execution };
     const filename = `${contract.contractNumber}-${contract.contractType.toLowerCase()}.${format}`;
@@ -313,13 +314,32 @@ export class AgreementGenerationService {
   }
 
   /**
+   * For a partnership agreement, the person expected to sign for each side: the one who last agreed to the
+   * version on the Platform, with the role they hold. Shown on the execution page instead of blank lines.
+   */
+  private async signatories(contract: { parties: Array<{ id: string; role: string | null; consentedBy: string | null; signedBy: string | null }>; events: Array<{ actorId: string; metadata: unknown }> }) {
+    const ids = [...new Set(contract.parties.filter((party) => party.role).map((party) => party.signedBy ?? party.consentedBy).filter((id): id is string => Boolean(id)))];
+    const users = ids.length ? await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : [];
+    const result = new Map<string, { name: string; designation: string }>();
+    for (const party of contract.parties) {
+      const id = party.signedBy ?? party.consentedBy;
+      const user = users.find((item) => item.id === id);
+      if (!user) continue;
+      const role = contract.events.map((event) => (event.actorId === id ? (event.metadata as { role?: string } | null)?.role : undefined)).find(Boolean);
+      result.set(party.id, { name: user.name, designation: role ?? 'Authorised signatory' });
+    }
+    return result;
+  }
+
+  /**
    * The parties on the cover page, with their registration number and address from their PDP or KYB
    * application when on record (a bracketed blank otherwise, which the text checks flag), and the
    * approved partnership terms when the agreement documents one.
    */
   private async agreementParties(input: AgreementWizardDto): Promise<{ parties: AgreementParty[]; deal: PartnershipDeal | null }> {
-    const details = async (organisationId: string | null) => {
-      const application = organisationId ? await this.prisma.pdpApplication.findFirst({ where: { organisationId, status: { not: 'DRAFT' } }, orderBy: { updatedAt: 'desc' }, select: { payload: true } }) : null;
+    const details = async (organisationId: string | null, organisationName?: string) => {
+      // Applications saved before 2026-10-22 carry no organisation id, so the organisation's name is matched too.
+      const application = organisationId ? await this.prisma.pdpApplication.findFirst({ where: { OR: [{ organisationId }, ...(organisationName ? [{ organisationId: null, organisationName }] : [])], status: { not: 'DRAFT' } }, orderBy: { updatedAt: 'desc' }, select: { payload: true } }) : null;
       const payload = (application?.payload ?? {}) as { registrationNumber?: string; registeredAddress?: string };
       return { registration: payload.registrationNumber?.trim() || '[company number]', address: payload.registeredAddress?.trim() || '[registered address]' };
     };
@@ -331,8 +351,8 @@ export class AgreementGenerationService {
         const [ownerDefined, pdpDefined] = definedNames(engagement.akad, true);
         const ijarah = engagement.akad === 'IJARAH';
         const parties: AgreementParty[] = [
-          { name: nameOf(engagement.ownerOrganisationId), ...(await details(engagement.ownerOrganisationId)), defined: ownerDefined, description: ijarah ? 'as the lessor' : 'as the asset owner and partner' },
-          { name: nameOf(engagement.pdpOrganisationId), ...(await details(engagement.pdpOrganisationId)), defined: pdpDefined, description: ijarah ? 'as the lessee' : 'as the managing partner' },
+          { name: nameOf(engagement.ownerOrganisationId), ...(await details(engagement.ownerOrganisationId, nameOf(engagement.ownerOrganisationId))), defined: ownerDefined, description: ijarah ? 'as the lessor' : 'as the asset owner and partner' },
+          { name: nameOf(engagement.pdpOrganisationId), ...(await details(engagement.pdpOrganisationId, nameOf(engagement.pdpOrganisationId))), defined: pdpDefined, description: ijarah ? 'as the lessee' : 'as the managing partner' },
         ];
         const approved = [engagement.legalApprovedAt, engagement.shariahApprovedAt].filter((item): item is Date => Boolean(item)).sort((x, y) => y.getTime() - x.getTime())[0];
         return { parties, deal: {
