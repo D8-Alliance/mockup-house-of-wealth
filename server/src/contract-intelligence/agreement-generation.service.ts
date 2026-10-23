@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
-import { Document, HeadingLevel, Packer, Paragraph, TextRun } from 'docx';
+import { AlignmentType, Document, Packer, PageBreak, Paragraph, TextRun } from 'docx';
 import PDFDocument from 'pdfkit';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
@@ -15,6 +15,9 @@ import { NotificationService } from '../notifications/notification.service';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import { getJurisdictionProfile } from './jurisdiction-profiles';
 import { agreementTextChecks } from './agreement-text-checks';
+import { AgreementFront, AgreementParty, buildAgreement, definedNames, PartnershipDeal, partiesFromWizard } from './agreement-document';
+import { datedLine, drawAgreement, drawFooters, ExecutionBlock } from './agreement-pdf-layout';
+import { formatLocalDateTime } from '../tenancy/country-time';
 import { entryHash } from '../asset-partnerships/engagement-record';
 import { NOTE_READS_AS_REFUSAL } from '../asset-partnerships/partnership-review-checks';
 import { AgreementSigningService } from './signing/agreement-signing.service';
@@ -22,7 +25,6 @@ import { AgreementSigningService } from './signing/agreement-signing.service';
 type Section = { number: string; title: string; paragraphs: string[] };
 
 /** "profitSharing" → "Profit sharing", for the schedule of commercial inputs. */
-const humanise = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase().replace(/^./, (first) => first.toUpperCase());
 
 const labels: Record<AgreementType, string> = { IJARAH: 'Ijarah Agreement', MUSHARAKAH: 'Musharakah Joint Venture Agreement', MUDARABAH: 'Mudarabah Agreement', WAKALAH: 'Wakalah Agreement', SUKUK: 'Sukuk Structure Document' };
 
@@ -108,8 +110,9 @@ export class AgreementGenerationService {
     } catch (error) {
       aiSkippedReason = error instanceof Error ? error.message : 'AI drafting failed';
     }
-    const sections = this.buildSections(input, clauses.clauses, rules, aiSections.output?.recommendation);
-    const content = { sections, variables: this.variables(input.wizardData), approvedClauseIds: clauses.clauses.map((item) => item.id), shariahRuleIds: rules.map((item) => item.id), aiOutput: aiSections.output || null, aiSkippedReason } as unknown as Prisma.InputJsonValue;
+    const { parties, deal } = await this.agreementParties(input);
+    const { front, sections } = buildAgreement({ contractType: input.contractType, title: labels[input.contractType], projectName: input.projectName, jurisdiction: input.jurisdiction, wizardData: input.wizardData, parties, deal }, clauses.clauses, rules);
+    const content = { front, sections, variables: this.variables(input.wizardData), approvedClauseIds: clauses.clauses.map((item) => item.id), shariahRuleIds: rules.map((item) => item.id), aiOutput: aiSections.output || null, aiSkippedReason } as unknown as Prisma.InputJsonValue;
     return { content, compliance, sections, clauses: clauses.clauses, rules, aiSkippedReason };
   }
 
@@ -285,28 +288,59 @@ export class AgreementGenerationService {
     return this.signing.checkIntegrity(id);
   }
 
-  async render(actor: AuthenticatedUser, id: string, format: 'docx' | 'pdf') { const contract = await this.get(actor, id); const version = contract.versions[0]; const body = version?.content as { sections?: Section[]; variables?: Record<string, string> } | undefined; const parties = contract.parties.filter((party) => party.role); const sections = (body?.sections || []).map((section) => (parties.length && section.title === 'Signatures' ? { ...section, paragraphs: parties.map((party) => `For the ${party.role === 'OWNER' ? 'asset owner' : 'delivery partner'}, ${party.displayName}: ${party.signedAt ? `signed electronically by ${party.signatureName} on ${party.signedAt.toISOString().slice(0, 10)}` : 'not signed yet'}.`) } : section)); const filename = `${contract.contractNumber}-${contract.contractType.toLowerCase()}.${format}`; const buffer = format === 'docx' ? await this.docx(contract, sections) : await this.pdf(contract, sections); await this.auditRecord(actor, 'agreement.document_generated', id, { format, version: version?.version || 1 }); return { filename, contentType: format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf', buffer }; }
+  async render(actor: AuthenticatedUser, id: string, format: 'docx' | 'pdf') {
+    const contract = await this.get(actor, id);
+    const version = contract.versions[0];
+    const body = version?.content as { sections?: Section[]; front?: AgreementFront } | undefined;
+    const parties = contract.parties.filter((party) => party.role);
+    // Older drafts end with a Signatures section; it shows who has signed.
+    const sections = (body?.sections || []).map((section) => (parties.length && section.title === 'Signatures' ? { ...section, paragraphs: parties.map((party) => `For the ${party.role === 'OWNER' ? 'asset owner' : 'delivery partner'}, ${party.displayName}: ${party.signedAt ? `signed electronically by ${party.signatureName} on ${party.signedAt.toISOString().slice(0, 10)}` : 'not signed yet'}.`) } : section));
+    const executedAt = contract.events.find((event) => event.toStatus === 'EXECUTION')?.createdAt;
+    const execution: ExecutionBlock[] = (body?.front?.parties ?? []).map((party, index) => {
+      const signer = parties.find((item) => item.role === (index === 0 ? 'OWNER' : 'PDP'));
+      return { defined: party.defined, name: party.name, registration: party.registration, signed: signer?.signedAt ? `Signed electronically on the Platform by ${signer.signatureName} on ${formatLocalDateTime(signer.signedAt, contract.countryNodeId)}, verified by a one-time code. See the Certificate of Completion in the signed copy.` : undefined };
+    });
+    const layout = { contractNumber: contract.contractNumber, title: contract.title || 'Islamic Finance Agreement', version: version?.version ?? 1, status: contract.status === 'EXECUTION' ? 'Executed' : contract.status.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase()), dated: executedAt ? datedLine(executedAt) : undefined, front: body?.front ?? null, sections, execution };
+    const filename = `${contract.contractNumber}-${contract.contractType.toLowerCase()}.${format}`;
+    const buffer = format === 'docx' ? await this.docx(layout) : await this.pdf(layout);
+    await this.auditRecord(actor, 'agreement.document_generated', id, { format, version: version?.version || 1 });
+    return { filename, contentType: format === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'application/pdf', buffer };
+  }
 
-  private buildSections(input: AgreementWizardDto, clauses: Array<{ clauseTitle: string; clauseText: string; shariahReference: string | null }>, rules: Array<{ ruleName: string; description: string }>, ai: unknown): Section[] {
-    const data = input.wizardData;
-    const value = (key: string) => this.value(data, key) || `[${key}]`;
-    const main: Record<AgreementType, string[]> = {
-      IJARAH: ['The Lessor confirms that ownership or the relevant usufruct in the identified asset remains with the Lessor throughout the lease term.', `Asset: ${value('assetDescription')}`, `Rental: ${value('rentalAmount')} ${value('rentalFrequency')}`, `Term: ${value('leaseTerm')}`],
-      MUSHARAKAH: [`Project: ${value('projectType')}`, `Partners: ${value('partners')}`, `Contributions: ${value('contributions')}`, `Profit sharing: ${value('profitSharing')}`, `Loss allocation: ${value('lossAllocation')}`, `Management rights: ${value('managementRights')}`, `Exit mechanism: ${value('exitMechanism')}`],
-      MUDARABAH: [`Rabb-ul-mal: ${value('capitalProvider')}`, `Mudarib: ${value('manager')}`, `Capital: ${value('capitalAmount')}`, `Profit ratio: ${value('profitSharing')}`, `Use of proceeds: ${value('useOfProceeds')}`, `Return restriction: ${value('guaranteedReturn') || 'No fixed or guaranteed return is permitted unless separately validated.'}`],
-      WAKALAH: [`Principal: ${value('principal')}`, `Agent: ${value('agent')}`, `Agency scope: ${value('agencyScope')}`, `Agency fee: ${value('agencyFee')}`, `Reporting: ${value('reporting')}`],
-      SUKUK: [`Issuer: ${value('issuer')}`, `Sukukholders: ${value('sukukholders')}`, `Underlying assets: ${value('assetDescription')}`, `Issue size: ${value('capitalAmount')}`, `Distribution mechanics: ${value('distributionMechanics')}`, `Redemption: ${value('redemption')}`],
+  /**
+   * The parties on the cover page, with their registration number and address from their PDP or KYB
+   * application when on record (a bracketed blank otherwise, which the text checks flag), and the
+   * approved partnership terms when the agreement documents one.
+   */
+  private async agreementParties(input: AgreementWizardDto): Promise<{ parties: AgreementParty[]; deal: PartnershipDeal | null }> {
+    const details = async (organisationId: string | null) => {
+      const application = organisationId ? await this.prisma.pdpApplication.findFirst({ where: { organisationId, status: { not: 'DRAFT' } }, orderBy: { updatedAt: 'desc' }, select: { payload: true } }) : null;
+      const payload = (application?.payload ?? {}) as { registrationNumber?: string; registeredAddress?: string };
+      return { registration: payload.registrationNumber?.trim() || '[company number]', address: payload.registeredAddress?.trim() || '[registered address]' };
     };
-    return [
-      { number: '1', title: 'Recitals', paragraphs: [`The parties intend to document a ${labels[input.contractType]} for ${input.projectName} in ${input.jurisdiction}.`, 'These recitals form part of the agreement and are subject to legal and Shariah review.'] },
-      { number: '2', title: 'Definitions', paragraphs: [`Project means ${input.projectName}.`, `Contract type means ${labels[input.contractType]}.`, `The remaining defined terms shall be completed from the approved template and wizard data.`] },
-      { number: '3', title: 'Transaction Structure and Commercial Terms', paragraphs: main[input.contractType] },
-      { number: '4', title: 'Approved Clauses', paragraphs: clauses.length ? clauses.map((clause) => `${clause.clauseTitle}: ${clause.clauseText}${clause.shariahReference ? ` Reference: ${clause.shariahReference}.` : ''}`) : ['No approved clauses were found. Legal administrator review is required before approval.'] },
-      { number: '5', title: 'Shariah Conditions and Compliance', paragraphs: rules.length ? rules.map((rule) => `${rule.ruleName}: ${rule.description}`) : ['No approved Shariah rules were found. Shariah review is required before approval.'] },
-      { number: '6', title: 'AI-Assisted Drafting Note', paragraphs: [typeof ai === 'object' && ai ? 'AI-assisted drafting was used only to organize the supplied facts and approved knowledge. It did not replace legal drafting, Shariah review, or approval.' : 'This agreement was assembled from the wizard facts and approved clauses.'] },
-      { number: '7', title: 'Schedules', paragraphs: ['Schedule 1 - Commercial Inputs:', ...Object.keys(data).map((key) => `${humanise(key)}: ${this.value(data, key) || '-'}`), 'Schedule 2 - Approved Shariah References and Clause Sources.'] },
-      { number: '8', title: 'Signatures', paragraphs: ['For and on behalf of the relevant parties:', 'Name: ____________________    Title: ____________________    Date: __________', 'Signature: ______________________________________________________________'] },
-    ];
+    if (input.engagementId) {
+      const engagement = await this.prisma.assetEngagement.findUnique({ where: { id: input.engagementId }, select: { id: true, akad: true, terms: true, startDate: true, endDate: true, ownerOrganisationId: true, pdpOrganisationId: true, legalApprovedAt: true, shariahApprovedAt: true, asset: { select: { name: true, titleReference: true } } } });
+      if (engagement) {
+        const organisations = await this.prisma.organisation.findMany({ where: { id: { in: [engagement.ownerOrganisationId, engagement.pdpOrganisationId] } }, select: { id: true, name: true } });
+        const nameOf = (id: string) => organisations.find((organisation) => organisation.id === id)?.name ?? id;
+        const [ownerDefined, pdpDefined] = definedNames(engagement.akad, true);
+        const ijarah = engagement.akad === 'IJARAH';
+        const parties: AgreementParty[] = [
+          { name: nameOf(engagement.ownerOrganisationId), ...(await details(engagement.ownerOrganisationId)), defined: ownerDefined, description: ijarah ? 'as the lessor' : 'as the asset owner and partner' },
+          { name: nameOf(engagement.pdpOrganisationId), ...(await details(engagement.pdpOrganisationId)), defined: pdpDefined, description: ijarah ? 'as the lessee' : 'as the managing partner' },
+        ];
+        const approved = [engagement.legalApprovedAt, engagement.shariahApprovedAt].filter((item): item is Date => Boolean(item)).sort((x, y) => y.getTime() - x.getTime())[0];
+        return { parties, deal: {
+          engagementId: engagement.id, akad: engagement.akad, terms: engagement.terms as PartnershipDeal['terms'],
+          startDate: engagement.startDate.toISOString().slice(0, 10), endDate: engagement.endDate.toISOString().slice(0, 10),
+          assetName: `${engagement.asset.name}${engagement.asset.titleReference ? `, ${engagement.asset.titleReference}` : ''}`,
+          approvedOn: approved ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kuala_Lumpur', day: 'numeric', month: 'long', year: 'numeric' }).format(approved) : null,
+        } };
+      }
+    }
+    const [first, second] = definedNames(input.contractType, false);
+    const names = partiesFromWizard(input.contractType, input.wizardData);
+    return { parties: names.map((party, index) => ({ name: party.name, registration: '[company number]', address: '[registered address]', defined: index === 0 ? first : second, description: `as ${(index === 0 ? first : second).replace(/^the /, '')}` })), deal: null };
   }
 
   private checkCompliance(type: AgreementType, data: Record<string, unknown>) { const checks: Array<{ key: string; label: string; pass: boolean; severity: string }> = []; const present = (key: string) => { const value = data[key]; return value !== undefined && value !== null && String(value).trim() !== ''; }; if (type === 'IJARAH') checks.push({ key: 'ownershipMaintained', label: 'Ownership maintained', pass: present('ownershipMaintained'), severity: 'HIGH' }, { key: 'assetDescription', label: 'Asset identified', pass: present('assetDescription'), severity: 'HIGH' }, { key: 'rentalAmount', label: 'Rental defined', pass: present('rentalAmount'), severity: 'HIGH' }); if (type === 'MUSHARAKAH') checks.push({ key: 'profitSharing', label: 'Profit sharing defined', pass: present('profitSharing'), severity: 'HIGH' }, { key: 'lossAllocation', label: 'Loss allocated according to capital', pass: present('lossAllocation'), severity: 'HIGH' }); if (type === 'MUDARABAH') checks.push({ key: 'guaranteedReturn', label: 'No fixed guaranteed return', pass: !present('guaranteedReturn') || String(data.guaranteedReturn).toLowerCase().includes('no'), severity: 'HIGH' }); if (type === 'WAKALAH') checks.push({ key: 'agencyScope', label: 'Agency scope defined', pass: present('agencyScope'), severity: 'HIGH' }, { key: 'agencyFee', label: 'Agency fee defined', pass: present('agencyFee'), severity: 'MEDIUM' }); const failures = checks.filter((check) => !check.pass); return { status: failures.some((check) => check.severity === 'HIGH') ? 'REQUIRES_REVIEW' : failures.length ? 'WARNING' : 'PASS', checks, failures }; }
@@ -324,27 +358,52 @@ export class AgreementGenerationService {
   }
   private scope(actor: AuthenticatedUser) { return { organisationId: actor.organisationId, countryNodeId: actor.countryNodeId }; }
   private async auditRecord(actor: AuthenticatedUser, action: string, resourceId: string, metadata: Record<string, unknown>) { await this.audit.recordActor(actor, { action, resourceType: 'Contract', resourceId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata }); }
-  private async docx(contract: { contractNumber: string; title: string | null; status: string }, sections: Section[]) {
-    const children = [
-      new Paragraph({ text: contract.title || 'Islamic Finance Agreement', heading: HeadingLevel.TITLE }),
-      new Paragraph({ children: [new TextRun({ text: `Document No. ${contract.contractNumber} | Status: ${contract.status}`, bold: true })] }),
-      ...sections.flatMap((section) => [
-        new Paragraph({ text: `${section.number}. ${section.title}`, heading: HeadingLevel.HEADING_1 }),
-        ...section.paragraphs.map((paragraph) => new Paragraph({ text: paragraph, spacing: { after: 160 } })),
+  private async docx(layout: Parameters<typeof drawAgreement>[1]) {
+    const centred = (value: string, bold = false, size = 24) => new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: value, bold, size, font: 'Times New Roman' })] });
+    const plain = (value: string, bold = false) => new Paragraph({ spacing: { after: 140 }, children: [new TextRun({ text: value, bold, font: 'Times New Roman', size: 22 })] });
+    const front = layout.front;
+    const cover = front ? [
+      new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: 'PRIVATE AND CONFIDENTIAL', size: 16, color: '666666' })] }),
+      centred(`DATED THIS ${layout.dated ? layout.dated.toUpperCase() : '______ DAY OF ________________ 20____'}`, true),
+      centred('BETWEEN'),
+      ...front.parties.flatMap((party, index) => [...(index ? [centred('AND')] : []), centred(party.name.toUpperCase(), true, 36), centred(`(Company No.: ${party.registration})`), centred(`(${party.description})`)]),
+      centred(front.title.toUpperCase(), true, 44),
+      centred(`"${front.projectName.toUpperCase()}" PROJECT`, true, 22),
+      centred(`Document No. ${layout.contractNumber} | Version ${layout.version} | ${layout.status}`, false, 16),
+      new Paragraph({ children: [new PageBreak()] }),
+      plain('THIS AGREEMENT is made on the date stated on the first page.'),
+      plain('BETWEEN:', true),
+      ...front.parties.map((party, index) => plain(`(${index + 1}) ${party.name.toUpperCase()} (Company No.: ${party.registration}) of ${party.address} ("${party.defined.replace(/^the /, '').replace(/^./, (c) => c.toUpperCase())}")${index < front.parties.length - 1 ? '; and' : '.'}`)),
+      plain('(each a "Party" and together the "Parties")'),
+      plain('WHEREAS:', true),
+      ...front.recitals.map((recital, index) => plain(`(${String.fromCharCode(65 + index)}) ${recital}`)),
+      plain('NOW IT IS AGREED as follows:', true),
+    ] : [centred(layout.title, true, 36), centred(`Document No. ${layout.contractNumber} | Status: ${layout.status}`, false, 18)];
+    const body = layout.sections.flatMap((section) => [
+      ...(section.number.startsWith('Schedule') ? [new Paragraph({ children: [new PageBreak()] }), centred(`${section.number.toUpperCase()}: ${section.title.toUpperCase()}`, true)] : [plain(`${section.number}.  ${section.title.toUpperCase()}`, true)]),
+      ...section.paragraphs.map((paragraph) => plain(paragraph)),
+    ]);
+    const execution = front ? [
+      new Paragraph({ children: [new PageBreak()] }),
+      plain('IN WITNESS WHEREOF the Parties have signed this Agreement on the date stated on the first page.'),
+      ...layout.execution.flatMap((block) => [
+        plain(`SIGNED for and on behalf of ${block.name.toUpperCase()} (Company No.: ${block.registration}), as ${block.defined}`, true),
+        ...(block.signed ? [plain(block.signed)] : ['Signature', 'Name', 'Designation', 'Date'].map((label) => plain(`${label}: ________________________________`)).concat([plain('In the presence of:'), ...['Signature', 'Name', 'NRIC No.'].map((label) => plain(`${label}: ________________________________`))])),
       ]),
-    ];
-    return Packer.toBuffer(new Document({ sections: [{ children }] }));
+    ] : [];
+    return Packer.toBuffer(new Document({ sections: [{ children: [...cover, ...body, ...execution] }] }));
   }
-  private pdf(contract: { contractNumber: string; title: string | null; status: string }, sections: Section[]) { return new Promise<Buffer>((resolve, reject) => { const document = new PDFDocument({ margin: 54, bufferPages: true }); const chunks: Buffer[] = []; document.on('data', (chunk) => chunks.push(chunk)); document.on('end', () => resolve(Buffer.concat(chunks))); document.on('error', reject); document.fontSize(20).text(contract.title || 'Islamic Finance Agreement', { align: 'center' }); document.moveDown().fontSize(10).text(`Document No. ${contract.contractNumber} | Status: ${contract.status}`, { align: 'center' }); sections.forEach((section) => { document.moveDown().fontSize(13).font('Helvetica-Bold').text(`${section.number}. ${section.title}`); document.moveDown(0.3).fontSize(10).font('Helvetica').text(section.paragraphs.join('\n\n'), { lineGap: 3 }); });
-    // Footer on every page: document number and "Page X of Y". The bottom margin is lifted while
-    // writing so pdfkit does not start a new blank page.
-    const range = document.bufferedPageRange();
-    for (let index = 0; index < range.count; index += 1) {
-      document.switchToPage(range.start + index);
-      const bottom = document.page.margins.bottom;
-      document.page.margins.bottom = 0;
-      document.font('Helvetica').fontSize(8).fillColor('#666666').text(`${contract.contractNumber}  |  Page ${index + 1} of ${range.count}`, 54, document.page.height - 36, { width: document.page.width - 108, align: 'right', lineBreak: false });
-      document.page.margins.bottom = bottom;
-    }
-    document.end(); }); }
+
+  private pdf(layout: Parameters<typeof drawAgreement>[1]) {
+    return new Promise<Buffer>((resolve, reject) => {
+      const document = new PDFDocument({ size: 'A4', margin: 64, bufferPages: true, info: { Title: `${layout.title} ${layout.contractNumber}`, Author: 'Wealth Pooling' } });
+      const chunks: Buffer[] = [];
+      document.on('data', (chunk) => chunks.push(chunk));
+      document.on('end', () => resolve(Buffer.concat(chunks)));
+      document.on('error', reject);
+      drawAgreement(document, layout);
+      drawFooters(document, layout.contractNumber);
+      document.end();
+    });
+  }
 }

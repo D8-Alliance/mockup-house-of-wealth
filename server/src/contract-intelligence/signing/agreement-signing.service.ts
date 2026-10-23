@@ -11,6 +11,8 @@ import { formatLocalDateTime } from '../../tenancy/country-time';
 import { entryHash } from '../../asset-partnerships/engagement-record';
 import { certificateFingerprint, createSelfSignedSeal, SealCredentials, sealFromEnvironment, sealPdf, sha256Hex, verifySealedPdf } from './pdf-seal';
 import { renderSignedAgreementPdf } from './signed-agreement-pdf';
+import { AgreementFront } from '../agreement-document';
+import { datedLine } from '../agreement-pdf-layout';
 import { readStoredToken, requestTimestamp } from './timestamp';
 
 const CODE_MINUTES = 10;
@@ -130,10 +132,15 @@ export class AgreementSigningService {
       };
     }));
     const approvals = contract.approvals.filter((item) => item.status === 'SHARIAH_REVIEW' || item.status === 'APPROVED').map((item) => ({ step: item.status === 'SHARIAH_REVIEW' ? 'Legal approval' : 'Shariah approval', by: nameOf(item.approverId, 'STATUS_CHANGED'), at: local(item.decidedAt) }));
-    const content = version.content as { sections?: Section[] } | null;
+    const content = version.content as { sections?: Section[]; front?: AgreementFront } | null;
     const sections = (content?.sections ?? []).map((section) => (section.title === 'Signatures' && parties.length ? { ...section, paragraphs: parties.map((party) => `For the ${party.role === 'OWNER' ? 'asset owner' : 'delivery partner'}, ${party.displayName}: signed electronically by ${party.signatureName} on ${local(party.signedAt)}. See the Certificate of Completion.`) } : section));
     const completedAt = new Date();
-    const pdf = await renderSignedAgreementPdf(sections, { contractNumber: contract.contractNumber, title: contract.title ?? contract.contractType, version: version.version, versionSha256: entryHash(version.content), completedAt: local(completedAt), signers, approvals });
+    const execution = (content?.front?.parties ?? []).map((party, index) => {
+      const signer = parties.find((item) => item.role === (index === 0 ? 'OWNER' : 'PDP'));
+      return { defined: party.defined, name: party.name, registration: party.registration, signed: signer?.signedAt ? `Signed electronically on the Platform by ${signer.signatureName} on ${local(signer.signedAt)}, verified by a one-time code. See the Certificate of Completion.` : undefined };
+    });
+    const layout = { contractNumber: contract.contractNumber, title: contract.title ?? contract.contractType, version: version.version, status: 'Executed', dated: datedLine(completedAt), front: content?.front ?? null, sections, execution };
+    const pdf = await renderSignedAgreementPdf(layout, { contractNumber: contract.contractNumber, title: contract.title ?? contract.contractType, version: version.version, versionSha256: entryHash(version.content), completedAt: local(completedAt), signers, approvals });
     const seal = this.sealCredentials();
     const sealed = await sealPdf(pdf, seal, { reason: `Signed by both parties; sealed by the platform`, location: 'Malaysia', contact: 'Wealth Pooling platform', signingTime: completedAt });
     const sha256 = sha256Hex(sealed);
