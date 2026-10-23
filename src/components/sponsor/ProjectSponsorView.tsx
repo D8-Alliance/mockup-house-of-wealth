@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SponsorProject, WorkflowStage, SponsorOrgType, ProjectMilestone } from './SponsorTypes';
 import { SponsorKPICards } from './SponsorKPICards';
+import { INITIAL_PDP_COUNTRY_CONFIGS } from '../../pdp/pdpCountryConfig';
 import { ProjectRegistrationModal } from './ProjectRegistrationModal';
 import { ProjectDetailView } from './ProjectDetailView';
 import {
@@ -213,6 +214,7 @@ export const ProjectSponsorView: React.FC = () => {
     return matchesSearch && matchesOrg;
   });
 
+  const projectCurrency = editingProject?.currency ?? INITIAL_PDP_COUNTRY_CONFIGS[tenantContext.countryNodeId.replace(/^CN-/, '')]?.primaryCurrency ?? 'MYR';
   if (selectedProject) {
     return (
       <>
@@ -229,6 +231,7 @@ export const ProjectSponsorView: React.FC = () => {
           onSubmitProject={handleCreateProject}
           defaultOrgName={organisationName}
           editing={editingProject}
+          currency={projectCurrency}
         />
       </>
     );
@@ -606,6 +609,7 @@ export const ProjectSponsorView: React.FC = () => {
         onSubmitProject={handleCreateProject}
         defaultOrgName={organisationName}
         editing={editingProject}
+        currency={projectCurrency}
       />
 
       {/* Promotion Package Modal */}

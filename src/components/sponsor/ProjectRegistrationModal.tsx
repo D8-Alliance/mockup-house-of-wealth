@@ -10,9 +10,11 @@ interface ProjectRegistrationModalProps {
   defaultOrgName?: string;
   /** A draft project being corrected; the form opens with its details. */
   editing?: SponsorProject | null;
+  /** The currency of the project's country; the target funding is entered in it. */
+  currency?: string;
 }
 
-export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> = ({ isOpen, onClose, onSubmitProject, defaultOrgName = '', editing = null }) => {
+export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> = ({ isOpen, onClose, onSubmitProject, defaultOrgName = '', editing = null, currency = 'MYR' }) => {
   const [title, setTitle] = useState('');
   const [orgName, setOrgName] = useState(defaultOrgName);
   useEffect(() => { if (defaultOrgName) setOrgName((current) => current || defaultOrgName); }, [defaultOrgName]);
@@ -185,7 +187,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Target Funding ($ USD)</label>
+              <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Target Funding ({currency === 'MYR' ? 'RM' : currency})</label>
               <input
                 type="number"
                 value={targetFunding}
