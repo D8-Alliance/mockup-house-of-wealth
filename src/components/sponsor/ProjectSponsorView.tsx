@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SponsorProject, WorkflowStage, SponsorOrgType, ProjectMilestone } from './SponsorTypes';
 import { SponsorKPICards } from './SponsorKPICards';
+import { formatProjectMoney } from './sponsorMoney';
 import { INITIAL_PDP_COUNTRY_CONFIGS } from '../../pdp/pdpCountryConfig';
 import { ProjectRegistrationModal } from './ProjectRegistrationModal';
 import { ProjectDetailView } from './ProjectDetailView';
@@ -33,7 +34,7 @@ const defaultProjectMilestones = (projectId: string, funding: number, workflowSt
     { title: 'Due diligence and risk clearance', status: workflowStage === 'Approved' ? 'In Progress' : 'Upcoming', completionPct: workflowStage === 'Approved' ? 25 : 0 },
     { title: 'Funding, execution and completion', status: 'Upcoming', completionPct: 0 },
   ];
-  return stages.map((stage, index) => ({ id: `${projectId}-M${index + 1}`, title: stage.title, targetDate: new Date(Date.now() + (index + 1) * 30 * 86400000).toISOString().slice(0, 10), completionPct: stage.completionPct, disbursementAmount: index === 0 ? 0 : funding / 3, status: stage.status, shariahSignoff: stage.completionPct === 100, auditorSignoff: stage.completionPct === 100 }));
+  return stages.map((stage, index) => ({ id: `${projectId}-M${index + 1}`, title: stage.title, targetDate: new Date(Date.now() + (index + 1) * 30 * 86400000).toISOString().slice(0, 10), completionPct: stage.completionPct, disbursementAmount: 0, status: stage.status, shariahSignoff: stage.completionPct === 100, auditorSignoff: stage.completionPct === 100 }));
 };
 
 /** The portal's stage for each lifecycle status on the server. */
@@ -56,9 +57,6 @@ const mapShariahContract = (contract: string): SponsorProject['shariahContract']
 };
 
 /** "8.5% p.a." from the stored percentage; the form keeps the label, the server keeps the number. */
-export const formatProjectMoney = (amount: number, currency = 'MYR') => {
-  try { return new Intl.NumberFormat('en-MY', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount); } catch { return `${currency} ${Math.round(amount).toLocaleString()}`; }
-};
 const yieldLabel = (value: number | string | null | undefined) => (value === null || value === undefined || value === '' ? 'Pending assessment' : `${Number(value)}% p.a.`);
 
 function projectTermsInput(project: SponsorProject) {

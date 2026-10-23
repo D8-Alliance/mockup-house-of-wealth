@@ -142,6 +142,7 @@ export const apiClient = {
   /** Corrects a draft project's details (refused once it is submitted for review). */
   updateProjectDetails: (projectId: string, input: { projectName?: string; description?: string; sector?: string; sponsorEntityType?: string; proposedShariahContract?: string; totalProjectCost?: number; fundingRequired?: number; expectedYieldPct?: number; tenureMonths?: number; location?: string }) => request<BackendProject>(`/projects/${encodeURIComponent(projectId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
   updateProjectStatus: (projectId: string, input: { status: string; note?: string }) => request<BackendProject>(`/projects/${encodeURIComponent(projectId)}/status`, { method: 'POST', body: JSON.stringify(input) }),
+  createProjectMilestone: (projectId: string, input: { title: string; targetDate: string; disbursementAmount: number }) => request<BackendProjectMilestone>(`/projects/${encodeURIComponent(projectId)}/milestones`, { method: 'POST', body: JSON.stringify(input) }),
   updateProjectMilestone: (projectId: string, milestoneId: string, input: { completionPct?: number; status?: string; shariahSignoff?: boolean; auditorSignoff?: boolean }) => request(`/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(milestoneId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
   createProject: (input: CreateProjectInput) => request<BackendProject>('/projects', {
     method: 'POST',

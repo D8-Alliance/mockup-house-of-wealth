@@ -2,9 +2,6 @@ import { SponsorProject, WorkflowStage } from './SponsorTypes';
 
 export const WORKFLOW_STAGES_LIST: WorkflowStage[] = [
   'Draft',
-  'Internal Review',
-  'Compliance Review',
-  'Risk Review',
   'Shariah Review',
   'Approved',
   'Funding Open',

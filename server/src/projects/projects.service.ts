@@ -111,10 +111,26 @@ export class ProjectsService {
     return updated;
   }
 
+  /**
+   * Adds a disbursement tranche: what the funds are released for, when and how much. Tranches are set
+   * before approval, and together they cannot exceed the funding the project asks investors for.
+   */
   async createMilestone(projectId: string, dto: CreateProjectMilestoneDto, user: AuthenticatedUser) {
     const project = await this.get(projectId, user);
-    if (!dto.title?.trim()) throw new BadRequestException('Milestone title is required.');
-    return this.prisma.projectMilestone.create({ data: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, title: dto.title.trim(), targetDate: dto.targetDate ? new Date(dto.targetDate) : null, completionPct: Math.max(0, Math.min(100, dto.completionPct ?? 0)), disbursementAmount: dto.disbursementAmount ?? 0, status: dto.status || 'UPCOMING' } });
+    assertProjectUnlocked(project, 'Adding a tranche');
+    const title = dto.title?.trim() ?? '';
+    if (title.length < 3) throw new BadRequestException('Say what the funds are released for (at least 3 characters).');
+    const targetDate = dto.targetDate ? new Date(dto.targetDate) : null;
+    if (!targetDate || Number.isNaN(targetDate.getTime())) throw new BadRequestException('Choose the target date of the tranche.');
+    const amount = Number(dto.disbursementAmount);
+    if (!Number.isFinite(amount) || amount <= 0) throw new BadRequestException('Enter the amount released at this tranche.');
+    const allocated = await this.prisma.projectMilestone.aggregate({ where: { projectId }, _sum: { disbursementAmount: true } });
+    const funding = Number(project.fundingRequired);
+    const remaining = funding - Number(allocated._sum.disbursementAmount ?? 0);
+    if (amount > remaining + 0.005) throw new BadRequestException(`The tranches would exceed the funding required: ${Math.max(0, remaining).toFixed(2)} of ${funding.toFixed(2)} is left to allocate.`);
+    const milestone = await this.prisma.projectMilestone.create({ data: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, title, targetDate, completionPct: 0, disbursementAmount: amount, status: 'UPCOMING' } });
+    await this.audit.recordActor(user, { action: 'project.milestone.create', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { milestoneId: milestone.id, title, targetDate: dto.targetDate, amount } });
+    return milestone;
   }
 
   async updateMilestone(projectId: string, milestoneId: string, dto: UpdateProjectMilestoneDto, user: AuthenticatedUser) {
@@ -128,7 +144,7 @@ export class ProjectsService {
     const existing = await this.prisma.projectMilestone.findMany({ where: { projectId: project.projectId }, orderBy: { createdAt: 'asc' } });
     if (existing.length) return { ...project, milestones: existing };
     const titles = ['Project information and sponsor evidence', 'Shariah term sheet review', 'Due diligence and risk clearance', 'Funding, execution and completion'];
-    await this.prisma.projectMilestone.createMany({ data: titles.map((title, index) => ({ projectId: project.projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, title, completionPct: index === 0 && project.status !== 'DRAFT' ? 100 : 0, status: index === 0 && project.status !== 'DRAFT' ? 'COMPLETED' : 'UPCOMING', disbursementAmount: index === 0 ? 0 : Number(project.fundingRequired) / 3 })) });
+    await this.prisma.projectMilestone.createMany({ data: titles.map((title, index) => ({ projectId: project.projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, title, completionPct: index === 0 && project.status !== 'DRAFT' ? 100 : 0, status: index === 0 && project.status !== 'DRAFT' ? 'COMPLETED' : 'UPCOMING', disbursementAmount: 0 })) });
     return { ...project, milestones: await this.prisma.projectMilestone.findMany({ where: { projectId: project.projectId }, orderBy: { createdAt: 'asc' } }) };
   }
 

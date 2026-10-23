@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { SponsorProject, WorkflowStage, ProjectMilestone, TeamMember } from './SponsorTypes';
 import { SponsorWorkflowBar } from './SponsorWorkflowBar';
 import { ProjectMilestoneList } from './ProjectMilestoneList';
+import { formatProjectMoney } from './sponsorMoney';
 import { PDPPromotionCard } from '../revenue/PDPPromotionCard';
 import {
   Building2, CheckCircle2, Clock, AlertTriangle, ShieldCheck,
@@ -24,8 +25,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
   const [activeTab, setActiveTab] = useState<'overview' | 'milestones' | 'disbursements' | 'dataroom' | 'team' | 'investor-comms' | 'due-diligence'>('overview');
 
   const [milestones, setMilestones] = useState<ProjectMilestone[]>(project.milestones);
-  const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
-  const [newMilestoneAmount, setNewMilestoneAmount] = useState('');
   const [projectDocuments, setProjectDocuments] = useState<BackendProjectDocument[]>([]);
   const [documentsLoaded, setDocumentsLoaded] = useState(false);
   const [documentFile, setDocumentFile] = useState<File | null>(null);
@@ -180,22 +179,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
     }
   };
 
-  const handleAddMilestone = () => {
-    if (!newMilestoneTitle) return;
-    const newM: ProjectMilestone = {
-      id: `M-${milestones.length + 1}`,
-      title: newMilestoneTitle,
-      targetDate: '2026-12-31',
-      completionPct: 0,
-      disbursementAmount: parseFloat(newMilestoneAmount) || 500000,
-      status: 'Upcoming',
-      shariahSignoff: false,
-      auditorSignoff: false
-    };
-    setMilestones([...milestones, newM]);
-    setNewMilestoneTitle('');
-    setNewMilestoneAmount('');
-  };
+  const currency = project.currency ?? 'MYR';
+  const allocated = milestones.reduce((sum, m) => sum + m.disbursementAmount, 0);
+  const SHARIAH_STATUS: Record<string, string> = { DRAFT: 'Not submitted yet', DUE_DILIGENCE: 'With the Shariah board' };
 
   return (
     <div className="space-y-6">
@@ -210,7 +196,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30">
                 {project.orgType}
               </span>
-              <span className="text-xs text-slate-400 font-mono">{project.id}</span>
+              <span className="text-xs text-slate-400 font-mono">{project.code ?? project.id}</span>
             </div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{project.title}</h2>
             <p className="text-xs text-slate-500">{project.orgName} • {project.location}, {project.country}</p>
@@ -318,8 +304,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
                 <div className="bg-gradient-to-r from-amber-500 to-emerald-500 h-full transition-all duration-500" style={{ width: `${raisedPct}%` }} />
               </div>
               <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
-                <span>Raised: ${project.raisedFunding.toLocaleString()}</span>
-                <span>Target: ${project.targetFunding.toLocaleString()}</span>
+                <span>Raised: {formatProjectMoney(project.raisedFunding, currency)}</span>
+                <span>Target: {formatProjectMoney(project.targetFunding, currency)}</span>
               </div>
             </div>
           </div>
@@ -328,10 +314,14 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
             <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-md border border-slate-800 space-y-4">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                <h3 className="text-sm font-bold">Health & Governance Score</h3>
+                <h3 className="text-sm font-bold">Governance status</h3>
               </div>
-              <div className="text-3xl font-extrabold text-emerald-400">{project.healthScore} / 100</div>
-              <p className="text-xs text-slate-300">Audited by D-8 Shariah Board & AAOIFI standards compliance framework.</p>
+              <dl className="space-y-2 text-xs">
+                <div className="flex justify-between gap-3"><dt className="text-slate-400">Shariah review</dt><dd className="font-bold text-right">{SHARIAH_STATUS[project.serverStatus ?? ''] ?? (project.serverStatus === 'REJECTED' ? 'Rejected' : 'Approved')}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-slate-400">Documents in the data room</dt><dd className="font-bold">{documentsLoaded ? projectDocuments.length : project.documents.length}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-slate-400">Funding allocated to tranches</dt><dd className="font-bold">{formatProjectMoney(allocated, currency)} of {formatProjectMoney(project.targetFunding, currency)}</dd></div>
+              </dl>
+              <p className="text-[11px] text-slate-400">Figures from the platform's records; the Shariah board's decision appears here once made.</p>
             </div>
           </div>
         </div>
@@ -340,7 +330,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
 
       {/* Tab 2: Milestones */}
       {activeTab === 'milestones' && (
-        <ProjectMilestoneList initialMilestones={project.milestones} />
+        <ProjectMilestoneList projectId={project.id} initialMilestones={milestones} currency={currency} fundingRequired={project.targetFunding} editable={project.serverStatus === 'DRAFT' || project.serverStatus === 'DUE_DILIGENCE'} onChange={setMilestones} />
       )}
 
       {/* Tab 3: Disbursements */}
@@ -362,7 +352,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
                     <p className="text-[11px] text-slate-500">Escrow Ref: {d.escrowRef} • Requested: {d.requestedDate}</p>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-slate-900 dark:text-white">${d.amount.toLocaleString()}</div>
+                    <div className="font-bold text-slate-900 dark:text-white">{formatProjectMoney(d.amount, currency)}</div>
                     <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-600">{d.status}</span>
                   </div>
                 </div>

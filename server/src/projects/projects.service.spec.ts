@@ -204,4 +204,16 @@ describe('ProjectsService: a sponsor corrects a draft and submits it', () => {
     prismaMock.project.update.mockResolvedValue(project('DRAFT'));
     await expect(service.updateDetails('PRJ-1', { description: 'More detail on the planting plan.' }, sponsor)).resolves.toBeDefined();
   });
+
+  it('saves a tranche only with a purpose, a date and an amount within the funding left', async () => {
+    prismaMock.project.findUnique.mockResolvedValue({ ...project('DRAFT'), fundingRequired: 1200000 });
+    const milestones = { aggregate: jest.fn().mockResolvedValue({ _sum: { disbursementAmount: 750000 } }), create: jest.fn().mockResolvedValue({ id: 'MS-1' }) };
+    (prismaMock as Record<string, unknown>).projectMilestone = milestones;
+    await expect(service.createMilestone('PRJ-1', { title: 'Seedlings', disbursementAmount: 100000 }, sponsor)).rejects.toThrow('target date');
+    await expect(service.createMilestone('PRJ-1', { title: 'Seedlings', targetDate: '2027-04-01', disbursementAmount: 500000 }, sponsor)).rejects.toThrow('450000.00 of 1200000.00 is left');
+    await service.createMilestone('PRJ-1', { title: 'Seedlings and irrigation', targetDate: '2027-04-01', disbursementAmount: 450000 }, sponsor);
+    expect(milestones.create).toHaveBeenCalledWith({ data: expect.objectContaining({ title: 'Seedlings and irrigation', disbursementAmount: 450000, status: 'UPCOMING' }) });
+    prismaMock.project.findUnique.mockResolvedValue({ ...project('APPROVED'), fundingRequired: 1200000 });
+    await expect(service.createMilestone('PRJ-1', { title: 'More', targetDate: '2027-04-01', disbursementAmount: 1 }, sponsor)).rejects.toThrow('locked');
+  });
 });
