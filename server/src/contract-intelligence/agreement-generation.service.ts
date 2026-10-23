@@ -344,7 +344,9 @@ export class AgreementGenerationService {
       // Applications saved before 2026-10-22 carry no organisation id, so the organisation's name is matched too.
       const application = organisationId ? await this.prisma.pdpApplication.findFirst({ where: { OR: [{ organisationId }, ...(organisationName ? [{ organisationId: null, organisationName }] : [])], status: { not: 'DRAFT' } }, orderBy: { updatedAt: 'desc' }, select: { payload: true } }) : null;
       const payload = (application?.payload ?? {}) as { registrationNumber?: string; registeredAddress?: string };
-      return { registration: payload.registrationNumber?.trim() || '[company number]', address: payload.registeredAddress?.trim() || '[registered address]' };
+      // The organisation's own profile (KYB) first, then its delivery partner application.
+      const organisation = organisationId ? await this.prisma.organisation.findUnique({ where: { id: organisationId }, select: { registrationNumber: true, registeredAddress: true } }) : null;
+      return { registration: organisation?.registrationNumber?.trim() || payload.registrationNumber?.trim() || '[company number]', address: organisation?.registeredAddress?.trim() || payload.registeredAddress?.trim() || '[registered address]' };
     };
     if (input.engagementId) {
       const engagement = await this.prisma.assetEngagement.findUnique({ where: { id: input.engagementId }, select: { id: true, akad: true, terms: true, startDate: true, endDate: true, ownerOrganisationId: true, pdpOrganisationId: true, legalApprovedAt: true, shariahApprovedAt: true, asset: { select: { name: true, titleReference: true } } } });

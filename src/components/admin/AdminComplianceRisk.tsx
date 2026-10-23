@@ -3,6 +3,7 @@ import {
   Building2
 } from 'lucide-react';
 import { KycReviewQueue } from '../../kyc/KycReviewQueue';
+import { OrganisationKybQueue } from '../../organisations/OrganisationKybQueue';
 
 interface AdminComplianceRiskProps {
   section: 'compliance_kyc' | 'compliance_kyb' | 'compliance_aml' | 'compliance_pep' | 'compliance_sanctions' | 'risk_register' | 'risk_incidents' | 'sys_auditlogs';
@@ -17,12 +18,6 @@ const auditLogRows = [
 ];
 
 export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ section }) => {
-  // KYB Queue State
-  const [kybList, setKybList] = useState([
-    { id: 'KYB-302', companyName: 'Bosphorus Cold Chain Logistics A.S.', country: 'Turkey', tradeLicense: 'TR-IST-884920', uboName: 'Ahmet Yilmaz (85% Owner)', leiCode: '2549008892110034', status: 'Pending Approval', riskGrade: 'Low Risk' },
-    { id: 'KYB-301', companyName: 'Nusantara Halal Export Group Pt.', country: 'Indonesia', tradeLicense: 'ID-JKT-119283', uboName: 'Rina Wulandari (100% Owner)', leiCode: '5493003310022394', status: 'Verified', riskGrade: 'Low Risk' },
-    { id: 'KYB-300', companyName: 'D-8 Agritech Ventures Ltd.', country: 'Malaysia', tradeLicense: 'MY-KL-998231', uboName: 'Tariq Al-Mansoor (60% Owner)', leiCode: '9845001192837482', status: 'Verified', riskGrade: 'Low Risk' }
-  ]);
 
   // AML Alerts State
   const [amlAlerts, setAmlAlerts] = useState([
@@ -55,9 +50,6 @@ export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ sectio
     { id: 'INC-2026-08', title: 'Failed Webhook Notification Relay for KYC Approval', priority: 'P3 - Low', status: 'Resolved', impact: 'Delayed SMS Confirmation for 14 Users', timestamp: '2026-08-04 11:30' }
   ]);
 
-  const handleApproveKyb = (id: string) => {
-    setKybList(kybList.map(k => k.id === id ? { ...k, status: 'Verified' } : k));
-  };
 
   return (
     <div className="space-y-6">
@@ -65,63 +57,8 @@ export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ sectio
       {/* KYC VERIFICATION MODULE */}
       {section === 'compliance_kyc' && <KycReviewQueue />}
 
-      {/* KYB VERIFICATION MODULE */}
-      {section === 'compliance_kyb' && (
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
-          <div className="flex justify-between items-center pb-3 border-b border-slate-100 dark:border-slate-700">
-            <div>
-              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">KYB Corporate Verification Ledger</h3>
-              <p className="text-xs text-slate-500">Corporate Registration, Ultimate Beneficial Owners (UBO), and LEI Code Validation.</p>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-900/60 font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-200/60 dark:border-slate-700/60 text-[11px]">
-                  <th className="p-3.5">Ref ID</th>
-                  <th className="p-3.5">Company Legal Name</th>
-                  <th className="p-3.5">Country</th>
-                  <th className="p-3.5">Trade License</th>
-                  <th className="p-3.5">Ultimate Beneficial Owner (UBO)</th>
-                  <th className="p-3.5">LEI Code</th>
-                  <th className="p-3.5">Status</th>
-                  <th className="p-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                {kybList.map(k => (
-                  <tr key={k.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30">
-                    <td className="p-3.5 font-bold font-mono text-purple-600">{k.id}</td>
-                    <td className="p-3.5 font-bold text-slate-900 dark:text-white">{k.companyName}</td>
-                    <td className="p-3.5 text-slate-600 dark:text-slate-300">{k.country}</td>
-                    <td className="p-3.5 font-mono text-slate-500">{k.tradeLicense}</td>
-                    <td className="p-3.5 font-bold text-slate-800 dark:text-slate-200">{k.uboName}</td>
-                    <td className="p-3.5 font-mono text-slate-400">{k.leiCode}</td>
-                    <td className="p-3.5">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black ${
-                        k.status === 'Verified' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'
-                      }`}>
-                        {k.status}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-right">
-                      {k.status === 'Pending Approval' && (
-                        <button 
-                          onClick={() => handleApproveKyb(k.id)}
-                          className="px-3 py-1.5 rounded-xl bg-purple-600 text-white font-extrabold text-[11px] shadow cursor-pointer hover:bg-purple-500"
-                        >
-                          Verify Entity
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* KYB VERIFICATION MODULE: organisations' registration details and SSM documents */}
+      {section === 'compliance_kyb' && <OrganisationKybQueue />}
 
       {/* AML MODULE */}
       {section === 'compliance_aml' && (

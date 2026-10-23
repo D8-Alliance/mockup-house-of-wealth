@@ -173,9 +173,22 @@ model Organisation {
   countryNodeId String
   countryNode   CountryNode @relation(fields: [countryNodeId], references: [code])
   status        String      @default("ACTIVE")
+  /// SSM (or national registry) number, e.g. "201901012345 (1234567-A)"; on agreements' cover pages.
+  registrationNumber String?
+  registeredAddress  String?
+  /// Business verification: NOT_SUBMITTED, SUBMITTED, CHANGES_REQUESTED, APPROVED or REJECTED.
+  kybStatus          String    @default("NOT_SUBMITTED")
+  kybSubmittedAt     DateTime?
+  kybReviewedBy      String?
+  kybReviewedAt      DateTime?
+  /// The reviewer's latest reason.
+  kybNote            String?
+  /// Submissions and decisions, oldest first: { at, by, byName, role, action, note }.
+  kybHistory         Json      @default("[]")
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
+  kybDocuments         OrganisationKybDocument[]
   projects             Project[]
   pools                WealthPool[]
   auditEvents          AuditEvent[]
@@ -205,6 +218,7 @@ model Organisation {
 
   @@unique([id, countryNodeId])
   @@index([countryNodeId])
+  @@index([countryNodeId, kybStatus])
 }
 
 // ---------------------------------------------------------------------------
@@ -2121,4 +2135,24 @@ model AssetEngagement {
   @@index([assetId, status])
   @@index([projectId])
   @@index([countryNodeId, status])
+}
+
+/// A document an organisation gives for its business verification (KYB), e.g. its SSM company profile.
+model OrganisationKybDocument {
+  id             String   @id @default(cuid())
+  organisationId String
+  /// SSM_PROFILE, DIRECTORS (Form 49 / Section 58), SHAREHOLDERS (Form 24 / Section 51), BOARD_RESOLUTION or OTHER
+  documentType   String
+  fileName       String
+  mimeType       String
+  fileSize       Int
+  fileContent    Bytes
+  sha256         String
+  integrity      Json?
+  uploadedBy     String
+  createdAt      DateTime @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId])
 }

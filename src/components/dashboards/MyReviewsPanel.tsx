@@ -8,7 +8,7 @@ import { openPartnership } from '../../asset-partnerships/partnershipNavigation'
 import { openAdminSection } from '../adminNavigation';
 import { formatDateTime } from '../../utils/platformTime';
 
-type Kind = 'Asset partnership' | 'Agreement' | 'PDP application (KYB)' | 'Asset verification' | 'KYC' | 'Project (Shariah board)';
+type Kind = 'Asset partnership' | 'Agreement' | 'PDP application (KYB)' | 'Organisation (KYB)' | 'Asset verification' | 'KYC' | 'Project (Shariah board)';
 interface ReviewItem { key: string; kind: Kind; title: string; detail: string; at?: string; open: () => void }
 
 const has = (role: string, roles: string[]) => roles.includes(role);
@@ -45,6 +45,10 @@ export const MyReviewsPanel: React.FC<{ setTab: (tab: NavTab) => void }> = ({ se
     if (has(role, KYB_REVIEWERS)) queues.push(apiClient.getPdpReviewQueue('SUBMITTED').then((list) => list.map((item) => ({
       key: `pdp-${item.id}`, kind: 'PDP application (KYB)' as Kind, title: item.organisationName, detail: `${item.applicationNumber} · ${item.pdpType}`,
       at: item.submittedAt, open: () => { openAdminSection('pdp_applications'); setTab('admin-center'); },
+    }))));
+    if (has(role, KYB_REVIEWERS)) queues.push(apiClient.getOrganisationKybQueue('SUBMITTED').then((list) => list.map((item) => ({
+      key: `org-${item.id}`, kind: 'Organisation (KYB)' as Kind, title: item.name, detail: item.registrationNumber ?? '-',
+      at: item.kybSubmittedAt ?? undefined, open: () => { openAdminSection('compliance_kyb'); setTab('admin-center'); },
     }))));
     if (has(role, ASSET_VERIFIERS)) queues.push(apiClient.getAssets('SUBMITTED').then((list) => list.map((item) => ({
       key: `ast-${item.id}`, kind: 'Asset verification' as Kind, title: item.name, detail: `${item.assetType.toLowerCase()} · ${item.id}`,

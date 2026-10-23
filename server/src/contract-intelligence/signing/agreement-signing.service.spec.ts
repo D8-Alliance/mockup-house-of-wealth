@@ -40,6 +40,7 @@ function memoryPrisma() {
     },
     kycApplication: { findFirst: jest.fn(async ({ where }) => (where.userId === 'USR-UMAR' ? { applicationNumber: 'KYC-MYS-0001' } : null)) },
     pdpApplication: { findFirst: jest.fn(async () => null) },
+    organisation: { findUnique: jest.fn(async () => ({ kybStatus: 'NOT_SUBMITTED', registrationNumber: null })) },
     userRoleAssignment: { findMany: jest.fn(async () => [{ userId: 'USR-SYS-002', organisationId: 'ORG-D8', countryNodeId: 'CN-MYS' }]) },
   };
 }

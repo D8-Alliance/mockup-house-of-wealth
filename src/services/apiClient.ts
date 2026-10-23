@@ -399,6 +399,14 @@ export const apiClient = {
     }
     return request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/documents/${documentType}`, { method: 'POST', body });
   },
+  getMyOrganisationKyb: () => request<OrganisationKyb>('/organisations/me/kyb'),
+  saveOrganisationDetails: (input: { registrationNumber: string; registeredAddress: string }) => request<OrganisationKyb>('/organisations/me/kyb', { method: 'PUT', body: JSON.stringify(input) }),
+  uploadOrganisationKybDocument: (documentType: OrganisationKybDocumentType, file: File) => { const body = new FormData(); body.append('file', file, file.name); return request<OrganisationKyb>(`/organisations/me/kyb/documents/${documentType}`, { method: 'POST', body }); },
+  removeOrganisationKybDocument: (documentId: string) => request<OrganisationKyb>(`/organisations/me/kyb/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
+  submitOrganisationKyb: () => request<OrganisationKyb>('/organisations/me/kyb/submit', { method: 'POST' }),
+  getOrganisationKybQueue: (status: OrganisationKybStatus | 'ALL' = 'SUBMITTED') => request<OrganisationKyb[]>(`/organisations/kyb?status=${status}`),
+  reviewOrganisationKyb: (organisationId: string, input: { decision: 'APPROVE' | 'REQUEST_CHANGES' | 'REJECT'; note: string }) => request<OrganisationKyb>(`/organisations/${encodeURIComponent(organisationId)}/kyb/review`, { method: 'POST', body: JSON.stringify(input) }),
+  downloadOrganisationKybDocument: (organisationId: string, documentId: string) => openAuthenticatedFile(`/organisations/${encodeURIComponent(organisationId)}/kyb/documents/${encodeURIComponent(documentId)}/download`),
   removeAssetDocument: (id: string, documentId: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
   downloadAssetDocument: (id: string, documentId: string) => openAuthenticatedFile(`/assets/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}/download`),
   getAssetStructuring: (id: string) => request<AssetStructuringGuidance>(`/assets/${encodeURIComponent(id)}/structuring`),
@@ -1622,6 +1630,24 @@ export type AgreementStatus = 'DRAFT' | 'LEGAL_REVIEW' | 'SHARIAH_REVIEW' | 'APP
 export type AgreementAction = 'LEGAL_REVIEW' | 'SHARIAH_REVIEW' | 'APPROVED' | 'CHANGES_REQUESTED' | 'EXECUTION';
 export interface AgreementAvailableAction { action: AgreementAction; label: string }
 export type AgreementPartyAction = 'CONSENT' | 'SIGN';
+export type OrganisationKybStatus = 'NOT_SUBMITTED' | 'SUBMITTED' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED';
+export type OrganisationKybDocumentType = 'SSM_PROFILE' | 'DIRECTORS' | 'SHAREHOLDERS' | 'BOARD_RESOLUTION' | 'OTHER';
+/** An organisation's registration details and business verification (KYB). */
+export interface OrganisationKyb {
+  id: string;
+  name: string;
+  countryNodeId: string;
+  registrationNumber: string | null;
+  registeredAddress: string | null;
+  kybStatus: OrganisationKybStatus;
+  kybSubmittedAt: string | null;
+  kybReviewedAt: string | null;
+  kybNote: string | null;
+  kybHistory: Array<{ at: string; byName: string; role: string; action: string; note?: string }>;
+  kybDocuments: Array<{ id: string; documentType: OrganisationKybDocumentType; fileName: string; mimeType: string; fileSize: number; sha256: string; createdAt: string }>;
+  missing: string[];
+  canEdit: boolean;
+}
 /** The signed agreement's seal and time-stamp, checked by the server. */
 export interface AgreementIntegrity { status: 'NOT_SEALED' | 'SEALED' | 'VERIFIED' | 'MISMATCH'; checkedAt?: string; sha256?: string; sealedAt?: string; signer?: string | null; certificateSha256?: string; timestamp?: { at: string | null; authority: string | null; serial: string | null } | null; note?: string | null }
 /** One of the platform's checks on an agreement's text. */

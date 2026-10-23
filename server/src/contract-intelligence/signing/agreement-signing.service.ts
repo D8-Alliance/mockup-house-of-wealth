@@ -51,15 +51,17 @@ export class AgreementSigningService {
 
   /** Sends a one-time code for signing this version; at most one a minute and five an hour. */
   /**
-   * The signer's own identity check (KYC) and its organisation's (KYB: the approved PDP application for a
-   * delivery partner; asset owner organisations have no KYB step yet).
+   * The signer's own identity check (KYC) and its organisation's (KYB: the organisation's own verification,
+   * or an approved delivery partner application).
    */
   async identity(userId: string, organisation: { id: string | null; name: string }) {
     const [kyc, kyb] = await Promise.all([
       this.prisma.kycApplication.findFirst({ where: { userId, status: 'APPROVED' }, orderBy: { updatedAt: 'desc' }, select: { applicationNumber: true } }),
       organisation.id ? this.prisma.pdpApplication.findFirst({ where: { OR: [{ organisationId: organisation.id }, { organisationId: null, organisationName: organisation.name }], status: 'APPROVED' }, orderBy: { updatedAt: 'desc' }, select: { applicationNumber: true } }) : null,
     ]);
-    return { kyc, kyb };
+    const own = organisation.id ? await this.prisma.organisation.findUnique({ where: { id: organisation.id }, select: { kybStatus: true, registrationNumber: true } }) : null;
+    const verified = own?.kybStatus === 'APPROVED' ? { applicationNumber: `organisation verification${own.registrationNumber ? `, ${own.registrationNumber}` : ''}` } : null;
+    return { kyc, kyb: verified ?? kyb };
   }
 
   async issueCode(actor: AuthenticatedUser, contract: { id: string; contractNumber: string; version: number; side?: string | null; organisationName?: string }) {
@@ -67,7 +69,7 @@ export class AgreementSigningService {
     if (process.env.SIGNING_REQUIRE_VERIFIED_IDENTITY === 'true') {
       const { kyc, kyb } = await this.identity(actor.userId, { id: actor.organisationId, name: contract.organisationName ?? '' });
       if (!kyc) throw new ForbiddenException('Complete your identity verification (KYC) before signing.');
-      if (contract.side === 'PDP' && !kyb) throw new ForbiddenException('Your organisation must pass KYB (an approved delivery partner application) before it signs.');
+      if (!kyb) throw new ForbiddenException('Your organisation must pass business verification (KYB) before it signs: submit it under Organisation verification.');
     }
     const recent = await this.prisma.signatureChallenge.findMany({ where: { contractId: contract.id, userId: actor.userId, createdAt: { gte: new Date(Date.now() - 3600_000) } }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } });
     if (recent[0] && Date.now() - recent[0].createdAt.getTime() < 60_000) throw new ConflictException('A code was sent less than a minute ago. Check your inbox, or wait a minute.');
@@ -146,7 +148,7 @@ export class AgreementSigningService {
         typedSignature: party.signatureName ?? '-',
         signedAt: local(party.signedAt),
         identity: kyc ? `KYC approved (${kyc.applicationNumber})` : 'Signed in to their own platform account; no approved KYC on record',
-        organisationCheck: kyb ? `KYB approved (${kyb.applicationNumber})` : party.role === 'OWNER' ? 'No KYB step for asset owner organisations yet' : 'No approved KYB on record',
+        organisationCheck: kyb ? `KYB approved (${kyb.applicationNumber})` : 'No approved KYB on record',
         code: challenge ? (challenge.channel === 'TEST' ? `shown on screen in test mode (not used in production), entered ${local(challenge.usedAt)}` : `sent by ${challenge.channel === 'EMAIL' ? 'email' : challenge.channel.toLowerCase()} to ${challenge.destination}, entered ${local(challenge.usedAt)}`) : 'not recorded',
       };
     }));

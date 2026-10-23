@@ -9,6 +9,7 @@ export const TAB_FOR_RESOURCE: Record<string, NavTab> = {
   ProjectDocument: 'sponsor-portal',
   Contract: 'contracts',
   KycApplication: 'profile',
+  OrganisationKyb: 'dashboard',
   PdpApplication: 'sponsor-portal',
   PdpApplicationReview: 'admin-center',
   PaymentTransaction: 'billing-transactions',
