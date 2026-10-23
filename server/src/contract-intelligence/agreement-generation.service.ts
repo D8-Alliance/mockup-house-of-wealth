@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { AlignmentType, Document, Packer, PageBreak, Paragraph, TextRun } from 'docx';
 import PDFDocument from 'pdfkit';
 import { Prisma } from '@prisma/client';
@@ -30,6 +30,7 @@ const labels: Record<AgreementType, string> = { IJARAH: 'Ijarah Agreement', MUSH
 
 @Injectable()
 export class AgreementGenerationService {
+  private readonly logger = new Logger(AgreementGenerationService.name);
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, private readonly retriever: ContractClauseRetriever, private readonly ai: AiService, @Optional() private readonly notifications?: NotificationService, @Optional() private readonly signing?: AgreementSigningService) {}
 
   async createDraft(actor: AuthenticatedUser, input: AgreementWizardDto) {
@@ -145,13 +146,14 @@ export class AgreementGenerationService {
         if (unsigned) return false;
         const claimed = await tx.contract.updateMany({ where: { id, status: 'APPROVED' }, data: { status: 'EXECUTION' } });
         if (!claimed.count) throw new ConflictException('This agreement was changed by someone else. Reload and try again.');
-        await tx.contractEvent.create({ data: { contractId: id, eventType: 'STATUS_CHANGED', fromStatus: 'APPROVED', toStatus: 'EXECUTION', actorId: actor.userId, metadata: { note: 'Signed by both parties', role: actor.role } } });
+        await tx.contractEvent.create({ data: { contractId: id, eventType: 'STATUS_CHANGED', fromStatus: 'APPROVED', toStatus: 'EXECUTION', actorId: actor.userId, metadata: { note: 'Signed by both parties', role: actor.role, byName: actor.name } } });
         await tx.contractApproval.create({ data: { contractId: id, versionId: contract.versions[0]?.id || '', approverId: actor.userId, status: 'EXECUTION', decisionNote: 'Signed by both parties', decidedAt: new Date() } });
         return true;
       });
       await this.auditRecord(actor, 'agreement.party_signed', id, { version: latest, versionHash, side: party.role, signatureName: typed, executed, ...(otp ? { otp } : {}) });
       // Both signed: build, seal and time-stamp the final PDF; the integrity sweeper retries if this fails.
-      if (executed && this.signing) void this.signing.finalize(id).catch(() => undefined);
+      // Sealing runs in the background; if it fails, the integrity sweep retries a minute after a restart and every six hours.
+      if (executed && this.signing) void this.signing.finalize(id).catch((error) => this.logger.warn(`Agreement ${id} not sealed yet: ${error instanceof Error ? error.message : String(error)}`));
       for (const recipient of contract.parties.filter((item) => item.role && item.organisationId && (executed || item.id !== party.id))) {
         await this.notifyOrganisation(recipient.organisationId!, contract.countryNodeId, id, executed ? 'executed' : `signed-${party.role}`, executed ? 'Agreement signed by both sides' : 'Agreement: the other side signed', executed ? `${contract.contractNumber} is signed by both sides and now in force.` : `The ${sideName} signed ${contract.contractNumber}. Sign it to put it in force.`);
       }

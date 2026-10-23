@@ -333,7 +333,11 @@ export const AgreementReviewPanel: React.FC = () => {
 
           {selected.status === 'EXECUTION' && parties.length > 0 && <SignedAgreementPanel agreementId={selected.id} />}
 
-          <AgreementChecksPanel agreementId={selected.id} version={latest} onUseNote={selected.availableActions.length > 0 ? (text, runId) => { setNote(text); setAiRunId(runId); } : undefined} onSignals={setSignals} />
+          {(selected.status === 'APPROVED' || selected.status === 'EXECUTION') ? (
+            <p className="text-[11px] text-slate-500">The text of version {latest} is final: it was approved by Legal and Shariah{selected.status === 'EXECUTION' ? ' and signed by both sides' : ''}. Checks and the AI scan were used before approval and are kept in the History.</p>
+          ) : <AgreementChecksPanel agreementId={selected.id} version={latest} onUseNote={selected.availableActions.length > 0 ? (text, runId) => { setNote(text); setAiRunId(runId); } : undefined} onSignals={setSignals} />
+
+          }
 
           <details className="rounded-xl border border-slate-200 dark:border-slate-700">
             <summary className="px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer">Read the agreement text ({version?.content.sections?.length ?? 0} sections)</summary>
@@ -368,7 +372,14 @@ export const AgreementReviewPanel: React.FC = () => {
                 ))}
               </div>
             </div>
-          ) : partyActions.length > 0 ? null : (
+          ) : partyActions.length > 0 ? null : selected.status === 'EXECUTION' ? (
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 text-xs text-slate-600 dark:text-slate-300 space-y-1">
+              <p className="font-bold text-slate-800 dark:text-slate-100">Signed by both sides. What happens next</p>
+              <p>1. Stamp duty: pay it through e-Duti Setem (MyTax) within 30 days of the date of the agreement, as clause on costs and stamp duty says. The platform does not record it yet.</p>
+              <p>2. Takaful, hand-over of the asset and, where needed, registration of the interest in the land: arranged between the parties for now.</p>
+              <p>3. Keep the signed PDF and the time-stamp token: they prove what was signed and when.</p>
+            </div>
+          ) : (
             <p className="text-xs text-slate-500">No action for you at this stage. Each step is taken by a different person: the drafting organisation submits and executes, a Legal Officer gives the legal decision and a Shariah reviewer gives the Shariah decision.</p>
           )}
 
