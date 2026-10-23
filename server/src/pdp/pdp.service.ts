@@ -219,12 +219,23 @@ export class PdpService {
     }).catch(() => undefined);
   }
 
+  /**
+   * The actor's own applications, then those a colleague submitted for the same organisation (matched by
+   * name for applications saved before organisations were recorded), so every member sees the PDP status.
+   */
   async getMine(actor: AuthenticatedUser) {
+    const organisation = actor.organisationId ? await this.prisma.organisation.findUnique({ where: { id: actor.organisationId }, select: { name: true } }) : null;
+    const countryCode = actor.countryNodeId.replace(/^CN-/, '');
     const applications = await this.prisma.pdpApplication.findMany({
-      where: { userId: actor.userId },
+      where: { OR: [
+        { userId: actor.userId },
+        ...(actor.organisationId ? [{ organisationId: actor.organisationId, status: { not: 'DRAFT' } }] : []),
+        ...(organisation ? [{ organisationId: null, organisationName: { equals: organisation.name, mode: 'insensitive' as const }, countryCode, status: { not: 'DRAFT' } }] : []),
+      ] },
       orderBy: { updatedAt: 'desc' },
     });
-    return applications.map((application) => this.toResponse(application));
+    const own = applications.filter((application) => application.userId === actor.userId);
+    return [...own, ...applications.filter((application) => application.userId !== actor.userId)].map((application) => this.toResponse(application));
   }
 
   /** PDP applications go through KYB, so a disabled KYB module stops submissions and reviews. */

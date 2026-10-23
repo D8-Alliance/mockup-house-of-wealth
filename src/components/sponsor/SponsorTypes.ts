@@ -78,6 +78,10 @@ export interface InvestorComm {
 
 export interface SponsorProject {
   id: string;
+  /** The project's reference number, shown instead of the internal id. */
+  code?: string;
+  currency?: string;
+  expectedYieldPct?: number;
   title: string;
   orgName: string;
   orgType: SponsorOrgType;

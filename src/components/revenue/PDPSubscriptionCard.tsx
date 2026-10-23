@@ -67,8 +67,8 @@ export const PDPSubscriptionCard: React.FC<PDPSubscriptionCardProps> = ({
       {/* Quotas & Limits */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Active Projects Quota */}
-        <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
-          <div className="flex justify-between items-center text-xs text-slate-400 font-bold">
+        <div className="p-4 rounded-xl bg-slate-950/70 border border-white/10 space-y-2">
+          <div className="flex justify-between items-center text-xs text-slate-200 font-bold">
             <span className="flex items-center gap-1.5">
               <Layers className="w-4 h-4 text-amber-400" />
               Active Projects
@@ -81,14 +81,14 @@ export const PDPSubscriptionCard: React.FC<PDPSubscriptionCardProps> = ({
               style={{ width: `${Math.min(100, Math.round((activeProjectsCount / currentPlan.activeProjectLimit) * 100))}%` }} 
             />
           </div>
-          <div className="text-[10px] text-slate-400">
+          <div className="text-[10px] text-slate-300">
             {currentPlan.activeProjectLimit - activeProjectsCount} campaign slots remaining
           </div>
         </div>
 
         {/* Featured Promotion Slots */}
-        <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
-          <div className="flex justify-between items-center text-xs text-slate-400 font-bold">
+        <div className="p-4 rounded-xl bg-slate-950/70 border border-white/10 space-y-2">
+          <div className="flex justify-between items-center text-xs text-slate-200 font-bold">
             <span className="flex items-center gap-1.5">
               <Star className="w-4 h-4 text-amber-400" />
               Featured Slots
@@ -98,14 +98,14 @@ export const PDPSubscriptionCard: React.FC<PDPSubscriptionCardProps> = ({
           <div className="text-xs text-white font-semibold">
             {currentPlan.featuredAllowanceMonthly > 0 ? '1 Active Promotion Active' : 'Upgrade for Featured Slots'}
           </div>
-          <div className="text-[10px] text-slate-400">
+          <div className="text-[10px] text-slate-300">
             Boost visibility on D-8 Marketplace
           </div>
         </div>
 
         {/* AI Drafting Credits */}
-        <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
-          <div className="flex justify-between items-center text-xs text-slate-400 font-bold">
+        <div className="p-4 rounded-xl bg-slate-950/70 border border-white/10 space-y-2">
+          <div className="flex justify-between items-center text-xs text-slate-200 font-bold">
             <span className="flex items-center gap-1.5">
               <Zap className="w-4 h-4 text-amber-400" />
               Prospectus AI Credits
@@ -115,7 +115,7 @@ export const PDPSubscriptionCard: React.FC<PDPSubscriptionCardProps> = ({
           <div className="text-xs text-white font-semibold">
             Automated Prospectus & Sukuk Drafts
           </div>
-          <div className="text-[10px] text-slate-400">
+          <div className="text-[10px] text-slate-300">
             Refreshes monthly
           </div>
         </div>

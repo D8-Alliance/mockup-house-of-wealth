@@ -74,6 +74,7 @@ describe('PdpService review queue and corrections', () => {
   const prisma = {
     pdpApplication: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), update: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn() },
     featureModule: { findUnique: jest.fn().mockResolvedValue(null) },
+    organisation: { findUnique: jest.fn().mockResolvedValue({ name: 'Felcra Bhd' }) },
     userRoleAssignment: { findMany: jest.fn().mockResolvedValue([{ userId: 'USR-KYB', organisationId: 'ORG-REG' }]) },
   };
   const service = new PdpService(prisma as unknown as PrismaService, audit as unknown as AuditService, notifications as never);
@@ -112,5 +113,18 @@ describe('PdpService review queue and corrections', () => {
     expect(prisma.pdpApplication.update.mock.calls[0][0].data.history[0]).toMatchObject({ action: 'RESUBMITTED' });
     expect(prisma.userRoleAssignment.findMany.mock.calls[0][0].where).toMatchObject({ countryNodeId: 'CN-MYS', organisationId: { not: 'ORG-SPONSOR' } });
     expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-KYB', title: 'PDP application corrected' }));
+  });
+
+  it('shows members the application a colleague submitted for their organisation, their own first', async () => {
+    const colleague = { ...submitted, id: 'PDP-OLD', userId: 'USR-COLLEAGUE', organisationId: null, status: 'APPROVED' };
+    const own = { ...application, id: 'PDP-OWN', userId: 'USR-SPONSOR', status: 'DRAFT', history: [] };
+    prisma.pdpApplication.findMany.mockResolvedValueOnce([colleague, own]);
+    const mine = await service.getMine({ ...actor('Project Sponsor', 'CN-MYS', 'USR-SPONSOR'), organisationId: 'ORG-SPONSOR' });
+    expect(mine.map((item) => item.id)).toEqual(['PDP-OWN', 'PDP-OLD']);
+    expect(prisma.pdpApplication.findMany.mock.calls[0][0].where.OR).toEqual([
+      { userId: 'USR-SPONSOR' },
+      { organisationId: 'ORG-SPONSOR', status: { not: 'DRAFT' } },
+      { organisationId: null, organisationName: { equals: 'Felcra Bhd', mode: 'insensitive' }, countryCode: 'MYS', status: { not: 'DRAFT' } },
+    ]);
   });
 });

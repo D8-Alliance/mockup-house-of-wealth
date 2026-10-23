@@ -54,6 +54,9 @@ const mapShariahContract = (contract: string): SponsorProject['shariahContract']
 };
 
 /** "8.5% p.a." from the stored percentage; the form keeps the label, the server keeps the number. */
+export const formatProjectMoney = (amount: number, currency = 'MYR') => {
+  try { return new Intl.NumberFormat('en-MY', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount); } catch { return `${currency} ${Math.round(amount).toLocaleString()}`; }
+};
 const yieldLabel = (value: number | string | null | undefined) => (value === null || value === undefined || value === '' ? 'Pending assessment' : `${Number(value)}% p.a.`);
 
 function projectTermsInput(project: SponsorProject) {
@@ -111,6 +114,9 @@ export const ProjectSponsorView: React.FC = () => {
         setProjectLoadError('');
         const projectsFromDatabase: SponsorProject[] = backendProjects.map((item) => ({
           id: item.projectId,
+          code: item.projectCode,
+          currency: item.countryNode?.currency || 'MYR',
+          expectedYieldPct: item.expectedYieldPct === null || item.expectedYieldPct === undefined || item.expectedYieldPct === '' ? undefined : Number(item.expectedYieldPct),
           title: item.projectName,
           orgName: item.organisationId,
           orgType: item.sponsorEntityType || 'GLC / Sovereign-Backed Enterprise',
@@ -258,13 +264,13 @@ export const ProjectSponsorView: React.FC = () => {
             <span>Register Project</span>
           </button>
 
-          <button
+          {(!pdpApp || pdpApp.userId === userId) && <button
             onClick={() => setIsPdpOnboardingModalOpen(true)}
             className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 font-bold text-slate-200 text-xs rounded-xl border border-slate-700 shadow-md flex items-center gap-1.5 transition-all cursor-pointer"
           >
             <ShieldCheck className="w-4 h-4 text-purple-400" />
             <span>{pdpApp ? 'Edit KYB Onboarding' : 'Register as PDP'}</span>
-          </button>
+          </button>}
 
           <button
             onClick={() => setIsPdpPoolModalOpen(true)}
@@ -451,7 +457,7 @@ export const ProjectSponsorView: React.FC = () => {
           </div>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {filteredProjects.map((project) => <div key={project.id} className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-start justify-between gap-3"><div><p className="font-black text-slate-900 dark:text-white">{project.title}</p><p className="mt-1 font-mono text-[10px] text-slate-400">{project.id}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">{project.workflowStage}</span></div>
+              <div className="flex items-start justify-between gap-3"><div><p className="font-black text-slate-900 dark:text-white">{project.title}</p><p className="mt-1 font-mono text-[10px] text-slate-400">{project.code ?? project.id}</p></div><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-700 dark:bg-slate-800 dark:text-slate-200">{project.workflowStage}</span></div>
               <p className="mt-3 text-xs text-slate-500">{project.shariahContract} · Target MYR {project.targetFunding.toLocaleString()} · {project.country}</p>
               <div className="mt-3"><ProjectProgressVisual stage={project.workflowStage} compact /></div>
               <button onClick={() => setSelectedProject(project)} className="mt-3 text-xs font-black text-purple-600 underline">View project record →</button>
@@ -474,7 +480,7 @@ export const ProjectSponsorView: React.FC = () => {
                       <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
                         {p.orgType.split('/')[0]}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-mono">{p.id}</span>
+                      <span className="text-[10px] text-slate-400 font-mono">{p.code ?? p.id}</span>
                     </div>
                     <h3 className="font-extrabold text-slate-900 dark:text-white text-sm line-clamp-1 group-hover:text-purple-600 transition-colors">
                       {p.title}
@@ -494,7 +500,7 @@ export const ProjectSponsorView: React.FC = () => {
                 {/* Progress bar */}
                 <div className="space-y-1">
                   <div className="flex justify-between text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                    <span>Capital Raised: ${p.raisedFunding.toLocaleString()}</span>
+                    <span>Capital raised: {formatProjectMoney(p.raisedFunding, p.currency)}</span>
                     <span>{raisedPct}%</span>
                   </div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
