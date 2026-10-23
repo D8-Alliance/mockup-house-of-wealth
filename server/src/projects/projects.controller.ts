@@ -296,7 +296,8 @@ export class ProjectsController {
 export { UpdateProjectDetailsDto };
 
 export interface CreateProjectDto {
-  projectCode: string;
+  /** Ignored: the server gives every new project its reference number (PRJ-<country>-XXXXXXXX). */
+  projectCode?: string;
   projectName: string;
   description: string;
   organisationId: string;

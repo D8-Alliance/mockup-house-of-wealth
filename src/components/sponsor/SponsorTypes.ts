@@ -82,6 +82,8 @@ export interface SponsorProject {
   code?: string;
   currency?: string;
   expectedYieldPct?: number;
+  /** Agreed asset partnerships; while any exist the name, category, akad and location cannot change. */
+  partnershipIds?: string[];
   title: string;
   orgName: string;
   orgType: SponsorOrgType;

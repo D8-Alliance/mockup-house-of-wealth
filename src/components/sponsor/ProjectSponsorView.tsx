@@ -22,6 +22,7 @@ import { authService } from '../../auth/services/authService';
 import { useRBAC } from '../../rbac/RBACContext';
 import { takeProjectRegistrationRequest } from './sponsorNavigation';
 import { ProjectProgressVisual } from '../projects/ProjectProgressVisual';
+import { OrganisationKybPanel } from '../../organisations/OrganisationKybPanel';
 
 const PROJECT_CATEGORIES: SponsorProject['category'][] = ['Green Energy & Solar', 'Agro-Industrial', 'SME Export', 'Commercial Real Estate', 'Social Waqf Housing'];
 
@@ -119,7 +120,8 @@ export const ProjectSponsorView: React.FC = () => {
           currency: item.countryNode?.currency || 'MYR',
           expectedYieldPct: item.expectedYieldPct === null || item.expectedYieldPct === undefined || item.expectedYieldPct === '' ? undefined : Number(item.expectedYieldPct),
           title: item.projectName,
-          orgName: item.organisationId,
+          orgName: item.organisation?.name || item.organisationId,
+          partnershipIds: item.assetEngagements?.map((engagement) => engagement.id) ?? [],
           orgType: item.sponsorEntityType || 'GLC / Sovereign-Backed Enterprise',
           category: mapProjectCategory(item.sector, item.projectName),
           shariahContract: mapShariahContract(item.proposedShariahContract),
@@ -179,7 +181,6 @@ export const ProjectSponsorView: React.FC = () => {
     if (!session) throw new Error('Your session has expired. Please sign in again.');
 
     const backendProject = await apiClient.createProject({
-      projectCode: `PDP-${Date.now()}`,
       projectName: newProj.title,
       description: newProj.description,
       organisationId: tenantContext.organisationId,
@@ -575,12 +576,23 @@ export const ProjectSponsorView: React.FC = () => {
             </div>
           </div>
         </div>
-      ) : (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm text-xs text-slate-500">
-          <p className="font-semibold text-slate-800 dark:text-slate-200 mb-1">Module Active for Selected Sponsor Entity</p>
-          <p>Please select a project from "My Projects" tab to manage campaign details, asset registration tokens, or team permissions.</p>
+      ) : activeTab === 'pdp-dossier' ? (
+        <div className="space-y-4">
+          {!pdpApp && (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm text-xs text-slate-500 space-y-2">
+              <p className="font-semibold text-slate-800 dark:text-slate-200">No PDP application for {organisationName || 'your organisation'} yet</p>
+              <p>Register as a project delivery partner (PDP) to deliver projects and take part in asset partnerships. A KYB reviewer of your country checks the application.</p>
+              <button type="button" onClick={() => setIsPdpOnboardingModalOpen(true)} className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold cursor-pointer">Register as PDP</button>
+            </div>
+          )}
+          <OrganisationKybPanel />
         </div>
-      )}
+      ) : activeTab === 'settings' ? (
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm text-xs text-slate-500">
+          <p className="font-semibold text-slate-800 dark:text-slate-200 mb-1">PDP settings</p>
+          <p>Not available yet. Your organisation's registration details and verification are under PDP KYB Profile &amp; UBOs.</p>
+        </div>
+      ) : null}
 
       {/* PDP Modals */}
       <PDPRegistrationModal

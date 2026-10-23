@@ -10,6 +10,11 @@ import { assertProjectUnlocked, hasCurrentFinalApproval, isProjectLocked, REOPEN
 import { formatLocalDateTime } from '../tenancy/country-time';
 import { inspectDocument, sha256Hex, withStoredChecks } from './document-integrity';
 import { BadRequestException } from '@nestjs/common';
+import { randomBytes } from 'crypto';
+
+/** Fields an accepted asset partnership relies on: its agreement names the project, its akad and where it is. */
+export const PARTNERSHIP_FIXED_FIELDS = ['projectName', 'sector', 'proposedShariahContract', 'location'] as const;
+const PARTNERSHIP_LOCKING = ['ACCEPTED', 'APPROVED'];
 import pdfParse from 'pdf-parse';
 import * as XLSX from 'xlsx';
 import { Receipt } from '../billing/receipt-pdf';
@@ -72,6 +77,8 @@ export class ProjectsService {
       include: {
         countryNode: { select: { currency: true } },
         projectSponsor: { select: { name: true } },
+        organisation: { select: { name: true } },
+        assetEngagements: { where: { status: { in: PARTNERSHIP_LOCKING } }, select: { id: true } },
       },
     });
     return Promise.all(projects.map((project) => this.ensureMilestones(project)));
@@ -578,6 +585,12 @@ export class ProjectsService {
       expectedYieldPct: dto.expectedYieldPct, tenureMonths: dto.tenureMonths, location: text(dto.location),
     }).filter(([, value]) => value !== undefined && value !== ''));
     if (!Object.keys(changes).length) throw new BadRequestException('Nothing to change.');
+    // Once an asset owner and the project agreed terms, the partnership and its agreement refer to this project as it was.
+    const fixed = PARTNERSHIP_FIXED_FIELDS.filter((field) => field in changes && String(changes[field] ?? '') !== String((project as Record<string, unknown>)[field] ?? ''));
+    if (fixed.length) {
+      const partnerships = await this.prisma.assetEngagement.findMany({ where: { projectId, status: { in: PARTNERSHIP_LOCKING } }, select: { id: true } });
+      if (partnerships.length) throw new ConflictException(`The project's name, sector, Shariah contract and location are fixed: asset partnership ${partnerships.map((item) => item.id).join(', ')} was agreed on them. Register a new project for a different venture.`);
+    }
     const updated = await this.prisma.project.update({ where: { projectId }, data: changes });
     const before = Object.fromEntries(Object.keys(changes).map((key) => [key, String((project as Record<string, unknown>)[key] ?? '')]));
     await this.audit.recordActor(user, { action: 'project.update', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { fields: Object.keys(changes), before } });
@@ -597,7 +610,7 @@ export class ProjectsService {
 
     const project = await this.prisma.project.create({
       data: {
-        projectCode: dto.projectCode,
+        projectCode: `PRJ-${dto.countryNodeId.replace(/^CN-/, '')}-${randomBytes(4).toString('hex').toUpperCase()}`,
         projectName: dto.projectName,
         description: dto.description,
         organisationId: dto.organisationId,

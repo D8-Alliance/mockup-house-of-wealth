@@ -42,4 +42,21 @@ describe('agreement review evidence', () => {
     prisma.contract.findUnique.mockResolvedValueOnce(sentBack).mockResolvedValueOnce(sentBack);
     await expect(service.review(amran, 'AGR-1', { reviewStatus: 'LEGAL_REVIEW', note: 'Version 2.' })).resolves.toBeDefined();
   });
+
+  it('lets both sides sign a partnership agreement only once the Shariah board approved the project', async () => {
+    const amran = { ...legal, userId: 'USR-AO', name: 'Amran', role: 'Asset Owner' as const, organisationId: 'ORG-AO' };
+    const parties = [{ id: 'P1', role: 'OWNER', organisationId: 'ORG-AO', displayName: 'Al Hidayah', consentedVersion: 1, signedAt: null }, { id: 'P2', role: 'PDP', organisationId: 'ORG-PDP', displayName: 'FELCRA', consentedVersion: 1, signedAt: null }];
+    const approved = { ...contract, status: 'APPROVED', engagementId: 'ENG-1', parties };
+    prisma.contract.findUnique.mockResolvedValue(approved);
+    prisma.assetEngagement.findUnique.mockResolvedValue({ project: { projectName: 'Durian Jengka', status: 'DRAFT' } });
+    const draftProject = await service.get(amran, 'AGR-1');
+    expect(draftProject.partyActions).toEqual([]);
+    expect(draftProject.signingBlocked).toMatch('must be approved by the Shariah board');
+    await expect(service.partyAction(amran, 'AGR-1', { action: 'SIGN', signatureName: 'Amran' })).rejects.toThrow('must be approved by the Shariah board');
+    prisma.assetEngagement.findUnique.mockResolvedValue({ project: { projectName: 'Durian Jengka', status: 'APPROVED' } });
+    const approvedProject = await service.get(amran, 'AGR-1');
+    expect(approvedProject.signingBlocked).toBeNull();
+    expect(approvedProject.partyActions).toEqual([{ action: 'SIGN', label: 'Sign the agreement' }]);
+    prisma.contract.findUnique.mockResolvedValue(contract);
+  });
 });

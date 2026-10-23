@@ -282,6 +282,9 @@ export const AgreementReviewPanel: React.FC = () => {
             </div>
           )}
 
+          {selected.signingBlocked && selected.status === 'APPROVED' && (
+            <p className="rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 p-3 text-xs font-semibold text-amber-800 dark:text-amber-300">{selected.signingBlocked}</p>
+          )}
           {partyActions.length > 0 && (
             <div className="rounded-xl border border-emerald-300 dark:border-emerald-800 p-4 space-y-2 text-xs">
               {partyActions.some((item) => item.action === 'CONSENT') && (

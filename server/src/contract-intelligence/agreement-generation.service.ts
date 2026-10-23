@@ -28,6 +28,9 @@ type Section = { number: string; title: string; paragraphs: string[] };
 
 const labels: Record<AgreementType, string> = { IJARAH: 'Ijarah Agreement', MUSHARAKAH: 'Musharakah Joint Venture Agreement', MUDARABAH: 'Mudarabah Agreement', WAKALAH: 'Wakalah Agreement', SUKUK: 'Sukuk Structure Document' };
 
+/** Project statuses reached only after the Shariah board approved the project. */
+const PROJECT_APPROVED_STATUSES = ['APPROVED', 'FUNDING_OPEN', 'POOLING', 'FUNDED', 'EXECUTION', 'PROFIT_DISTRIBUTION', 'COMPLETED'];
+
 @Injectable()
 export class AgreementGenerationService {
   private readonly logger = new Logger(AgreementGenerationService.name);
@@ -115,6 +118,7 @@ export class AgreementGenerationService {
   async partyAction(actor: AuthenticatedUser, id: string, input: AgreementPartyActionDto) {
     const contract = await this.get(actor, id);
     const party = contract.parties.find((item) => item.role && item.organisationId === actor.organisationId);
+    if (input.action === 'SIGN' && contract.signingBlocked) throw new ForbiddenException(contract.signingBlocked);
     if (!party || !contract.partyActions.some((item) => item.action === input.action)) {
       throw new BadRequestException(input.action === 'CONSENT' ? 'There is no new version for your side to agree to.' : 'This agreement is not waiting for your signature.');
     }
@@ -155,7 +159,7 @@ export class AgreementGenerationService {
       // Sealing runs in the background; if it fails, the integrity sweep retries a minute after a restart and every six hours.
       if (executed && this.signing) void this.signing.finalize(id).catch((error) => this.logger.warn(`Agreement ${id} not sealed yet: ${error instanceof Error ? error.message : String(error)}`));
       for (const recipient of contract.parties.filter((item) => item.role && item.organisationId && (executed || item.id !== party.id))) {
-        await this.notifyOrganisation(recipient.organisationId!, contract.countryNodeId, id, executed ? 'executed' : `signed-${party.role}`, executed ? 'Agreement signed by both sides' : 'Agreement: the other side signed', executed ? `${contract.contractNumber} is signed by both sides and now in force.` : `The ${sideName} signed ${contract.contractNumber}. Sign it to put it in force.`);
+        await this.notifyOrganisation(recipient.organisationId!, contract.countryNodeId, id, executed ? 'executed' : `signed-${party.role}`, executed ? 'Agreement signed by both sides' : 'Agreement: the other side signed', executed ? `${contract.contractNumber} is signed by both sides. Next: pay the stamp duty (LHDN STAMPS) within 30 days; the agreement takes effect as written in it.` : `The ${sideName} signed ${contract.contractNumber}. Sign it to complete the agreement.`);
       }
     }
     return this.get(actor, id);
@@ -166,7 +170,17 @@ export class AgreementGenerationService {
     if (!contract) throw new NotFoundException('Agreement not found');
     if (!canSeeAgreement(actor, contract)) throw new ForbiddenException('Agreement is outside your scope');
     const shape = { ...contract, latestVersion: contract.versions[0]?.version ?? 1, latestVersionAt: contract.versions[0]?.createdAt };
-    return { ...contract, latestVersion: shape.latestVersion, latestVersionAt: shape.latestVersionAt, availableActions: availableActions(actor, shape), partyActions: partyActions(actor, shape) };
+    const signingBlocked = await this.signingBlocker(contract.engagementId);
+    const actions = partyActions(actor, shape).filter((item) => !(signingBlocked && item.action === 'SIGN'));
+    return { ...contract, latestVersion: shape.latestVersion, latestVersionAt: shape.latestVersionAt, availableActions: availableActions(actor, shape), partyActions: actions, signingBlocked };
+  }
+
+  /** Why a partnership agreement cannot be signed yet: its project still needs the Shariah board's approval. */
+  private async signingBlocker(engagementId: string | null): Promise<string | null> {
+    if (!engagementId) return null;
+    const engagement = await this.prisma.assetEngagement.findUnique({ where: { id: engagementId }, select: { project: { select: { projectName: true, status: true } } } });
+    if (!engagement || PROJECT_APPROVED_STATUSES.includes(engagement.project.status)) return null;
+    return `The project "${engagement.project.projectName}" must be approved by the Shariah board before this agreement is signed. Both sides can agree to the text and Legal and Shariah can review it meanwhile.`;
   }
 
   /** Agreements the actor can see, newest first, each with the actions the actor can take now. */
@@ -270,6 +284,7 @@ export class AgreementGenerationService {
   async issueSignCode(actor: AuthenticatedUser, id: string) {
     if (!this.signing) throw new BadRequestException('Signing codes are not available.');
     const contract = await this.get(actor, id);
+    if (contract.signingBlocked) throw new ForbiddenException(contract.signingBlocked);
     if (!contract.partyActions.some((item) => item.action === 'SIGN')) throw new BadRequestException('This agreement is not waiting for your signature.');
     const party = contract.parties.find((item) => item.role && item.organisationId === actor.organisationId);
     return this.signing.issueCode(actor, { id, contractNumber: contract.contractNumber, version: contract.latestVersion, side: party?.role ?? null, organisationName: party?.displayName });

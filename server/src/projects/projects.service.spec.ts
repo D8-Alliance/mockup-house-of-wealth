@@ -196,4 +196,12 @@ describe('ProjectsService: a sponsor corrects a draft and submits it', () => {
     prismaMock.project.findUnique.mockResolvedValue(project('DUE_DILIGENCE'));
     await expect(service.updateStatus('PRJ-1', { status: 'REJECTED' }, sponsor)).rejects.toBeInstanceOf(ForbiddenException);
   });
+
+  it('fixes the name, sector, akad and location once an asset partnership was agreed on them', async () => {
+    prismaMock.project.findUnique.mockResolvedValue({ ...project('DRAFT'), projectName: 'Oil palm replanting', location: 'Semenyih' });
+    (prismaMock as Record<string, unknown>).assetEngagement = { findMany: jest.fn().mockResolvedValue([{ id: 'ENG-MYS-1' }]) };
+    await expect(service.updateDetails('PRJ-1', { projectName: 'Durian Jengka' }, sponsor)).rejects.toThrow('asset partnership ENG-MYS-1 was agreed on them');
+    prismaMock.project.update.mockResolvedValue(project('DRAFT'));
+    await expect(service.updateDetails('PRJ-1', { description: 'More detail on the planting plan.' }, sponsor)).resolves.toBeDefined();
+  });
 });

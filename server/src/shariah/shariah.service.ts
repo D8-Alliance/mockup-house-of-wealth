@@ -30,7 +30,7 @@ export class ShariahService {
 
   async notifications(user: AuthenticatedUser) {
     return this.prisma.notification.findMany({
-      where: { recipientUserId: user.userId, organisationId: user.organisationId, countryNodeId: user.countryNodeId },
+      where: { recipientUserId: user.userId, organisationId: user.organisationId, countryNodeId: user.countryNodeId, type: 'SHARIAH_REVIEW' },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });

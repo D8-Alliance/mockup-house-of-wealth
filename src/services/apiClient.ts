@@ -1328,6 +1328,9 @@ export interface BackendProject {
   location?: string | null;
   countryNode?: { currency: string };
   projectSponsor?: { name: string };
+  organisation?: { name: string };
+  /** Asset partnerships agreed for this project (accepted or approved); they fix its name, sector, akad and location. */
+  assetEngagements?: Array<{ id: string }>;
   milestones?: BackendProjectMilestone[];
   documents?: BackendProjectDocument[];
 }
@@ -1459,7 +1462,8 @@ export interface BackendDocumentAnalysis {
 }
 
 export interface CreateProjectInput {
-  projectCode: string;
+  /** Ignored: the server gives the reference number. */
+  projectCode?: string;
   projectName: string;
   description: string;
   organisationId: string;
@@ -1669,6 +1673,8 @@ export interface AgreementSummary {
   availableActions: AgreementAvailableAction[];
   /** Partnership agreements: what the viewer's side can do (agree to the latest version, sign). */
   partyActions?: Array<{ action: AgreementPartyAction; label: string }>;
+  /** Why the parties cannot sign yet (the project awaits the Shariah board's approval). */
+  signingBlocked?: string | null;
   engagementId?: string | null;
   latestVersion?: number;
   parties?: AgreementPartyRow[];

@@ -15,6 +15,7 @@ interface ProjectRegistrationModalProps {
 }
 
 export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> = ({ isOpen, onClose, onSubmitProject, defaultOrgName = '', editing = null, currency = 'MYR' }) => {
+  const fixedByPartnership = Boolean(editing?.partnershipIds?.length);
   const [title, setTitle] = useState('');
   const [orgName, setOrgName] = useState(defaultOrgName);
   useEffect(() => { if (defaultOrgName) setOrgName((current) => current || defaultOrgName); }, [defaultOrgName]);
@@ -113,6 +114,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
           <div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-white">{editing ? 'Edit Draft Project' : 'Register New Sponsor Project'}</h3>
             <p className="text-xs text-slate-500">{editing ? 'Correct the details while the project is a draft. Changes are recorded in the audit trail.' : 'Submit capital project for D-8 Shariah tokenization & investor pooling'}</p>
+            {fixedByPartnership && <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400">Asset partnership {editing?.partnershipIds?.join(', ')} was agreed on this project, so its title, category, Shariah contract and location are fixed. Register a new project for a different venture.</p>}
           </div>
         </div>
 
@@ -122,6 +124,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
             <input
               type="text"
               value={title}
+              disabled={fixedByPartnership}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. RISDA Sustainable Latex Processing & Green Energy Facility"
               className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -159,6 +162,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
               <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Category</label>
               <select
                 value={category}
+                disabled={fixedByPartnership}
                 onChange={(e) => setCategory(e.target.value as any)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
               >
@@ -173,6 +177,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
               <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">Shariah Contract Structure</label>
               <select
                 value={shariahContract}
+                disabled={fixedByPartnership}
                 onChange={(e) => setShariahContract(e.target.value as any)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
               >
@@ -230,6 +235,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
             <input
               type="text"
               value={location}
+              disabled={fixedByPartnership}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. Kuantan, Pahang"
               maxLength={200}

@@ -46,7 +46,8 @@ export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> =
   const activeReview = submittedReview || projectReviews.find((review) => review.projectId === selectedProjectId && ['PROPOSED', 'UNDER_REVIEW', 'CHANGES_REQUESTED'].includes(review.status));
   const currency = project?.countryNode?.currency || 'MYR';
   const capital = project ? Number(project.fundingRequired) : 0;
-  const sponsorName = project?.projectSponsor?.name || 'Loading...';
+  // The sponsor is the organisation; the person who registered the project represents it.
+  const sponsorName = !project ? 'Loading...' : project.organisation?.name ? `${project.organisation.name}${project.projectSponsor?.name ? ` (represented by ${project.projectSponsor.name})` : ''}` : project.projectSponsor?.name || '';
   const templateLabels: Record<NonNullable<ContractDraftParams['templateKey']>, string> = { ijarah: 'Ijarah', musharakah: 'Musharakah', mudarabah: 'Mudarabah', wakalah: 'Wakalah', sukuk: 'Sukuk' };
   const templateSections: Record<string, string[]> = {
     Ijarah: ['Transaction Overview', 'Parties and Roles', 'Underlying Asset and Lease', 'Rental and Payment Terms', 'Security and Covenants', 'Shariah Conditions', 'Conditions Precedent', 'Risks and Disclosures', 'Approvals and Signatures'],
@@ -69,6 +70,14 @@ export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> =
     ...(templateSections[selectedTemplateLabel] || []).flatMap((section, index) => [`${index + 1}. ${section}`, 'To be completed and verified by the sponsor, legal counsel, financial adviser and Shariah adviser.', '']),
     'IMPORTANT: This sandbox draft is synthetic and is not an offer, legal advice, investment advice, Shariah approval or evidence of project viability.',
   ].join('\n');
+
+  // The term sheet starts from the project's own financing structure; the sponsor can still pick another.
+  useEffect(() => {
+    const contract = project?.proposedShariahContract.toLowerCase() ?? '';
+    const key = (Object.keys(templateLabels) as Array<NonNullable<ContractDraftParams['templateKey']>>).find((item) => contract.includes(item));
+    if (key) setSelectedTemplate(key);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.projectId, project?.proposedShariahContract]);
 
   const handleGenerateDraft = async () => {
     if (!project) return;
