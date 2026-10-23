@@ -78,14 +78,14 @@ export class AgreementGenerationService {
           { partyType: ijarah ? 'LESSOR' : 'PARTNER', role: 'OWNER', displayName: nameOf(engagement.ownerOrganisationId), organisationId: engagement.ownerOrganisationId, ...(side === 'OWNER' ? consent(1) : {}) },
           { partyType: ijarah ? 'LESSEE' : 'PARTNER', role: 'PDP', displayName: nameOf(engagement.pdpOrganisationId), organisationId: engagement.pdpOrganisationId, ...(side === 'PDP' ? consent(1) : {}) },
         ] },
-        events: { create: { eventType: 'DRAFT_CREATED', toStatus: 'DRAFT', actorId: actor.userId, metadata: { contractType: input.contractType, engagementId, role: actor.role, note: `Drafted by the ${side === 'OWNER' ? 'asset owner' : 'delivery partner'}` } } },
+        events: { create: { eventType: 'DRAFT_CREATED', toStatus: 'DRAFT', actorId: actor.userId, metadata: { contractType: input.contractType, engagementId, role: actor.role, byName: actor.name, version: 1, note: `Drafted by the ${side === 'OWNER' ? 'asset owner' : 'delivery partner'}` } } },
       } });
     } else {
       version = (existing.versions[0]?.version ?? 0) + 1;
       contract = await this.prisma.$transaction(async (tx) => {
         await tx.contractVersion.create({ data: { contractId: existing.id, version, content, status: 'DRAFT', createdBy: actor.userId } });
         await tx.contractParty.updateMany({ where: { contractId: existing.id, role: side }, data: consent(version) });
-        await tx.contractEvent.create({ data: { contractId: existing.id, eventType: 'REVISED', fromStatus: existing.status, toStatus: existing.status, actorId: actor.userId, metadata: { version, role: actor.role, note: `Version ${version} by the ${side === 'OWNER' ? 'asset owner' : 'delivery partner'}` } } });
+        await tx.contractEvent.create({ data: { contractId: existing.id, eventType: 'REVISED', fromStatus: existing.status, toStatus: existing.status, actorId: actor.userId, metadata: { version, role: actor.role, byName: actor.name, note: `Version ${version} by the ${side === 'OWNER' ? 'asset owner' : 'delivery partner'}` } } });
         return tx.contract.update({ where: { id: existing.id }, data: { wizardData: input.wizardData as object, complianceReport: compliance as object, lastGeneratedAt: now } });
       });
     }
@@ -101,18 +101,12 @@ export class AgreementGenerationService {
     const clauses = await this.retriever.retrieveClauses(actor, { contractType: input.contractType, jurisdiction: input.jurisdiction, industry: this.value(input.wizardData, 'industry') });
     const rules = await this.retriever.retrieveShariahRules(actor, { contractType: input.contractType, jurisdiction: input.jurisdiction });
     const compliance = this.checkCompliance(input.contractType, input.wizardData);
-    // The agreement text comes from the wizard facts and approved clauses; AI only adds a drafting
-    // note. So an unavailable model or an empty credit balance must not block the draft.
-    let aiSections: { output?: { recommendation?: unknown } | null } = { output: null };
-    let aiSkippedReason: string | null = null;
-    try {
-      aiSections = await this.ai.generateAgreementSections(actor, { contractType: input.contractType, jurisdiction: input.jurisdiction, jurisdictionProfile: getJurisdictionProfile(input.jurisdiction), projectId: input.projectId, wizardData: input.wizardData, clauses: clauses.clauses, shariahRules: rules });
-    } catch (error) {
-      aiSkippedReason = error instanceof Error ? error.message : 'AI drafting failed';
-    }
+    // The text comes from the negotiated terms, the clause library and the rules only, so drafting takes
+    // seconds and costs no AI credits. AI help is a separate step (the gap scan) for those who want it.
+    const aiSkippedReason = 'Not used: the agreement text is assembled from the terms and approved clauses.';
     const { parties, deal } = await this.agreementParties(input);
     const { front, sections } = buildAgreement({ contractType: input.contractType, title: labels[input.contractType], projectName: input.projectName, jurisdiction: input.jurisdiction, wizardData: input.wizardData, parties, deal }, clauses.clauses, rules);
-    const content = { front, sections, variables: this.variables(input.wizardData), approvedClauseIds: clauses.clauses.map((item) => item.id), shariahRuleIds: rules.map((item) => item.id), aiOutput: aiSections.output || null, aiSkippedReason } as unknown as Prisma.InputJsonValue;
+    const content = { front, sections, variables: this.variables(input.wizardData), approvedClauseIds: clauses.clauses.map((item) => item.id), shariahRuleIds: rules.map((item) => item.id), aiOutput: null, aiSkippedReason } as unknown as Prisma.InputJsonValue;
     return { content, compliance, sections, clauses: clauses.clauses, rules, aiSkippedReason };
   }
 
@@ -170,7 +164,7 @@ export class AgreementGenerationService {
     if (!contract) throw new NotFoundException('Agreement not found');
     if (!canSeeAgreement(actor, contract)) throw new ForbiddenException('Agreement is outside your scope');
     const shape = { ...contract, latestVersion: contract.versions[0]?.version ?? 1, latestVersionAt: contract.versions[0]?.createdAt };
-    return { ...contract, latestVersion: shape.latestVersion, availableActions: availableActions(actor, shape), partyActions: partyActions(actor, shape) };
+    return { ...contract, latestVersion: shape.latestVersion, latestVersionAt: shape.latestVersionAt, availableActions: availableActions(actor, shape), partyActions: partyActions(actor, shape) };
   }
 
   /** Agreements the actor can see, newest first, each with the actions the actor can take now. */
@@ -231,6 +225,17 @@ export class AgreementGenerationService {
       return tx.contract.findUniqueOrThrow({ where: { id } });
     });
     await this.auditRecord(actor, 'agreement.review_status_changed', id, { fromStatus: contract.status, toStatus: input.reviewStatus, ...evidence });
+    if (this.notifications && (input.reviewStatus === 'LEGAL_REVIEW' || input.reviewStatus === 'SHARIAH_REVIEW')) {
+      const roles = (input.reviewStatus === 'LEGAL_REVIEW' ? ['Legal_Officer'] : ['Shariah_Reviewer', 'Shariah_Advisor', 'Shariah_Committee']) as PrismaUserRole[];
+      const partyOrganisations = [contract.organisationId, ...contract.parties.map((party) => party.organisationId).filter((id): id is string => Boolean(id))];
+      const reviewers = await this.prisma.userRoleAssignment.findMany({ where: { role: { in: roles }, isActive: true, countryNodeId: contract.countryNodeId, organisationId: { notIn: partyOrganisations } }, select: { userId: true, organisationId: true } });
+      const step = input.reviewStatus === 'LEGAL_REVIEW' ? 'Legal' : 'Shariah';
+      await Promise.all([...new Map(reviewers.map((reviewer) => [`${reviewer.userId}|${reviewer.organisationId}`, reviewer])).values()].map((reviewer) => this.notifications?.enqueue({
+        recipientUserId: reviewer.userId, organisationId: reviewer.organisationId, countryNodeId: contract.countryNodeId, type: 'AGREEMENT',
+        title: `Agreement for ${step} review`, message: `${contract.contractNumber} (${contract.title ?? contract.contractType}, version ${contract.latestVersion}) is waiting for your ${step} review.`,
+        resourceType: 'Contract', resourceId: id, dedupeKey: `agreement:${id}:${input.reviewStatus}:${updated.updatedAt.toISOString()}:${reviewer.userId}`,
+      }).catch(() => undefined)));
+    }
     if (input.reviewStatus === 'APPROVED' || input.reviewStatus === 'CHANGES_REQUESTED') {
       for (const party of contract.parties.filter((item) => item.role && item.organisationId)) {
         await this.notifyOrganisation(party.organisationId!, contract.countryNodeId, id, `review-${input.reviewStatus}-${updated.updatedAt.toISOString()}`, input.reviewStatus === 'APPROVED' ? 'Agreement approved: ready to sign' : 'Agreement: changes requested', input.reviewStatus === 'APPROVED' ? `${contract.contractNumber} passed legal and Shariah review. Each side now signs it.` : `${contract.contractNumber}: ${input.note ?? 'changes were requested'}. Either side drafts a revision, then both agree again.`);
@@ -402,7 +407,7 @@ export class AgreementGenerationService {
       document.on('end', () => resolve(Buffer.concat(chunks)));
       document.on('error', reject);
       drawAgreement(document, layout);
-      drawFooters(document, layout.contractNumber);
+      drawFooters(document, layout.contractNumber, layout.status === 'Executed' ? undefined : 'DRAFT');
       document.end();
     });
   }

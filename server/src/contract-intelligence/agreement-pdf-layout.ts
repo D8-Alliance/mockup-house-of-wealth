@@ -151,8 +151,8 @@ export function drawAgreement(doc: PDFKit.PDFDocument, layout: AgreementLayout):
   }
 }
 
-/** "Document No. … | p. X of Y" at the foot of every page. */
-export function drawFooters(doc: PDFKit.PDFDocument, contractNumber: string): void {
+/** "Document No. … | p. X of Y" at the foot of every page, and a DRAFT watermark across it until the agreement is executed. */
+export function drawFooters(doc: PDFKit.PDFDocument, contractNumber: string, watermark?: string): void {
   const range = doc.bufferedPageRange();
   const left = doc.page.margins.left;
   const width = doc.page.width - left - doc.page.margins.right;
@@ -161,6 +161,12 @@ export function drawFooters(doc: PDFKit.PDFDocument, contractNumber: string): vo
     const bottom = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
     doc.font('Helvetica').fontSize(8).fillColor(GREY).text(`${contractNumber}  |  p. ${index + 1} of ${range.count}`, left, doc.page.height - 36, { width, align: 'center', lineBreak: false });
+    if (watermark) {
+      doc.save();
+      doc.rotate(-45, { origin: [doc.page.width / 2, doc.page.height / 2] });
+      doc.font('Helvetica-Bold').fontSize(110).fillColor('#cc0000').opacity(0.12).text(watermark, 0, doc.page.height / 2 - 55, { width: doc.page.width, align: 'center', lineBreak: false });
+      doc.restore();
+    }
     doc.page.margins.bottom = bottom;
   }
 }

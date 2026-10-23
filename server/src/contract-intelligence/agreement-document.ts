@@ -58,7 +58,12 @@ const text = (data: Record<string, unknown>, key: string) => {
   return value == null ? '' : Array.isArray(value) ? value.join(', ') : String(value).trim();
 };
 
-const money = (amount: number | undefined, currency = 'MYR') => (amount === undefined ? undefined : `${currency === 'MYR' ? 'RM' : currency} ${amount.toLocaleString('en-MY', { maximumFractionDigits: 2 })}`);
+/** "RM 450,000.00", as Malaysian agreements write amounts. */
+const money = (amount: number | undefined, currency = 'MYR') => (amount === undefined ? undefined : `${currency === 'MYR' ? 'RM' : currency} ${amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+/** "1 November 2026" from "2026-11-01"; anything else is left as it is. */
+export const longDate = (iso: string) => (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${Number(iso.slice(8, 10))} ${MONTHS.at(Number(iso.slice(5, 7)) - 1)} ${iso.slice(0, 4)}` : iso);
 
 /** "1.1 text" lines from a list, numbered under a clause. */
 const numbered = (clause: string, lines: string[]) => lines.map((line, index) => `${clause}.${index + 1} ${line}`);
@@ -90,7 +95,7 @@ export function buildAgreement(input: AgreementInput, clauses: LibraryClause[], 
   const first = a?.defined ?? 'the First Party';
   const second = b?.defined ?? 'the Second Party';
   const deal = input.deal ?? null;
-  const period = deal ? `${deal.startDate} to ${deal.endDate}` : '';
+  const period = deal ? `${longDate(deal.startDate)} to ${longDate(deal.endDate)} (both dates inclusive)` : '';
 
   const front: AgreementFront = {
     title: input.title,
@@ -357,7 +362,7 @@ function schedule1(input: AgreementInput, w: (key: string) => string, first: str
   lines.push(`Project: ${input.projectName}`);
   if (deal) {
     lines.push(`Asset: ${deal.assetName}`);
-    lines.push(`Period: ${deal.startDate} to ${deal.endDate}`);
+    lines.push(`Period: ${longDate(deal.startDate)} to ${longDate(deal.endDate)} (both dates inclusive)`);
     if (input.contractType === 'MUSHARAKAH') {
       lines.push(`Agreed value of the Asset (Capital of ${first}): ${money(deal.terms.contributionValue, deal.terms.currency) ?? '-'}`);
       lines.push(`Capital of ${second}: ${money(deal.terms.pdpContributionValue, deal.terms.currency) ?? '-'}`);

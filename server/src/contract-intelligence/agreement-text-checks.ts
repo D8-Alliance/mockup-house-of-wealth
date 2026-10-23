@@ -1,3 +1,4 @@
+import { longDate } from './agreement-document';
 export type TextCheckStatus = 'PASS' | 'WARN' | 'FAIL' | 'INFO';
 export interface AgreementTextCheck { key: string; label: string; status: TextCheckStatus; detail: string }
 
@@ -50,7 +51,8 @@ export function agreementTextChecks(contractType: string, sections: Section[], p
       if (terms.contributionValue !== undefined && !amountForms(terms.contributionValue).some((form) => text.includes(form))) missing.push(`the asset's agreed value of ${terms.contributionValue.toLocaleString('en-MY')}`);
       if (terms.pdpContributionValue !== undefined && terms.pdpContributionValue > 0 && !amountForms(terms.pdpContributionValue).some((form) => text.includes(form))) missing.push(`the delivery partner's capital of ${terms.pdpContributionValue.toLocaleString('en-MY')}`);
     } else if (terms.rentAmount !== undefined && !amountForms(terms.rentAmount).some((form) => text.includes(form))) missing.push(`the agreed rent of ${terms.rentAmount.toLocaleString('en-MY')}`);
-    if (!text.includes(partnership.startDate) || !text.includes(partnership.endDate)) missing.push(`the period ${partnership.startDate} to ${partnership.endDate}`);
+    const dateIn = (iso: string) => text.includes(iso) || text.includes(longDate(iso));
+    if (!dateIn(partnership.startDate) || !dateIn(partnership.endDate)) missing.push(`the period ${partnership.startDate} to ${partnership.endDate}`);
     add('partnership-terms', 'Carries the approved partnership terms', missing.length ? 'WARN' : 'PASS', missing.length ? `Not found in the text: ${missing.join('; ')}. The agreement should match what Legal and Shariah approved, or explain the change.` : 'The approved terms appear in the text.');
   }
   return checks;

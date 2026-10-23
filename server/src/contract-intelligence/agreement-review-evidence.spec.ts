@@ -33,4 +33,13 @@ describe('agreement review evidence', () => {
     await service.review(legal, 'AGR-1', { reviewStatus: 'CHANGES_REQUESTED', note: 'Fill the blanks.', aiRunId: 'RUN-2' });
     expect(tx.contractEvent.create.mock.calls[0][0].data.metadata).toMatchObject({ aiAssisted: { runId: 'RUN-2' } });
   });
+
+  it('resubmits a partnership agreement once a new version follows the changes request', async () => {
+    const amran = { ...legal, userId: 'USR-AO', name: 'Amran', role: 'Asset Owner' as const, organisationId: 'ORG-AO' };
+    const parties = [{ id: 'P1', role: 'OWNER', organisationId: 'ORG-AO', displayName: 'Al Hidayah', consentedVersion: 2, signedAt: null }, { id: 'P2', role: 'PDP', organisationId: 'ORG-PDP', displayName: 'FELCRA', consentedVersion: 2, signedAt: null }];
+    const sentBack = { ...contract, status: 'CHANGES_REQUESTED', parties, approvals: [...contract.approvals, { approverId: 'USR-LEGAL', status: 'CHANGES_REQUESTED', decidedAt: new Date('2026-10-23T00:56:00Z') }],
+      versions: [{ ...contract.versions[0], id: 'V2', version: 2, createdAt: new Date('2026-10-23T01:04:00Z'), content: { sections: [{ number: '4', title: 'Profit and loss', paragraphs: ['Owner 60% of profit. Losses are borne in proportion to capital. No partner guarantees a return.'] }], approvedClauseIds: ['C1'], shariahRuleIds: ['R1'] } }] };
+    prisma.contract.findUnique.mockResolvedValueOnce(sentBack).mockResolvedValueOnce(sentBack);
+    await expect(service.review(amran, 'AGR-1', { reviewStatus: 'LEGAL_REVIEW', note: 'Version 2.' })).resolves.toBeDefined();
+  });
 });

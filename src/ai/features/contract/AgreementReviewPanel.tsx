@@ -16,6 +16,14 @@ const STATUS_LABELS: Record<AgreementStatus, string> = {
   EXECUTION: 'Executed',
 };
 
+/** Events that are not a status change: drafting, revising, agreeing and signing by the parties. */
+const EVENT_LABELS: Record<string, (version?: number) => string> = {
+  DRAFT_CREATED: () => 'Drafted (version 1)',
+  REVISED: (version) => `Version ${version ?? ''} drafted`,
+  PARTY_CONSENTED: (version) => `Agreed to version ${version ?? ''}`,
+  PARTY_SIGNED: () => 'Signed',
+};
+
 const STATUS_STYLES: Record<AgreementStatus, string> = {
   DRAFT: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200',
   LEGAL_REVIEW: 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
@@ -370,7 +378,7 @@ export const AgreementReviewPanel: React.FC = () => {
               {selected.events.map((event) => (
                 <li key={event.id} className="flex flex-wrap gap-x-2 text-slate-600 dark:text-slate-300">
                   <span className="text-slate-400 whitespace-nowrap">{formatDateTimeWithZone(event.createdAt)}</span>
-                  <span className="font-semibold">{event.toStatus ? STATUS_LABELS[event.toStatus as AgreementStatus] ?? event.toStatus : event.eventType}</span>
+                  <span className="font-semibold">{EVENT_LABELS[event.eventType] ? EVENT_LABELS[event.eventType](event.metadata?.version) : event.toStatus ? STATUS_LABELS[event.toStatus as AgreementStatus] ?? event.toStatus : event.eventType}</span>
                   <span>by {event.metadata?.byName ?? event.actorId}{event.metadata?.role ? ` (${event.metadata.role})` : ''}</span>
                   {event.metadata?.note && <span className="italic">“{event.metadata.note}”</span>}
                   {event.metadata?.versionHash && <span className="font-mono text-[10px] text-slate-400" title={event.metadata.versionHash}>v{event.metadata.version} · {event.metadata.versionHash.slice(0, 10)}…</span>}
