@@ -7,7 +7,7 @@ export interface CompletionCertificate {
   version: number;
   versionSha256: string;
   completedAt: string;
-  signers: Array<{ side: string; organisation: string; name: string; typedSignature: string; signedAt: string; identity: string; code: string }>;
+  signers: Array<{ side: string; organisation: string; name: string; typedSignature: string; signedAt: string; identity: string; organisationCheck?: string; code: string }>;
   approvals: Array<{ step: string; by: string; at: string }>;
 }
 
@@ -43,7 +43,8 @@ export function renderSignedAgreementPdf(layout: AgreementLayout, certificate: C
       doc.moveDown(0.5).font('Helvetica-Bold').fontSize(10).fillColor('#000000').text(`${signer.side}: ${signer.organisation}`, left, doc.y, { width });
       row('Signed by', `${signer.name}, typed signature "${signer.typedSignature}"`);
       row('Signed at', signer.signedAt);
-      row('Identity', signer.identity);
+      row('Signer identity (KYC)', signer.identity);
+      if (signer.organisationCheck) row('Organisation (KYB)', signer.organisationCheck);
       row('One-time code', signer.code);
     }
     if (certificate.approvals.length) {

@@ -39,6 +39,7 @@ function memoryPrisma() {
       })),
     },
     kycApplication: { findFirst: jest.fn(async ({ where }) => (where.userId === 'USR-UMAR' ? { applicationNumber: 'KYC-MYS-0001' } : null)) },
+    pdpApplication: { findFirst: jest.fn(async () => null) },
     userRoleAssignment: { findMany: jest.fn(async () => [{ userId: 'USR-SYS-002', organisationId: 'ORG-D8', countryNodeId: 'CN-MYS' }]) },
   };
 }
@@ -47,6 +48,15 @@ describe('platform e-signature', () => {
   const audit = { recordActor: jest.fn(), record: jest.fn() };
   const env = { ...process.env };
   afterEach(() => { process.env = { ...env }; jest.restoreAllMocks(); });
+
+  it('asks for verified identities before a code is sent, when production requires them', async () => {
+    process.env.SIGNING_REQUIRE_VERIFIED_IDENTITY = 'true';
+    const prisma = memoryPrisma();
+    const service = new AgreementSigningService(prisma as never, audit as never);
+    const amran = { ...umar, userId: 'USR-AMRAN', name: 'Amran Zain' };
+    await expect(service.issueCode(amran, { id: 'AGR-1', contractNumber: 'HOF-1', version: 2, side: 'OWNER' })).rejects.toThrow('identity verification (KYC)');
+    await expect(service.issueCode(umar, { id: 'AGR-1', contractNumber: 'HOF-1', version: 2, side: 'PDP', organisationName: 'FELCRA' })).rejects.toThrow('KYB');
+  });
 
   it('sends a one-time code (shown on screen in test mode) and accepts it once, for this signer and version only', async () => {
     const prisma = memoryPrisma();

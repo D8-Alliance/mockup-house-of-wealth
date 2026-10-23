@@ -271,7 +271,8 @@ export class AgreementGenerationService {
     if (!this.signing) throw new BadRequestException('Signing codes are not available.');
     const contract = await this.get(actor, id);
     if (!contract.partyActions.some((item) => item.action === 'SIGN')) throw new BadRequestException('This agreement is not waiting for your signature.');
-    return this.signing.issueCode(actor, { id, contractNumber: contract.contractNumber, version: contract.latestVersion });
+    const party = contract.parties.find((item) => item.role && item.organisationId === actor.organisationId);
+    return this.signing.issueCode(actor, { id, contractNumber: contract.contractNumber, version: contract.latestVersion, side: party?.role ?? null, organisationName: party?.displayName });
   }
 
   /** The sealed, time-stamped PDF of an executed agreement, for whoever can see the agreement. */
