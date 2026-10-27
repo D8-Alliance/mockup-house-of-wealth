@@ -269,6 +269,8 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
   },
   'Compliance Officer': {
     dashboard: ['read'],
+    // Read the submitted projects of their country (the server list endpoints are guarded by marketplace:read).
+    marketplace: ['read'],
     governance: ['read', 'audit'],
     users: ['read', 'update', 'approve'],
     audit_logs: ['read', 'export'],
@@ -292,6 +294,8 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
   },
   'Risk Officer': {
     dashboard: ['read'],
+    // Read the submitted projects of their country (the server list endpoints are guarded by marketplace:read).
+    marketplace: ['read'],
     governance: ['read', 'update', 'audit'],
     profile: ['read', 'update'],
   },
@@ -311,6 +315,8 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
   },
   'Finance Officer': {
     dashboard: ['read'],
+    // Read the submitted projects of their country (the server list endpoints are guarded by marketplace:read).
+    marketplace: ['read'],
     ledger: ['read', 'export'],
     reports: ['read', 'export'],
     pooling: ['read'],
@@ -374,6 +380,8 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
   },
   'AI Model Reviewer': {
     dashboard: ['read'],
+    // Read the submitted projects of their country (the server list endpoints are guarded by marketplace:read).
+    marketplace: ['read'],
     governance: ['read', 'update', 'approve', 'audit'],
     profile: ['read', 'update'],
   },
