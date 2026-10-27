@@ -27,7 +27,7 @@ describe('project roadmap', () => {
     expect(statusOf({ ...partnership, status: 'APPROVED' })).toMatchObject({ approval: 'DONE', sign: 'TODO', pool: 'LOCKED' });
     expect(statusOf({ ...partnership, status: 'APPROVED', pdpStatus: 'APPROVED' })).toMatchObject({ pool: 'LOCKED' });
     const proved = { pct: 10, required: 120000, pledged: 120000, evidenced: 120000, deposited: 0 };
-    expect(statusOf({ ...partnership, status: 'APPROVED', pdpStatus: 'APPROVED', capital: proved })).toMatchObject({ pool: 'TODO', capital: 'TODO' });
+    expect(statusOf({ ...partnership, status: 'APPROVED', pdpStatus: 'APPROVED', capital: proved })).toMatchObject({ pool: 'TODO', capital: 'WAITING' });
     expect(statusOf({ ...partnership, status: 'POOLING', pdpStatus: 'APPROVED', agreements: [{ status: 'EXECUTION' }], pools: 1 })).toMatchObject({ sign: 'DONE', pool: 'DONE', funded: 'WAITING' });
   });
 
@@ -35,6 +35,10 @@ describe('project roadmap', () => {
     const detail = (facts: RoadmapFacts, key: string) => projectRoadmap(facts).find((step) => step.key === key)?.detail;
     expect(detail(base, 'capital')).toContain('Pledge at least RM 120,000 (10% of the project cost)');
     expect(detail({ ...base, capital: { ...base.capital, pledged: 120000 } }, 'capital')).toContain('Upload a bank statement');
+    const withFinance = { ...base, capital: { ...base.capital, pledged: 120000, submitted: 120000 } };
+    expect(statusOf(withFinance).capital).toBe('WAITING');
+    expect(detail(withFinance, 'capital')).toContain('Finance is checking it');
+    expect(statusOf({ ...base, capital: { ...base.capital, pledged: 120000, submitted: 0 } }).capital).toBe('TODO');
     expect(statusOf({ ...base, capital: { ...base.capital, pledged: 120000, evidenced: 120000, deposited: 120000 } }).capital).toBe('DONE');
     expect(statusOf({ ...base, cover: [{ label: 'Public liability', state: 'PENDING_REVIEW' }] }).takaful).toBe('WAITING');
     expect(detail({ ...base, cover: [{ label: 'Public liability', state: 'COVERED' }, { label: 'Machinery all-risk / breakdown: Excavator', state: 'MISSING' }] }, 'takaful')).toContain('Excavator (missing)');

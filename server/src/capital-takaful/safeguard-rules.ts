@@ -40,6 +40,8 @@ export function sponsorCapital(commitments: CommitmentFact[], totalProjectCost: 
     pct,
     required: Math.round(totalProjectCost * pct) / 100,
     pledged: sum(['PLEDGED', 'EVIDENCE_SUBMITTED', 'EVIDENCED', 'DEPOSITED']),
+    /** Pledges whose evidence is uploaded (with Finance, or already accepted). */
+    submitted: sum(['EVIDENCE_SUBMITTED', 'EVIDENCED', 'DEPOSITED']),
     evidenced: sum(['EVIDENCED', 'DEPOSITED']),
     deposited: sum(['DEPOSITED']),
   };

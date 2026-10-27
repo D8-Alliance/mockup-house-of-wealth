@@ -113,7 +113,7 @@ export class ProjectsService {
     const uploaded = new Set(evidence.filter((item) => item.status !== 'MISSING').map((item) => item.evidenceType));
     const safeguards = await safeguardFacts(this.prisma, projectId);
     return projectRoadmap({
-      capital: safeguards ? { pct: safeguards.capital.pct, required: safeguards.capital.required, pledged: safeguards.capital.pledged, evidenced: safeguards.capital.evidenced, deposited: safeguards.capital.deposited } : { pct: 10, required: 0, pledged: 0, evidenced: 0, deposited: 0 },
+      capital: safeguards ? { pct: safeguards.capital.pct, required: safeguards.capital.required, pledged: safeguards.capital.pledged, submitted: safeguards.capital.submitted, evidenced: safeguards.capital.evidenced, deposited: safeguards.capital.deposited } : { pct: 10, required: 0, pledged: 0, evidenced: 0, deposited: 0 },
       cover: safeguards ? safeguards.cover.map((item) => ({ label: item.label, state: item.state })) : [],
       status: project.status, currency: currency?.currency ?? 'MYR', fundingRequired: Number(project.fundingRequired), allocated: Number(allocated._sum.disbursementAmount ?? 0),
       kybStatus: organisation?.kybStatus ?? 'NOT_SUBMITTED', pdpStatus: pdp?.status ?? null,

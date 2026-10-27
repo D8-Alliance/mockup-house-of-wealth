@@ -20,7 +20,7 @@ describe('capital and takaful rules', () => {
       { source: 'SPONSOR_CASH', amount: 70000, status: 'REJECTED' },
       { source: 'OTHER_FINANCING', amount: 300000, status: 'DEPOSITED' },
     ], 2050000, 10);
-    expect(capital).toEqual({ pct: 10, required: 205000, pledged: 150000, evidenced: 100000, deposited: 100000 });
+    expect(capital).toEqual({ pct: 10, required: 205000, pledged: 150000, submitted: 150000, evidenced: 100000, deposited: 100000 });
   });
 
   it('asks cover for machinery (lessor pays under Ijarah), public liability where there is a site, CAR and PERKESO when ticked', () => {
@@ -44,7 +44,7 @@ describe('capital and takaful rules', () => {
   });
 
   it('blocks the pool until capital is proved, and releases until it is deposited and cover is in force', () => {
-    const capital = { pct: 10, required: 120000, pledged: 120000, evidenced: 120000, deposited: 0 };
+    const capital = { pct: 10, required: 120000, pledged: 120000, submitted: 120000, evidenced: 120000, deposited: 0 };
     const cover = [{ key: 'PUBLIC_LIABILITY', coverType: 'PUBLIC_LIABILITY' as const, label: 'Public liability', payer: 'PDP', state: 'MISSING' as const, policyId: null, coveredUntil: null }];
     expect(fundingBlockers('POOL', { capital, cover, currency: 'MYR' })).toEqual([]);
     const release = fundingBlockers('DISBURSE', { capital, cover, currency: 'MYR' });

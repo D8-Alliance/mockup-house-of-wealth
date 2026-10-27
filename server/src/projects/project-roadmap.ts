@@ -32,7 +32,7 @@ export interface RoadmapFacts {
   agreements: Array<{ status: string }>;
   pools: number;
   /** The sponsor's own capital at each stage, against the minimum share of the project cost. */
-  capital: { pct: number; required: number; pledged: number; evidenced: number; deposited: number };
+  capital: { pct: number; required: number; pledged: number; submitted?: number; evidenced: number; deposited: number };
   /** Each required takaful cover and whether it is in force. */
   cover: Array<{ label: string; state: string }>;
 }
@@ -80,9 +80,12 @@ export function projectRoadmap(facts: RoadmapFacts): RoadmapStep[] {
   const { capital } = facts;
   steps.push({
     key: 'capital', phase: 'PREPARE', title: 'Sponsor capital', who: 'Project Sponsor, then Finance', action: 'safeguards',
-    status: capital.deposited >= capital.required ? 'DONE' : 'TODO',
+    // The sponsor acts to pledge and to upload evidence; then Finance checks it. Once proved, the deposit is
+    // needed only before funds are released, so it waits rather than holding up the pool as the next step.
+    status: capital.deposited >= capital.required ? 'DONE' : capital.pledged < capital.required || (capital.submitted ?? capital.evidenced) < capital.required ? 'TODO' : 'WAITING',
     detail: capital.pledged < capital.required ? `Pledge at least ${money(capital.required, facts.currency)} (${capital.pct}% of the project cost) before submitting; ${money(capital.pledged, facts.currency)} pledged.`
-      : capital.evidenced < capital.required ? `Upload a bank statement or a funds letter for each pledge; Finance checks it. Proved: ${money(capital.evidenced, facts.currency)} of ${money(capital.required, facts.currency)}. Needed before the pool opens.`
+      : (capital.submitted ?? capital.evidenced) < capital.required ? `Upload a bank statement or a funds letter for each pledge; Finance checks it. Proved: ${money(capital.evidenced, facts.currency)} of ${money(capital.required, facts.currency)}. Needed before the pool opens.`
+      : capital.evidenced < capital.required ? `Evidence uploaded; Finance is checking it. Proved: ${money(capital.evidenced, facts.currency)} of ${money(capital.required, facts.currency)}.`
       : capital.deposited < capital.required ? `Transfer the capital to the project account; Finance records the deposit. Deposited: ${money(capital.deposited, facts.currency)} of ${money(capital.required, facts.currency)}. Needed before funds are released.`
       : `${money(capital.deposited, facts.currency)} deposited; each release draws on it and investors' funds in proportion.`,
   });
