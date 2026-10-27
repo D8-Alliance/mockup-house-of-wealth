@@ -6,6 +6,8 @@ import { formatProjectMoney } from './sponsorMoney';
 import { ProjectRoadmap } from './ProjectRoadmap';
 import { ProjectSafeguardsPanel } from './ProjectSafeguardsPanel';
 import { ProjectDueDiligencePanel } from './ProjectDueDiligencePanel';
+import { AIProjectAnalyzer } from '../../ai/features/project/AIProjectAnalyzer';
+import { useRBAC } from '../../rbac/RBACContext';
 import type { ProjectRoadmapAction } from '../../services/apiClient';
 import { PDPPromotionCard } from '../revenue/PDPPromotionCard';
 import {
@@ -28,7 +30,8 @@ interface ProjectDetailViewProps {
 }
 
 export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, onBack, onEdit, onChangeStatus, statusError, onRoadmapAction }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'milestones' | 'safeguards' | 'disbursements' | 'dataroom' | 'team' | 'investor-comms' | 'due-diligence'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'feasibility' | 'milestones' | 'safeguards' | 'disbursements' | 'dataroom' | 'team' | 'investor-comms' | 'due-diligence'>('overview');
+  const { activeUser } = useRBAC();
   // Bumped when capital or cover changes, so the roadmap reloads.
   const [safeguardVersion, setSafeguardVersion] = useState(0);
 
@@ -246,6 +249,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
         onAction={(action) => {
           if (action === 'milestones') setActiveTab('milestones');
           else if (action === 'safeguards') setActiveTab('safeguards');
+          else if (action === 'project-analyzer') setActiveTab('feasibility');
           else if (action === 'submit') { if (window.confirm('Submit this project for review? It can no longer be edited unless you return it to draft.')) onChangeStatus('DUE_DILIGENCE'); }
           else onRoadmapAction?.(action);
         }}
@@ -255,6 +259,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-1 text-xs font-semibold">
         {[
           { id: 'overview', label: 'Overview & Analytics', icon: <Building2 className="w-4 h-4" /> },
+          { id: 'feasibility', label: 'Feasibility', icon: <FileText className="w-4 h-4" /> },
           { id: 'milestones', label: `Milestones (${milestones.length})`, icon: <Clock className="w-4 h-4" /> },
           { id: 'safeguards', label: 'Capital & takaful', icon: <ShieldCheck className="w-4 h-4" /> },
           { id: 'disbursements', label: `Disbursements (${project.disbursements.length})`, icon: <DollarSign className="w-4 h-4" /> },
@@ -350,6 +355,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
       )}
 
       {/* Tab 2: Milestones */}
+      {activeTab === 'feasibility' && <AIProjectAnalyzer user={activeUser} projectId={project.id} />}
+
       {activeTab === 'safeguards' && <ProjectSafeguardsPanel projectId={project.id} onChanged={() => setSafeguardVersion((value) => value + 1)} />}
 
       {activeTab === 'milestones' && (

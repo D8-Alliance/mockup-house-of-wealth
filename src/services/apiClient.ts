@@ -1377,7 +1377,7 @@ export interface BackendFeasibilityAssessment {
   humanReviewRequired: boolean;
   reviewStage: string;
   roleResponsibility?: string[];
-  reviewHistory?: Array<{ stage: string; reviewerId?: string; reviewer?: string; reviewerRole?: string; date?: string; status?: string; decision?: string; comment?: string; supportingEvidence?: string[]; actorId?: string; at?: string; note?: string | null }>;
+  reviewHistory?: Array<{ stage: string; reviewerId?: string; reviewer?: string; reviewerName?: string; reviewerRole?: string; date?: string; status?: string; decision?: string; comment?: string; supportingEvidence?: string[]; actorId?: string; at?: string; note?: string | null }>;
 }
 
 export type CapitalSource = 'SPONSOR_CASH' | 'OTHER_FINANCING';

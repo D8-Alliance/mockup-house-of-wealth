@@ -10,6 +10,8 @@ interface AIRecommendationCardProps {
   recommendationText: string;
   confidence: AIConfidenceInfo;
   positiveFactors?: string[];
+  /** Heading over positiveFactors (default "Positive Drivers"). */
+  factorsLabel?: string;
   concerns?: string[];
   disclaimer?: string;
   actions?: React.ReactNode;
@@ -17,6 +19,7 @@ interface AIRecommendationCardProps {
 
 export const AIRecommendationCard: React.FC<AIRecommendationCardProps> = ({
   title,
+  factorsLabel,
   subtitle,
   matchScore,
   recommendationText,
@@ -64,7 +67,7 @@ export const AIRecommendationCard: React.FC<AIRecommendationCardProps> = ({
           {positiveFactors.length > 0 && (
             <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/40 space-y-1">
               <span className="font-extrabold text-emerald-800 dark:text-emerald-300 text-[10px] flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Positive Drivers
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> {factorsLabel ?? 'Positive Drivers'}
               </span>
               <ul className="space-y-1 text-[11px] text-slate-700 dark:text-slate-300 list-disc list-inside">
                 {positiveFactors.map((f, i) => (
