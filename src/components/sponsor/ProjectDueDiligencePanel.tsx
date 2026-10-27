@@ -12,7 +12,7 @@ const STAGES: Array<{ key: string; label: string; who: string }> = [
 ];
 const EVIDENCE_LABELS: Record<string, string> = { FINANCIAL_MODEL: 'Financial model', CASHFLOW_FORECAST: 'Cashflow forecast', ASSET_VALUATION: 'Asset valuation', LEGAL_OWNERSHIP: 'Legal ownership' };
 const tone = (value: string) => (/ACCEPT|APPROV|VERIFIED|PASS/i.test(value) ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : /REJECT|FAIL|MISSING/i.test(value) ? 'bg-rose-500/10 text-rose-700 dark:text-rose-300' : /CHANGE|REVIEW|WARN/i.test(value) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-300');
-const words = (value: string) => value.replaceAll('_', ' ').toLowerCase();
+const words = (value?: string | null) => (value ?? '').replaceAll('_', ' ').toLowerCase();
 
 /** What the reviewers decided so far, what the AI pre-check found, and the state of each piece of evidence. */
 export const ProjectDueDiligencePanel: React.FC<{ projectId: string }> = ({ projectId }) => {

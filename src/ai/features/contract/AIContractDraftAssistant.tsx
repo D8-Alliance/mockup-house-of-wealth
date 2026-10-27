@@ -197,7 +197,7 @@ export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> =
         {project && <ProjectProgressVisual stage={projectStage} />}
 
         {project && isProjectLocked(project.status) && (
-          <p className="text-[11px] text-slate-500">Locked after approval: this project is {project.status.replaceAll('_', ' ')}, so its contract structure can no longer be redrafted. A Country Admin can reopen it before funds are committed.</p>
+          <p className="text-[11px] text-slate-500">Locked after approval: this project is {project.status?.replaceAll('_', ' ')}, so its contract structure can no longer be redrafted. A Country Admin can reopen it before funds are committed.</p>
         )}
         <button
           onClick={handleGenerateDraft}

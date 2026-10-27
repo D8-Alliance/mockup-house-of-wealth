@@ -43,7 +43,7 @@ interface ProjectRoadmapProps {
 /** What is done, what to do next and who acts, from registration to completion. */
 export const ProjectRoadmap: React.FC<ProjectRoadmapProps> = ({ projectId, version, onAction }) => {
   const { currentRole } = useRBAC();
-  const who = (text: string) => (SPONSOR_SIDE.includes(currentRole) ? text.replaceAll('Project Sponsor', 'You') : text);
+  const who = (text?: string) => (SPONSOR_SIDE.includes(currentRole) ? (text ?? '').replaceAll('Project Sponsor', 'You') : text ?? '');
   const [steps, setSteps] = useState<ProjectRoadmapStep[] | null>(null);
   const [error, setError] = useState('');
   const [showAll, setShowAll] = useState(false);
