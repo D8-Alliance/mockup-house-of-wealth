@@ -221,14 +221,15 @@ export const RoleSwitcherBar: React.FC = () => {
             <p className="text-xs text-slate-300">{roleDef.description}</p>
 
             <div className="p-3 bg-slate-800/40 rounded-2xl border border-slate-700 flex items-center gap-3">
+              {/* The person signed in, not the role's sample persona. */}
               <img
-                src={roleDef.demoUser.avatarUrl}
-                alt={roleDef.demoUser.name}
+                src={activeUser.avatarUrl}
+                alt={activeUser.name}
                 className="w-10 h-10 rounded-full border border-emerald-500 object-cover"
               />
               <div className="text-xs">
-                <p className="font-bold text-white">{roleDef.demoUser.name}</p>
-                <p className="text-slate-400 text-[11px]">{roleDef.demoUser.email} • {roleDef.demoUser.organization}</p>
+                <p className="font-bold text-white">{activeUser.name}</p>
+                <p className="text-slate-400 text-[11px]">{activeUser.email} • {activeUser.organizationName || activeUser.organization || tenantContext.organisationId}</p>
               </div>
             </div>
           </div>
