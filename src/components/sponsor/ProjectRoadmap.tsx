@@ -47,6 +47,7 @@ export const ProjectRoadmap: React.FC<ProjectRoadmapProps> = ({ projectId, versi
   const [steps, setSteps] = useState<ProjectRoadmapStep[] | null>(null);
   const [error, setError] = useState('');
   const [showAll, setShowAll] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,17 +95,26 @@ export const ProjectRoadmap: React.FC<ProjectRoadmapProps> = ({ projectId, versi
             <div key={phase.key} className="space-y-2">
               <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{phase.label}</p>
               {steps.filter((step) => step.phase === phase.key).map((step) => {
-                // A step with a screen opens it when clicked, whatever its state, except steps not open yet.
-                const open = step.action && step.status !== 'LOCKED' ? () => onAction(step.action!) : undefined;
+                // Collapsed: title and status only. Clicking shows what it means, who acts, and the way to its screen.
+                const isOpen = expanded === step.key;
+                const toggle = () => setExpanded(isOpen ? null : step.key);
+                const canOpenScreen = step.action && step.status !== 'LOCKED';
                 return (
-                <div key={step.key} role={open ? 'button' : undefined} tabIndex={open ? 0 : undefined} onClick={open} onKeyDown={open ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } } : undefined} className={`p-3 rounded-xl border ${step === next ? 'border-amber-400' : 'border-slate-200 dark:border-slate-700'} bg-slate-50 dark:bg-slate-800/50 space-y-1 ${open ? 'cursor-pointer hover:border-emerald-400 hover:bg-white dark:hover:bg-slate-800' : ''}`}>
-                  <div className="flex items-start justify-between gap-2">
+                <div key={step.key} className={`rounded-xl border ${step === next ? 'border-amber-400' : 'border-slate-200 dark:border-slate-700'} ${isOpen ? 'bg-white dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
+                  <button type="button" onClick={toggle} aria-expanded={isOpen} className="w-full flex items-center justify-between gap-2 p-3 text-left cursor-pointer hover:bg-white dark:hover:bg-slate-800 rounded-xl">
                     <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100">{STATUS[step.status].icon}{step.title}</span>
-                    <span className={`text-[10px] font-black uppercase ${STATUS[step.status].className}`}>{STATUS[step.status].label}</span>
-                  </div>
-                  <p className="text-slate-500">{step.detail}</p>
-                  <p className="text-[10px] text-slate-400">By: {who(step.who)}</p>
-                  {open && <span className="block text-[11px] font-bold text-emerald-700 dark:text-emerald-400">{ACTION_LABELS[step.action!]} →</span>}
+                    <span className="flex items-center gap-1 shrink-0">
+                      <span className={`text-[10px] font-black uppercase ${STATUS[step.status].className}`}>{STATUS[step.status].label}</span>
+                      {isOpen ? <ChevronUp className="w-3.5 h-3.5 text-slate-400" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-400" />}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="px-3 pb-3 space-y-1">
+                      <p className="text-slate-500">{step.detail}</p>
+                      <p className="text-[10px] text-slate-400">By: {who(step.who)}</p>
+                      {canOpenScreen && <button type="button" onClick={() => onAction(step.action!)} className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer">{ACTION_LABELS[step.action!]} →</button>}
+                    </div>
+                  )}
                 </div>
                 );
               })}
