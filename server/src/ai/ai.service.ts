@@ -531,14 +531,17 @@ export class AiService {
     const nextStage: Record<string, string> = { DRAFT: 'FINANCE_REVIEW', FINANCE_REVIEW: 'RISK_REVIEW', RISK_REVIEW: 'COMPLIANCE_REVIEW', COMPLIANCE_REVIEW: 'SHARIAH_REVIEW', SHARIAH_REVIEW: 'INVESTMENT_COMMITTEE_REVIEW', INVESTMENT_COMMITTEE_REVIEW: 'FINAL_DECISION' };
     const reviewerRoles: Record<string, string[]> = {
       DRAFT: ['Project Sponsor', 'Project Manager', 'Country Admin', 'Organization Admin'],
-      FINANCE_REVIEW: ['Finance Officer', 'Country Admin', 'Organization Admin'],
-      RISK_REVIEW: ['Risk Officer', 'Country Admin', 'Organization Admin'],
-      COMPLIANCE_REVIEW: ['Compliance Officer', 'Country Admin', 'Organization Admin'],
-      SHARIAH_REVIEW: ['Shariah Reviewer', 'Shariah Advisor', 'Country Admin', 'Organization Admin'],
+      FINANCE_REVIEW: ['Finance Officer', 'Country Admin'],
+      RISK_REVIEW: ['Risk Officer', 'Country Admin'],
+      COMPLIANCE_REVIEW: ['Compliance Officer', 'Country Admin'],
+      SHARIAH_REVIEW: ['Shariah Reviewer', 'Shariah Advisor', 'Country Admin'],
       INVESTMENT_COMMITTEE_REVIEW: ['Shariah Committee'],
       FINAL_DECISION: ['Shariah Committee'],
     };
+    // The sponsor's own organisation never decides a review stage of its own project (segregation of duties).
     if (!reviewerRoles[run.reviewStage]?.includes(actor.role)) throw new ForbiddenException('Your role cannot perform this feasibility review stage.');
+    // Reviewers only see submitted projects, so the analysis goes to Finance once the project itself is submitted.
+    if (run.reviewStage === 'DRAFT' && project.status === 'DRAFT') throw new ConflictException('Submit the project for review first (project roadmap: Project submitted for review); Finance cannot see a draft project.');
     const isFinalCommitteeReview = run.reviewStage === 'FINAL_DECISION';
     const accepted = ['ACCEPTED', 'ACCEPTED_WITH_CONDITIONS'].includes(input.decision);
     const targetStage = isFinalCommitteeReview || !accepted ? run.reviewStage : nextStage[run.reviewStage];

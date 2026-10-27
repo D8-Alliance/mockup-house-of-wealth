@@ -10,9 +10,11 @@ jest.mock('./rag-embedding.service', () => ({ RAG_EMBEDDING_DIMENSIONS: 768, Rag
 
 const committee: AuthenticatedUser = { userId: 'USR-SC', idpSubjectId: 'USR-SC', email: 'sc@example.test', name: 'Committee', role: 'Shariah Committee', countryNodeId: 'CN-MYS', organisationId: 'ORG-A', assignedRoles: ['Shariah Committee'] };
 const finance: AuthenticatedUser = { ...committee, userId: 'USR-FIN', idpSubjectId: 'USR-FIN', role: 'Finance Officer', assignedRoles: ['Finance Officer'] };
+const sponsor: AuthenticatedUser = { ...committee, userId: 'USR-SP', idpSubjectId: 'USR-SP', role: 'Project Sponsor', assignedRoles: ['Project Sponsor'] };
+const orgAdmin: AuthenticatedUser = { ...committee, userId: 'USR-OA', idpSubjectId: 'USR-OA', role: 'Organization Admin', assignedRoles: ['Organization Admin'] };
 
 /** One project with one feasibility run at `stage`; approvals and history live in `state`. */
-function setup(stage: string, options: { activeFinal?: boolean; latestRevisionId?: string } = {}) {
+function setup(stage: string, options: { activeFinal?: boolean; latestRevisionId?: string; projectStatus?: string } = {}) {
   const state = {
     stage,
     history: [] as unknown[],
@@ -38,7 +40,7 @@ function setup(stage: string, options: { activeFinal?: boolean; latestRevisionId
     project: { update: jest.fn(async () => ({})) },
   };
   const prisma = {
-    project: { findUnique: jest.fn(async () => ({ projectId: 'P1', organisationId: 'ORG-A', countryNodeId: 'CN-MYS' })) },
+    project: { findUnique: jest.fn(async () => ({ projectId: 'P1', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', status: options.projectStatus ?? 'DUE_DILIGENCE' })) },
     aiRun: { findFirst: jest.fn(async () => ({ ...run, reviewStage: stage })) },
     $transaction: jest.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
   };
@@ -75,6 +77,21 @@ describe('AiService.reviewProjectFeasibility', () => {
     const { service, state, tx } = setup('FINANCE_REVIEW');
     tx.aiRun.findUniqueOrThrow.mockImplementationOnce(async () => ({ reviewStage: 'RISK_REVIEW', reviewHistory: state.history }));
     await expect(service.reviewProjectFeasibility(finance, 'P1', 'RUN-1', { reviewStage: 'RISK_REVIEW', decision: 'ACCEPTED', comment: 'Late click' })).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.projectApproval.create).not.toHaveBeenCalled();
+  });
+
+  it('sends the analysis to Finance only once the project itself is submitted', async () => {
+    const draft = setup('DRAFT', { projectStatus: 'DRAFT' });
+    await expect(draft.service.reviewProjectFeasibility(sponsor, 'P1', 'RUN-1', { reviewStage: 'FINANCE_REVIEW', decision: 'ACCEPTED', comment: 'Ready' })).rejects.toThrow(/Submit the project for review first/);
+    expect(draft.tx.projectApproval.create).not.toHaveBeenCalled();
+    const submitted = setup('DRAFT', { projectStatus: 'DUE_DILIGENCE' });
+    await submitted.service.reviewProjectFeasibility(sponsor, 'P1', 'RUN-1', { reviewStage: 'FINANCE_REVIEW', decision: 'ACCEPTED', comment: 'Ready' });
+    expect(submitted.state.stage).toBe('FINANCE_REVIEW');
+  });
+
+  it.each(['FINANCE_REVIEW', 'RISK_REVIEW', 'COMPLIANCE_REVIEW', 'SHARIAH_REVIEW'])('does not let the sponsor organisation admin decide %s', async (stage) => {
+    const { service, tx } = setup(stage);
+    await expect(service.reviewProjectFeasibility(orgAdmin, 'P1', 'RUN-1', { reviewStage: stage, decision: 'ACCEPTED', comment: 'Own project' })).rejects.toThrow(/cannot perform this feasibility review stage/);
     expect(tx.projectApproval.create).not.toHaveBeenCalled();
   });
 

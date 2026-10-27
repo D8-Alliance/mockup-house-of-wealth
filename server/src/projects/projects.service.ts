@@ -291,7 +291,8 @@ export class ProjectsService {
   }
 
   async verifyEvidence(projectId: string, evidenceType: string, user: AuthenticatedUser) {
-    const reviewerRoles = ['Finance Officer', 'Risk Officer', 'Compliance Officer', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee', 'Country Admin', 'Organization Admin', 'Super Admin'];
+    // Not the sponsor's own Organization Admin: evidence is verified by someone outside the organisation that submitted it.
+    const reviewerRoles = ['Finance Officer', 'Risk Officer', 'Compliance Officer', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee', 'Country Admin', 'Super Admin'];
     if (!reviewerRoles.includes(user.role)) throw new ForbiddenException('Only an authorised human reviewer can verify evidence.');
     const project = await this.getForReview(projectId, user);
     assertProjectUnlocked(project, 'Evidence verification');
