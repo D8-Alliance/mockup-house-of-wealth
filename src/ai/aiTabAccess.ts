@@ -17,14 +17,14 @@ export const AI_TAB_ROLES = {
  * Reviewers (Legal, Shariah) decide on others' work; they do not draft agreements or term sheets,
  * and have no projects of their own to analyse. Their reviews are in My reviews and Shariah Board Reviews.
  */
-export const REVIEWER_ONLY_ROLES = ['Legal Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'];
+export const REVIEWER_ONLY_ROLES = ['Legal Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee', 'Finance Officer', 'Risk Officer', 'Compliance Officer'];
 /** Drafting and analysis tools hidden from reviewers. */
 export const DRAFTING_TABS = ['project-analyzer', 'contract-advisor', 'agreement-generation'];
 /** Tools that still run on sample data (PENDING_ACTIVITIES item 23): hidden from reviewers, labelled Sample for others. */
 export const SAMPLE_TABS = ['investment-matcher', 'portfolio-analysis', 'risk-analyzer', 'scenarios', 'pool-optimizer'];
 
-/** Shariah reviewers and the committee decide stages of a project's feasibility review there; Legal has no stage. */
-const FEASIBILITY_REVIEWERS = ['Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'];
+/** Finance, Risk, Compliance, Shariah and the committee decide stages of a project's feasibility review there; Legal has no stage. */
+const FEASIBILITY_REVIEWERS = ['Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee', 'Finance Officer', 'Risk Officer', 'Compliance Officer'];
 
 export function hiddenAiTabs(role: string): string[] {
   if (!REVIEWER_ONLY_ROLES.includes(role)) return [];

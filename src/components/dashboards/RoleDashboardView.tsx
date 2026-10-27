@@ -101,9 +101,12 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
   const showPdpOnboarding = !!onOpenPdpRegister && canSeePdpOnboarding(currentRole);
   const [approvalActionDone, setApprovalActionDone] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [summaryFailed, setSummaryFailed] = useState(false);
+  const pending = summaryFailed ? '—' : 'Loading...';
+  const summaryMoney = (value: number) => `${summary?.currency === 'MYR' ? 'RM' : summary?.currency ?? ''} ${value.toLocaleString()}`;
 
   React.useEffect(() => {
-    void apiClient.getDashboardSummary().then(setSummary).catch(() => setSummary(null));
+    void apiClient.getDashboardSummary().then(setSummary).catch(() => setSummaryFailed(true));
   }, []);
 
   const handleQuickApprove = (itemTitle: string) => {
@@ -254,10 +257,10 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
       {/* Database-backed dashboard summary */}
       {['Investor', 'Asset Owner', 'Organization Admin', 'Pool Manager', 'Customer Support', 'Guest', 'Shariah Advisor', 'Compliance Officer', 'Risk Officer', 'Finance Officer', 'Auditor'].includes(currentRole) && !['Super Admin', 'Country Admin'].includes(currentRole) && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricCard label="Project Value" value={summary ? `$${summary.totalProjectValue.toLocaleString()}` : 'Loading...'} sub="Database total" icon={<Coins className="w-5 h-5 text-emerald-500" />} />
-          <MetricCard label="Funding Required" value={summary ? `$${summary.fundingRequired.toLocaleString()}` : 'Loading...'} sub={`${summary?.projectCount ?? 0} projects in scope`} icon={<FileCheck className="w-5 h-5 text-blue-500" />} />
-          <MetricCard label="Active Pools" value={summary ? summary.activePoolCount.toString() : 'Loading...'} sub="Database count" icon={<Award className="w-5 h-5 text-teal-500" />} />
-          <MetricCard label="Active Contracts" value={summary ? summary.contractCount.toString() : 'Loading...'} sub="Database count" icon={<Clock className="w-5 h-5 text-amber-500" />} />
+          <MetricCard label="Project Value" value={summary ? summaryMoney(summary.totalProjectValue) : pending} sub="Database total" icon={<Coins className="w-5 h-5 text-emerald-500" />} />
+          <MetricCard label="Funding Required" value={summary ? summaryMoney(summary.fundingRequired) : pending} sub={`${summary?.projectCount ?? 0} projects in scope`} icon={<FileCheck className="w-5 h-5 text-blue-500" />} />
+          <MetricCard label="Active Pools" value={summary ? summary.activePoolCount.toString() : pending} sub="Database count" icon={<Award className="w-5 h-5 text-teal-500" />} />
+          <MetricCard label="Active Contracts" value={summary ? summary.contractCount.toString() : pending} sub="Database count" icon={<Clock className="w-5 h-5 text-amber-500" />} />
         </div>
       )}
 

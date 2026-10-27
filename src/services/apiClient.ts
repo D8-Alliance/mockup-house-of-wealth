@@ -950,6 +950,7 @@ export interface KycQueueItem {
 
 export interface DashboardSummary {
   source: 'database';
+  currency?: string;
   projectCount: number;
   totalProjectValue: number;
   fundingRequired: number;
