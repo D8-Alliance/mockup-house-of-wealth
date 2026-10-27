@@ -1,351 +1,165 @@
-import React, { useState } from 'react';
-import { 
-  X, 
-  Layers, 
-  ShieldCheck, 
-  CheckCircle2, 
-  DollarSign, 
-  PieChart, 
-  Calendar, 
-  Percent, 
-  BookOpen, 
-  ArrowRight,
-  ArrowLeft,
-  Building2,
-  FileSpreadsheet
-} from 'lucide-react';
-import { poolService } from '../../pooling/poolService';
-import { useRBAC } from '../../rbac/RBACContext';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, CheckCircle2, Layers, X } from 'lucide-react';
+import { apiClient, BackendPool, BackendProject, ProjectSafeguards } from '../../services/apiClient';
 import { PDPApplication } from '../pdpTypes';
+
+type PoolAkad = 'MUDARABAH' | 'MUSHARAKAH' | 'WAKALAH' | 'IJARAH';
+/** Investor share of net profit each akad allows (mirrors AKAD_RULES on the server). */
+const AKAD: Record<PoolAkad, { label: string; min: number; max: number; manager: string }> = {
+  MUDARABAH: { label: 'Mudarabah', min: 1, max: 99, manager: 'the manager (mudarib)' },
+  MUSHARAKAH: { label: 'Musharakah', min: 1, max: 99, manager: 'the managing partner' },
+  WAKALAH: { label: 'Wakalah', min: 1, max: 100, manager: 'the agent (wakil) as incentive' },
+  IJARAH: { label: 'Ijarah', min: 1, max: 100, manager: 'the lessor' },
+};
+/** Statuses in which an approved project may take a pool (mirrors FUNDABLE_PROJECT_STATUSES on the server). */
+const FUNDABLE = ['APPROVED', 'FUNDING_OPEN', 'POOLING', 'FUNDED'];
+const INPUT = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs';
+const LABEL = 'block text-[11px] font-bold text-slate-600 dark:text-slate-300';
+
+const akadOf = (contract: string): PoolAkad => {
+  const lower = contract.toLowerCase();
+  return (Object.keys(AKAD) as PoolAkad[]).find((key) => lower.includes(key.toLowerCase())) ?? 'MUSHARAKAH';
+};
 
 interface PDPPoolCreationModalProps {
   isOpen: boolean;
   onClose: () => void;
   pdpApplication?: PDPApplication;
-  onCreated?: () => void;
+  /** Opens with this project chosen, e.g. from a project's roadmap. */
+  projectId?: string;
+  onCreated?: (pool: BackendPool) => void;
 }
 
-export const PDPPoolCreationModal: React.FC<PDPPoolCreationModalProps> = ({
-  isOpen,
-  onClose,
-  pdpApplication,
-  onCreated
-}) => {
-  const { currentUserId, currentRole } = useRBAC();
-  const [step, setStep] = useState<number>(1);
-
-  // Pool Details State
+/**
+ * Opens a wealth pool for one of the organisation's approved projects. The server checks everything again:
+ * the project approved, the organisation an approved PDP, the sponsor's capital proved, the akad's profit range.
+ */
+export const PDPPoolCreationModal: React.FC<PDPPoolCreationModalProps> = ({ isOpen, onClose, pdpApplication, projectId, onCreated }) => {
+  const [projects, setProjects] = useState<BackendProject[] | null>(null);
+  const [selectedId, setSelectedId] = useState('');
+  const [safeguards, setSafeguards] = useState<ProjectSafeguards | null>(null);
   const [poolName, setPoolName] = useState('');
-  const [sector, setSector] = useState('Agri-Industrial & Clean Energy');
-  const [shariahStructure, setShariahStructure] = useState<'MUDARABAH' | 'MUSHARAKAH' | 'IJARAH' | 'WAKALAH' | 'MURABAHAH' | 'WAQF'>('IJARAH');
-  const [targetAmount, setTargetAmount] = useState<number>(5000000);
-  const [currency, setCurrency] = useState(pdpApplication?.bankInfo?.currency || 'MYR');
-  const [minimumInvestment, setMinimumInvestment] = useState<number>(5000);
-  const [maximumInvestment, setMaximumInvestment] = useState<number>(500000);
-  const [durationMonths, setDurationMonths] = useState<number>(36);
-  const [expectedYieldPct, setExpectedYieldPct] = useState<number>(8.5);
-  const [sponsorProfitSharePct, setSponsorProfitSharePct] = useState<number>(20);
-  const [investorProfitSharePct, setInvestorProfitSharePct] = useState<number>(80);
-  const [distributionFrequency, setDistributionFrequency] = useState<'Monthly' | 'Quarterly' | 'Semi-Annually' | 'Annually'>('Quarterly');
-  const [managementFeePct, setManagementFeePct] = useState<number>(1.2);
-  const [performanceFeePct, setPerformanceFeePct] = useState<number>(5.0);
-  const [description, setDescription] = useState('');
+  const [akadType, setAkadType] = useState<PoolAkad>('MUSHARAKAH');
+  const [investorShare, setInvestorShare] = useState('70');
+  const [expectedReturn, setExpectedReturn] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [created, setCreated] = useState<BackendPool | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setCreated(null);
+    setError('');
+    apiClient.getProjects().then((items) => {
+      setProjects(items);
+      const fundable = items.filter((item) => FUNDABLE.includes(item.status));
+      setSelectedId((current) => current || (projectId && fundable.some((item) => item.projectId === projectId) ? projectId : fundable[0]?.projectId ?? ''));
+    }).catch((cause) => setError(cause instanceof Error ? cause.message : 'Projects could not be loaded.'));
+  }, [isOpen, projectId]);
+
+  const project = useMemo(() => projects?.find((item) => item.projectId === selectedId), [projects, selectedId]);
+  useEffect(() => {
+    if (!project) { setSafeguards(null); return; }
+    setPoolName(`${project.projectName} Pool`);
+    setAkadType(akadOf(project.proposedShariahContract));
+    setExpectedReturn(project.expectedYieldPct === null || project.expectedYieldPct === undefined || project.expectedYieldPct === '' ? '' : String(Number(project.expectedYieldPct)));
+    apiClient.getProjectSafeguards(project.projectId).then(setSafeguards).catch(() => setSafeguards(null));
+  }, [project]);
 
   if (!isOpen) return null;
+  const fundable = (projects ?? []).filter((item) => FUNDABLE.includes(item.status));
+  const pdpApproved = pdpApplication?.status === 'APPROVED' || pdpApplication?.status === 'ACTIVE';
+  const rule = AKAD[akadType];
+  const share = Number(investorShare);
+  const shareProblem = !Number.isFinite(share) || share < rule.min || share > rule.max ? `${rule.label} allows an investor share between ${rule.min}% and ${rule.max}%.` : '';
+  const blockers = [
+    ...(!pdpApproved ? ['Your organisation must be an approved delivery partner (PDP).'] : []),
+    ...(safeguards?.facts?.blockers.pool ?? []),
+  ];
+  const currency = project?.countryNode?.currency || pdpApplication?.bankInfo?.currency || 'MYR';
+  const canLaunch = Boolean(project) && !blockers.length && !shareProblem && poolName.trim().length >= 3 && expectedReturn !== '' && Number(expectedReturn) >= 0;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const orgName = pdpApplication?.organisationName || 'FELDA Technoplant Sdn Bhd';
-    const orgId = pdpApplication?.id || 'ORG-FELDA-MYS';
-    const countryCode = pdpApplication?.countryCode || 'MYS';
-
-    poolService.createPool({
-      poolName: poolName || `${orgName} Capital Pool Alpha`,
-      projectId: `PROJ-${countryCode}-${Math.floor(100 + Math.random() * 900)}`,
-      projectName: poolName || `${orgName} Expansion Project`,
-      organisationId: orgId,
-      organisationName: orgName,
-      countryNodeId: `CN-${countryCode}`,
-      poolType: sector as any,
-      investmentStructure: shariahStructure as any,
-      targetAmount,
-      minimumAmount: targetAmount * 0.7,
-      maximumAmount: targetAmount * 1.2,
-      minimumInvestment,
-      maximumInvestment,
-      currency,
-      durationMonths,
-      indicativeExpectedReturn: expectedYieldPct,
-      distributionFrequency: distributionFrequency as any
-    }, currentUserId || 'USR-8821', currentRole);
-
-    if (onCreated) onCreated();
-    onClose();
+  const launch = async () => {
+    if (!project) return;
+    setBusy(true);
+    setError('');
+    try {
+      const pool = await apiClient.createPool({ projectId: project.projectId, poolName: poolName.trim(), currency, indicativeExpectedReturn: Number(expectedReturn), organisationId: project.organisationId, countryNodeId: project.countryNodeId, akadType, investorProfitSharePct: share });
+      setCreated(pool);
+      onCreated?.(pool);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The pool was not created.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6 relative my-8">
-        {/* Header */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 relative my-8 text-xs">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-              <Layers className="w-6 h-6" />
-            </div>
+            <div className="p-2.5 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"><Layers className="w-6 h-6" /></div>
             <div>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-600 text-white">
-                PDP WEALTH POOL STRUCTURING
-              </span>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white mt-0.5">
-                Launch Shariah Wealth Pool
-              </h3>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white">Launch a wealth pool</h3>
+              <p className="text-slate-500">For one of your approved projects. Investors accept the akad terms when they invest.</p>
             </div>
           </div>
-
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400">
-            <X className="w-5 h-5" />
-          </button>
+          <button type="button" onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 cursor-pointer" title="Close"><X className="w-5 h-5" /></button>
         </div>
 
-        {/* Step Indicator */}
-        <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-100 dark:border-slate-800 pb-3">
-          <span className={step >= 1 ? 'font-bold text-purple-600 dark:text-purple-400' : ''}>1. Pool Overview</span>
-          <span>→</span>
-          <span className={step >= 2 ? 'font-bold text-purple-600 dark:text-purple-400' : ''}>2. Financials & Yield</span>
-          <span>→</span>
-          <span className={step >= 3 ? 'font-bold text-purple-600 dark:text-purple-400' : ''}>3. Review & Launch</span>
-        </div>
+        {created ? (
+          <div className="space-y-3">
+            <p className="flex items-center gap-2 p-4 rounded-2xl bg-emerald-500/10 text-emerald-800 dark:text-emerald-300 font-bold"><CheckCircle2 className="w-5 h-5" />{created.poolName} is open ({created.poolId}).</p>
+            <p className="text-slate-500">Version 1 of its akad terms is published; investors see the pool under Wealth Pooling.</p>
+            <div className="flex justify-end"><button type="button" onClick={onClose} className="px-5 py-2 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold cursor-pointer">Done</button></div>
+          </div>
+        ) : projects && !fundable.length ? (
+          <div className="space-y-2">
+            <p className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300 font-semibold">None of your projects is approved yet.</p>
+            <p className="text-slate-500">A project can take a pool once it passes the review (Finance, Risk, Compliance, Shariah, Investment Committee, Final Decision). Open the project to see its roadmap.</p>
+            <p className="text-slate-500">Your projects: {(projects ?? []).map((item) => `${item.projectName} (${item.status.replace('_', ' ').toLowerCase()})`).join(', ') || 'none'}.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <label className={LABEL}>Project
+              <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} className={`${INPUT} mt-1`}>
+                {fundable.map((item) => <option key={item.projectId} value={item.projectId}>{item.projectName} ({item.projectCode})</option>)}
+              </select>
+            </label>
+            {project && <p className="text-slate-500">Funding required: <strong>{currency} {Number(project.fundingRequired).toLocaleString('en-MY')}</strong> · Project structure: {project.proposedShariahContract}</p>}
 
-        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
-          {step === 1 && (
-            <div className="space-y-3.5 animate-fadeIn">
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Wealth Pool Title <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. FELDA Sustainable Palm Oil Biomass & Solar Infrastructure Pool"
-                  value={poolName}
-                  onChange={e => setPoolName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-purple-500"
-                />
+            {blockers.length > 0 && (
+              <div className="p-3 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20 space-y-1">
+                <p className="flex items-center gap-1.5 font-black text-amber-800 dark:text-amber-300"><AlertTriangle className="w-4 h-4" />Before the pool can open</p>
+                {blockers.map((line) => <p key={line} className="text-slate-700 dark:text-slate-300">{line}</p>)}
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Shariah Contract Type <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={shariahStructure}
-                    onChange={e => setShariahStructure(e.target.value as any)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white"
-                  >
-                    <option value="IJARAH">Ijarah (Lease & Asset Securitization)</option>
-                    <option value="MUDARABAH">Mudarabah (Profit-Sharing Partnership)</option>
-                    <option value="MUSHARAKAH">Musharakah (Joint Venture Equity)</option>
-                    <option value="WAKALAH">Wakalah bi Al-Istithmar (Agency Investment)</option>
-                    <option value="MURABAHAH">Murabahah (Cost-Plus Trade Syndication)</option>
-                    <option value="WAQF">Cash Waqf Productive Endowment</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Sector Classification <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={sector}
-                    onChange={e => setSector(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Pool Investment Thesis & Description <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  placeholder="Outline underlying tangible assets, revenue generation model, and risk mitigations..."
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
-              </div>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-3.5 animate-fadeIn">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Target Capital Raise ({currency}) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="10000"
-                    step="10000"
-                    required
-                    value={targetAmount}
-                    onChange={e => setTargetAmount(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-bold text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Indicative Yield (% p.a.) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="50"
-                    step="0.1"
-                    required
-                    value={expectedYieldPct}
-                    onChange={e => setExpectedYieldPct(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-emerald-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Minimum Ticket Size ({currency})
-                  </label>
-                  <input
-                    type="number"
-                    min="100"
-                    value={minimumInvestment}
-                    onChange={e => setMinimumInvestment(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-mono text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Pool Duration (Months)
-                  </label>
-                  <input
-                    type="number"
-                    min="6"
-                    max="120"
-                    value={durationMonths}
-                    onChange={e => setDurationMonths(parseInt(e.target.value, 10) || 36)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Distribution Frequency
-                  </label>
-                  <select
-                    value={distributionFrequency}
-                    onChange={e => setDistributionFrequency(e.target.value as any)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white"
-                  >
-                    <option value="Monthly">Monthly</option>
-                    <option value="Quarterly">Quarterly</option>
-                    <option value="Semi-Annually">Semi-Annually</option>
-                    <option value="Annually">Annually</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Profit Sharing (Sponsor : Investor)
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      value={sponsorProfitSharePct}
-                      onChange={e => {
-                        const sp = parseFloat(e.target.value) || 0;
-                        setSponsorProfitSharePct(sp);
-                        setInvestorProfitSharePct(100 - sp);
-                      }}
-                      className="w-1/2 px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-center"
-                    />
-                    <input
-                      type="number"
-                      readOnly
-                      value={investorProfitSharePct}
-                      className="w-1/2 px-3 py-2 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-center text-purple-600"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-4 animate-fadeIn">
-              <div className="p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
-                  <span className="font-extrabold text-slate-900 dark:text-white">{poolName || 'Untitled Wealth Pool'}</span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-500/10 text-purple-600">
-                    {shariahStructure}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-slate-600 dark:text-slate-300 text-[11px]">
-                  <p>Target Capital: <span className="font-bold text-slate-900 dark:text-white">{currency} {targetAmount.toLocaleString()}</span></p>
-                  <p>Expected Yield: <span className="font-bold text-emerald-600">{expectedYieldPct}% p.a.</span></p>
-                  <p>Duration: <span className="font-bold text-slate-900 dark:text-white">{durationMonths} Months</span></p>
-                  <p>Distributions: <span className="font-bold text-slate-900 dark:text-white">{distributionFrequency}</span></p>
-                  <p>Profit Split: <span className="font-bold text-slate-900 dark:text-white">{sponsorProfitSharePct}% / {investorProfitSharePct}%</span></p>
-                  <p>Originator (PDP): <span className="font-bold text-purple-600">{pdpApplication?.organisationName || 'FELDA Technoplant'}</span></p>
-                </div>
-              </div>
-
-              <div className="p-3.5 bg-purple-50 dark:bg-purple-950/30 rounded-2xl border border-purple-200 dark:border-purple-800 flex items-center gap-3">
-                <ShieldCheck className="w-5 h-5 text-purple-600 shrink-0" />
-                <p className="text-purple-900 dark:text-purple-200 text-[11px]">
-                  Submitted pools enter the 17-step D-8 multi-sig governance approval pipeline (Shariah Board sign-off, Due Diligence audit, and Risk Assessment) before public discovery.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Navigation Controls */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
-            {step > 1 ? (
-              <button
-                type="button"
-                onClick={() => setStep(step - 1)}
-                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold flex items-center gap-1.5"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back</span>
-              </button>
-            ) : <div />}
-
-            {step < 3 ? (
-              <button
-                type="button"
-                onClick={() => setStep(step + 1)}
-                className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold flex items-center gap-1.5 shadow-md"
-              >
-                <span>Continue</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            ) : (
-              <button
-                type="submit"
-                className="px-6 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black flex items-center gap-2 shadow-lg shadow-emerald-500/20"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Submit Pool for Multi-Sig Approval</span>
-              </button>
             )}
+
+            <div className="grid sm:grid-cols-2 gap-3">
+              <label className={LABEL}>Pool name<input value={poolName} onChange={(event) => setPoolName(event.target.value)} maxLength={160} className={`${INPUT} mt-1`} /></label>
+              <label className={LABEL}>Akad with investors
+                <select value={akadType} onChange={(event) => setAkadType(event.target.value as PoolAkad)} className={`${INPUT} mt-1`}>
+                  {(Object.keys(AKAD) as PoolAkad[]).map((key) => <option key={key} value={key}>{AKAD[key].label}</option>)}
+                </select>
+              </label>
+              <label className={LABEL}>Investors' share of net profit (%)
+                <input type="number" min={rule.min} max={rule.max} step="0.01" value={investorShare} onChange={(event) => setInvestorShare(event.target.value)} className={`${INPUT} mt-1`} />
+                <span className="font-normal text-slate-500">{shareProblem || `The rest (${(100 - share).toFixed(2).replace(/\.00$/, '')}%) goes to ${rule.manager}. A share of actual profit, never a fixed return.`}</span>
+              </label>
+              <label className={LABEL}>Indicative expected return (% a year)
+                <input type="number" min={0} max={100} step="0.01" value={expectedReturn} onChange={(event) => setExpectedReturn(event.target.value)} className={`${INPUT} mt-1`} />
+                <span className="font-normal text-slate-500">From the project; a projection shown to investors, not a promise.</span>
+              </label>
+            </div>
+
+            {error && <p className="p-3 rounded-xl bg-rose-500/10 text-rose-600 font-bold">{error}</p>}
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 font-bold cursor-pointer">Cancel</button>
+              <button type="button" disabled={busy || !canLaunch} onClick={() => void launch()} className="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black cursor-pointer disabled:opacity-50">{busy ? 'Opening…' : 'Launch pool'}</button>
+            </div>
           </div>
-        </form>
+        )}
       </div>
     </div>
   );

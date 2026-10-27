@@ -104,7 +104,7 @@ export class PoolsService {
     const [organisation, project] = await Promise.all([
       this.prisma.organisation.findFirst({
         where: { id: dto.organisationId, countryNodeId: dto.countryNodeId },
-        select: { id: true },
+        select: { id: true, name: true },
       }),
       this.prisma.project.findUnique({
         where: { projectId: dto.projectId },
@@ -119,6 +119,9 @@ export class PoolsService {
       throw new ForbiddenException('Project is outside the requested tenant scope');
     }
     if (!FUNDABLE_PROJECT_STATUSES.includes(project.status) || !(await hasCurrentFinalApproval(this.prisma, project))) throw new BadRequestException('Pooling requires an approved current feasibility revision and project status.');
+    // The project's organisation delivers it: it must be an approved delivery partner (PDP) before investors are invited.
+    const pdp = await this.prisma.pdpApplication.findFirst({ where: { status: { in: ['APPROVED', 'ACTIVE'] }, OR: [{ organisationId: project.organisationId }, { organisationId: null, organisationName: { equals: organisation.name ?? '', mode: 'insensitive' } }] }, select: { id: true } });
+    if (!pdp) throw new BadRequestException(`${organisation.name ?? 'The organisation'} must be an approved delivery partner (PDP) before it launches a pool.`);
     const safeguards = await safeguardFacts(this.prisma, project.projectId);
     if (safeguards?.blockers.pool.length) throw new BadRequestException(safeguards.blockers.pool.join(' '));
 

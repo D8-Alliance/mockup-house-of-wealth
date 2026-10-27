@@ -82,6 +82,8 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
   // PDP Modals State
   const [isPdpOnboardingModalOpen, setIsPdpOnboardingModalOpen] = useState(false);
   const [isPdpPoolModalOpen, setIsPdpPoolModalOpen] = useState(false);
+  /** The project a roadmap's "Launch wealth pool" came from, chosen when the form opens. */
+  const [poolProjectId, setPoolProjectId] = useState<string | undefined>(undefined);
   const [isPdpDetailModalOpen, setIsPdpDetailModalOpen] = useState(false);
 
   const sponsorOrgId = tenantContext.organisationId;
@@ -231,7 +233,7 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
           statusError={statusError}
           onRoadmapAction={(action) => {
             if (action === 'pdp-dossier') { setSelectedProject(null); setActiveTab('pdp-dossier'); }
-            else if (action === 'launch-pool') { setSelectedProject(null); setIsPdpPoolModalOpen(true); }
+            else if (action === 'launch-pool') { setPoolProjectId(selectedProject.id); setSelectedProject(null); setIsPdpPoolModalOpen(true); }
             else if (action === 'project-analyzer' || action === 'contract-advisor') { preferAiProject(selectedProject.id); openAiEngineSection(action); onNavigate?.('ai-engine'); }
             else if (action === 'asset-partnerships' || action === 'contracts') onNavigate?.(action);
           }}
@@ -614,8 +616,9 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
 
       <PDPPoolCreationModal
         isOpen={isPdpPoolModalOpen}
-        onClose={() => setIsPdpPoolModalOpen(false)}
+        onClose={() => { setIsPdpPoolModalOpen(false); setPoolProjectId(undefined); }}
         pdpApplication={pdpApp}
+        projectId={poolProjectId}
       />
 
       <PDPApplicationDetailModal

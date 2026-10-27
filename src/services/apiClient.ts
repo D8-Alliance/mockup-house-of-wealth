@@ -130,6 +130,7 @@ export const apiClient = {
   getAdminCreditAnalytics: () =>request<{ summary: AdminAIAnalyticsSummary; transactions: BackendCreditTransaction[] }>('/membership/admin/credits/analytics'),
   getProjects: () => request<BackendProject[]>('/projects'),
   getPools: () => request<BackendPool[]>('/pools'),
+  createPool: (input: { projectId: string; poolName: string; currency: string; indicativeExpectedReturn: number; organisationId: string; countryNodeId: string; akadType: 'MUDARABAH' | 'MUSHARAKAH' | 'WAKALAH' | 'IJARAH'; investorProfitSharePct: number }) => request<BackendPool>('/pools', { method: 'POST', body: JSON.stringify(input) }),
   getFundingRequests: (projectId: string) => request<BackendFundingRequest[]>(`/funding/requests/${encodeURIComponent(projectId)}`),
   getDistributions: () => request<BackendDistribution[]>('/distributions'),
   analyzeProjectFeasibility: (projectId: string) => request<BackendFeasibilityAssessment>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/analyze`, { method: 'POST' }),

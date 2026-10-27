@@ -82,7 +82,8 @@ describe('PoolsService.create', () => {
       poolAkadTerms: { create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => { terms.push(data); return { id: 'TERMS-1', ...data }; }) },
     };
     const prisma = {
-      organisation: { findFirst: jest.fn(async () => ({ id: 'ORG-A' })) },
+      organisation: { findFirst: jest.fn(async () => ({ id: 'ORG-A', name: 'Solar Sponsor Sdn Bhd' })) },
+      pdpApplication: { findFirst: jest.fn(async () => ({ id: 'PDP-1' })) },
       project: { findUnique: jest.fn(async () => ({ projectId: 'P1', projectName: 'Solar Farm', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', status: 'APPROVED', totalProjectCost: 1000000, fundingRequired: 900000, hasSiteWork: false, hasWorkers: false, countryNode: { currency: 'MYR' } })) },
       // The sponsor's 10% is proved, so the pool may open.
       projectCapitalCommitment: { findMany: jest.fn(async () => [{ source: 'SPONSOR_CASH', amount: 100000, status: 'EVIDENCED' }]) },
@@ -91,7 +92,7 @@ describe('PoolsService.create', () => {
       projectMilestone: { aggregate: jest.fn(async () => ({ _sum: { disbursementAmount: 0 } })) },
       $transaction: jest.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
     };
-    return { service: new PoolsService(prisma as never, { recordActor: jest.fn() } as never, {} as never), terms, tx };
+    return { service: new PoolsService(prisma as never, { recordActor: jest.fn() } as never, {} as never), terms, tx, prisma };
   }
 
   it('creates the pool with version 1 of its akad terms', async () => {
@@ -105,6 +106,15 @@ describe('PoolsService.create', () => {
   it('rejects a ratio the akad does not allow before touching the database', async () => {
     const { service, tx } = setup();
     await expect(service.create({ ...dto, investorProfitSharePct: 100 }, { ...manager, role: 'Super Admin' })).rejects.toThrow(/between 1% and 99%/);
+    expect(tx.wealthPool.create).not.toHaveBeenCalled();
+  });
+
+  it('opens a pool only for an approved delivery partner whose own capital is proved', async () => {
+    const { service, tx, prisma } = setup();
+    prisma.pdpApplication.findFirst.mockResolvedValueOnce(null as never);
+    await expect(service.create(dto, { ...manager, role: 'Super Admin' })).rejects.toThrow('must be an approved delivery partner (PDP)');
+    prisma.projectCapitalCommitment.findMany.mockResolvedValueOnce([{ source: 'SPONSOR_CASH', amount: 100000, status: 'PLEDGED' }] as never);
+    await expect(service.create(dto, { ...manager, role: 'Super Admin' })).rejects.toThrow('must be proved before investors are invited');
     expect(tx.wealthPool.create).not.toHaveBeenCalled();
   });
 });

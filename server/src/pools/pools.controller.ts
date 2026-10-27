@@ -26,7 +26,7 @@ export class PoolsController {
   }
 
   @Post()
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Pool Manager')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Pool Manager', 'Project Sponsor', 'Project Manager')
   @RequirePermission('pooling', 'create')
   create(@Body() body: CreatePoolDto, @CurrentUser() user: AuthenticatedUser) {
     return this.poolsService.create(body, user);

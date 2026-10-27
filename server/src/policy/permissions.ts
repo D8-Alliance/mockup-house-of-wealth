@@ -176,7 +176,8 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
     dashboard: ['read'],
     assets: ['create', 'read'],
     marketplace: ['read'],
-    pooling: ['read'],
+    // create: a pool for their own organisation's approved project, once it is an approved PDP (PoolsService checks).
+    pooling: ['create', 'read'],
     // read: their own projects' funding requests (FundingService limits a sponsor to projects they sponsor).
     approvals: ['create', 'read'],
     governance: ['create', 'read'],
@@ -185,7 +186,7 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
   'Project Manager': {
     dashboard: ['read'],
     assets: ['create', 'read', 'update'],
-    pooling: ['read'],
+    pooling: ['create', 'read'],
     governance: ['create', 'read'],
     profile: ['read', 'update'],
   },
