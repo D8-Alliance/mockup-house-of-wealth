@@ -103,16 +103,16 @@ class MarketplaceMonetisationService {
       promotionStatus: 'Organic (Free Listing)',
       badgeType: null as PromotionBadgeType | null,
       packageName: 'Free Project Listing',
-      startDate: '2026-08-01',
+      startDate: '-',
       endDate: 'Continuous',
-      views: 380,
-      clicks: 34,
-      leads: 3,
+      views: 0,
+      clicks: 0,
+      leads: 0,
       promotionCost: 0,
       currency: 'MYR',
       campaignId: null as string | null,
-      ctr: 8.94,
-      conversionRate: 8.82
+      ctr: 0,
+      conversionRate: 0
     };
   }
 

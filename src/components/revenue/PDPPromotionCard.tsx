@@ -17,6 +17,8 @@ import { authService } from '../../auth/services/authService';
 
 interface PDPPromotionCardProps {
   projectId: string;
+  /** The reference number shown instead of the internal id. */
+  projectCode?: string;
   projectTitle: string;
   currentStatus: string;
   orgName: string;
@@ -24,22 +26,19 @@ interface PDPPromotionCardProps {
 }
 
 export const PDPPromotionCard: React.FC<PDPPromotionCardProps> = ({
-  projectId,
+  projectId, projectCode,
   projectTitle,
   currentStatus,
   orgName,
   onRefresh
 }) => {
   const [showPromoteModal, setShowPromoteModal] = useState(false);
-  const [pdpDetails, setPdpDetails] = useState(
-    marketplaceMonetisationService.getPDPPromotionDetails(projectId, projectTitle, orgName)
-  );
+  // Starts empty: figures come only from the project's own campaigns on the server.
+  const [pdpDetails, setPdpDetails] = useState<ReturnType<typeof marketplaceMonetisationService.getPDPPromotionDetails>>({ hasPromotion: false, promotionStatus: 'Organic (Free Listing)', badgeType: null, packageName: 'Free Project Listing', startDate: '-', endDate: 'Continuous', views: 0, clicks: 0, leads: 0, promotionCost: 0, currency: 'MYR', campaignId: null, ctr: 0, conversionRate: 0 });
+  const promotable = ['Approved', 'Funding Open', 'Pooling', 'Funded'].includes(currentStatus);
   const [paymentHistory, setPaymentHistory] = useState<Awaited<ReturnType<typeof apiClient.getProjectPromotions>>>([]);
 
   const refreshPromotionDetails = async () => {
-    const session = authService.getAuthState().session;
-    if (session?.user.activeRole !== 'Project Sponsor') return;
-
     try {
       const campaigns = await apiClient.getProjectPromotions(projectId);
       setPaymentHistory(campaigns);
@@ -52,7 +51,7 @@ export const PDPPromotionCard: React.FC<PDPPromotionCardProps> = ({
       const clicks = campaign.clicks || 0;
       setPdpDetails({ hasPromotion: true, promotionStatus: `${campaign.badgeType} (${campaign.status})`, badgeType: campaign.badgeType, packageName: campaign.packageName, startDate: campaign.startDate.slice(0, 10), endDate: campaign.endDate?.slice(0, 10) || 'Continuous', views, clicks, leads: campaign.investorLeads || 0, promotionCost: Number(campaign.priceMYR), currency: 'MYR', campaignId: campaign.id, ctr: views ? Number(((clicks / views) * 100).toFixed(2)) : 0, conversionRate: 0 });
     } catch {
-      // Keep the local marketplace preview available for non-production/demo sessions.
+      // Not readable for this role: the card stays at zero rather than showing sample figures.
     }
   };
 
@@ -110,7 +109,9 @@ export const PDPPromotionCard: React.FC<PDPPromotionCardProps> = ({
 
         <button
           onClick={() => setShowPromoteModal(true)}
-          className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0"
+          disabled={!promotable}
+          title={promotable ? 'Promote this project in the marketplace' : 'Promotion opens once the project is approved'}
+          className="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 disabled:shadow-none"
         >
           <Sparkles className="w-4 h-4" />
           <span>Promote Project</span>
@@ -125,7 +126,7 @@ export const PDPPromotionCard: React.FC<PDPPromotionCardProps> = ({
           <span className="font-extrabold text-slate-900 dark:text-white line-clamp-1" title={projectTitle}>
             {projectTitle}
           </span>
-          <span className="text-[10px] text-slate-400 font-mono block mt-0.5">{projectId}</span>
+          <span className="text-[10px] text-slate-400 font-mono block mt-0.5">{projectCode ?? projectId}</span>
         </div>
 
         {/* Current Status */}

@@ -5,6 +5,7 @@ import { ProjectMilestoneList } from './ProjectMilestoneList';
 import { formatProjectMoney } from './sponsorMoney';
 import { ProjectRoadmap } from './ProjectRoadmap';
 import { ProjectSafeguardsPanel } from './ProjectSafeguardsPanel';
+import { ProjectDueDiligencePanel } from './ProjectDueDiligencePanel';
 import type { ProjectRoadmapAction } from '../../services/apiClient';
 import { PDPPromotionCard } from '../revenue/PDPPromotionCard';
 import {
@@ -282,6 +283,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
         <div className="space-y-6">
           <PDPPromotionCard
             projectId={project.id}
+            projectCode={project.code}
             projectTitle={project.title}
             currentStatus={project.workflowStage}
             orgName={project.orgName}
@@ -530,25 +532,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
       )}
 
       {/* Tab 7: Due Diligence */}
-      {activeTab === 'due-diligence' && (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Shariah & Risk Due Diligence Matrix</h3>
-          <div className="space-y-2 text-xs">
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-between">
-              <span className="font-semibold text-emerald-800 dark:text-emerald-300">1. Shariah Asset Backing Verification (AAOIFI Standard 17)</span>
-              <span className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold">PASSED</span>
-            </div>
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-between">
-              <span className="font-semibold text-emerald-800 dark:text-emerald-300">2. Riba / Gharar / Maysir Elimination Assessment</span>
-              <span className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold">PASSED</span>
-            </div>
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-between">
-              <span className="font-semibold text-emerald-800 dark:text-emerald-300">3. Environmental & Social Impact Assessment (ESG)</span>
-              <span className="px-2 py-0.5 bg-emerald-600 text-white rounded text-[10px] font-bold">PASSED</span>
-            </div>
-          </div>
-        </div>
-      )}
+      {activeTab === 'due-diligence' && <ProjectDueDiligencePanel projectId={project.id} />}
     </div>
   );
 };
