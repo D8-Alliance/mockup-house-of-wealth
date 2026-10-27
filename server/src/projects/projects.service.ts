@@ -11,6 +11,7 @@ import { formatLocalDateTime } from '../tenancy/country-time';
 import { inspectDocument, sha256Hex, withStoredChecks } from './document-integrity';
 import { BadRequestException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
+import { projectRoadmap } from './project-roadmap';
 
 /** Fields an accepted asset partnership relies on: its agreement names the project, its akad and where it is. */
 export const PARTNERSHIP_FIXED_FIELDS = ['projectName', 'sector', 'proposedShariahContract', 'location'] as const;
@@ -82,6 +83,37 @@ export class ProjectsService {
       },
     });
     return Promise.all(projects.map((project) => this.ensureMilestones(project)));
+  }
+
+  /** What is done, what comes next and who acts, from registration to completion. */
+  async roadmap(projectId: string, user: AuthenticatedUser) {
+    const project = await this.get(projectId, user);
+    const scope = { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId };
+    const [organisation, allocated, evidence, revision, termSheet, needs, engagements, pools, currency] = await Promise.all([
+      this.prisma.organisation.findUnique({ where: { id: project.organisationId }, select: { name: true, kybStatus: true } }),
+      this.prisma.projectMilestone.aggregate({ where: { projectId }, _sum: { disbursementAmount: true } }),
+      this.prisma.projectEvidenceRequirement.findMany({ where: scope, select: { evidenceType: true, status: true } }),
+      this.prisma.projectFeasibilityRevision.findFirst({ where: scope, orderBy: { revisionNumber: 'desc' }, select: { aiRun: { select: { reviewStage: true } } } }),
+      this.prisma.shariahReview.findFirst({ where: { projectId }, orderBy: { createdAt: 'desc' }, select: { status: true } }),
+      this.prisma.projectAssetNeed.findMany({ where: { projectId }, select: { status: true } }),
+      this.prisma.assetEngagement.findMany({ where: { projectId, status: { notIn: ['DECLINED', 'WITHDRAWN', 'REJECTED'] } }, select: { id: true, status: true } }),
+      this.prisma.wealthPool.count({ where: { projectId } }),
+      this.prisma.countryNode.findUnique({ where: { code: project.countryNodeId }, select: { currency: true } }),
+    ]);
+    const pdp = await this.prisma.pdpApplication.findFirst({
+      where: { status: { not: 'DRAFT' }, OR: [{ organisationId: project.organisationId }, ...(organisation ? [{ organisationId: null, organisationName: { equals: organisation.name, mode: 'insensitive' as const } }] : [])] },
+      orderBy: { updatedAt: 'desc' }, select: { status: true },
+    });
+    const agreements = engagements.length ? await this.prisma.contract.findMany({ where: { engagementId: { in: engagements.map((item) => item.id) } }, select: { status: true } }) : [];
+    const uploaded = new Set(evidence.filter((item) => item.status !== 'MISSING').map((item) => item.evidenceType));
+    return projectRoadmap({
+      status: project.status, currency: currency?.currency ?? 'MYR', fundingRequired: Number(project.fundingRequired), allocated: Number(allocated._sum.disbursementAmount ?? 0),
+      kybStatus: organisation?.kybStatus ?? 'NOT_SUBMITTED', pdpStatus: pdp?.status ?? null,
+      evidence: { required: EVIDENCE_REQUIREMENTS.length, uploaded: EVIDENCE_REQUIREMENTS.filter((item) => uploaded.has(item.evidenceType)).length },
+      feasibility: revision ? { reviewStage: revision.aiRun.reviewStage } : null, termSheetReview: termSheet?.status ?? null,
+      needs: { open: needs.filter((item) => item.status === 'OPEN').length, total: needs.length },
+      engagements, agreements, pools,
+    });
   }
 
   async lifecycle(projectId: string, user: AuthenticatedUser) {

@@ -50,6 +50,12 @@ export class ProjectsController {
     return this.projectsService.list(user);
   }
 
+  @Get(':id/roadmap')
+  @RequirePermission('marketplace', 'read')
+  roadmap(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.roadmap(id, user);
+  }
+
   @Get(':id/lifecycle')
   @RequirePermission('marketplace', 'read')
   lifecycle(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {

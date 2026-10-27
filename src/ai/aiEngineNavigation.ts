@@ -47,6 +47,18 @@ export function takeAgreementPrefill(): AgreementPrefill | null {
   return prefill;
 }
 
+let preferredProjectId: string | null = null;
+
+/** The project the AI tools should show first, e.g. after "Open Project Feasibility" on a project's roadmap. */
+export function preferAiProject(projectId: string): void {
+  preferredProjectId = projectId;
+}
+
+/** The preferred project if it is among those listed, else the first one. */
+export function pickAiProject<T extends { projectId: string }>(items: T[]): string {
+  return items.find((item) => item.projectId === preferredProjectId)?.projectId ?? items[0]?.projectId ?? '';
+}
+
 export function takeAiEngineSection(): string | null {
   const section = pendingSection;
   pendingSection = null;

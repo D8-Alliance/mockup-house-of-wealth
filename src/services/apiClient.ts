@@ -142,6 +142,7 @@ export const apiClient = {
   /** Corrects a draft project's details (refused once it is submitted for review). */
   updateProjectDetails: (projectId: string, input: { projectName?: string; description?: string; sector?: string; sponsorEntityType?: string; proposedShariahContract?: string; totalProjectCost?: number; fundingRequired?: number; expectedYieldPct?: number; tenureMonths?: number; location?: string }) => request<BackendProject>(`/projects/${encodeURIComponent(projectId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
   updateProjectStatus: (projectId: string, input: { status: string; note?: string }) => request<BackendProject>(`/projects/${encodeURIComponent(projectId)}/status`, { method: 'POST', body: JSON.stringify(input) }),
+  getProjectRoadmap: (projectId: string) => request<ProjectRoadmapStep[]>(`/projects/${encodeURIComponent(projectId)}/roadmap`),
   createProjectMilestone: (projectId: string, input: { title: string; targetDate: string; disbursementAmount: number }) => request<BackendProjectMilestone>(`/projects/${encodeURIComponent(projectId)}/milestones`, { method: 'POST', body: JSON.stringify(input) }),
   updateProjectMilestone: (projectId: string, milestoneId: string, input: { completionPct?: number; status?: string; shariahSignoff?: boolean; auditorSignoff?: boolean }) => request(`/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(milestoneId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
   createProject: (input: CreateProjectInput) => request<BackendProject>('/projects', {
@@ -1364,6 +1365,18 @@ export interface BackendFeasibilityAssessment {
   reviewStage: string;
   roleResponsibility?: string[];
   reviewHistory?: Array<{ stage: string; reviewerId?: string; reviewer?: string; reviewerRole?: string; date?: string; status?: string; decision?: string; comment?: string; supportingEvidence?: string[]; actorId?: string; at?: string; note?: string | null }>;
+}
+
+export type ProjectRoadmapAction = 'pdp-dossier' | 'milestones' | 'project-analyzer' | 'contract-advisor' | 'asset-partnerships' | 'submit' | 'contracts' | 'launch-pool';
+/** One step from registration to completion, worked out by the server from the project's records. */
+export interface ProjectRoadmapStep {
+  key: string;
+  phase: 'PREPARE' | 'REVIEW' | 'FUND';
+  title: string;
+  status: 'DONE' | 'TODO' | 'WAITING' | 'LOCKED' | 'OPTIONAL' | 'BLOCKED';
+  detail: string;
+  who: string;
+  action?: ProjectRoadmapAction;
 }
 
 export interface BackendProjectMilestone {

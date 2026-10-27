@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { pickAiProject } from '../../aiEngineNavigation';
 import { AlertTriangle, FileText, Sparkles, Upload, CheckCircle2 } from 'lucide-react';
 import { AIApprovalPanel } from '../../components/AIApprovalPanel';
 import { AIRecommendationCard } from '../../components/AIRecommendationCard';
@@ -60,7 +61,7 @@ export const AIProjectAnalyzer: React.FC<{ user: any }> = ({ user }) => {
     apiClient.getProjects().then((items) => {
       if (!cancelled) {
         setProjects(items);
-        setSelectedProjectId((current) => current || items[0]?.projectId || '');
+        setSelectedProjectId((current) => current || pickAiProject(items));
       }
     }).catch((cause) => {
       if (!cancelled) setError(cause instanceof Error ? cause.message : 'Unable to load accessible projects.');

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { pickAiProject } from '../../aiEngineNavigation';
 import { ProjectPartnershipsNote } from './ProjectPartnershipsNote';
 import { AIService } from '../../services/AIService';
 import { ContractAdvisorProject } from '../../types/aiCoreTypes';
@@ -48,7 +49,7 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
         }));
         setProjects(mappedProjects);
         setProjectsLoaded(true);
-        setSelectedProjectId(mappedProjects[0]?.projectId || '');
+        setSelectedProjectId(pickAiProject(mappedProjects));
       })
       .catch((loadError) => {
         if (!cancelled) setError(loadError instanceof Error ? loadError.message : 'Unable to load projects.');

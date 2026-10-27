@@ -3,6 +3,7 @@ import { AlignmentType, Document, Packer, PageBreak, Paragraph, TextRun } from '
 import PDFDocument from 'pdfkit';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { PROJECT_APPROVED_STATUSES } from '../projects/project-roadmap';
 import { AuditService } from '../audit/audit.service';
 import { AiService } from '../ai/ai.service';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -28,8 +29,6 @@ type Section = { number: string; title: string; paragraphs: string[] };
 
 const labels: Record<AgreementType, string> = { IJARAH: 'Ijarah Agreement', MUSHARAKAH: 'Musharakah Joint Venture Agreement', MUDARABAH: 'Mudarabah Agreement', WAKALAH: 'Wakalah Agreement', SUKUK: 'Sukuk Structure Document' };
 
-/** Project statuses reached only after the Shariah board approved the project. */
-const PROJECT_APPROVED_STATUSES = ['APPROVED', 'FUNDING_OPEN', 'POOLING', 'FUNDED', 'EXECUTION', 'PROFIT_DISTRIBUTION', 'COMPLETED'];
 
 @Injectable()
 export class AgreementGenerationService {

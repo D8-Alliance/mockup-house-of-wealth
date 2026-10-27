@@ -24,6 +24,7 @@ import { useRBAC } from '../../rbac/RBACContext';
 import { takeProjectRegistrationRequest } from './sponsorNavigation';
 import { ProjectProgressVisual } from '../projects/ProjectProgressVisual';
 import { OrganisationKybPanel } from '../../organisations/OrganisationKybPanel';
+import { openAiEngineSection, preferAiProject } from '../../ai/aiEngineNavigation';
 
 const PROJECT_CATEGORIES: SponsorProject['category'][] = ['Green Energy & Solar', 'Agro-Industrial', 'SME Export', 'Commercial Real Estate', 'Social Waqf Housing'];
 
@@ -64,7 +65,12 @@ function projectTermsInput(project: SponsorProject) {
   return { expectedYieldPct: Number.isFinite(yieldPct) ? yieldPct : undefined, tenureMonths: project.tenureMonths > 0 ? project.tenureMonths : undefined, location: project.location.trim() || undefined };
 }
 
-export const ProjectSponsorView: React.FC = () => {
+interface ProjectSponsorViewProps {
+  /** Switches the app to another screen, e.g. the AI Wealth Engine or Asset Partnerships. */
+  onNavigate?: (tab: 'ai-engine' | 'asset-partnerships' | 'contracts') => void;
+}
+
+export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNavigate }) => {
   // The tenant the server resolved for this sign-in; a Keycloak token carries no organisation claim.
   const { tenantContext } = useRBAC();
   const [projects, setProjects] = useState<SponsorProject[]>([]);
@@ -223,6 +229,12 @@ export const ProjectSponsorView: React.FC = () => {
           onEdit={() => { setEditingProject(selectedProject); setIsRegisterModalOpen(true); }}
           onChangeStatus={(status) => void handleChangeStatus(selectedProject, status)}
           statusError={statusError}
+          onRoadmapAction={(action) => {
+            if (action === 'pdp-dossier') { setSelectedProject(null); setActiveTab('pdp-dossier'); }
+            else if (action === 'launch-pool') { setSelectedProject(null); setIsPdpPoolModalOpen(true); }
+            else if (action === 'project-analyzer' || action === 'contract-advisor') { preferAiProject(selectedProject.id); openAiEngineSection(action); onNavigate?.('ai-engine'); }
+            else if (action === 'asset-partnerships' || action === 'contracts') onNavigate?.(action);
+          }}
         />
         <ProjectRegistrationModal
           isOpen={isRegisterModalOpen}

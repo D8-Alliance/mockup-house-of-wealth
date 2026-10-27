@@ -3,6 +3,8 @@ import { SponsorProject, WorkflowStage, ProjectMilestone, TeamMember } from './S
 import { SponsorWorkflowBar } from './SponsorWorkflowBar';
 import { ProjectMilestoneList } from './ProjectMilestoneList';
 import { formatProjectMoney } from './sponsorMoney';
+import { ProjectRoadmap } from './ProjectRoadmap';
+import type { ProjectRoadmapAction } from '../../services/apiClient';
 import { PDPPromotionCard } from '../revenue/PDPPromotionCard';
 import {
   Building2, CheckCircle2, Clock, AlertTriangle, ShieldCheck,
@@ -19,9 +21,11 @@ interface ProjectDetailViewProps {
   /** Submits the draft for review, or takes it back to draft. */
   onChangeStatus: (status: 'DUE_DILIGENCE' | 'DRAFT') => void;
   statusError?: string;
+  /** Opens another screen for a roadmap step (PDP & KYB, the AI tools, partnerships, agreements, pools). */
+  onRoadmapAction?: (action: ProjectRoadmapAction) => void;
 }
 
-export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, onBack, onEdit, onChangeStatus, statusError }) => {
+export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, onBack, onEdit, onChangeStatus, statusError, onRoadmapAction }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'milestones' | 'disbursements' | 'dataroom' | 'team' | 'investor-comms' | 'due-diligence'>('overview');
 
   const [milestones, setMilestones] = useState<ProjectMilestone[]>(project.milestones);
@@ -231,6 +235,16 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
         {/* The stage follows the server; reviewers move the project beyond due diligence. */}
         <SponsorWorkflowBar currentStage={project.workflowStage} />
       </div>
+
+      <ProjectRoadmap
+        projectId={project.id}
+        version={`${project.serverStatus}|${project.title}|${milestones.length}`}
+        onAction={(action) => {
+          if (action === 'milestones') setActiveTab('milestones');
+          else if (action === 'submit') { if (window.confirm('Submit this project for review? It can no longer be edited unless you return it to draft.')) onChangeStatus('DUE_DILIGENCE'); }
+          else onRoadmapAction?.(action);
+        }}
+      />
 
       {/* Detail View Sub-Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 overflow-x-auto pb-1 text-xs font-semibold">

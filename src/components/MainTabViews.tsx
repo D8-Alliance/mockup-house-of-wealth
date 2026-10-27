@@ -104,7 +104,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'sponsor-portal' && (
         <RoleGuard tab="sponsor-portal">
-          <ProjectSponsorView />
+          <ProjectSponsorView onNavigate={setTab} />
         </RoleGuard>
       )}
 

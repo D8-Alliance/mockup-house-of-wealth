@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { pickAiProject } from '../../aiEngineNavigation';
 import { AIService } from '../../services/AIService';
 import { ContractDraftParams } from '../../types/aiCoreTypes';
 import { AIConfidenceBadge } from '../../components/AIConfidenceBadge';
@@ -34,7 +35,7 @@ export const AIContractDraftAssistant: React.FC<AIContractDraftAssistantProps> =
       setProjectsLoaded(true);
       setProjectReviews(reviews);
       setNotifications(notificationItems);
-      setSelectedProjectId((current) => current || items[0]?.projectId || '');
+      setSelectedProjectId((current) => current || pickAiProject(items));
     }).catch((loadError) => {
       if (!cancelled) setError(loadError instanceof Error ? loadError.message : 'Unable to load projects.');
     });
