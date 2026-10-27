@@ -142,6 +142,18 @@ export const apiClient = {
   /** Corrects a draft project's details (refused once it is submitted for review). */
   updateProjectDetails: (projectId: string, input: { projectName?: string; description?: string; sector?: string; sponsorEntityType?: string; proposedShariahContract?: string; totalProjectCost?: number; fundingRequired?: number; expectedYieldPct?: number; tenureMonths?: number; location?: string }) => request<BackendProject>(`/projects/${encodeURIComponent(projectId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
   updateProjectStatus: (projectId: string, input: { status: string; note?: string }) => request<BackendProject>(`/projects/${encodeURIComponent(projectId)}/status`, { method: 'POST', body: JSON.stringify(input) }),
+  getProjectSafeguards: (projectId: string) => request<ProjectSafeguards>(`/projects/${encodeURIComponent(projectId)}/safeguards`),
+  setProjectRiskFlags: (projectId: string, input: { hasSiteWork: boolean; hasWorkers: boolean }) => request<ProjectSafeguards>(`/projects/${encodeURIComponent(projectId)}/safeguards/risk-flags`, { method: 'PUT', body: JSON.stringify(input) }),
+  pledgeCapital: (projectId: string, input: { source: CapitalSource; partyName: string; amount: number }) => request<ProjectSafeguards>(`/projects/${encodeURIComponent(projectId)}/capital`, { method: 'POST', body: JSON.stringify(input) }),
+  removeCapital: (projectId: string, commitmentId: string) => request<ProjectSafeguards>(`/projects/${encodeURIComponent(projectId)}/capital/${encodeURIComponent(commitmentId)}`, { method: 'DELETE' }),
+  uploadCapitalEvidence: (projectId: string, commitmentId: string, file: File) => { const body = new FormData(); body.append('file', file, file.name); return request<ProjectSafeguards>(`/projects/${encodeURIComponent(projectId)}/capital/${encodeURIComponent(commitmentId)}/evidence`, { method: 'POST', body }); },
+  reviewCapital: (projectId: string, commitmentId: string, input: { decision: 'VERIFY' | 'REJECT'; note: string }) => request<ProjectSafeguards>(`/projects/${encodeURIComponent(projectId)}/capital/${encodeURIComponent(commitmentId)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  recordCapitalDeposit: (projectId: string, commitmentId: string, reference: string) => request<ProjectSafeguards>(`/projects/${encodeURIComponent(projectId)}/capital/${encodeURIComponent(commitmentId)}/deposit`, { method: 'POST', body: JSON.stringify({ reference }) }),
+  downloadCapitalEvidence: (projectId: string, commitmentId: string) => openAuthenticatedFile(`/projects/${encodeURIComponent(projectId)}/capital/${encodeURIComponent(commitmentId)}/evidence`),
+  addTakafulPolicy: (projectId: string, input: TakafulPolicyInput, file: File) => { const body = new FormData(); Object.entries(input).forEach(([key, value]) => { if (value !== undefined && value !== '') body.append(key, String(value)); }); body.append('file', file, file.name); return request<ProjectSafeguards>(`/projects/${encodeURIComponent(projectId)}/takaful`, { method: 'POST', body }); },
+  reviewTakafulPolicy: (projectId: string, policyId: string, input: { decision: 'VERIFY' | 'REJECT'; note: string }) => request<ProjectSafeguards>(`/projects/${encodeURIComponent(projectId)}/takaful/${encodeURIComponent(policyId)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  downloadTakafulPolicy: (projectId: string, policyId: string) => openAuthenticatedFile(`/projects/${encodeURIComponent(projectId)}/takaful/${encodeURIComponent(policyId)}/document`),
+  getSafeguardQueue: () => request<SafeguardQueue>('/safeguards/queue'),
   getProjectRoadmap: (projectId: string) => request<ProjectRoadmapStep[]>(`/projects/${encodeURIComponent(projectId)}/roadmap`),
   createProjectMilestone: (projectId: string, input: { title: string; targetDate: string; disbursementAmount: number }) => request<BackendProjectMilestone>(`/projects/${encodeURIComponent(projectId)}/milestones`, { method: 'POST', body: JSON.stringify(input) }),
   updateProjectMilestone: (projectId: string, milestoneId: string, input: { completionPct?: number; status?: string; shariahSignoff?: boolean; auditorSignoff?: boolean }) => request(`/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(milestoneId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
@@ -1367,7 +1379,33 @@ export interface BackendFeasibilityAssessment {
   reviewHistory?: Array<{ stage: string; reviewerId?: string; reviewer?: string; reviewerRole?: string; date?: string; status?: string; decision?: string; comment?: string; supportingEvidence?: string[]; actorId?: string; at?: string; note?: string | null }>;
 }
 
-export type ProjectRoadmapAction = 'pdp-dossier' | 'milestones' | 'project-analyzer' | 'contract-advisor' | 'asset-partnerships' | 'submit' | 'contracts' | 'launch-pool';
+export type CapitalSource = 'SPONSOR_CASH' | 'OTHER_FINANCING';
+export type CoverType = 'ASSET_PROPERTY' | 'MACHINERY' | 'MOTOR' | 'CONTRACTORS_ALL_RISK' | 'PUBLIC_LIABILITY' | 'PERKESO' | 'CROP' | 'KEY_PERSON' | 'OTHER';
+export type CoverState = 'COVERED' | 'EXPIRING' | 'PENDING_REVIEW' | 'NOT_STARTED' | 'INSUFFICIENT' | 'LAPSED' | 'MISSING';
+export interface TakafulPolicyInput { coverType: CoverType; assetId?: string; provider: string; policyNumber: string; sumCovered: number; contribution?: number; startDate: string; endDate: string; lossPayee: string; conventional: boolean; shariahApprovalNote?: string }
+/** A project's sponsor capital and takaful cover, and what they still block. */
+export interface ProjectSafeguards {
+  project: { projectId: string; projectName: string; status: string };
+  facts: {
+    currency: string; totalProjectCost: number; fundingRequired: number; hasSiteWork: boolean; hasWorkers: boolean;
+    capital: { pct: number; required: number; pledged: number; evidenced: number; deposited: number };
+    inKind: Array<{ engagementId: string; assetName: string; ownerName: string; value: number }>;
+    pdpCash: number;
+    rent: Array<{ engagementId: string; assetName: string; ownerName: string; total: number }>;
+    allocatedToTranches: number;
+    cover: Array<{ key: string; coverType: CoverType; assetId?: string; label: string; minSumCovered?: number; payer: string; state: CoverState; policyId: string | null; coveredUntil: string | null }>;
+    blockers: { pool: string[]; disburse: string[] };
+  } | null;
+  commitments: Array<{ id: string; source: CapitalSource; partyName: string; amount: number | string; currency: string; status: 'PLEDGED' | 'EVIDENCE_SUBMITTED' | 'EVIDENCED' | 'DEPOSITED' | 'REJECTED'; evidenceFileName: string | null; evidenceSha256: string | null; evidencedAt: string | null; depositReference: string | null; depositedAt: string | null; reviewNote: string | null; history: Array<{ at: string; byName: string; role: string; action: string; note?: string }>; createdAt: string }>;
+  policies: Array<{ id: string; coverType: CoverType; assetId: string | null; provider: string; policyNumber: string; sumCovered: number | string; contribution: number | string | null; currency: string; startDate: string; endDate: string; lossPayee: string; conventional: boolean; shariahApprovalNote: string | null; fileName: string; sha256: string; status: 'SUBMITTED' | 'VERIFIED' | 'REJECTED'; verifiedAt: string | null; reviewNote: string | null; createdAt: string }>;
+  assets: Array<{ assetId: string; name: string; mine: boolean }>;
+  access: { manage: boolean; reviewCapital: boolean; reviewTakaful: boolean; assetOwner: boolean };
+}
+export interface SafeguardQueue {
+  capital: Array<{ id: string; projectId: string; partyName: string; amount: number | string; currency: string; status: string; updatedAt: string; project: { projectName: string } }>;
+  policies: Array<{ id: string; projectId: string; coverType: CoverType; provider: string; policyNumber: string; sumCovered: number | string; currency: string; conventional: boolean; createdAt: string; project: { projectName: string } }>;
+}
+export type ProjectRoadmapAction = 'safeguards' | 'pdp-dossier' | 'milestones' | 'project-analyzer' | 'contract-advisor' | 'asset-partnerships' | 'submit' | 'contracts' | 'launch-pool';
 /** One step from registration to completion, worked out by the server from the project's records. */
 export interface ProjectRoadmapStep {
   key: string;

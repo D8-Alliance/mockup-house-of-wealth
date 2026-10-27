@@ -9,6 +9,7 @@ import { AKAD_RULES, buildAkadTermsText, hashTerms, PoolAkadType, validateProfit
 import { assertTenantScope } from '../tenancy/tenant-scope';
 import { assertCanViewPool, poolVisibilityFilter } from './pool-access';
 import { FUNDABLE_PROJECT_STATUSES, hasCurrentFinalApproval } from '../projects/project-lock';
+import { safeguardFacts } from '../capital-takaful/safeguard-facts';
 
 @Injectable()
 export class PoolsService {
@@ -118,6 +119,8 @@ export class PoolsService {
       throw new ForbiddenException('Project is outside the requested tenant scope');
     }
     if (!FUNDABLE_PROJECT_STATUSES.includes(project.status) || !(await hasCurrentFinalApproval(this.prisma, project))) throw new BadRequestException('Pooling requires an approved current feasibility revision and project status.');
+    const safeguards = await safeguardFacts(this.prisma, project.projectId);
+    if (safeguards?.blockers.pool.length) throw new BadRequestException(safeguards.blockers.pool.join(' '));
 
     const pool = await this.prisma.$transaction(async (tx) => {
       const created = await tx.wealthPool.create({

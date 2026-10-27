@@ -21,6 +21,7 @@ const ACTION_LABELS: Record<ProjectRoadmapAction, string> = {
   'pdp-dossier': 'Open PDP & KYB',
   milestones: 'Open milestones',
   'project-analyzer': 'Open Project Feasibility',
+  safeguards: 'Open capital & takaful',
   'contract-advisor': 'Open Contract Structuring',
   'asset-partnerships': 'Open Asset Partnerships',
   submit: 'Submit for review',

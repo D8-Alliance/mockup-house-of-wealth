@@ -83,7 +83,12 @@ describe('PoolsService.create', () => {
     };
     const prisma = {
       organisation: { findFirst: jest.fn(async () => ({ id: 'ORG-A' })) },
-      project: { findUnique: jest.fn(async () => ({ projectId: 'P1', projectName: 'Solar Farm', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', status: 'APPROVED' })) },
+      project: { findUnique: jest.fn(async () => ({ projectId: 'P1', projectName: 'Solar Farm', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', status: 'APPROVED', totalProjectCost: 1000000, fundingRequired: 900000, hasSiteWork: false, hasWorkers: false, countryNode: { currency: 'MYR' } })) },
+      // The sponsor's 10% is proved, so the pool may open.
+      projectCapitalCommitment: { findMany: jest.fn(async () => [{ source: 'SPONSOR_CASH', amount: 100000, status: 'EVIDENCED' }]) },
+      assetEngagement: { findMany: jest.fn(async () => []) },
+      takafulPolicy: { findMany: jest.fn(async () => []) },
+      projectMilestone: { aggregate: jest.fn(async () => ({ _sum: { disbursementAmount: 0 } })) },
       $transaction: jest.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
     };
     return { service: new PoolsService(prisma as never, { recordActor: jest.fn() } as never, {} as never), terms, tx };

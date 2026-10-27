@@ -27,6 +27,7 @@ import { ContractIntelligenceModule } from './contract-intelligence/contract-int
 import { KycModule } from './kyc/kyc.module';
 import { AssetsModule } from './assets/assets.module';
 import { OrganisationKybModule } from './organisation-kyb/organisation-kyb.module';
+import { CapitalTakafulModule } from './capital-takaful/capital-takaful.module';
 import { AssetPartnershipsModule } from './asset-partnerships/asset-partnerships.module';
 import { FinancialLedgerModule } from './financial/financial-ledger.module';
 import { DistributionModule } from './distribution/distribution.module';
@@ -62,6 +63,7 @@ import { JobsModule } from './jobs/jobs.module';
     KycModule,
     AssetsModule,
     OrganisationKybModule,
+    CapitalTakafulModule,
     AssetPartnershipsModule,
     FinancialLedgerModule,
     DistributionModule,

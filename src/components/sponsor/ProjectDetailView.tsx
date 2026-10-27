@@ -4,6 +4,7 @@ import { SponsorWorkflowBar } from './SponsorWorkflowBar';
 import { ProjectMilestoneList } from './ProjectMilestoneList';
 import { formatProjectMoney } from './sponsorMoney';
 import { ProjectRoadmap } from './ProjectRoadmap';
+import { ProjectSafeguardsPanel } from './ProjectSafeguardsPanel';
 import type { ProjectRoadmapAction } from '../../services/apiClient';
 import { PDPPromotionCard } from '../revenue/PDPPromotionCard';
 import {
@@ -26,7 +27,9 @@ interface ProjectDetailViewProps {
 }
 
 export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, onBack, onEdit, onChangeStatus, statusError, onRoadmapAction }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'milestones' | 'disbursements' | 'dataroom' | 'team' | 'investor-comms' | 'due-diligence'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'milestones' | 'safeguards' | 'disbursements' | 'dataroom' | 'team' | 'investor-comms' | 'due-diligence'>('overview');
+  // Bumped when capital or cover changes, so the roadmap reloads.
+  const [safeguardVersion, setSafeguardVersion] = useState(0);
 
   const [milestones, setMilestones] = useState<ProjectMilestone[]>(project.milestones);
   const [projectDocuments, setProjectDocuments] = useState<BackendProjectDocument[]>([]);
@@ -238,9 +241,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
 
       <ProjectRoadmap
         projectId={project.id}
-        version={`${project.serverStatus}|${project.title}|${milestones.length}`}
+        version={`${project.serverStatus}|${project.title}|${milestones.length}|${safeguardVersion}`}
         onAction={(action) => {
           if (action === 'milestones') setActiveTab('milestones');
+          else if (action === 'safeguards') setActiveTab('safeguards');
           else if (action === 'submit') { if (window.confirm('Submit this project for review? It can no longer be edited unless you return it to draft.')) onChangeStatus('DUE_DILIGENCE'); }
           else onRoadmapAction?.(action);
         }}
@@ -251,6 +255,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
         {[
           { id: 'overview', label: 'Overview & Analytics', icon: <Building2 className="w-4 h-4" /> },
           { id: 'milestones', label: `Milestones (${milestones.length})`, icon: <Clock className="w-4 h-4" /> },
+          { id: 'safeguards', label: 'Capital & takaful', icon: <ShieldCheck className="w-4 h-4" /> },
           { id: 'disbursements', label: `Disbursements (${project.disbursements.length})`, icon: <DollarSign className="w-4 h-4" /> },
            { id: 'dataroom', label: `Data Room (${documentsLoaded ? projectDocuments.length : project.documents.length})`, icon: <FileText className="w-4 h-4" /> },
           { id: 'team', label: `Project Team (${project.team.length})`, icon: <Users className="w-4 h-4" /> },
@@ -343,6 +348,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
       )}
 
       {/* Tab 2: Milestones */}
+      {activeTab === 'safeguards' && <ProjectSafeguardsPanel projectId={project.id} onChanged={() => setSafeguardVersion((value) => value + 1)} />}
+
       {activeTab === 'milestones' && (
         <ProjectMilestoneList projectId={project.id} initialMilestones={milestones} currency={currency} fundingRequired={project.targetFunding} editable={project.serverStatus === 'DRAFT' || project.serverStatus === 'DUE_DILIGENCE'} onChange={setMilestones} />
       )}

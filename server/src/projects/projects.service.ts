@@ -12,6 +12,7 @@ import { inspectDocument, sha256Hex, withStoredChecks } from './document-integri
 import { BadRequestException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { projectRoadmap } from './project-roadmap';
+import { safeguardFacts } from '../capital-takaful/safeguard-facts';
 
 /** Fields an accepted asset partnership relies on: its agreement names the project, its akad and where it is. */
 export const PARTNERSHIP_FIXED_FIELDS = ['projectName', 'sector', 'proposedShariahContract', 'location'] as const;
@@ -106,7 +107,10 @@ export class ProjectsService {
     });
     const agreements = engagements.length ? await this.prisma.contract.findMany({ where: { engagementId: { in: engagements.map((item) => item.id) } }, select: { status: true } }) : [];
     const uploaded = new Set(evidence.filter((item) => item.status !== 'MISSING').map((item) => item.evidenceType));
+    const safeguards = await safeguardFacts(this.prisma, projectId);
     return projectRoadmap({
+      capital: safeguards ? { pct: safeguards.capital.pct, required: safeguards.capital.required, pledged: safeguards.capital.pledged, evidenced: safeguards.capital.evidenced, deposited: safeguards.capital.deposited } : { pct: 10, required: 0, pledged: 0, evidenced: 0, deposited: 0 },
+      cover: safeguards ? safeguards.cover.map((item) => ({ label: item.label, state: item.state })) : [],
       status: project.status, currency: currency?.currency ?? 'MYR', fundingRequired: Number(project.fundingRequired), allocated: Number(allocated._sum.disbursementAmount ?? 0),
       kybStatus: organisation?.kybStatus ?? 'NOT_SUBMITTED', pdpStatus: pdp?.status ?? null,
       evidence: { required: EVIDENCE_REQUIREMENTS.length, uploaded: EVIDENCE_REQUIREMENTS.filter((item) => uploaded.has(item.evidenceType)).length },
@@ -134,6 +138,10 @@ export class ProjectsService {
     // Approval and reopening have their own governed paths; a plain status change must not bypass them.
     if (isProjectLocked(project.status) && ['DRAFT', 'DUE_DILIGENCE'].includes(dto.status)) throw new ConflictException('An approved or rejected project can only return to due diligence through Reopen project.');
     if (dto.status === 'APPROVED' && project.status !== 'APPROVED' && !(await hasCurrentFinalApproval(this.prisma, project))) throw new ConflictException('A project becomes APPROVED only through the final committee decision on its current feasibility revision.');
+    if (project.status === 'DRAFT' && dto.status === 'DUE_DILIGENCE') {
+      const safeguards = await safeguardFacts(this.prisma, projectId);
+      if (safeguards && safeguards.capital.pledged < safeguards.capital.required) throw new ConflictException(`Pledge the sponsor's own capital before submitting: at least ${safeguards.capital.pct}% of the project cost (${safeguards.currency} ${safeguards.capital.required.toLocaleString('en-MY', { minimumFractionDigits: 2 })}); ${safeguards.currency} ${safeguards.capital.pledged.toLocaleString('en-MY', { minimumFractionDigits: 2 })} is pledged.`);
+    }
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.project.update({ where: { projectId }, data: { status: dto.status, lifecycleVersion: { increment: 1 } } });
       await tx.projectLifecycleEvent.create({ data: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, fromStatus: project.status, toStatus: dto.status, note: dto.note, actorId: user.userId } });

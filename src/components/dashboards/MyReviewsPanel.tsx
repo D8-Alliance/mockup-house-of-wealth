@@ -8,7 +8,7 @@ import { openPartnership } from '../../asset-partnerships/partnershipNavigation'
 import { openAdminSection } from '../adminNavigation';
 import { formatDateTime } from '../../utils/platformTime';
 
-type Kind = 'Asset partnership' | 'Agreement' | 'PDP application (KYB)' | 'Organisation (KYB)' | 'Asset verification' | 'KYC' | 'Project (Shariah board)';
+type Kind = 'Asset partnership' | 'Agreement' | 'PDP application (KYB)' | 'Organisation (KYB)' | 'Capital / takaful' | 'Asset verification' | 'KYC' | 'Project (Shariah board)';
 interface ReviewItem { key: string; kind: Kind; title: string; detail: string; at?: string; open: () => void }
 
 const has = (role: string, roles: string[]) => roles.includes(role);
@@ -17,8 +17,9 @@ const AGREEMENT_REVIEWERS = ['Legal Officer', 'Shariah Reviewer', 'Shariah Advis
 const KYB_REVIEWERS = ['Super Admin', 'Country Admin', 'KYB Officer', 'Compliance Officer'];
 const ASSET_VERIFIERS = ['Super Admin', 'Country Admin', 'Legal Officer'];
 const KYC_REVIEWERS = ['Super Admin', 'Country Admin', 'KYC Officer', 'Compliance Officer'];
+const SAFEGUARD_REVIEWERS = ['Super Admin', 'Country Admin', 'Finance Officer', 'Risk Officer', 'Compliance Officer'];
 const SHARIAH_BOARD = ['Super Admin', 'Country Admin', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'];
-export const MY_REVIEWS_ROLES = [...new Set([...PARTNERSHIP_REVIEWERS, ...AGREEMENT_REVIEWERS, ...KYB_REVIEWERS, ...ASSET_VERIFIERS, ...KYC_REVIEWERS, ...SHARIAH_BOARD])];
+export const MY_REVIEWS_ROLES = [...new Set([...PARTNERSHIP_REVIEWERS, ...AGREEMENT_REVIEWERS, ...KYB_REVIEWERS, ...ASSET_VERIFIERS, ...KYC_REVIEWERS, ...SHARIAH_BOARD, ...SAFEGUARD_REVIEWERS])];
 
 /**
  * Everything waiting for this reviewer's decision, from every queue the role can act on, in one list
@@ -46,6 +47,10 @@ export const MyReviewsPanel: React.FC<{ setTab: (tab: NavTab) => void }> = ({ se
       key: `pdp-${item.id}`, kind: 'PDP application (KYB)' as Kind, title: item.organisationName, detail: `${item.applicationNumber} · ${item.pdpType}`,
       at: item.submittedAt, open: () => { openAdminSection('pdp_applications'); setTab('admin-center'); },
     }))));
+    if (has(role, SAFEGUARD_REVIEWERS)) queues.push(apiClient.getSafeguardQueue().then((queue) => [
+      ...queue.capital.map((item) => ({ key: `cap-${item.id}`, kind: 'Capital / takaful' as Kind, title: item.project.projectName, detail: `${item.partyName}: ${item.status === 'EVIDENCE_SUBMITTED' ? 'evidence of funds to check' : 'deposit to record'}`, at: item.updatedAt, open: () => document.getElementById('safeguard-queue')?.scrollIntoView({ behavior: 'smooth' }) })),
+      ...queue.policies.map((item) => ({ key: `tkf-${item.id}`, kind: 'Capital / takaful' as Kind, title: item.project.projectName, detail: `${item.provider} ${item.policyNumber}: policy to verify`, at: item.createdAt, open: () => document.getElementById('safeguard-queue')?.scrollIntoView({ behavior: 'smooth' }) })),
+    ]));
     if (has(role, KYB_REVIEWERS)) queues.push(apiClient.getOrganisationKybQueue('SUBMITTED').then((list) => list.map((item) => ({
       key: `org-${item.id}`, kind: 'Organisation (KYB)' as Kind, title: item.name, detail: item.registrationNumber ?? '-',
       at: item.kybSubmittedAt ?? undefined, open: () => { openAdminSection('compliance_kyb'); setTab('admin-center'); },

@@ -3,7 +3,7 @@
  * records, so the sponsor sees what is done, what to do next and what waits on someone else.
  */
 export type RoadmapStatus = 'DONE' | 'TODO' | 'WAITING' | 'LOCKED' | 'OPTIONAL' | 'BLOCKED';
-export type RoadmapAction = 'pdp-dossier' | 'milestones' | 'project-analyzer' | 'contract-advisor' | 'asset-partnerships' | 'submit' | 'contracts' | 'launch-pool';
+export type RoadmapAction = 'pdp-dossier' | 'milestones' | 'safeguards' | 'project-analyzer' | 'contract-advisor' | 'asset-partnerships' | 'submit' | 'contracts' | 'launch-pool';
 
 export interface RoadmapStep {
   key: string;
@@ -31,6 +31,10 @@ export interface RoadmapFacts {
   engagements: Array<{ status: string }>;
   agreements: Array<{ status: string }>;
   pools: number;
+  /** The sponsor's own capital at each stage, against the minimum share of the project cost. */
+  capital: { pct: number; required: number; pledged: number; evidenced: number; deposited: number };
+  /** Each required takaful cover and whether it is in force. */
+  cover: Array<{ label: string; state: string }>;
 }
 
 export const PROJECT_APPROVED_STATUSES = ['APPROVED', 'FUNDING_OPEN', 'POOLING', 'FUNDED', 'EXECUTION', 'PROFIT_DISTRIBUTION', 'COMPLETED'];
@@ -72,6 +76,15 @@ export function projectRoadmap(facts: RoadmapFacts): RoadmapStep[] {
     key: 'tranches', phase: 'PREPARE', title: 'Disbursement tranches', who: 'Project Sponsor', action: 'milestones',
     status: allocatedAll ? 'DONE' : approved ? 'BLOCKED' : 'TODO',
     detail: allocatedAll ? `All ${money(facts.fundingRequired, facts.currency)} allocated to tranches.` : `${money(facts.allocated, facts.currency)} of ${money(facts.fundingRequired, facts.currency)} allocated: say when and for what the funds are released.`,
+  });
+  const { capital } = facts;
+  steps.push({
+    key: 'capital', phase: 'PREPARE', title: 'Sponsor capital', who: 'Project Sponsor, then Finance', action: 'safeguards',
+    status: capital.deposited >= capital.required ? 'DONE' : 'TODO',
+    detail: capital.pledged < capital.required ? `Pledge at least ${money(capital.required, facts.currency)} (${capital.pct}% of the project cost) before submitting; ${money(capital.pledged, facts.currency)} pledged.`
+      : capital.evidenced < capital.required ? `Upload a bank statement or a funds letter for each pledge; Finance checks it. Proved: ${money(capital.evidenced, facts.currency)} of ${money(capital.required, facts.currency)}. Needed before the pool opens.`
+      : capital.deposited < capital.required ? `Transfer the capital to the project account; Finance records the deposit. Deposited: ${money(capital.deposited, facts.currency)} of ${money(capital.required, facts.currency)}. Needed before funds are released.`
+      : `${money(capital.deposited, facts.currency)} deposited; each release draws on it and investors' funds in proportion.`,
   });
   steps.push({
     key: 'evidence', phase: 'PREPARE', title: 'Evidence uploaded', who: 'Project Sponsor', action: 'project-analyzer',
@@ -122,8 +135,14 @@ export function projectRoadmap(facts: RoadmapFacts): RoadmapStep[] {
   }
   steps.push({
     key: 'pool', phase: 'FUND', title: 'Wealth pool launched', who: 'Project Sponsor', action: approved && pdpApproved ? 'launch-pool' : undefined,
-    status: facts.pools > 0 ? 'DONE' : approved && pdpApproved ? 'TODO' : 'LOCKED',
-    detail: facts.pools > 0 ? `${facts.pools} pool(s) open to investors.` : !approved ? 'Needs the project approved.' : !pdpApproved ? 'Needs your PDP registration approved.' : 'Open the project to investors through a wealth pool.',
+    status: facts.pools > 0 ? 'DONE' : approved && pdpApproved && capital.evidenced >= capital.required ? 'TODO' : 'LOCKED',
+    detail: facts.pools > 0 ? `${facts.pools} pool(s) open to investors.` : !approved ? 'Needs the project approved.' : !pdpApproved ? 'Needs your PDP registration approved.' : capital.evidenced < capital.required ? 'Needs the sponsor capital proved.' : 'Open the project to investors through a wealth pool.',
+  });
+  const coverUnmet = facts.cover.filter((item) => !['COVERED', 'EXPIRING'].includes(item.state));
+  steps.push({
+    key: 'takaful', phase: 'FUND', title: 'Takaful cover in force', who: 'Project Sponsor (owners for their own assets), then Risk', action: 'safeguards',
+    status: !facts.cover.length ? 'OPTIONAL' : !coverUnmet.length ? 'DONE' : coverUnmet.every((item) => item.state === 'PENDING_REVIEW') ? 'WAITING' : 'TODO',
+    detail: !facts.cover.length ? 'No cover required yet. Tick site work or workers on the project if they apply; partnership assets add their own cover.' : !coverUnmet.length ? `All ${facts.cover.length} required covers in force.` : `Needed before funds are released: ${coverUnmet.map((item) => `${item.label} (${item.state.toLowerCase().replace('_', ' ')})`).join('; ')}.`,
   });
   steps.push({
     key: 'funded', phase: 'FUND', title: 'Funding raised', who: 'Investors',
@@ -133,7 +152,7 @@ export function projectRoadmap(facts: RoadmapFacts): RoadmapStep[] {
   steps.push({
     key: 'execution', phase: 'FUND', title: 'Execution and tranche releases', who: 'Project Sponsor, Shariah and audit sign-off', action: 'milestones',
     status: ['PROFIT_DISTRIBUTION', 'COMPLETED'].includes(facts.status) ? 'DONE' : facts.status === 'EXECUTION' ? 'TODO' : 'LOCKED',
-    detail: facts.status === 'EXECUTION' ? 'Report each milestone; funds are released tranche by tranche after sign-off.' : 'After funding.',
+    detail: facts.status === 'EXECUTION' ? 'Report each milestone; funds are released tranche by tranche after sign-off, with the sponsor capital deposited and the required cover in force.' : 'After funding.',
   });
   steps.push({
     key: 'completed', phase: 'FUND', title: 'Profit distributed and project completed', who: 'Project Sponsor and Finance',

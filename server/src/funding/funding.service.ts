@@ -6,6 +6,8 @@ import { PolicyService } from '../policy/policy.service';
 import { assertTenantScope } from '../tenancy/tenant-scope';
 import { FUNDABLE_PROJECT_STATUSES, hasCurrentFinalApproval } from '../projects/project-lock';
 import { FinancialLedgerService } from '../financial/financial-ledger.service';
+import { safeguardFacts } from '../capital-takaful/safeguard-facts';
+import { proRataShares } from '../capital-takaful/safeguard-rules';
 
 @Injectable()
 export class FundingService {
@@ -83,7 +85,7 @@ export class FundingService {
     return { requestId: fundingRequestId, status: updated.status };
   }
 
-  async disburse(fundingRequestId: string, user: AuthenticatedUser): Promise<{ requestId: string; status: string }> {
+  async disburse(fundingRequestId: string, user: AuthenticatedUser): Promise<{ requestId: string; status: string; proRata: ReturnType<typeof proRataShares> | null }> {
     const request = await this.prisma.fundingRequest.findUnique({
       where: { fundingRequestId },
     });
@@ -100,6 +102,9 @@ export class FundingService {
     if (request.requestedBy === user.userId) throw new ForbiddenException('You submitted this funding request, so another person must disburse it.');
     if (request.approvedBy === user.userId) throw new ForbiddenException('You approved this funding request, so another person must disburse it.');
 
+    const safeguards = await safeguardFacts(this.prisma, request.projectId);
+    if (safeguards?.blockers.disburse.length) throw new BadRequestException(safeguards.blockers.disburse.join(' '));
+    const shares = safeguards ? proRataShares(Number(request.requestedAmount), safeguards.capital.deposited, safeguards.fundingRequired) : null;
     const currency = request.currency;
     const poolAccount = await this.ledger.ensureAccount(user, { accountCode: `POOL-${request.poolId || request.projectId}-CASH-${currency}`, accountType: 'ASSET', ownerType: 'POOL', ownerId: request.poolId || request.projectId, organisationId: request.organisationId, countryNodeId: request.countryNodeId, currency });
     const projectAccount = await this.ledger.ensureAccount(user, { accountCode: `PROJECT-${request.projectId}-CASH-${currency}`, accountType: 'ASSET', ownerType: 'PROJECT', ownerId: request.projectId, organisationId: request.organisationId, countryNodeId: request.countryNodeId, currency });
@@ -107,11 +112,11 @@ export class FundingService {
       const claimed = await tx.fundingRequest.updateMany({ where: { fundingRequestId, status: 'APPROVED' }, data: { status: 'DISBURSED', disbursedBy: user.userId, disbursedAt: new Date() } });
       if (!claimed.count) throw new BadRequestException('Funding request was already disbursed or changed state.');
       await this.ledger.recordFundingDisbursementInTransaction(tx, user, { fundingRequestId, projectId: request.projectId, organisationId: request.organisationId, countryNodeId: request.countryNodeId, amount: Number(request.requestedAmount), currency, posting: { transactionType: 'FUNDING_DISBURSEMENT', referenceType: 'FundingRequest', referenceId: fundingRequestId, currency, description: `Funding disbursement for ${request.projectId}`, idempotencyKey: `funding-disbursement:${fundingRequestId}`, entries: [{ accountId: projectAccount.id, direction: 'DEBIT', amount: Number(request.requestedAmount), description: 'Project funding received' }, { accountId: poolAccount.id, direction: 'CREDIT', amount: Number(request.requestedAmount), description: 'Pool funding disbursed' }] } });
-      await this.audit.recordActor(user, { action: 'funding.disburse', resourceType: 'FundingRequest', resourceId: fundingRequestId, organisationId: request.organisationId, countryNodeId: request.countryNodeId }, tx);
+      await this.audit.recordActor(user, { action: 'funding.disburse', resourceType: 'FundingRequest', resourceId: fundingRequestId, organisationId: request.organisationId, countryNodeId: request.countryNodeId, metadata: { proRata: shares } }, tx);
       return tx.fundingRequest.findUniqueOrThrow({ where: { fundingRequestId } });
     });
 
-    return { requestId: fundingRequestId, status: updated.status };
+    return { requestId: fundingRequestId, status: updated.status, proRata: shares };
   }
 
   async list(projectId: string, user: AuthenticatedUser): Promise<unknown[]> {

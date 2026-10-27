@@ -247,6 +247,10 @@ model Project {
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
   lifecycleVersion        Int      @default(1)
+  /// The project carries out works on a site (clearing, construction): Contractor's All Risk and public liability cover are required.
+  hasSiteWork             Boolean  @default(false)
+  /// The project employs workers: PERKESO cover is required.
+  hasWorkers              Boolean  @default(false)
 
   organisation         Organisation                 @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
   countryNode          CountryNode                  @relation(fields: [countryNodeId], references: [code])
@@ -268,6 +272,8 @@ model Project {
   approvals            ProjectApproval[]
   assetNeeds           ProjectAssetNeed[]
   assetEngagements     AssetEngagement[]
+  capitalCommitments   ProjectCapitalCommitment[]
+  takafulPolicies      TakafulPolicy[]
 
   @@index([countryNodeId])
   @@index([organisationId])
@@ -2155,4 +2161,94 @@ model OrganisationKybDocument {
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
 
   @@index([organisationId])
+}
+
+/**
+ * Cash a sponsor (or other financier) commits to a project: pledged, then proved with a bank statement or a
+ * letter (checked by Finance), then deposited into the project account. Investors' funds are released only
+ * once the sponsor's minimum share is deposited, and losses are borne by the capital actually deposited.
+ */
+model ProjectCapitalCommitment {
+  /// CAP-<country>-XXXXXXXX
+  id               String    @id
+  projectId        String
+  organisationId   String
+  countryNodeId    String
+  /// SPONSOR_CASH or OTHER_FINANCING (assets contributed in kind come from the asset partnerships)
+  source           String
+  partyName        String
+  amount           Decimal   @db.Decimal(18, 2)
+  currency         String
+  /// PLEDGED, EVIDENCE_SUBMITTED, EVIDENCED, DEPOSITED or REJECTED
+  status           String    @default("PLEDGED")
+  evidenceFileName String?
+  evidenceMimeType String?
+  evidenceContent  Bytes?
+  evidenceSha256   String?
+  evidencedBy      String?
+  evidencedAt      DateTime?
+  depositReference String?
+  depositedBy      String?
+  depositedAt      DateTime?
+  reviewNote       String?
+  /// Every pledge, evidence, decision and deposit, oldest first.
+  history          Json
+  createdBy        String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [projectId])
+
+  @@index([projectId])
+  @@index([countryNodeId, status])
+}
+
+/**
+ * A takaful (or, with the Shariah adviser's written approval, insurance) policy protecting a project or an
+ * asset in it. A Risk Officer verifies it; required cover that is missing, unverified or lapsed stops the
+ * release of funds.
+ */
+model TakafulPolicy {
+  /// TKF-<country>-XXXXXXXX
+  id                  String    @id
+  projectId           String
+  organisationId      String
+  countryNodeId       String
+  /// ASSET_PROPERTY, MACHINERY, MOTOR, CONTRACTORS_ALL_RISK, PUBLIC_LIABILITY, PERKESO, CROP, KEY_PERSON or OTHER
+  coverType           String
+  /// The asset it protects, for asset cover.
+  assetId             String?
+  provider            String
+  policyNumber        String
+  sumCovered          Decimal   @db.Decimal(18, 2)
+  contribution        Decimal?  @db.Decimal(18, 2)
+  currency            String
+  startDate           DateTime
+  endDate             DateTime
+  /// Who receives claim money, e.g. the project account or the trustee.
+  lossPayee           String
+  /// Conventional insurance, allowed only where no takaful is available and the Shariah adviser approved it.
+  conventional        Boolean   @default(false)
+  shariahApprovalNote String?
+  fileName            String
+  mimeType            String
+  fileContent         Bytes
+  sha256              String
+  integrity           Json?
+  /// SUBMITTED, VERIFIED or REJECTED; a verified policy past its end date counts as lapsed.
+  status              String    @default("SUBMITTED")
+  verifiedBy          String?
+  verifiedAt          DateTime?
+  reviewNote          String?
+  /// Expiry reminders already sent (days before the end date).
+  remindersSent       Json?
+  uploadedBy          String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  project Project @relation(fields: [projectId], references: [projectId])
+
+  @@index([projectId])
+  @@index([countryNodeId, status])
+  @@index([endDate])
 }
