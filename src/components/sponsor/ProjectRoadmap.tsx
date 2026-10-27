@@ -93,19 +93,21 @@ export const ProjectRoadmap: React.FC<ProjectRoadmapProps> = ({ projectId, versi
           {PHASES.map((phase) => (
             <div key={phase.key} className="space-y-2">
               <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">{phase.label}</p>
-              {steps.filter((step) => step.phase === phase.key).map((step) => (
-                <div key={step.key} className={`p-3 rounded-xl border ${step === next ? 'border-amber-400' : 'border-slate-200 dark:border-slate-700'} bg-slate-50 dark:bg-slate-800/50 space-y-1`}>
+              {steps.filter((step) => step.phase === phase.key).map((step) => {
+                // A step with a screen opens it when clicked, whatever its state, except steps not open yet.
+                const open = step.action && step.status !== 'LOCKED' ? () => onAction(step.action!) : undefined;
+                return (
+                <div key={step.key} role={open ? 'button' : undefined} tabIndex={open ? 0 : undefined} onClick={open} onKeyDown={open ? (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } } : undefined} className={`p-3 rounded-xl border ${step === next ? 'border-amber-400' : 'border-slate-200 dark:border-slate-700'} bg-slate-50 dark:bg-slate-800/50 space-y-1 ${open ? 'cursor-pointer hover:border-emerald-400 hover:bg-white dark:hover:bg-slate-800' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
                     <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-100">{STATUS[step.status].icon}{step.title}</span>
                     <span className={`text-[10px] font-black uppercase ${STATUS[step.status].className}`}>{STATUS[step.status].label}</span>
                   </div>
                   <p className="text-slate-500">{step.detail}</p>
                   <p className="text-[10px] text-slate-400">By: {who(step.who)}</p>
-                  {step.action && ['TODO', 'WAITING'].includes(step.status) && step !== next && (
-                    <button type="button" onClick={() => onAction(step.action!)} className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 cursor-pointer">{ACTION_LABELS[step.action]} →</button>
-                  )}
+                  {open && <span className="block text-[11px] font-bold text-emerald-700 dark:text-emerald-400">{ACTION_LABELS[step.action!]} →</span>}
                 </div>
-              ))}
+                );
+              })}
             </div>
           ))}
         </div>

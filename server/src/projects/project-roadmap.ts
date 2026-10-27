@@ -116,7 +116,7 @@ export function projectRoadmap(facts: RoadmapFacts): RoadmapStep[] {
 
   const stage = facts.feasibility ? REVIEW_STAGE[facts.feasibility.reviewStage] : undefined;
   steps.push({
-    key: 'approval', phase: 'REVIEW', title: 'Project approved', who: stage?.who ?? 'Reviewers', action: stage && facts.feasibility?.reviewStage === 'DRAFT' && !approved ? 'project-analyzer' : undefined,
+    key: 'approval', phase: 'REVIEW', title: 'Project approved', who: draft || !stage ? 'Reviewers: Finance, Risk, Compliance, Shariah, the committee' : stage.who, action: stage && facts.feasibility?.reviewStage === 'DRAFT' && !approved ? 'project-analyzer' : undefined,
     status: approved ? 'DONE' : facts.status === 'REJECTED' ? 'BLOCKED' : draft ? 'LOCKED' : !facts.feasibility ? 'TODO' : facts.feasibility.reviewStage === 'DRAFT' ? 'TODO' : 'WAITING',
     detail: approved ? 'Approved: agreements can be signed and the project can be funded.' : facts.status === 'REJECTED' ? 'Rejected. A Country Admin can reopen it.' : draft ? 'After you submit: Finance, Risk, Compliance, Shariah, Investment committee, Final decision.' : !facts.feasibility ? 'Run the feasibility analysis: the review works on it.' : `Now at: ${stage?.label ?? facts.feasibility.reviewStage} (${stage?.who ?? 'reviewers'}).`,
   });
