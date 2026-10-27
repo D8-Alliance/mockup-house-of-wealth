@@ -5,7 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PolicyService } from '../policy/policy.service';
 import { AddProjectTeamMemberDto, CreateProjectAnnouncementDto, CreateProjectPromotionDto, CreateProjectDto, CreateProjectMilestoneDto, UpdateProjectDetailsDto, UpdateProjectMilestoneDto, UpdateProjectStatusDto } from './projects.controller';
-import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
+import { assertProjectAccess, assertTenantScope, PROJECT_REVIEWER_ROLES, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { assertProjectUnlocked, hasCurrentFinalApproval, isProjectLocked, REOPENABLE_PROJECT_STATUSES } from './project-lock';
 import { formatLocalDateTime } from '../tenancy/country-time';
 import { inspectDocument, sha256Hex, withStoredChecks } from './document-integrity';
@@ -63,12 +63,16 @@ export class ProjectsService {
 
   async list(user: AuthenticatedUser) {
     // Enforce tenant scope: a caller can only list projects inside their tenant.
-    const where = {
-      ...tenantScopeFilter(user),
-      ...(user.role === 'Project Sponsor' ? { projectSponsorId: user.userId } : {}),
-    };
+    // Reviewers see every submitted project of their country; everyone else their own tenant's.
+    const reviewer = PROJECT_REVIEWER_ROLES.includes(user.role);
+    const where = reviewer
+      ? { countryNodeId: user.countryNodeId, OR: [{ organisationId: user.organisationId }, { status: { not: 'DRAFT' } }] }
+      : {
+        ...tenantScopeFilter(user),
+        ...(user.role === 'Project Sponsor' ? { projectSponsorId: user.userId } : {}),
+      };
 
-    if (user.role !== 'Super Admin' && !this.policy.can(user.role, 'marketplace', 'read')) {
+    if (user.role !== 'Super Admin' && !reviewer && !this.policy.can(user.role, 'marketplace', 'read')) {
       throw new ForbiddenException(this.policy.evaluate(user.role, 'marketplace', 'read').reason);
     }
 
@@ -196,6 +200,15 @@ export class ProjectsService {
     return project;
   }
 
+  /** A project to read for review: its own tenant, or a reviewer of its country once submitted. Never for changes. */
+  private async getForReview(id: string, user: AuthenticatedUser) {
+    const project = await this.prisma.project.findUnique({ where: { projectId: id } });
+    if (!project) throw new NotFoundException('Project not found');
+    assertProjectAccess(user, project);
+    this.assertProjectSponsorScope(user, project.projectSponsorId);
+    return project;
+  }
+
   private assertProjectSponsorScope(user: AuthenticatedUser, projectSponsorId: string) {
     if (user.role === 'Project Sponsor' && projectSponsorId !== user.userId) {
       throw new ForbiddenException('Project is not assigned to this sponsor');
@@ -203,7 +216,7 @@ export class ProjectsService {
   }
 
   async listDocuments(projectId: string, user: AuthenticatedUser) {
-    const project = await this.get(projectId, user);
+    const project = await this.getForReview(projectId, user);
     return this.prisma.projectDocument.findMany({
       where: { projectId: project.projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId },
       select: { id: true, projectId: true, fileName: true, mimeType: true, fileSize: true, extractionStatus: true, extractionError: true, extractedText: true, uploadedBy: true, createdAt: true, updatedAt: true },
@@ -214,7 +227,7 @@ export class ProjectsService {
   // Read-only: requirement rows are only written when evidence is uploaded.
   // Types without a stored row are returned as MISSING placeholders.
   async listEvidenceRequirements(projectId: string, user: AuthenticatedUser) {
-    const project = await this.get(projectId, user);
+    const project = await this.getForReview(projectId, user);
     const stored = await this.prisma.projectEvidenceRequirement.findMany({ where: { projectId: project.projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId }, include: { uploadedDocument: { select: EVIDENCE_DOCUMENT_SELECT } } });
     return EVIDENCE_REQUIREMENTS.map((requirement) => stored.find((item) => item.evidenceType === requirement.evidenceType) ?? {
       id: `${project.projectId}:${requirement.evidenceType}`,
@@ -280,7 +293,7 @@ export class ProjectsService {
   async verifyEvidence(projectId: string, evidenceType: string, user: AuthenticatedUser) {
     const reviewerRoles = ['Finance Officer', 'Risk Officer', 'Compliance Officer', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee', 'Country Admin', 'Organization Admin', 'Super Admin'];
     if (!reviewerRoles.includes(user.role)) throw new ForbiddenException('Only an authorised human reviewer can verify evidence.');
-    const project = await this.get(projectId, user);
+    const project = await this.getForReview(projectId, user);
     assertProjectUnlocked(project, 'Evidence verification');
     const requirement = await this.prisma.projectEvidenceRequirement.findFirst({ where: { projectId: project.projectId, evidenceType, organisationId: project.organisationId, countryNodeId: project.countryNodeId } });
     if (!requirement?.uploadedDocumentId) throw new BadRequestException('Evidence must be uploaded before human verification.');
@@ -625,7 +638,7 @@ export class ProjectsService {
   async downloadDocument(projectId: string, documentId: string, user: AuthenticatedUser) {
     const document = await this.prisma.projectDocument.findFirst({ where: { id: documentId, projectId }, include: { project: true } });
     if (!document) throw new NotFoundException('Project document not found');
-    assertTenantScope(user, document.project, 'Project document');
+    assertProjectAccess(user, document.project, 'Project document');
     this.assertProjectSponsorScope(user, document.project.projectSponsorId);
     return document;
   }

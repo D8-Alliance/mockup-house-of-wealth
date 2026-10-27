@@ -32,6 +32,22 @@ export function tenantScopeFilter(actor: AuthenticatedUser): { countryNodeId?: s
   return { countryNodeId: actor.countryNodeId, organisationId: actor.organisationId };
 }
 
+/**
+ * Platform reviewers (Finance, Risk, Compliance, Shariah, the committee) decide on projects that any organisation
+ * of their country submitted for review. They see a project once it is submitted, never another organisation's draft.
+ */
+export const PROJECT_REVIEWER_ROLES = ['Finance Officer', 'Risk Officer', 'Compliance Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee', 'AI Model Reviewer'];
+
+export function canReviewProject(actor: AuthenticatedUser, project: TenantResource & { status: string }): boolean {
+  return PROJECT_REVIEWER_ROLES.includes(actor.role) && actor.countryNodeId === project.countryNodeId && project.status !== 'DRAFT';
+}
+
+/** Read access to a project: its own tenant, or a reviewer of its country once it is submitted. */
+export function assertProjectAccess(actor: AuthenticatedUser, project: TenantResource & { status: string }, label = 'Project'): void {
+  if (isWithinTenantScope(actor, project) || canReviewProject(actor, project)) return;
+  throw new ForbiddenException(`${label} is outside your scope`);
+}
+
 /** Throws a ForbiddenException when the actor is outside the resource's tenant scope. */
 export function assertTenantScope(
   actor: AuthenticatedUser,

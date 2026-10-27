@@ -44,7 +44,7 @@ export class ProjectsController {
     'Shariah Advisor',
     'Shariah Reviewer',
     'Shariah Committee',
-  )
+   'Finance Officer', 'Risk Officer', 'Compliance Officer', 'AI Model Reviewer')
   @RequirePermission('marketplace', 'read')
   list(@CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.list(user);
@@ -106,7 +106,7 @@ export class ProjectsController {
     'Shariah Advisor',
     'Shariah Reviewer',
     'Shariah Committee',
-  )
+   'Finance Officer', 'Risk Officer', 'Compliance Officer', 'AI Model Reviewer')
   @RequirePermission('marketplace', 'read')
   listDocuments(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.listDocuments(id, user);
@@ -267,7 +267,7 @@ export class ProjectsController {
     'Shariah Advisor',
     'Shariah Reviewer',
     'Shariah Committee',
-  )
+   'Finance Officer', 'Risk Officer', 'Compliance Officer', 'AI Model Reviewer')
   @RequirePermission('marketplace', 'read')
   async downloadDocument(@Param('id') id: string, @Param('documentId') documentId: string, @CurrentUser() user: AuthenticatedUser, @Res() response: Response) {
     const document = await this.projectsService.downloadDocument(id, documentId, user);

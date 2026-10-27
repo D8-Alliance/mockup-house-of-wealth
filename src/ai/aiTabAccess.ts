@@ -23,8 +23,12 @@ export const DRAFTING_TABS = ['project-analyzer', 'contract-advisor', 'agreement
 /** Tools that still run on sample data (PENDING_ACTIVITIES item 23): hidden from reviewers, labelled Sample for others. */
 export const SAMPLE_TABS = ['investment-matcher', 'portfolio-analysis', 'risk-analyzer', 'scenarios', 'pool-optimizer'];
 
+/** Shariah reviewers and the committee decide stages of a project's feasibility review there; Legal has no stage. */
+const FEASIBILITY_REVIEWERS = ['Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'];
+
 export function hiddenAiTabs(role: string): string[] {
-  return REVIEWER_ONLY_ROLES.includes(role) ? [...DRAFTING_TABS, ...SAMPLE_TABS] : [];
+  if (!REVIEWER_ONLY_ROLES.includes(role)) return [];
+  return [...DRAFTING_TABS.filter((tab) => !(tab === 'project-analyzer' && FEASIBILITY_REVIEWERS.includes(role))), ...SAMPLE_TABS];
 }
 
 export function canUseAiTab(tab: string, role: string): boolean {

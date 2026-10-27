@@ -1,6 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { AuthenticatedUser } from '../auth/identity.service';
-import { assertTenantScope, isWithinTenantScope, tenantScopeFilter } from './tenant-scope';
+import { assertProjectAccess, assertTenantScope, canReviewProject, isWithinTenantScope, tenantScopeFilter } from './tenant-scope';
 
 function actor(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser {
   return {
@@ -48,5 +48,17 @@ describe('tenant scope enforcement', () => {
 
     expect(() => assertTenantScope(orgAdmin, resource, 'Funding request')).toThrow(ForbiddenException);
     expect(() => assertTenantScope(orgAdmin, { ...resource, organisationId: 'ORG-A' }, 'Funding request')).not.toThrow();
+  });
+});
+describe('project review scope', () => {
+  const submitted = { countryNodeId: 'CN-MYS', organisationId: 'ORG-FELCRA', status: 'DUE_DILIGENCE' };
+  const committee = actor({ role: 'Shariah Committee', organisationId: 'ORG-ADMIN', assignedRoles: ['Shariah Committee'] });
+
+  it('lets a reviewer of the country read a submitted project of another organisation, never a draft', () => {
+    expect(canReviewProject(committee, submitted)).toBe(true);
+    expect(canReviewProject(committee, { ...submitted, status: 'DRAFT' })).toBe(false);
+    expect(canReviewProject({ ...committee, countryNodeId: 'CN-IDN' }, submitted)).toBe(false);
+    expect(() => assertProjectAccess(actor({ role: 'Legal Officer', organisationId: 'ORG-ADMIN' }), submitted)).toThrow(ForbiddenException);
+    expect(() => assertProjectAccess(committee, submitted)).not.toThrow();
   });
 });
