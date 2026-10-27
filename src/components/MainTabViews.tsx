@@ -27,7 +27,7 @@ import { BillingTransactionsView } from './revenue/BillingTransactionsView';
 import { BackendFinancialAccount } from '../services/apiClient';
 import { SponsorAgreementsView } from './sponsor/SponsorAgreementsView';
 import { useRBAC } from '../rbac/RBACContext';
-import { isDeliveryPartner } from '../rbac/menuVisibility';
+import { canInvest, isDeliveryPartner } from '../rbac/menuVisibility';
 
 interface MainTabViewsProps {
   currentTab: NavTab;
@@ -126,7 +126,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
           {/* A delivery partner receives funding and owes profit, so it sees its pool agreements from the server. */}
           {isDeliveryPartner(currentRole) ? (
             <SponsorAgreementsView />
-          ) : (
+          ) : canInvest(currentRole) && (
             <MyContractsView
               contracts={contracts}
               lang={lang}

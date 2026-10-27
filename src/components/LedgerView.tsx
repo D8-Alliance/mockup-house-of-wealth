@@ -24,6 +24,8 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
   transactions,
   lang
 }) => {
+  const walletBalance = transactions[0]?.balanceAfter ?? 0;
+  const compounded = transactions.filter((item) => item.type === 'Reinvestment' && item.status === 'Completed').reduce((sum, item) => sum + item.amount, 0);
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
   const [filterType, setFilterType] = useState('All');
   const [searchHash, setSearchHash] = useState('');
@@ -87,7 +89,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
         </button>
       </div>
 
-      {/* Wallet Summary */}
+      {/* Wallet Summary: computed from the transactions shown, never fixed figures. */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex items-center gap-4">
           <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 rounded-2xl">
@@ -95,7 +97,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
           </div>
           <div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Current E-Wallet Balance</span>
-            <span className="text-2xl font-black text-slate-900 dark:text-white">$45,200.00</span>
+            <span className="text-2xl font-black text-slate-900 dark:text-white">{walletBalance.toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
           </div>
         </div>
 
@@ -105,7 +107,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
           </div>
           <div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Auto-Compounded Yields</span>
-            <span className="text-2xl font-black text-slate-900 dark:text-white">$3,850.00</span>
+            <span className="text-2xl font-black text-slate-900 dark:text-white">{compounded.toLocaleString('en-MY', { minimumFractionDigits: 2 })}</span>
           </div>
         </div>
 
@@ -115,7 +117,7 @@ export const LedgerView: React.FC<LedgerViewProps> = ({
           </div>
           <div>
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Total Verified Ledger Records</span>
-            <span className="text-2xl font-black text-slate-900 dark:text-white">1,204 Tx</span>
+            <span className="text-2xl font-black text-slate-900 dark:text-white">{transactions.filter((item) => item.status === 'Completed').length.toLocaleString()} Tx</span>
           </div>
         </div>
       </div>

@@ -7,8 +7,9 @@ export const FINANCE_ROLES: Record<string, RoleDefinition> = {
     category: 'Operational Management',
     description: 'Manages cash flow balances, profit disbursement schedules, Zakat calculations, tax withholdings, and ledger reconciliation.',
     badgeColor: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/30',
-    // Platform reviewer: review queues on the dashboard and Project Feasibility in the AI Wealth Engine; no portfolio, wallet or marketplace.
-    accessibleTabs: ['dashboard', 'ai-engine', 'contracts', 'documents', 'ledger', 'profile'],
+    // Platform reviewer: review queues on the dashboard, Project Feasibility in the AI Wealth Engine and agreements under review.
+    // Documents and Audit & Ledger stay hidden until they read the server (they still show sample data).
+    accessibleTabs: ['dashboard', 'ai-engine', 'contracts', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['read'],

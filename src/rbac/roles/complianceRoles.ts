@@ -8,7 +8,7 @@ export const COMPLIANCE_ROLES: Record<string, RoleDefinition> = {
     description: 'Monitors anti-money laundering (AML), sanctions list checking, KYC verification levels, and regulatory reporting.',
     badgeColor: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30',
     // Platform reviewer: review queues, Project Feasibility, and the compliance tools in Admin Center.
-    accessibleTabs: ['dashboard', 'ai-engine', 'admin-center', 'contracts', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'admin-center', 'contracts', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['read', 'audit'],
@@ -148,8 +148,9 @@ export const COMPLIANCE_ROLES: Record<string, RoleDefinition> = {
     category: 'Governance & Risk',
     description: 'Evaluates collateral sufficiency, default risks, asset valuation volatility, and overall platform Value-at-Risk (VaR).',
     badgeColor: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30',
-    // Platform reviewer: review queues on the dashboard and Project Feasibility in the AI Wealth Engine; no portfolio, wallet or marketplace.
-    accessibleTabs: ['dashboard', 'ai-engine', 'contracts', 'documents', 'ledger', 'profile'],
+    // Platform reviewer: review queues on the dashboard, Project Feasibility in the AI Wealth Engine and agreements under review.
+    // Documents and Audit & Ledger stay hidden until they read the server (they still show sample data).
+    accessibleTabs: ['dashboard', 'ai-engine', 'contracts', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['read', 'audit'],
