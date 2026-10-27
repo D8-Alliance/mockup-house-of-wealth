@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, ChevronDown, ChevronUp, Circle, CircleDot, Hourglass, Lock, Map, XCircle } from 'lucide-react';
 import { apiClient, ProjectRoadmapAction, ProjectRoadmapStep } from '../../services/apiClient';
+import { useRBAC } from '../../rbac/RBACContext';
+
+/** The sponsor's side reads its own steps as "You"; reviewers still see the role. */
+const SPONSOR_SIDE = ['Project Sponsor', 'Project Manager', 'Organization Admin'];
 
 const PHASES: Array<{ key: ProjectRoadmapStep['phase']; label: string }> = [
   { key: 'PREPARE', label: 'A. Prepare' },
@@ -38,6 +42,8 @@ interface ProjectRoadmapProps {
 
 /** What is done, what to do next and who acts, from registration to completion. */
 export const ProjectRoadmap: React.FC<ProjectRoadmapProps> = ({ projectId, version, onAction }) => {
+  const { currentRole } = useRBAC();
+  const who = (text: string) => (SPONSOR_SIDE.includes(currentRole) ? text.replaceAll('Project Sponsor', 'You') : text);
   const [steps, setSteps] = useState<ProjectRoadmapStep[] | null>(null);
   const [error, setError] = useState('');
   const [showAll, setShowAll] = useState(false);
@@ -70,7 +76,7 @@ export const ProjectRoadmap: React.FC<ProjectRoadmapProps> = ({ projectId, versi
           <div>
             <p className="font-black text-amber-800 dark:text-amber-300">Next: {next.title}</p>
             <p className="text-slate-600 dark:text-slate-300">{next.detail}</p>
-            <p className="text-[11px] text-slate-500">By: {next.who}</p>
+            <p className="text-[11px] text-slate-500">By: {who(next.who)}</p>
           </div>
           {next.action && <button type="button" onClick={() => onAction(next.action!)} className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black cursor-pointer">{ACTION_LABELS[next.action]}</button>}
         </div>
@@ -94,7 +100,7 @@ export const ProjectRoadmap: React.FC<ProjectRoadmapProps> = ({ projectId, versi
                     <span className={`text-[10px] font-black uppercase ${STATUS[step.status].className}`}>{STATUS[step.status].label}</span>
                   </div>
                   <p className="text-slate-500">{step.detail}</p>
-                  <p className="text-[10px] text-slate-400">By: {step.who}</p>
+                  <p className="text-[10px] text-slate-400">By: {who(step.who)}</p>
                   {step.action && ['TODO', 'WAITING'].includes(step.status) && step !== next && (
                     <button type="button" onClick={() => onAction(step.action!)} className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 cursor-pointer">{ACTION_LABELS[step.action]} →</button>
                   )}
