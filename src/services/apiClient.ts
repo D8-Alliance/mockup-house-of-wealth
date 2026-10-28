@@ -89,6 +89,30 @@ export interface BackendInvestmentOrder {
   status: string;
   createdAt: string;
   settledAt?: string | null;
+  cancelledAt?: string | null;
+  paymentReference?: string | null;
+}
+
+/** An investor transfer waiting for Finance to match it to the bank. */
+export interface SettlementQueueOrder extends BackendInvestmentOrder {
+  investorName: string | null;
+  pool: { poolName: string; project: { projectName: string } };
+}
+
+export interface BackendPoolAkadTerms {
+  id: string;
+  version: number;
+  akadType: string;
+  investorProfitSharePct: number | string;
+  termsText: string;
+  createdAt: string;
+}
+
+/** A pool with what it has raised so far, and its current akad terms. */
+export interface BackendPoolDetail extends BackendPool {
+  raisedAmount: number;
+  targetAmount: number;
+  akadTerms: BackendPoolAkadTerms | null;
 }
 
 export interface BackendNotification {
@@ -109,8 +133,9 @@ export const apiClient = {
   getFinancialLedger: () => request<BackendLedgerTransaction[]>('/financial/ledger'),
   transferFinancialAccounts: (input: { sourceAccountId: string; destinationAccountId: string; amount: number; description: string; idempotencyKey: string }) => request<BackendLedgerTransaction>('/financial/transfers', { method: 'POST', body: JSON.stringify(input) }),
   getInvestmentOrders: () => request<BackendInvestmentOrder[]>('/investments/orders'),
-  createInvestmentOrder: (input: { poolId: string; amount: number; currency: string; idempotencyKey: string }) => request<BackendInvestmentOrder>('/investments/orders', { method: 'POST', body: JSON.stringify(input) }),
-  settleInvestmentOrder: (id: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/settle`, { method: 'POST' }),
+  createInvestmentOrder: (input: { poolId: string; amount: number; currency: string; idempotencyKey: string; akadTermsId: string; acceptAkad: true }) => request<BackendInvestmentOrder>('/investments/orders', { method: 'POST', body: JSON.stringify(input) }),
+  getSettlementQueue: () => request<SettlementQueueOrder[]>('/investments/settlement-queue'),
+  settleInvestmentOrder: (id: string, paymentReference: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/settle`, { method: 'POST', body: JSON.stringify({ paymentReference }) }),
   cancelInvestmentOrder: (id: string, reason?: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/cancel`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
   getNotifications: () => request<BackendNotification[]>('/notifications'),
   /** The server answers with a bare number; older builds answered { count }. */
@@ -130,8 +155,14 @@ export const apiClient = {
   getAdminCreditAnalytics: () =>request<{ summary: AdminAIAnalyticsSummary; transactions: BackendCreditTransaction[] }>('/membership/admin/credits/analytics'),
   getProjects: () => request<BackendProject[]>('/projects'),
   getPools: () => request<BackendPool[]>('/pools'),
+  getPool: (poolId: string) => request<BackendPoolDetail>(`/pools/${encodeURIComponent(poolId)}`),
   createPool: (input: { projectId: string; poolName: string; currency: string; indicativeExpectedReturn: number; organisationId: string; countryNodeId: string; akadType: 'MUDARABAH' | 'MUSHARAKAH' | 'WAKALAH' | 'IJARAH'; investorProfitSharePct: number }) => request<BackendPool>('/pools', { method: 'POST', body: JSON.stringify(input) }),
   getFundingRequests: (projectId: string) => request<BackendFundingRequest[]>(`/funding/requests/${encodeURIComponent(projectId)}`),
+  requestTrancheRelease: (projectId: string, milestoneId: string) => request<{ requestId: string; status: string }>(`/funding/projects/${encodeURIComponent(projectId)}/requests`, { method: 'POST', body: JSON.stringify({ milestoneId }) }),
+  getFundingQueue: () => request<BackendFundingRequest[]>('/funding/queue'),
+  approveFundingRequest: (id: string) => request<{ requestId: string; status: string }>(`/funding/requests/${encodeURIComponent(id)}/approve`, { method: 'POST' }),
+  rejectFundingRequest: (id: string, note: string) => request<{ requestId: string; status: string }>(`/funding/requests/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ note }) }),
+  disburseFundingRequest: (id: string) => request<{ requestId: string; status: string }>(`/funding/requests/${encodeURIComponent(id)}/disburse`, { method: 'POST' }),
   getDistributions: () => request<BackendDistribution[]>('/distributions'),
   analyzeProjectFeasibility: (projectId: string) => request<BackendFeasibilityAssessment>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/analyze`, { method: 'POST' }),
   getLatestProjectFeasibility: (projectId: string) => request<BackendFeasibilityAssessment | null>(`/ai/projects/${encodeURIComponent(projectId)}/feasibility/latest`),
@@ -1313,6 +1344,12 @@ export interface BackendFundingRequest {
   status: string;
   requestedAt: string;
   disbursedAt?: string | null;
+  milestoneId?: string | null;
+  decisionNote?: string | null;
+  requestedBy?: string;
+  approvedBy?: string | null;
+  milestone?: { title: string; targetDate?: string | null } | null;
+  project?: { projectName: string };
 }
 
 export interface BackendDistribution {

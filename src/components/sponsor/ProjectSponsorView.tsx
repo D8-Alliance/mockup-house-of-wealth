@@ -140,7 +140,7 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
           workflowStage: stageOf(item.status),
           serverStatus: item.status,
           healthScore: 0,
-           milestones: item.milestones?.map((milestone) => ({ id: milestone.id, title: milestone.title, targetDate: milestone.targetDate || '', completionPct: milestone.completionPct, disbursementAmount: Number(milestone.disbursementAmount), status: milestone.status === 'COMPLETED' ? 'Completed' : milestone.status === 'IN_PROGRESS' ? 'In Progress' : milestone.status === 'PENDING_VERIFICATION' ? 'Pending Verification' : 'Upcoming', shariahSignoff: milestone.shariahSignoff, auditorSignoff: milestone.auditorSignoff })) || defaultProjectMilestones(item.projectId, Number(item.fundingRequired), stageOf(item.status)),
+           milestones: item.milestones?.map((milestone) => ({ id: milestone.id, title: milestone.title, targetDate: milestone.targetDate || '', completionPct: milestone.completionPct, disbursementAmount: Number(milestone.disbursementAmount), status: milestone.status === 'RELEASED' ? 'Released' : milestone.status === 'COMPLETED' ? 'Completed' : milestone.status === 'IN_PROGRESS' ? 'In Progress' : milestone.status === 'PENDING_VERIFICATION' ? 'Pending Verification' : 'Upcoming', shariahSignoff: milestone.shariahSignoff, auditorSignoff: milestone.auditorSignoff })) || defaultProjectMilestones(item.projectId, Number(item.fundingRequired), stageOf(item.status)),
           disbursements: [],
           documents: [],
           team: [],

@@ -438,12 +438,12 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 ## 23. Skrin yang masih menggunakan data contoh
 
-- **Status:** Senarai disemak 2026-10-16, dikemas kini 2026-10-27. Skrin ini kelihatan berfungsi tetapi tidak membaca atau menyimpan data di server, jadi ia boleh mengelirukan dalam staging atau pilot.
+- **Status:** Senarai disemak 2026-10-16, dikemas kini 2026-10-28. Skrin ini kelihatan berfungsi tetapi tidak membaca atau menyimpan data di server, jadi ia boleh mengelirukan dalam staging atau pilot.
 - **Sejak 2026-10-27:** Finance, Risk dan Compliance Officer hanya melihat Dashboard, AI Wealth Engine (Project Feasibility), Contracts (perjanjian untuk disemak) dan Profile; Compliance juga Admin Center. Tab contoh (Marketplace, Wealth Pooling, Investments, Wallet, Financials, Documents, Audit & Ledger) disembunyikan untuk mereka, dan Membership/Billing disembunyikan untuk semua staf penyemak. Senarai contoh My Contracts kini hanya untuk pelabur. Kembalikan tab apabila ia membaca server.
 
 | Skrin | Data sekarang | Rujukan |
 |---|---|---|
-| Investments (posisi pelaburan pelabur) | Senarai contoh dalam `InvestmentsView.tsx` | Pesanan pelaburan sebenar sudah ada di server |
+| Investments (Portfolio Manager sahaja) | Senarai contoh dalam `InvestmentsView.tsx` | Sejak 2026-10-28 pelabur melihat pool OPEN sebenar, menerima terma akad, membuat pesanan dan membatalkannya sebelum Finance mengesahkan bayaran (`InvestorPoolsPanel`). Posisi pelaburan selepas bayaran disahkan (unit, keuntungan) belum ada |
 | My Contracts (senarai pelabur di bawah panel perjanjian) | `INITIAL_CONTRACTS`; kini hanya dipaparkan kepada pelabur | Item 18 |
 | Document Vault | Contoh | Dokumen projek sebenar sudah ada di server |
 | Asset Marketplace dan dashboard eksekutif | `INITIAL_ASSETS` | Item 20 |
@@ -454,7 +454,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 | Sponsor Portal: pelan langganan PDP (RM 99/bulan, slot projek), laporan contoh (FELDA Bio-Refinery), Launch Wealth Pool | `revenueService` dan data contoh dalam pelayar | Sejak 2026-10-20 permohonan PDP, nama organisasi dan projek dibaca dari server. Sejak 2026-10-22 penyemak KYB (Country Admin, KYB Officer, Compliance Officer, Super Admin) ada senarai sebenar di Admin Center › PDP Applications Queue: lulus, minta maklumat tambahan (pemohon membetulkan dan menghantar semula) atau tolak, dengan notifikasi. Baki: fail dokumen PDP belum dimuat naik ke server (borang hanya merekod nama dokumen) |
 | Wealth Pooling MVP Workflow Console (senarai projek dan pool, End-to-End Test Engine) | `INITIAL_PROJECTS` dalam pelayar, termasuk projek Turki dan Nigeria yang dipaparkan kepada pengguna Malaysia; enjin ujian hanya simulasi. Pool sebenar yang dicipta dari projek (SIT langkah E) tidak muncul di sini | Projek dan pool sebenar sudah ada di server. Sejak 2026-10-19 butang Submit New Project dan enjin ujian hanya untuk peranan yang boleh mencipta projek; Structure Pool dan kelulusan pool hanya untuk pengurus pool |
 
-**Cadangan (dikemas kini 2026-10-27):** keutamaan (1) Wealth Pooling dari pangkalan data, supaya pool sebenar kelihatan; (2) jejak audit sebenar untuk Compliance dan Auditor; (3) Investments dan My Contracts dari pesanan pelaburan sebenar; (4) Asset Marketplace dari pool yang dibuka (banner tajaan contoh tamat 2026-08-31). Sementara itu, sembunyikan atau tandakan skrin contoh dengan label "Contoh".
+**Cadangan (dikemas kini 2026-10-27):** keutamaan (1) Wealth Pooling dari pangkalan data, supaya pool sebenar kelihatan; (2) jejak audit sebenar untuk Compliance dan Auditor; (3) My Contracts dan posisi pelaburan dari pesanan sebenar (pesanan pelaburan siap 2026-10-28); (4) Asset Marketplace dari pool yang dibuka (banner tajaan contoh tamat 2026-08-31). Sementara itu, sembunyikan atau tandakan skrin contoh dengan label "Contoh".
 
 ## 24. Perkara teknikal kecil
 

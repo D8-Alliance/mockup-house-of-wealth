@@ -29,13 +29,24 @@ describe('InvestmentsService.settle', () => {
 
   it('does not let settlement staff settle their own order', async () => {
     prisma.investmentOrder.findUnique.mockResolvedValueOnce({ ...order, investorUserId: 'USR-OFFICER' });
-    await expect(service.settle(actor('Settlement Officer', 'USR-OFFICER'), 'ORD-1')).rejects.toThrow(/your own investment order/);
+    await expect(service.settle(actor('Settlement Officer', 'USR-OFFICER'), 'ORD-1', 'BANK-REF-1')).rejects.toThrow(/your own investment order/);
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('lets settlement staff settle another investor\'s order', async () => {
     // Passes the role and ownership guards, then stops at the pool check in this test.
-    await expect(service.settle(actor('Settlement Officer', 'USR-OFFICER'), 'ORD-1')).rejects.toThrow(/Only OPEN pools/);
+    await expect(service.settle(actor('Settlement Officer', 'USR-OFFICER'), 'ORD-1', 'BANK-REF-1')).rejects.toThrow(/Only OPEN pools/);
+  });
+
+  it('needs the bank reference of the transfer', async () => {
+    await expect(service.settle(actor('Settlement Officer', 'USR-OFFICER'), 'ORD-1', ' ')).rejects.toThrow(/bank reference/);
+  });
+
+  it('lets Finance settle an order of any organisation in its own country, and no other country', async () => {
+    const finance = { ...actor('Finance Officer', 'USR-FINANCE'), organisationId: 'ORG-PLATFORM' };
+    await expect(service.settle(finance, 'ORD-1', 'BANK-REF-1')).rejects.toThrow(/Only OPEN pools/);
+    prisma.investmentOrder.findUnique.mockResolvedValueOnce({ ...order, countryNodeId: 'CN-IDN' });
+    await expect(service.settle(finance, 'ORD-1', 'BANK-REF-1')).rejects.toBeInstanceOf(ForbiddenException);
   });
 });
 

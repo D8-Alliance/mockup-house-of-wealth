@@ -31,7 +31,7 @@ interface ProjectDetailViewProps {
 
 export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, onBack, onEdit, onChangeStatus, statusError, onRoadmapAction }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'feasibility' | 'milestones' | 'safeguards' | 'disbursements' | 'dataroom' | 'team' | 'investor-comms' | 'due-diligence'>('overview');
-  const { activeUser } = useRBAC();
+  const { activeUser, currentRole } = useRBAC();
   // Bumped when capital or cover changes, so the roadmap reloads.
   const [safeguardVersion, setSafeguardVersion] = useState(0);
 
@@ -360,7 +360,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
       {activeTab === 'safeguards' && <ProjectSafeguardsPanel projectId={project.id} onChanged={() => setSafeguardVersion((value) => value + 1)} />}
 
       {activeTab === 'milestones' && (
-        <ProjectMilestoneList projectId={project.id} initialMilestones={milestones} currency={currency} fundingRequired={project.targetFunding} editable={project.serverStatus === 'DRAFT' || project.serverStatus === 'DUE_DILIGENCE'} onChange={setMilestones} />
+        <ProjectMilestoneList projectId={project.id} initialMilestones={milestones} currency={currency} fundingRequired={project.targetFunding} editable={project.serverStatus === 'DRAFT' || project.serverStatus === 'DUE_DILIGENCE'} onChange={setMilestones} projectStatus={project.serverStatus} canRequestRelease={['Project Sponsor', 'Project Manager'].includes(currentRole)} />
       )}
 
       {/* Tab 3: Disbursements */}

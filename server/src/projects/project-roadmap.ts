@@ -154,8 +154,8 @@ export function projectRoadmap(facts: RoadmapFacts): RoadmapStep[] {
   });
   steps.push({
     key: 'execution', phase: 'FUND', title: 'Execution and tranche releases', who: 'Project Sponsor, Shariah and audit sign-off', action: 'milestones',
-    status: ['PROFIT_DISTRIBUTION', 'COMPLETED'].includes(facts.status) ? 'DONE' : facts.status === 'EXECUTION' ? 'TODO' : 'LOCKED',
-    detail: facts.status === 'EXECUTION' ? 'Report each milestone; funds are released tranche by tranche after sign-off, with the sponsor capital deposited and the required cover in force.' : 'After funding.',
+    status: ['PROFIT_DISTRIBUTION', 'COMPLETED'].includes(facts.status) ? 'DONE' : ['FUNDED', 'EXECUTION'].includes(facts.status) ? 'TODO' : 'LOCKED',
+    detail: facts.status === 'FUNDED' ? 'Ask for the first tranche release on the Milestones tab; Finance approves it and the Country Admin releases it, with the sponsor capital deposited and the required cover in force.' : facts.status === 'EXECUTION' ? 'Ask for each further tranche on the Milestones tab as the work reaches it.' : 'After funding.',
   });
   steps.push({
     key: 'completed', phase: 'FUND', title: 'Profit distributed and project completed', who: 'Project Sponsor and Finance',

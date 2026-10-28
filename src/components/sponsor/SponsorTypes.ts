@@ -33,7 +33,7 @@ export interface ProjectMilestone {
   targetDate: string;
   completionPct: number;
   disbursementAmount: number;
-  status: 'Completed' | 'In Progress' | 'Pending Verification' | 'Upcoming';
+  status: 'Completed' | 'In Progress' | 'Pending Verification' | 'Upcoming' | 'Released';
   shariahSignoff: boolean;
   auditorSignoff: boolean;
 }

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ProjectMilestone } from './SponsorTypes';
-import { Calendar, ShieldCheck, CheckCircle2, Plus } from 'lucide-react';
-import { apiClient, BackendProjectMilestone } from '../../services/apiClient';
+import { Calendar, ShieldCheck, CheckCircle2, Plus, HandCoins } from 'lucide-react';
+import { apiClient, BackendFundingRequest, BackendProjectMilestone } from '../../services/apiClient';
 import { formatProjectMoney } from './sponsorMoney';
 
 interface ProjectMilestoneListProps {
@@ -13,22 +13,63 @@ interface ProjectMilestoneListProps {
   /** Tranches are set before the project is approved. */
   editable: boolean;
   onChange?: (milestones: ProjectMilestone[]) => void;
+  /** The project's server status: tranches are released once it is FUNDED. */
+  projectStatus?: string;
+  /** The project side (sponsor, project manager) asks for releases. */
+  canRequestRelease?: boolean;
 }
+
+const RELEASABLE = ['FUNDED', 'EXECUTION'];
+
+/** Where a tranche's latest release request stands, in words for the project side. */
+const releaseState = (request: BackendFundingRequest | undefined): { text: string; className: string } | null => {
+  if (!request) return null;
+  if (request.status === 'PENDING') return { text: 'Release asked: Finance to approve', className: 'text-blue-700 dark:text-blue-300' };
+  if (request.status === 'APPROVED') return { text: 'Approved: the Country Admin releases the funds', className: 'text-blue-700 dark:text-blue-300' };
+  if (request.status === 'DISBURSED') return { text: `Released${request.disbursedAt ? ` on ${request.disbursedAt.slice(0, 10)}` : ''}`, className: 'text-emerald-600' };
+  return { text: `Release rejected${request.decisionNote ? `: ${request.decisionNote}` : ''}`, className: 'text-rose-600' };
+};
 
 const fromServer = (milestone: BackendProjectMilestone): ProjectMilestone => ({
   id: milestone.id, title: milestone.title, targetDate: milestone.targetDate ? milestone.targetDate.slice(0, 10) : '', completionPct: milestone.completionPct, disbursementAmount: Number(milestone.disbursementAmount),
-  status: milestone.status === 'COMPLETED' ? 'Completed' : milestone.status === 'IN_PROGRESS' ? 'In Progress' : milestone.status === 'PENDING_VERIFICATION' ? 'Pending Verification' : 'Upcoming',
+  status: milestone.status === 'RELEASED' ? 'Released' : milestone.status === 'COMPLETED' ? 'Completed' : milestone.status === 'IN_PROGRESS' ? 'In Progress' : milestone.status === 'PENDING_VERIFICATION' ? 'Pending Verification' : 'Upcoming',
   shariahSignoff: milestone.shariahSignoff, auditorSignoff: milestone.auditorSignoff,
 });
 
 /** The project's governance steps and the tranches in which investors' funds are released. */
-export const ProjectMilestoneList: React.FC<ProjectMilestoneListProps> = ({ projectId, initialMilestones, currency, fundingRequired, editable, onChange }) => {
+export const ProjectMilestoneList: React.FC<ProjectMilestoneListProps> = ({ projectId, initialMilestones, currency, fundingRequired, editable, onChange, projectStatus, canRequestRelease = false }) => {
   const [milestones, setMilestones] = useState<ProjectMilestone[]>(initialMilestones);
   const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
   const [newMilestoneAmount, setNewMilestoneAmount] = useState('');
   const [newMilestoneDate, setNewMilestoneDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [requests, setRequests] = useState<BackendFundingRequest[]>([]);
+  const [releaseBusy, setReleaseBusy] = useState('');
+  const [releaseError, setReleaseError] = useState('');
+  const releasable = RELEASABLE.includes(projectStatus ?? '');
+
+  // Release requests are visible to the project side; others simply see the tranches.
+  const loadRequests = useCallback(() => {
+    if (!releasable) return;
+    apiClient.getFundingRequests(projectId).then(setRequests).catch(() => setRequests([]));
+  }, [projectId, releasable]);
+  useEffect(loadRequests, [loadRequests]);
+  // Newest first from the server, so the first match is the tranche's latest request.
+  const latestFor = (milestoneId: string) => requests.find((request) => request.milestoneId === milestoneId);
+
+  const askForRelease = async (milestoneId: string) => {
+    setReleaseBusy(milestoneId);
+    setReleaseError('');
+    try {
+      await apiClient.requestTrancheRelease(projectId, milestoneId);
+      loadRequests();
+    } catch (cause) {
+      setReleaseError(cause instanceof Error ? cause.message : 'The release was not requested.');
+    } finally {
+      setReleaseBusy('');
+    }
+  };
 
   const allocated = milestones.reduce((sum, m) => sum + m.disbursementAmount, 0);
   const remaining = Math.max(0, fundingRequired - allocated);
@@ -92,9 +133,29 @@ export const ProjectMilestoneList: React.FC<ProjectMilestoneListProps> = ({ proj
                 Audit: {m.auditorSignoff ? 'Passed' : 'Pending'}
               </span>
             </div>
+
+            {releasable && m.disbursementAmount > 0 && (() => {
+              const latest = latestFor(m.id);
+              const state = releaseState(latest);
+              const canAsk = canRequestRelease && (!latest || latest.status === 'REJECTED');
+              return (
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 dark:border-slate-700 pt-2 text-[11px]">
+                  <span className={`flex items-center gap-1 font-bold ${state?.className ?? 'text-slate-500'}`}><HandCoins className="w-3.5 h-3.5" />{state?.text ?? 'Not yet asked for'}</span>
+                  {canAsk && (
+                    <button type="button" disabled={releaseBusy === m.id} onClick={() => void askForRelease(m.id)} className="rounded-lg bg-emerald-600 px-3 py-1.5 font-black text-white disabled:opacity-50 cursor-pointer">
+                      {releaseBusy === m.id ? 'Asking…' : latest ? 'Ask again' : 'Ask for release'}
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         ))}
       </div>
+      {releaseError && <p className="text-xs font-bold text-rose-600">{releaseError}</p>}
+      {canRequestRelease && !releasable && milestones.some((m) => m.disbursementAmount > 0) && (projectStatus ?? '') !== 'DRAFT' && (projectStatus ?? '') !== 'DUE_DILIGENCE' && (
+        <p className="text-[11px] text-slate-500">Tranche releases open once the pool has raised the funding required (the project becomes FUNDED).</p>
+      )}
 
       {editable ? (
         <div className="rounded-2xl border-2 border-dashed border-amber-200 bg-amber-50/60 p-4 dark:border-amber-500/30 dark:bg-amber-500/5">

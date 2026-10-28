@@ -12,6 +12,7 @@ import { PoolingView } from './PoolingView';
 import { LedgerView } from './LedgerView';
 import { UserProfileSettingsView } from './UserProfileSettingsView';
 import { InvestmentsView } from './InvestmentsView';
+import { InvestorPoolsPanel } from './investments/InvestorPoolsPanel';
 import { WalletView } from './WalletView';
 import { FinancialsView } from './FinancialsView';
 import { DocumentsView } from './DocumentsView';
@@ -177,10 +178,14 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'investments' && (
         <RoleGuard tab="investments">
-          <InvestmentsView
-            lang={lang}
-            onNavigateMarketplace={() => setTab('marketplace')}
-          />
+          {canInvest(currentRole) ? (
+            <InvestorPoolsPanel />
+          ) : (
+            <InvestmentsView
+              lang={lang}
+              onNavigateMarketplace={() => setTab('marketplace')}
+            />
+          )}
         </RoleGuard>
       )}
 

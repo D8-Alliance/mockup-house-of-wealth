@@ -4,11 +4,14 @@ import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { FinancialLedgerService } from '../financial/financial-ledger.service';
 import { PrismaService } from '../prisma.service';
-import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
+import { assertTenantScope, postingOnBehalfOf, tenantScopeFilter } from '../tenancy/tenant-scope';
+import { advanceProjectStatus, RAISING_PROJECT_STATUSES } from '../projects/project-status';
 import { CreateInvestmentOrderDto } from './investments.dto';
 import { assertCanViewPool, INVESTOR_ROLES } from '../pools/pool-access';
 
-const SETTLEMENT_ROLES = new Set(['Super Admin', 'Settlement Officer', 'Portfolio Manager']);
+const SETTLEMENT_ROLES = new Set(['Super Admin', 'Settlement Officer', 'Portfolio Manager', 'Finance Officer']);
+/** Settlement staff who confirm transfers for every organisation of their country, not only their own. */
+const COUNTRY_SETTLEMENT_ROLES = new Set(['Finance Officer']);
 
 /** Delivery-partner (PDP) roles. Someone running a project must not also invest in its pool. */
 const DELIVERY_PARTNER_ROLES: ReadonlySet<string> = new Set(['Project Sponsor', 'Project Manager']);
@@ -65,32 +68,50 @@ export class InvestmentsService {
     const order = await this.prisma.investmentOrder.findUnique({ where: { id }, include: { contribution: true, pool: true } });
     if (!order) throw new NotFoundException('Investment order not found.');
     if (order.investorUserId === actor.userId) return order;
+    if (COUNTRY_SETTLEMENT_ROLES.has(actor.role) && order.countryNodeId === actor.countryNodeId) return order;
     assertTenantScope(actor, order, 'Investment order');
     if (order.investorUserId !== actor.userId && !SETTLEMENT_ROLES.has(actor.role)) throw new ForbiddenException('Investment order is not owned by this investor.');
     return order;
   }
 
+  /** Investor transfers waiting for settlement staff to match them to the bank, oldest first. */
+  async settlementQueue(actor: AuthenticatedUser) {
+    if (!SETTLEMENT_ROLES.has(actor.role)) throw new ForbiddenException('Only settlement staff confirm investor payments.');
+    const scope = actor.role === 'Super Admin' ? {} : COUNTRY_SETTLEMENT_ROLES.has(actor.role) ? { countryNodeId: actor.countryNodeId } : tenantScopeFilter(actor);
+    const orders = await this.prisma.investmentOrder.findMany({ where: { ...scope, status: 'PENDING' }, orderBy: { createdAt: 'asc' }, take: 100, include: { pool: { select: { poolName: true, project: { select: { projectName: true } } } } } });
+    const investors = await this.prisma.user.findMany({ where: { id: { in: [...new Set(orders.map((order) => order.investorUserId))] } }, select: { id: true, name: true } });
+    const names = new Map(investors.map((investor) => [investor.id, investor.name]));
+    return orders.map((order) => ({ ...order, investorName: names.get(order.investorUserId) ?? null }));
+  }
+
   /**
-   * Settlement confirms the investor's money was actually received, and posts pool cash and a
-   * contribution that drive distributions. So only settlement staff may settle, and never their own order.
+   * Settlement confirms the investor's money was actually received, against the bank reference of the
+   * transfer, and posts pool cash and a contribution that drive distributions. So only settlement staff
+   * may settle, and never their own order. The pool raising its target moves the project to FUNDED.
    */
-  async settle(actor: AuthenticatedUser, id: string) {
+  async settle(actor: AuthenticatedUser, id: string, paymentReference?: string) {
     if (!SETTLEMENT_ROLES.has(actor.role)) throw new ForbiddenException('Only settlement staff can settle an investment order.');
     const order = await this.getOrder(actor, id);
     if (order.investorUserId === actor.userId) throw new ForbiddenException('You cannot settle your own investment order.');
     if (order.status !== 'PENDING') throw new BadRequestException(`Cannot settle an order in state ${order.status}.`);
+    const reference = paymentReference?.trim() ?? '';
+    if (reference.length < 4) throw new BadRequestException("Enter the bank reference of the investor's transfer (at least 4 characters).");
     const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: order.poolId }, include: { project: { select: { fundingRequired: true } } } });
     if (!pool || pool.status !== 'OPEN') throw new BadRequestException('Only OPEN pools can receive settlement.');
-    const settlementActor = actor;
+    // Finance confirms for any organisation of its country; the money sits in the pool organisation's books.
+    const settlementActor = COUNTRY_SETTLEMENT_ROLES.has(actor.role) ? postingOnBehalfOf(actor, order) : actor;
     return this.prisma.$transaction(async (tx) => {
-      const claimed = await tx.investmentOrder.updateMany({ where: { id, status: 'PENDING' }, data: { status: 'SETTLED', settledAt: new Date() } });
+      const claimed = await tx.investmentOrder.updateMany({ where: { id, status: 'PENDING' }, data: { status: 'SETTLED', settledAt: new Date(), paymentReference: reference, settledBy: actor.userId } });
       if (!claimed.count) throw new BadRequestException('Investment order was already settled or changed state.');
       const poolAccount = await this.ledger.ensureAccountInTransaction(tx, settlementActor, { accountCode: `POOL-${order.poolId}-CASH-${order.currency}`, accountType: 'ASSET', ownerType: 'POOL', ownerId: order.poolId, organisationId: order.organisationId, countryNodeId: order.countryNodeId, currency: order.currency });
       const investorAccount = await this.ledger.ensureAccountInTransaction(tx, settlementActor, { accountCode: `USER-${order.investorUserId}-CASH-${order.currency}`, accountType: 'ASSET', ownerType: 'USER', ownerId: order.investorUserId, organisationId: order.organisationId, countryNodeId: order.countryNodeId, currency: order.currency });
       const contribution = await this.ledger.recordInvestmentContributionInTransaction(tx, settlementActor, { orderId: order.id, projectId: order.projectId, poolId: order.poolId, investorUserId: order.investorUserId, organisationId: order.organisationId, countryNodeId: order.countryNodeId, amount: Number(order.amount), currency: order.currency, posting: { transactionType: 'INVESTMENT_CONTRIBUTION', referenceType: 'InvestmentOrder', referenceId: order.id, currency: order.currency, description: `Investment contribution for ${order.poolId}`, idempotencyKey: `investment-order:${order.id}`, entries: [{ accountId: poolAccount.id, direction: 'DEBIT', amount: Number(order.amount), description: 'Pool cash received' }, { accountId: investorAccount.id, direction: 'CREDIT', amount: Number(order.amount), description: 'Investor contribution' }] } });
       const total = await tx.investmentContribution.aggregate({ _sum: { amount: true }, where: { poolId: order.poolId, status: 'POSTED' } });
-      if (Number(total._sum.amount || 0) >= Number(pool.project.fundingRequired)) await tx.wealthPool.updateMany({ where: { poolId: order.poolId, status: 'OPEN' }, data: { status: 'FULL' } });
-      await this.audit.recordActor(actor, { action: 'investment.order.settle', resourceType: 'InvestmentOrder', resourceId: order.id, organisationId: order.organisationId, countryNodeId: order.countryNodeId, metadata: { contributionId: contribution.id, amount: Number(order.amount) } }, tx);
+      if (Number(total._sum.amount || 0) >= Number(pool.project.fundingRequired)) {
+        await tx.wealthPool.updateMany({ where: { poolId: order.poolId, status: 'OPEN' }, data: { status: 'FULL' } });
+        await advanceProjectStatus(tx, order, RAISING_PROJECT_STATUSES, 'FUNDED', actor.userId, `Pool ${pool.poolName} raised the funding required.`);
+      }
+      await this.audit.recordActor(actor, { action: 'investment.order.settle', resourceType: 'InvestmentOrder', resourceId: order.id, organisationId: order.organisationId, countryNodeId: order.countryNodeId, metadata: { contributionId: contribution.id, amount: Number(order.amount), paymentReference: reference } }, tx);
       return tx.investmentOrder.findUniqueOrThrow({ where: { id: order.id }, include: { contribution: true } });
     });
   }

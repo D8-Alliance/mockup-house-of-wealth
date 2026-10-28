@@ -43,6 +43,15 @@ export function canReviewProject(actor: AuthenticatedUser, project: TenantResour
 }
 
 /** Read access to a project: its own tenant, or a reviewer of its country once it is submitted. */
+/**
+ * Finance staff of a country confirm money for any organisation in it; the postings belong to that
+ * organisation's books. Call only after checking the actor may act on the resource: the copy passes the
+ * ledger's tenant checks while keeping the actor's own user id and role for the audit trail.
+ */
+export function postingOnBehalfOf(actor: AuthenticatedUser, resource: TenantResource): AuthenticatedUser {
+  return { ...actor, organisationId: resource.organisationId, countryNodeId: resource.countryNodeId };
+}
+
 export function assertProjectAccess(actor: AuthenticatedUser, project: TenantResource & { status: string }, label = 'Project'): void {
   if (isWithinTenantScope(actor, project) || canReviewProject(actor, project)) return;
   throw new ForbiddenException(`${label} is outside your scope`);

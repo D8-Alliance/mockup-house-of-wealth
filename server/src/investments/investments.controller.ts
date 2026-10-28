@@ -5,7 +5,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { InvestmentsService } from './investments.service';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
-import { CancelInvestmentOrderDto, CreateInvestmentOrderDto } from './investments.dto';
+import { CancelInvestmentOrderDto, CreateInvestmentOrderDto, SettleInvestmentOrderDto } from './investments.dto';
 
 @Controller('investments')
 @UseGuards(FeatureModuleGuard)
@@ -17,6 +17,10 @@ export class InvestmentsController {
   @Post('orders')
   create(@CurrentUser() actor: AuthenticatedUser, @Body() input: CreateInvestmentOrderDto) { return this.investments.createOrder(actor, input); }
 
+  @Get('settlement-queue')
+  @Roles('Super Admin', 'Settlement Officer', 'Portfolio Manager', 'Finance Officer')
+  settlementQueue(@CurrentUser() actor: AuthenticatedUser) { return this.investments.settlementQueue(actor); }
+
   @Get('orders')
   list(@CurrentUser() actor: AuthenticatedUser) { return this.investments.listOrders(actor); }
 
@@ -25,8 +29,8 @@ export class InvestmentsController {
 
   // Mirrors SETTLEMENT_ROLES in InvestmentsService; investors cannot settle (confirm payment of) orders.
   @Post('orders/:id/settle')
-  @Roles('Super Admin', 'Settlement Officer', 'Portfolio Manager')
-  settle(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.investments.settle(actor, id); }
+  @Roles('Super Admin', 'Settlement Officer', 'Portfolio Manager', 'Finance Officer')
+  settle(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: SettleInvestmentOrderDto) { return this.investments.settle(actor, id, input.paymentReference); }
 
   @Patch('orders/:id/cancel')
   cancel(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: CancelInvestmentOrderDto) { return this.investments.cancel(actor, id, input.reason); }

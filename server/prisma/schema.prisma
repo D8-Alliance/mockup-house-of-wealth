@@ -168,25 +168,25 @@ model CountryNode {
 }
 
 model Organisation {
-  id            String      @id @default(cuid())
-  name          String
-  countryNodeId String
-  countryNode   CountryNode @relation(fields: [countryNodeId], references: [code])
-  status        String      @default("ACTIVE")
+  id                 String      @id @default(cuid())
+  name               String
+  countryNodeId      String
+  countryNode        CountryNode @relation(fields: [countryNodeId], references: [code])
+  status             String      @default("ACTIVE")
   /// SSM (or national registry) number, e.g. "201901012345 (1234567-A)"; on agreements' cover pages.
   registrationNumber String?
   registeredAddress  String?
   /// Business verification: NOT_SUBMITTED, SUBMITTED, CHANGES_REQUESTED, APPROVED or REJECTED.
-  kybStatus          String    @default("NOT_SUBMITTED")
+  kybStatus          String      @default("NOT_SUBMITTED")
   kybSubmittedAt     DateTime?
   kybReviewedBy      String?
   kybReviewedAt      DateTime?
   /// The reviewer's latest reason.
   kybNote            String?
   /// Submissions and decisions, oldest first: { at, by, byName, role, action, note }.
-  kybHistory         Json      @default("[]")
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  kybHistory         Json        @default("[]")
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
 
   kybDocuments         OrganisationKybDocument[]
   projects             Project[]
@@ -295,9 +295,10 @@ model ProjectMilestone {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 
-  project      Project      @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
-  organisation Organisation @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode  CountryNode  @relation(fields: [countryNodeId], references: [code])
+  project         Project          @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+  organisation    Organisation     @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode     CountryNode      @relation(fields: [countryNodeId], references: [code])
+  fundingRequests FundingRequest[]
 
   @@index([projectId, status])
   @@index([organisationId, countryNodeId])
@@ -598,6 +599,10 @@ model FundingRequest {
   currency         String    @default("USD")
   purpose          String    @default("Project funding")
   status           String    @default("PENDING") // PENDING | APPROVED | DISBURSED | REJECTED
+  /// The tranche (project milestone) this request releases; null for older whole-funding requests.
+  milestoneId      String?
+  /// Why Finance or the Country Admin rejected it.
+  decisionNote     String?
   requestedBy      String
   requestedAt      DateTime  @default(now())
   approvedBy       String?
@@ -609,12 +614,14 @@ model FundingRequest {
 
   project       Project               @relation(fields: [projectId], references: [projectId])
   pool          WealthPool?           @relation(fields: [poolId], references: [poolId])
+  milestone     ProjectMilestone?     @relation(fields: [milestoneId], references: [id], onDelete: Restrict)
   organisation  Organisation          @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
   countryNode   CountryNode           @relation(fields: [countryNodeId], references: [code])
   disbursements FundingDisbursement[]
 
   @@index([countryNodeId])
   @@index([projectId])
+  @@index([milestoneId])
 }
 
 // ---------------------------------------------------------------------------
@@ -1079,24 +1086,27 @@ model InvestmentContribution {
 }
 
 model InvestmentOrder {
-  id             String    @id @default(cuid())
-  orderNumber    String    @unique
-  poolId         String
-  projectId      String
-  investorUserId String
-  organisationId String
-  countryNodeId  String
-  amount         Decimal   @db.Decimal(18, 2)
-  currency       String    @default("MYR")
-  status         String    @default("PENDING")
-  idempotencyKey String    @unique
-  createdAt      DateTime  @default(now())
-  settledAt      DateTime?
-  cancelledAt    DateTime?
+  id               String    @id @default(cuid())
+  orderNumber      String    @unique
+  poolId           String
+  projectId        String
+  investorUserId   String
+  organisationId   String
+  countryNodeId    String
+  amount           Decimal   @db.Decimal(18, 2)
+  currency         String    @default("MYR")
+  status           String    @default("PENDING")
+  idempotencyKey   String    @unique
+  createdAt        DateTime  @default(now())
+  settledAt        DateTime?
+  cancelledAt      DateTime?
   /// Ijab and qabul: the akad terms the investor accepted, their hash, and when (null for older orders).
-  akadTermsId    String?
-  akadTermsHash  String?
-  akadAcceptedAt DateTime?
+  akadTermsId      String?
+  akadTermsHash    String?
+  akadAcceptedAt   DateTime?
+  /// The bank reference Finance matched the investor's transfer to, and who confirmed it.
+  paymentReference String?
+  settledBy        String?
 
   pool         WealthPool              @relation(fields: [poolId], references: [poolId], onDelete: Restrict)
   akadTerms    PoolAkadTerms?          @relation(fields: [akadTermsId], references: [id], onDelete: Restrict)
@@ -1615,8 +1625,8 @@ model Contract {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  organisation     Organisation       @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
-  countryNode      CountryNode        @relation(fields: [countryNodeId], references: [code])
+  organisation     Organisation             @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
+  countryNode      CountryNode              @relation(fields: [countryNodeId], references: [code])
   versions         ContractVersion[]
   parties          ContractParty[]
   approvals        ContractApproval[]
@@ -1816,12 +1826,12 @@ model ContractVersion {
 }
 
 model ContractParty {
-  id             String   @id @default(cuid())
-  contractId     String
-  partyType      String
-  displayName    String
-  userId         String?
-  organisationId String?
+  id               String    @id @default(cuid())
+  contractId       String
+  partyType        String
+  displayName      String
+  userId           String?
+  organisationId   String?
   /// OWNER or PDP on an asset partnership agreement; null on other agreements.
   role             String?
   /// The agreement version this party agreed to; a new version needs agreeing again.
@@ -1835,7 +1845,7 @@ model ContractParty {
   /// How the party signed, e.g. TYPED_NAME_OTP, and where its one-time code went (EMAIL, SMS, TEST).
   signatureMethod  String?
   otpChannel       String?
-  createdAt      DateTime @default(now())
+  createdAt        DateTime  @default(now())
 
   contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
 

@@ -189,7 +189,7 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
     // read: the organisation's projects they run (ProjectsService keeps it to their own tenant).
     marketplace: ['read'],
     pooling: ['create', 'read'],
-    approvals: ['create'],
+    approvals: ['create', 'read'],
     governance: ['create', 'read'],
     profile: ['read', 'update'],
   },
@@ -323,6 +323,8 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
     ledger: ['read', 'export'],
     reports: ['read', 'export'],
     pooling: ['read'],
+    // approve: tranche releases for the projects of their country (FundingService keeps them off their own organisation's).
+    approvals: ['read', 'approve'],
     profile: ['read', 'update'],
   },
   'Treasury Officer': {

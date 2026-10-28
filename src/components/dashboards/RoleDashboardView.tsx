@@ -8,6 +8,7 @@ import { DashboardOpenNeedsPanel } from './DashboardOpenNeedsPanel';
 import { MY_REVIEWS_ROLES, MyReviewsPanel } from './MyReviewsPanel';
 import { OrganisationKybPanel } from '../../organisations/OrganisationKybPanel';
 import { SafeguardReviewQueue } from '../sponsor/SafeguardReviewQueue';
+import { FundingReviewQueue } from '../sponsor/FundingReviewQueue';
 import { canDraftAgreement, openAiEngineSection } from '../../ai/aiEngineNavigation';
 import { UserProfile, AssetItem, ContractItem, LanguageCode, NavTab } from '../../types';
 import { 
@@ -269,6 +270,8 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
       {isAuthenticated && ['Asset Owner', 'Asset Manager', 'Organization Admin', 'Project Sponsor', 'Project Manager'].includes(currentRole) && <OrganisationKybPanel />}
 
       {isAuthenticated && ['Super Admin', 'Country Admin', 'Finance Officer', 'Risk Officer', 'Compliance Officer'].includes(currentRole) && <SafeguardReviewQueue />}
+
+      {isAuthenticated && ['Super Admin', 'Country Admin', 'Finance Officer'].includes(currentRole) && <FundingReviewQueue role={currentRole} />}
 
       {isAuthenticated && (currentRole === 'Asset Owner' || currentRole === 'Asset Manager') && <DashboardOpenNeedsPanel setTab={setTab} onOpenAssetRegister={onOpenAssetRegister} />}
 

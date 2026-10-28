@@ -26,6 +26,13 @@ export class CreateInvestmentOrderDto {
   acceptAkad!: boolean;
 }
 
+export class SettleInvestmentOrderDto {
+  /** The bank reference of the investor's transfer that Finance matched. */
+  @IsString()
+  @MaxLength(80)
+  paymentReference!: string;
+}
+
 export class CancelInvestmentOrderDto {
   @IsOptional()
   @IsString()
