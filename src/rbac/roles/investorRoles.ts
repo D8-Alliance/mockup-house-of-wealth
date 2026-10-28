@@ -1,5 +1,8 @@
 import { RoleDefinition } from '../types';
 
+// Investors see the screens that read the server: open pools and their orders (Investments), statements and zakat,
+// beneficiaries and their profile (KYC). Marketplace, Wealth Pooling, Wallet, Documents and Audit & Ledger still run on
+// sample data (PENDING_ACTIVITIES item 23) and come back when they read the server.
 export const INVESTOR_ROLES: Record<string, RoleDefinition> = {
   'Retail Investor': {
     role: 'Retail Investor',
@@ -7,7 +10,7 @@ export const INVESTOR_ROLES: Record<string, RoleDefinition> = {
     category: 'Participant & User',
     description: 'Participates in fractionalized Sukuk, Mudarabah contracts, Waqf pools, micro-investments, and automated Zakat calculations.',
     badgeColor: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30',
-    accessibleTabs: ['dashboard', 'ai-engine', 'marketplace', 'pooling', 'investments', 'wallet', 'financials', 'beneficiaries', 'documents', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'investments', 'financials', 'beneficiaries', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['read'],
@@ -46,7 +49,7 @@ export const INVESTOR_ROLES: Record<string, RoleDefinition> = {
     category: 'Participant & User',
     description: 'Accredited investor access to priority Sukuk tranches, private equity Musharakah deals, and bespoke wealth advisory.',
     badgeColor: 'bg-purple-600/10 text-purple-700 dark:text-purple-300 border-purple-600/30',
-    accessibleTabs: ['dashboard', 'ai-engine', 'marketplace', 'pooling', 'investments', 'wallet', 'financials', 'beneficiaries', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'investments', 'financials', 'beneficiaries', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['read', 'export'],
@@ -78,7 +81,7 @@ export const INVESTOR_ROLES: Record<string, RoleDefinition> = {
     category: 'Participant & User',
     description: 'Investment companies, fund managers and GLCs that place institutional, takaful and sovereign capital into pools with custom risk parameters.',
     badgeColor: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30',
-    accessibleTabs: ['dashboard', 'ai-engine', 'marketplace', 'pooling', 'investments', 'wallet', 'financials', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'investments', 'financials', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['read', 'export'],
@@ -119,7 +122,7 @@ export const INVESTOR_ROLES: Record<string, RoleDefinition> = {
     category: 'Participant & User',
     description: 'Deploys corporate idle liquidity into short-term Murabaha, trade finance Sukuk, and liquid Mudarabah pools.',
     badgeColor: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30',
-    accessibleTabs: ['dashboard', 'marketplace', 'pooling', 'investments', 'wallet', 'financials', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'investments', 'financials', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['read'],
@@ -151,7 +154,7 @@ export const INVESTOR_ROLES: Record<string, RoleDefinition> = {
     category: 'Participant & User',
     description: 'Manages multi-generational family wealth, intergenerational Waqf trusts, Wasiyyah estate planning, and impact capital.',
     badgeColor: 'bg-amber-600/10 text-amber-700 dark:text-amber-300 border-amber-600/30',
-    accessibleTabs: ['dashboard', 'ai-engine', 'marketplace', 'pooling', 'investments', 'wallet', 'financials', 'beneficiaries', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'investments', 'financials', 'beneficiaries', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['read', 'export'],

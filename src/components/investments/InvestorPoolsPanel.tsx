@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronUp, Landmark, RefreshCw } from 'lucide-react';
-import { apiClient, BackendInvestmentOrder, BackendPoolDetail } from '../../services/apiClient';
+import { CheckCircle2, ChevronDown, ChevronUp, Landmark, RefreshCw, ShieldAlert } from 'lucide-react';
+import { apiClient, BackendInvestmentOrder, BackendPoolDetail, KycApplication } from '../../services/apiClient';
+import { KycApplicationPanel } from '../../kyc/KycApplicationPanel';
+import { KYC_STATUS_LABELS } from '../../kyc/kycLabels';
 import { formatProjectMoney } from '../sponsor/sponsorMoney';
 
 const ORDER_STATUS: Record<string, { label: string; className: string }> = {
@@ -25,6 +27,10 @@ export const InvestorPoolsPanel: React.FC = () => {
   const [accepted, setAccepted] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState('');
   const [placed, setPlaced] = useState<BackendInvestmentOrder | null>(null);
+  const [kyc, setKyc] = useState<KycApplication | null>(null);
+  const [kycLoaded, setKycLoaded] = useState(false);
+  // The server refuses orders until KYC is approved, so the form sits here until then.
+  const verified = kyc?.status === 'APPROVED';
 
   const load = useCallback(async () => {
     setError('');
@@ -40,6 +46,7 @@ export const InvestorPoolsPanel: React.FC = () => {
     }
   }, []);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { apiClient.getMyKyc().then(setKyc).catch(() => setKyc(null)).finally(() => setKycLoaded(true)); }, []);
 
   const invest = async (pool: BackendPoolDetail) => {
     const amount = Number(amounts[pool.poolId]);
@@ -76,6 +83,13 @@ export const InvestorPoolsPanel: React.FC = () => {
 
   return (
     <div className="space-y-4 text-xs">
+      {kycLoaded && !verified && (
+        <section className="bg-white dark:bg-slate-800 rounded-3xl border border-amber-300 dark:border-amber-500/40 p-5 space-y-3">
+          <h3 className="flex items-center gap-2 font-black text-sm text-slate-900 dark:text-white"><ShieldAlert className="w-4 h-4 text-amber-500" />Verify your identity before investing{kyc ? ` (${KYC_STATUS_LABELS[kyc.status]})` : ''}</h3>
+          <p className="text-slate-500">Orders are accepted once a KYC officer has approved your identity verification. Fill in your details, upload the documents and submit for review.</p>
+          <KycApplicationPanel application={kyc} loading={false} onChange={setKyc} />
+        </section>
+      )}
       <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-5 space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h3 className="flex items-center gap-2 font-black text-sm text-slate-900 dark:text-white"><Landmark className="w-4 h-4 text-emerald-600" />Open pools</h3>
@@ -115,7 +129,7 @@ export const InvestorPoolsPanel: React.FC = () => {
                   </label>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <input type="number" min={1} value={amounts[pool.poolId] ?? ''} onChange={(event) => setAmounts({ ...amounts, [pool.poolId]: event.target.value })} placeholder={`Amount (${pool.currency === 'MYR' ? 'RM' : pool.currency})`} className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2" />
-                    <button type="button" disabled={busy === pool.poolId || accepted[pool.poolId] !== terms.id || !(Number(amounts[pool.poolId]) > 0)} onClick={() => void invest(pool)} className="rounded-lg bg-emerald-600 px-4 py-2 font-black text-white disabled:opacity-50 cursor-pointer">{busy === pool.poolId ? 'Placing…' : 'Invest'}</button>
+                    <button type="button" disabled={!verified || busy === pool.poolId || accepted[pool.poolId] !== terms.id || !(Number(amounts[pool.poolId]) > 0)} onClick={() => void invest(pool)} className="rounded-lg bg-emerald-600 px-4 py-2 font-black text-white disabled:opacity-50 cursor-pointer">{busy === pool.poolId ? 'Placing…' : 'Invest'}</button>
                   </div>
                 </>
               )}

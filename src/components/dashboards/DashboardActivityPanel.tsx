@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Bell, CheckCheck, ChevronRight, Handshake } from 'lucide-react';
 import { useRBAC } from '../../rbac/RBACContext';
-import { apiClient, AssetEngagement, BackendNotification } from '../../services/apiClient';
+import { apiClient, AssetEngagement, BackendNotification, KycStatus } from '../../services/apiClient';
+import { canInvest } from '../../rbac/menuVisibility';
+import { KYC_STATUS_LABELS } from '../../kyc/kycLabels';
 import { NavTab } from '../../types';
 import { TAB_FOR_RESOURCE, timeAgo } from '../../notifications/notificationLinks';
 
@@ -11,13 +13,17 @@ export const DashboardActivityPanel: React.FC<{ setTab: (tab: NavTab) => void }>
   const [notifications, setNotifications] = useState<BackendNotification[] | null>(null);
   const [actions, setActions] = useState<AssetEngagement[]>([]);
   const [unread, setUnread] = useState(0);
+  // Investors cannot invest until their KYC is approved; null when it is, or the role invests not.
+  const [kycPending, setKycPending] = useState<KycStatus | 'NONE' | null>(null);
 
   const load = useCallback(() => {
     apiClient.getNotifications().then((list) => setNotifications(list.slice(0, 6))).catch(() => setNotifications([]));
     apiClient.getUnreadNotificationCount().then((result) => setUnread(result.count)).catch(() => setUnread(0));
     if (canAccessTab('asset-partnerships')) apiClient.getAssetEngagements().then((list) => setActions(list.filter((item) => item.canRespond || item.canReview))).catch(() => setActions([]));
     else setActions([]);
-  }, [canAccessTab]);
+    if (canInvest(currentRole)) apiClient.getMyKyc().then((kyc) => setKycPending(kyc?.status === 'APPROVED' ? null : kyc?.status ?? 'NONE')).catch(() => setKycPending(null));
+    else setKycPending(null);
+  }, [canAccessTab, currentRole]);
 
   useEffect(() => { load(); }, [load, currentRole]);
 
@@ -31,7 +37,13 @@ export const DashboardActivityPanel: React.FC<{ setTab: (tab: NavTab) => void }>
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
       <section className="p-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-md space-y-3">
         <h3 className="font-black text-slate-900 dark:text-white text-sm flex items-center gap-2"><Handshake className="w-5 h-5 text-amber-500" />Needs your action</h3>
-        {actions.length === 0 ? (
+        {kycPending && (
+          <button type="button" onClick={() => setTab('investments')} className="w-full text-left p-3 rounded-2xl border border-amber-300/60 bg-amber-500/5 hover:bg-amber-500/10 cursor-pointer">
+            <div className="text-xs font-bold text-slate-800 dark:text-slate-100">Verify your identity (KYC) before investing</div>
+            <div className="text-[11px] text-amber-700 dark:text-amber-300 font-bold">{kycPending === 'NONE' ? 'Not started' : KYC_STATUS_LABELS[kycPending]} · Open Investments</div>
+          </button>
+        )}
+        {actions.length === 0 && !kycPending ? (
           <p className="text-xs text-slate-400">Nothing is waiting for you.</p>
         ) : (
           <ul className="space-y-2">

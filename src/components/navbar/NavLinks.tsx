@@ -16,6 +16,7 @@ interface NavLinksProps {
 
 const PRIMARY_TAB_IDS: NavTab[] = [
   'dashboard',
+  'investments',
   'marketplace',
   'pooling',
   'sponsor-portal',

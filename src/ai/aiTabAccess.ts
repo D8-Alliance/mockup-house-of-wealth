@@ -3,8 +3,8 @@
  * server/src/ai/ai.controller.ts; a tab is hidden from roles the server would refuse.
  */
 const SHARIAH_ANALYSIS = ['Super Admin', 'AI Administrator', 'AI Model Reviewer', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee'];
-const CONTRACT_ADVISOR = ['Super Admin', 'AI Administrator', 'Shariah Reviewer', 'Shariah Advisor', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office'];
-const DUE_DILIGENCE = ['Super Admin', 'AI Administrator', 'Compliance Officer', 'KYC Officer', 'KYB Officer', 'AML Officer', 'Risk Officer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office'];
+const CONTRACT_ADVISOR = ['Super Admin', 'AI Administrator', 'Shariah Reviewer', 'Shariah Advisor', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin'];
+const DUE_DILIGENCE = ['Super Admin', 'AI Administrator', 'Compliance Officer', 'KYC Officer', 'KYB Officer', 'AML Officer', 'Risk Officer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin'];
 
 /** POST ai/shariah/analyze, ai/contract-advisor/analyze and ai/due-diligence/analyze. */
 export const AI_TAB_ROLES = {
@@ -26,7 +26,11 @@ export const SAMPLE_TABS = ['investment-matcher', 'portfolio-analysis', 'risk-an
 /** Finance, Risk, Compliance, Shariah and the committee decide stages of a project's feasibility review there; Legal has no stage. */
 const FEASIBILITY_REVIEWERS = ['Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee', 'Finance Officer', 'Risk Officer', 'Compliance Officer'];
 
+/** Investors have no project of their own: drafting, term sheets and project due diligence are for the project side. */
+const INVESTOR_ROLES = ['Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office'];
+
 export function hiddenAiTabs(role: string): string[] {
+  if (INVESTOR_ROLES.includes(role)) return [...DRAFTING_TABS, 'due-diligence'];
   if (!REVIEWER_ONLY_ROLES.includes(role)) return [];
   return [...DRAFTING_TABS.filter((tab) => !(tab === 'project-analyzer' && FEASIBILITY_REVIEWERS.includes(role))), ...SAMPLE_TABS];
 }

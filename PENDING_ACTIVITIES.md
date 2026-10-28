@@ -440,6 +440,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 - **Status:** Senarai disemak 2026-10-16, dikemas kini 2026-10-28. Skrin ini kelihatan berfungsi tetapi tidak membaca atau menyimpan data di server, jadi ia boleh mengelirukan dalam staging atau pilot.
 - **Sejak 2026-10-27:** Finance, Risk dan Compliance Officer hanya melihat Dashboard, AI Wealth Engine (Project Feasibility), Contracts (perjanjian untuk disemak) dan Profile; Compliance juga Admin Center. Tab contoh (Marketplace, Wealth Pooling, Investments, Wallet, Financials, Documents, Audit & Ledger) disembunyikan untuk mereka, dan Membership/Billing disembunyikan untuk semua staf penyemak. Senarai contoh My Contracts kini hanya untuk pelabur. Kembalikan tab apabila ia membaca server.
+- **Sejak 2026-10-28:** pelabur (Retail, HNWI, Institutional, Corporate, Family Office) hanya melihat Dashboard, AI Wealth Engine (tanpa alat draf, term sheet dan due diligence projek), Investments (kini menu utama: borang KYC jika belum disahkan, pool OPEN, pesanan), Financials & Zakat, Beneficiaries dan Profile. Marketplace, Wealth Pooling, Multi-Wallet, Document Vault dan Audit & Ledger disembunyikan untuk mereka. Multi-Wallet kosong bagi pelabur kerana akaun pelabur yang dicipta semasa settlement berada dalam organisasi pool, bukan organisasi pelabur; perlu reka bentuk akaun pelabur sebelum tab ini dikembalikan. Transaksi dalam Financials & Zakat masih contoh (penyata, cukai dan zakat sebenar).
 
 | Skrin | Data sekarang | Rujukan |
 |---|---|---|
