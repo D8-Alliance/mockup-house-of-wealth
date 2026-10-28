@@ -35,7 +35,7 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
   const [lang, setLang] = useState<LanguageCode>('en');
   const [darkMode, setDarkMode] = useState<boolean>(false);
 
-  const { showLoginModal, setShowLoginModal, currentRole, canAccessTab } = useRBAC();
+  const { showLoginModal, setShowLoginModal, currentRole, canAccessTab, authMode, activeUser } = useRBAC();
 
   // After signing in as someone else or switching role, leave a tab the new role cannot open.
   useEffect(() => {
@@ -48,6 +48,11 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
   const [ledger, setLedger] = useState<LedgerTransaction[]>([]);
   const [financialAccounts, setFinancialAccounts] = useState<BackendFinancialAccount[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<BeneficiaryItem[]>(INITIAL_BENEFICIARIES);
+  // Beneficiaries are not stored on the server yet (PENDING_ACTIVITIES item 19): the sample people are for the demo only,
+  // and a signed-in user starts with an empty list of their own.
+  useEffect(() => {
+    setBeneficiaries(authMode === 'DEMO' ? INITIAL_BENEFICIARIES : []);
+  }, [authMode, activeUser?.id]);
 
   const refreshFinancialData = async () => {
     const [accounts, transactions] = await Promise.all([apiClient.getFinancialAccounts(), apiClient.getFinancialLedger()]);

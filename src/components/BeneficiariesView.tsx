@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { BeneficiaryItem, LanguageCode } from '../types';
 import { BeneficiaryModal } from './BeneficiaryModal';
+import { useRBAC } from '../rbac/RBACContext';
 import { TRANSLATIONS } from '../data/translations';
 import { hasOwnerSetShare, useEstateFramework, wasiyyahTotal, willTotal, WASIYYAH_LIMIT_PCT } from '../beneficiaries/estateRules';
 
@@ -35,6 +36,7 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
   setBeneficiaries,
   lang
 }) => {
+  const { authMode } = useRBAC();
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBeneficiary, setEditingBeneficiary] = useState<BeneficiaryItem | null>(null);
@@ -127,6 +129,11 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
             Tell the platform how your investments and assets pass on if you die, and who receives profit payouts while you live. Final distribution follows the Syariah court&rsquo;s faraid certificate, or the grant of probate or letters of administration.
           </p>
+          {authMode !== 'DEMO' && (
+            <p className="mt-2 max-w-2xl rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+              Not saved yet: what you enter here stays in this browser tab and is lost when you reload or sign out. Saving to your account is being built; until then, do not rely on it as your estate instructions.
+            </p>
+          )}
           <div className="mt-3 inline-flex rounded-xl border border-slate-200 dark:border-slate-700 p-1 bg-white dark:bg-slate-800 text-xs font-bold" role="group" aria-label="Estate framework">
             {(['Islamic', 'Civil'] as const).map(option => (
               <button key={option} type="button" onClick={() => setFramework(option)} aria-pressed={framework === option} className={`px-3 py-1.5 rounded-lg ${framework === option ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>
