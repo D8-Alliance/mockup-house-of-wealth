@@ -353,7 +353,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 - **Kawasan:** `src/beneficiaries/estateRules.ts`, `src/components/BeneficiariesView.tsx`, `src/components/BeneficiaryModal.tsx`, backend baharu
 
 **Baki:**
-1. **Simpanan di backend:** benefisiari kini dalam pelayar sahaja dan hilang apabila dimuat semula. Simpan setiap pemilik di server, nombor ID disulitkan (PDPA), dan setiap perubahan diaudit. Hanya pemilik boleh membaca dan menulis.
+1. **Simpanan di backend (siap 2026-10-28):** model `EstateBeneficiary`, API `/estate/beneficiaries` (Retail, HNWI, Family Office, Asset Owner; hanya pemilik), peraturan pusaka disemak di server, nombor ID disulitkan AES-256-GCM dengan `ESTATE_DATA_ENCRYPTION_KEY` dan dipaparkan bertopeng, setiap perubahan diaudit tanpa nombor ID. Mod DEMO kekal dengan data contoh dalam pelayar. Baki: pilihan rangka (Islam atau sivil) masih disimpan dalam pelayar.
 2. **Peranan Estate Officer:** boleh membaca arahan pusaka seorang pemilik hanya selepas kematian dilaporkan, dengan log audit; tidak boleh mengubah arahan.
 3. **Aliran kematian:** lapor kematian, kemudian akaun dibekukan (tiada pesanan baharu; keuntungan terkumpul kepada harta pusaka), sahkan dokumen (sijil kematian, Sijil Faraid, surat kuasa tadbir atau probet), salurkan pelaburan dan aset mengikut arahan dan perintah mahkamah, kemudian penyelesaian.
 4. **Qabul hibah:** hantar permintaan qabul kepada penerima, dan sediakan skrin untuk menerima atau menolak (rujuk item 11).

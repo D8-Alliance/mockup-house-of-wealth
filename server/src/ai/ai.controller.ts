@@ -63,7 +63,7 @@ export class AiController {
   partnershipReviewAssistant(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: PartnershipReviewAssistDto) { return this.ai.partnershipReviewAssistant(actor, id, input.track); }
 
   @Post('contract-advisor/analyze')
-  @Roles('Super Admin', 'AI Administrator', 'Shariah Reviewer', 'Shariah Advisor', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office')
+  @Roles('Super Admin', 'AI Administrator', 'Shariah Reviewer', 'Shariah Advisor', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin')
   contractAdvisor(@CurrentUser() actor: AuthenticatedUser, @Body() input: ContractAdvisorDto) { return this.ai.contractAdvisor(actor, input); }
 
   @Post('contract-drafts/generate')
@@ -83,7 +83,7 @@ export class AiController {
   validateContractRules(@CurrentUser() actor: AuthenticatedUser, @Body() input: ShariahValidationDto) { return this.ai.validateContractRules(actor, input); }
 
   @Post('due-diligence/analyze')
-  @Roles('Super Admin', 'AI Administrator', 'Compliance Officer', 'KYC Officer', 'KYB Officer', 'AML Officer', 'Risk Officer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office')
+  @Roles('Super Admin', 'AI Administrator', 'Compliance Officer', 'KYC Officer', 'KYB Officer', 'AML Officer', 'Risk Officer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin')
   dueDiligence(@CurrentUser() actor: AuthenticatedUser, @Body() input: DueDiligenceDto) { return this.ai.dueDiligence(actor, input); }
 
   @Post('projects/due-diligence/scan')

@@ -22,7 +22,8 @@ import { EstateFramework, estateRuleError, hasOwnerSetShare, TYPES_BY_FRAMEWORK 
 interface BeneficiaryModalProps {
   beneficiary: BeneficiaryItem | null; // null for Create
   onClose: () => void;
-  onSave: (item: BeneficiaryItem) => void;
+  /** May be async; when it throws, the form stays open and shows why. */
+  onSave: (item: BeneficiaryItem) => void | Promise<void>;
   /** Islamic (faraid, hibah, wasiyyah) or civil (will); decides which purposes are offered. */
   framework: EstateFramework;
   /** The owner's other beneficiaries, for the one-third wasiyyah limit. */
@@ -74,7 +75,7 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
   const [ijabConfirmed, setIjabConfirmed] = useState<boolean>(!!beneficiary?.hibahAkad);
   const isHibah = distributionType === 'Hibah Amanah';
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
@@ -102,7 +103,7 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
         setErrorMsg('Hibah Amanah needs the recipient’s email address, so they can accept the hibah (qabul).');
         return;
       }
-      if (!identityNumber.trim()) {
+      if (!identityNumber.trim() && !beneficiary?.identityNumberMasked) {
         setErrorMsg('Hibah Amanah needs the recipient’s national ID or passport number.');
         return;
       }
@@ -124,12 +125,18 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
       email: email.trim() || undefined,
       phone: phone.trim() || undefined,
       identityNumber: identityNumber.trim() || undefined,
+      identityNumberMasked: beneficiary?.identityNumberMasked,
       payoutMethod,
       isPrimary,
       hibahAkad
     };
 
-    onSave(savedItem);
+    try {
+      await onSave(savedItem);
+    } catch (cause) {
+      setErrorMsg(cause instanceof Error ? cause.message : 'The beneficiary was not saved.');
+      return;
+    }
     onClose();
   };
 
@@ -280,7 +287,7 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
               type="text"
               value={identityNumber}
               onChange={e => setIdentityNumber(e.target.value)}
-              placeholder="e.g. 784-1988-1234567-1 or WAQF-REG-2024"
+              placeholder={beneficiary?.identityNumberMasked ? `Saved (${beneficiary.identityNumberMasked}); type to replace` : 'e.g. 784-1988-1234567-1 or WAQF-REG-2024'}
               className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>

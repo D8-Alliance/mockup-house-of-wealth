@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   HeartHandshake, 
   Plus, 
@@ -22,6 +22,8 @@ import {
 import { BeneficiaryItem, LanguageCode } from '../types';
 import { BeneficiaryModal } from './BeneficiaryModal';
 import { useRBAC } from '../rbac/RBACContext';
+import { apiClient } from '../services/apiClient';
+import { fromServer, toServer } from '../beneficiaries/beneficiaryApi';
 import { TRANSLATIONS } from '../data/translations';
 import { hasOwnerSetShare, useEstateFramework, wasiyyahTotal, willTotal, WASIYYAH_LIMIT_PCT } from '../beneficiaries/estateRules';
 
@@ -37,6 +39,13 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
   lang
 }) => {
   const { authMode } = useRBAC();
+  // Signed-in users keep their beneficiaries on the server; the demo keeps its sample people in the browser.
+  const saved = authMode !== 'DEMO';
+  const [loadError, setLoadError] = useState('');
+  useEffect(() => {
+    if (!saved) return;
+    apiClient.getBeneficiaries().then((rows) => { setBeneficiaries(rows.map(fromServer)); setLoadError(''); }).catch((cause) => setLoadError(cause instanceof Error ? cause.message : 'Your beneficiaries could not be loaded.'));
+  }, [saved, setBeneficiaries]);
   const t = TRANSLATIONS[lang] || TRANSLATIONS.en;
   const [modalOpen, setModalOpen] = useState(false);
   const [editingBeneficiary, setEditingBeneficiary] = useState<BeneficiaryItem | null>(null);
@@ -50,7 +59,19 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleSave = (item: BeneficiaryItem) => {
+  const failed = (cause: unknown) => showToast(cause instanceof Error ? cause.message : 'That was not saved.');
+
+  const handleSave = async (item: BeneficiaryItem) => {
+    if (saved) {
+      // Errors go back to the form, which stays open with what was typed.
+      const row = editingBeneficiary ? await apiClient.updateBeneficiary(item.id, toServer(item)) : await apiClient.createBeneficiary(toServer(item));
+      // Reload: saving one as primary clears the others on the server.
+      setBeneficiaries((await apiClient.getBeneficiaries()).map(fromServer));
+      showToast(editingBeneficiary ? `Updated beneficiary: ${row.name}` : `Added new beneficiary: ${row.name}`);
+      setModalOpen(false);
+      setEditingBeneficiary(null);
+      return;
+    }
     if (editingBeneficiary) {
       setBeneficiaries(prev => prev.map(b => b.id === item.id ? item : b));
       showToast(`Updated beneficiary: ${item.name}`);
@@ -62,16 +83,31 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
     setEditingBeneficiary(null);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     const target = beneficiaries.find(b => b.id === id);
     if (target && window.confirm(`Are you sure you want to remove ${target.name} from your beneficiaries?`)) {
+      if (saved) {
+        try {
+          await apiClient.deleteBeneficiary(id);
+        } catch (cause) {
+          failed(cause);
+          return;
+        }
+      }
       setBeneficiaries(prev => prev.filter(b => b.id !== id));
       showToast(`Removed beneficiary: ${target.name}`);
     }
   };
 
-  const handleSetPrimary = (id: string) => {
-    setBeneficiaries(prev => prev.map(b => ({
+  const handleSetPrimary = async (id: string) => {
+    if (saved) {
+      try {
+        setBeneficiaries((await apiClient.setPrimaryBeneficiary(id)).map(fromServer));
+      } catch (cause) {
+        failed(cause);
+        return;
+      }
+    } else setBeneficiaries(prev => prev.map(b => ({
       ...b,
       isPrimary: b.id === id
     })));
@@ -129,11 +165,12 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-2xl">
             Tell the platform how your investments and assets pass on if you die, and who receives profit payouts while you live. Final distribution follows the Syariah court&rsquo;s faraid certificate, or the grant of probate or letters of administration.
           </p>
-          {authMode !== 'DEMO' && (
-            <p className="mt-2 max-w-2xl rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-              Not saved yet: what you enter here stays in this browser tab and is lost when you reload or sign out. Saving to your account is being built; until then, do not rely on it as your estate instructions.
+          {saved && (
+            <p className="mt-2 max-w-2xl text-[11px] text-slate-500 dark:text-slate-400">
+              Saved to your account and seen only by you; identity numbers are stored encrypted and shown masked.
             </p>
           )}
+          {loadError && <p className="mt-2 max-w-2xl text-xs font-bold text-rose-600">{loadError}</p>}
           <div className="mt-3 inline-flex rounded-xl border border-slate-200 dark:border-slate-700 p-1 bg-white dark:bg-slate-800 text-xs font-bold" role="group" aria-label="Estate framework">
             {(['Islamic', 'Civil'] as const).map(option => (
               <button key={option} type="button" onClick={() => setFramework(option)} aria-pressed={framework === option} className={`px-3 py-1.5 rounded-lg ${framework === option ? 'bg-emerald-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}`}>

@@ -2262,3 +2262,35 @@ model TakafulPolicy {
   @@index([countryNodeId, status])
   @@index([endDate])
 }
+
+/// An individual's estate instruction for one person or institution: who receives what if the owner dies
+/// (faraid heir, hibah, wasiyyah or a civil will), or profit payouts while they live. Only the owner reads or
+/// changes it; the identity number is stored encrypted and shown masked.
+model EstateBeneficiary {
+  id                      String    @id @default(cuid())
+  ownerUserId             String
+  organisationId          String
+  countryNodeId           String
+  name                    String
+  /// Spouse, Child, Parent, Sibling, Waqf Foundation, Zakat Institution or Other.
+  relation                String
+  /// Profit Share, Hibah Amanah, Wasiyyah, Faraid Heir, Will Beneficiary or Zakat & Sadaqah.
+  distributionType        String
+  /// Null for a faraid heir, whose share is fixed by faraid, not by the owner.
+  allocationPercent       Decimal?  @db.Decimal(5, 2)
+  email                   String?
+  phone                   String?
+  identityNumberEncrypted String?
+  /// Shown instead of the identity number, e.g. "•••• 5521".
+  identityNumberMasked    String?
+  payoutMethod            String
+  isPrimary               Boolean   @default(false)
+  /// Hibah Amanah: the donor's offer (ijab), and the recipient's acceptance (qabul): AWAITING, ACCEPTED or DECLINED.
+  hibahIjabAt             DateTime?
+  hibahQabulStatus        String?
+  hibahQabulAt            DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  @@index([ownerUserId])
+}

@@ -95,6 +95,37 @@ export interface BackendInvestmentOrder {
   pool?: { poolName: string };
 }
 
+/** A beneficiary as the server keeps it; the identity number comes back masked only. */
+export interface BackendBeneficiary {
+  id: string;
+  name: string;
+  relation: string;
+  distributionType: string;
+  allocationPercent: number | null;
+  email: string | null;
+  phone: string | null;
+  identityNumberMasked: string | null;
+  payoutMethod: string;
+  isPrimary: boolean;
+  hibahIjabAt: string | null;
+  hibahQabulStatus: 'AWAITING' | 'ACCEPTED' | 'DECLINED' | null;
+  hibahQabulAt: string | null;
+}
+
+export interface SaveBeneficiaryInput {
+  name: string;
+  relation: string;
+  distributionType: string;
+  allocationPercent?: number;
+  email?: string;
+  phone?: string;
+  /** Left out on an edit to keep the stored number. */
+  identityNumber?: string;
+  payoutMethod: string;
+  isPrimary?: boolean;
+  ijabConfirmed?: boolean;
+}
+
 /** An investor transfer waiting for Finance to match it to the bank. */
 export interface SettlementQueueOrder extends BackendInvestmentOrder {
   investorName: string | null;
@@ -156,6 +187,11 @@ export const apiClient = {
   verifyMembershipPayment: (paymentId: string) => request<{ status: 'PAID' | 'FAILED' | 'PENDING'; paymentId: string; productType: string }>(`/membership/me/payments/${encodeURIComponent(paymentId)}/verify`, { method: 'POST' }),
   getAdminCreditAnalytics: () =>request<{ summary: AdminAIAnalyticsSummary; transactions: BackendCreditTransaction[] }>('/membership/admin/credits/analytics'),
   getProjects: () => request<BackendProject[]>('/projects'),
+  getBeneficiaries: () => request<BackendBeneficiary[]>('/estate/beneficiaries'),
+  createBeneficiary: (input: SaveBeneficiaryInput) => request<BackendBeneficiary>('/estate/beneficiaries', { method: 'POST', body: JSON.stringify(input) }),
+  updateBeneficiary: (id: string, input: SaveBeneficiaryInput) => request<BackendBeneficiary>(`/estate/beneficiaries/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) }),
+  setPrimaryBeneficiary: (id: string) => request<BackendBeneficiary[]>(`/estate/beneficiaries/${encodeURIComponent(id)}/primary`, { method: 'POST' }),
+  deleteBeneficiary: (id: string) => request<{ id: string }>(`/estate/beneficiaries/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getPools: () => request<BackendPool[]>('/pools'),
   getPool: (poolId: string) => request<BackendPoolDetail>(`/pools/${encodeURIComponent(poolId)}`),
   createPool: (input: { projectId: string; poolName: string; currency: string; indicativeExpectedReturn: number; organisationId: string; countryNodeId: string; akadType: 'MUDARABAH' | 'MUSHARAKAH' | 'WAKALAH' | 'IJARAH'; investorProfitSharePct: number }) => request<BackendPool>('/pools', { method: 'POST', body: JSON.stringify(input) }),

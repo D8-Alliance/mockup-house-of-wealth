@@ -74,6 +74,8 @@ export interface BeneficiaryItem {
   email?: string;
   phone?: string;
   identityNumber?: string;
+  /** From the server: the stored identity number is never sent back, only its last four characters. */
+  identityNumberMasked?: string | null;
   payoutMethod: string;
   isPrimary: boolean;
 }
