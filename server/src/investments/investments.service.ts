@@ -61,7 +61,7 @@ export class InvestmentsService {
   listOrders(actor: AuthenticatedUser) {
     // An investor sees only their own orders (they sit in the pool's organisation, not the investor's).
     const where = INVESTOR_ROLES.has(actor.role) ? { investorUserId: actor.userId } : tenantScopeFilter(actor);
-    return this.prisma.investmentOrder.findMany({ where, orderBy: { createdAt: 'desc' }, include: { contribution: true }, take: 100 });
+    return this.prisma.investmentOrder.findMany({ where, orderBy: { createdAt: 'desc' }, include: { contribution: true, pool: { select: { poolName: true } } }, take: 100 });
   }
 
   async getOrder(actor: AuthenticatedUser, id: string) {

@@ -73,7 +73,6 @@ export const InvestorPoolsPanel: React.FC = () => {
     }
   };
 
-  const poolName = (poolId: string) => pools.find((pool) => pool.poolId === poolId)?.poolName ?? poolId;
 
   return (
     <div className="space-y-4 text-xs">
@@ -133,7 +132,7 @@ export const InvestorPoolsPanel: React.FC = () => {
           return (
             <div key={order.id} className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50">
               <div>
-                <p className="font-bold text-slate-900 dark:text-white">{order.orderNumber} · {poolName(order.poolId)}</p>
+                <p className="font-bold text-slate-900 dark:text-white">{order.orderNumber} · {order.pool?.poolName ?? order.poolId}</p>
                 <p className="text-slate-500">Placed {order.createdAt.slice(0, 10)}{order.settledAt ? ` · confirmed ${order.settledAt.slice(0, 10)}` : ''}</p>
               </div>
               <div className="flex items-center gap-2">

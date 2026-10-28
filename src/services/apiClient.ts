@@ -91,6 +91,8 @@ export interface BackendInvestmentOrder {
   settledAt?: string | null;
   cancelledAt?: string | null;
   paymentReference?: string | null;
+  /** The pool's name, sent with the investor's own orders (a full pool is no longer listed to them). */
+  pool?: { poolName: string };
 }
 
 /** An investor transfer waiting for Finance to match it to the bank. */
