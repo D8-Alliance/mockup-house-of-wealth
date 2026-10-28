@@ -78,7 +78,8 @@ export class ProjectsController {
 
   @Post(':id/milestones')
   @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
-  @RequirePermission('assets', 'update')
+  // Planning tranches is part of preparing the project, like its other details (ProjectsService.get keeps it to the sponsor's own project).
+  @RequirePermission('assets', 'create')
   createMilestone(@Param('id') id: string, @Body() body: CreateProjectMilestoneDto, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.createMilestone(id, body, user);
   }
