@@ -168,6 +168,9 @@ export class ProjectsService {
     if (!targetDate || Number.isNaN(targetDate.getTime())) throw new BadRequestException('Choose the target date of the tranche.');
     const amount = Number(dto.disbursementAmount);
     if (!Number.isFinite(amount) || amount <= 0) throw new BadRequestException('Enter the amount released at this tranche.');
+    // The same tranche twice (a double click, or a form sent again) would release its funds twice.
+    const sameTitle = await this.prisma.projectMilestone.findFirst({ where: { projectId, title: { equals: title, mode: 'insensitive' } }, select: { id: true } });
+    if (sameTitle) throw new ConflictException(`A tranche called "${title}" is already on this project. Give this one its own name, or remove the other first.`);
     const allocated = await this.prisma.projectMilestone.aggregate({ where: { projectId }, _sum: { disbursementAmount: true } });
     const funding = Number(project.fundingRequired);
     const remaining = funding - Number(allocated._sum.disbursementAmount ?? 0);
@@ -175,6 +178,25 @@ export class ProjectsService {
     const milestone = await this.prisma.projectMilestone.create({ data: { projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, title, targetDate, completionPct: 0, disbursementAmount: amount, status: 'UPCOMING' } });
     await this.audit.recordActor(user, { action: 'project.milestone.create', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { milestoneId: milestone.id, title, targetDate: dto.targetDate, amount } });
     return milestone;
+  }
+
+  /**
+   * Removes a tranche entered by mistake, while the project can still change. The four governance steps
+   * (no funds released) stay, and a tranche someone has asked to release is kept with its record.
+   */
+  async deleteMilestone(projectId: string, milestoneId: string, user: AuthenticatedUser) {
+    const project = await this.get(projectId, user);
+    assertProjectUnlocked(project, 'Removing a tranche');
+    const milestone = await this.prisma.projectMilestone.findFirst({ where: { id: milestoneId, projectId } });
+    if (!milestone) throw new NotFoundException('Tranche not found on this project.');
+    if (Number(milestone.disbursementAmount) <= 0) throw new BadRequestException('The governance steps of a project cannot be removed; only tranches that release funds.');
+    const requested = await this.prisma.fundingRequest.count({ where: { milestoneId } });
+    if (requested) throw new ConflictException('A release of this tranche has been requested, so it is kept with that record.');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectMilestone.delete({ where: { id: milestoneId } });
+      await this.audit.recordActor(user, { action: 'project.milestone.delete', resourceType: 'Project', resourceId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { milestoneId, title: milestone.title, amount: Number(milestone.disbursementAmount) } }, tx);
+    });
+    return { id: milestoneId };
   }
 
   async updateMilestone(projectId: string, milestoneId: string, dto: UpdateProjectMilestoneDto, user: AuthenticatedUser) {

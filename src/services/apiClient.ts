@@ -226,6 +226,7 @@ export const apiClient = {
   getSafeguardQueue: () => request<SafeguardQueue>('/safeguards/queue'),
   getProjectRoadmap: (projectId: string) => request<ProjectRoadmapStep[]>(`/projects/${encodeURIComponent(projectId)}/roadmap`),
   createProjectMilestone: (projectId: string, input: { title: string; targetDate: string; disbursementAmount: number }) => request<BackendProjectMilestone>(`/projects/${encodeURIComponent(projectId)}/milestones`, { method: 'POST', body: JSON.stringify(input) }),
+  deleteProjectMilestone: (projectId: string, milestoneId: string) => request<{ id: string }>(`/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(milestoneId)}`, { method: 'DELETE' }),
   updateProjectMilestone: (projectId: string, milestoneId: string, input: { completionPct?: number; status?: string; shariahSignoff?: boolean; auditorSignoff?: boolean }) => request(`/projects/${encodeURIComponent(projectId)}/milestones/${encodeURIComponent(milestoneId)}`, { method: 'PATCH', body: JSON.stringify(input) }),
   createProject: (input: CreateProjectInput) => request<BackendProject>('/projects', {
     method: 'POST',

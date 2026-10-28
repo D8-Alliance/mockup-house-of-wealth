@@ -207,13 +207,30 @@ describe('ProjectsService: a sponsor corrects a draft and submits it', () => {
 
   it('saves a tranche only with a purpose, a date and an amount within the funding left', async () => {
     prismaMock.project.findUnique.mockResolvedValue({ ...project('DRAFT'), fundingRequired: 1200000 });
-    const milestones = { aggregate: jest.fn().mockResolvedValue({ _sum: { disbursementAmount: 750000 } }), create: jest.fn().mockResolvedValue({ id: 'MS-1' }) };
+    const milestones = { findFirst: jest.fn().mockResolvedValue(null), aggregate: jest.fn().mockResolvedValue({ _sum: { disbursementAmount: 750000 } }), create: jest.fn().mockResolvedValue({ id: 'MS-1' }) };
     (prismaMock as Record<string, unknown>).projectMilestone = milestones;
     await expect(service.createMilestone('PRJ-1', { title: 'Seedlings', disbursementAmount: 100000 }, sponsor)).rejects.toThrow('target date');
     await expect(service.createMilestone('PRJ-1', { title: 'Seedlings', targetDate: '2027-04-01', disbursementAmount: 500000 }, sponsor)).rejects.toThrow('450000.00 of 1200000.00 is left');
     await service.createMilestone('PRJ-1', { title: 'Seedlings and irrigation', targetDate: '2027-04-01', disbursementAmount: 450000 }, sponsor);
     expect(milestones.create).toHaveBeenCalledWith({ data: expect.objectContaining({ title: 'Seedlings and irrigation', disbursementAmount: 450000, status: 'UPCOMING' }) });
+    milestones.findFirst.mockResolvedValueOnce({ id: 'MS-1' });
+    await expect(service.createMilestone('PRJ-1', { title: 'seedlings and irrigation', targetDate: '2027-04-01', disbursementAmount: 1 }, sponsor)).rejects.toThrow('already on this project');
     prismaMock.project.findUnique.mockResolvedValue({ ...project('APPROVED'), fundingRequired: 1200000 });
     await expect(service.createMilestone('PRJ-1', { title: 'More', targetDate: '2027-04-01', disbursementAmount: 1 }, sponsor)).rejects.toThrow('locked');
+  });
+
+  it('removes a tranche entered by mistake, but not a governance step, a requested tranche or one on a locked project', async () => {
+    prismaMock.project.findUnique.mockResolvedValue({ ...project('DRAFT'), fundingRequired: 1200000 });
+    const milestones = { findFirst: jest.fn(), delete: jest.fn() };
+    (prismaMock as Record<string, unknown>).projectMilestone = milestones;
+    (prismaMock as Record<string, unknown>).fundingRequest = { count: jest.fn().mockResolvedValue(0) };
+    (prismaMock as Record<string, unknown>).$transaction = jest.fn(async (run: (tx: unknown) => unknown) => run(prismaMock));
+    milestones.findFirst.mockResolvedValueOnce({ id: 'MS-0', title: 'Shariah term sheet review', disbursementAmount: 0 });
+    await expect(service.deleteMilestone('PRJ-1', 'MS-0', sponsor)).rejects.toThrow('governance steps');
+    milestones.findFirst.mockResolvedValueOnce({ id: 'MS-2', title: 'Plant building', disbursementAmount: 1000000 });
+    await expect(service.deleteMilestone('PRJ-1', 'MS-2', sponsor)).resolves.toEqual({ id: 'MS-2' });
+    expect(milestones.delete).toHaveBeenCalledWith({ where: { id: 'MS-2' } });
+    prismaMock.project.findUnique.mockResolvedValue({ ...project('APPROVED'), fundingRequired: 1200000 });
+    await expect(service.deleteMilestone('PRJ-1', 'MS-2', sponsor)).rejects.toThrow('locked');
   });
 });

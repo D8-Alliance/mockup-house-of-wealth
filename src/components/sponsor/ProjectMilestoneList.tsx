@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ProjectMilestone } from './SponsorTypes';
-import { Calendar, ShieldCheck, CheckCircle2, Plus, HandCoins } from 'lucide-react';
+import { Calendar, ShieldCheck, CheckCircle2, Plus, HandCoins, Trash2 } from 'lucide-react';
 import { apiClient, BackendFundingRequest, BackendProjectMilestone } from '../../services/apiClient';
 import { formatProjectMoney } from './sponsorMoney';
 
@@ -43,6 +43,9 @@ export const ProjectMilestoneList: React.FC<ProjectMilestoneListProps> = ({ proj
   const [newMilestoneAmount, setNewMilestoneAmount] = useState('');
   const [newMilestoneDate, setNewMilestoneDate] = useState('');
   const [saving, setSaving] = useState(false);
+  // A second click before the first save returns must not add the tranche twice.
+  const submitting = useRef(false);
+  const [removing, setRemoving] = useState('');
   const [error, setError] = useState('');
   const [requests, setRequests] = useState<BackendFundingRequest[]>([]);
   const [releaseBusy, setReleaseBusy] = useState('');
@@ -80,6 +83,8 @@ export const ProjectMilestoneList: React.FC<ProjectMilestoneListProps> = ({ proj
     if (!Number.isFinite(amount) || amount <= 0) return setError('Enter the amount released at this tranche.');
     if (amount > remaining) return setError(`Only ${formatProjectMoney(remaining, currency)} of the funding is left to allocate.`);
     if (!newMilestoneDate) return setError('Choose the target date of the tranche.');
+    if (submitting.current) return;
+    submitting.current = true;
     setError('');
     setSaving(true);
     try {
@@ -93,7 +98,24 @@ export const ProjectMilestoneList: React.FC<ProjectMilestoneListProps> = ({ proj
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The tranche was not saved.');
     } finally {
+      submitting.current = false;
       setSaving(false);
+    }
+  };
+
+  const handleRemove = async (milestone: ProjectMilestone) => {
+    if (!window.confirm(`Remove the tranche "${milestone.title}" (${formatProjectMoney(milestone.disbursementAmount, currency)})?`)) return;
+    setRemoving(milestone.id);
+    setError('');
+    try {
+      await apiClient.deleteProjectMilestone(projectId, milestone.id);
+      const next = milestones.filter((m) => m.id !== milestone.id);
+      setMilestones(next);
+      onChange?.(next);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'The tranche was not removed.');
+    } finally {
+      setRemoving('');
     }
   };
 
@@ -119,6 +141,11 @@ export const ProjectMilestoneList: React.FC<ProjectMilestoneListProps> = ({ proj
                   {m.status}
                 </span>
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{m.disbursementAmount > 0 ? formatProjectMoney(m.disbursementAmount, currency) : 'No release'}</span>
+                {editable && m.disbursementAmount > 0 && (
+                  <button type="button" onClick={() => void handleRemove(m)} disabled={removing === m.id} title="Remove this tranche" aria-label={`Remove tranche ${m.title}`} className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10 disabled:opacity-50 cursor-pointer">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
 

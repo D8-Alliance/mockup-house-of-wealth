@@ -85,6 +85,14 @@ export class ProjectsController {
     return this.projectsService.createMilestone(id, body, user);
   }
 
+  @Delete(':id/milestones/:milestoneId')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  // Removing a tranche entered by mistake is part of preparing the project, like adding one.
+  @RequirePermission('assets', 'create')
+  deleteMilestone(@Param('id') id: string, @Param('milestoneId') milestoneId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.deleteMilestone(id, milestoneId, user);
+  }
+
   @Patch(':id/milestones/:milestoneId')
   // Progress and Shariah/audit sign-off are not the sponsor's to set on their own project.
   @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Manager')
