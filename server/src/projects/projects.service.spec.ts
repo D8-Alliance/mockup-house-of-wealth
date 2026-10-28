@@ -90,7 +90,7 @@ describe('ProjectsService list tenant scoping (country admin sees only its own c
   });
 
   it('rejects reading projects when the role has no marketplace.read permission', async () => {
-    await expect(service.list(actor('Project Manager', 'CN-MYS'))).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.list(actor('Asset Owner', 'CN-MYS'))).rejects.toBeInstanceOf(ForbiddenException);
     expect(prismaMock.project.findMany).not.toHaveBeenCalled();
   });
 

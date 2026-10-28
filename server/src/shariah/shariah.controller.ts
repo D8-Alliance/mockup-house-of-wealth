@@ -39,7 +39,7 @@ export class ShariahController {
   }
 
   @Post()
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee')
+  @Roles('Super Admin', 'Country Admin', 'Project Sponsor', 'Project Manager', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee')
   @RequirePermission('governance', 'create')
   create(@Body() input: CreateShariahReviewDto, @CurrentUser() user: AuthenticatedUser) {
     return this.shariah.create(input, user);
@@ -53,14 +53,14 @@ export class ShariahController {
   }
 
   @Post(':id/revert')
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @Roles('Super Admin', 'Country Admin', 'Project Sponsor', 'Project Manager')
   @RequirePermission('governance', 'create')
   revert(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
     return this.shariah.revert(id, user);
   }
 
   @Post(':id/resubmit')
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @Roles('Super Admin', 'Country Admin', 'Project Sponsor', 'Project Manager')
   @RequirePermission('governance', 'create')
   resubmit(@Param('id') id: string, @Body() input: CreateShariahReviewDto, @CurrentUser() user: AuthenticatedUser) {
     return this.shariah.resubmit(id, input, user);

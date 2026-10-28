@@ -13,7 +13,8 @@ export class FundingController {
   constructor(private readonly fundingService: FundingService) {}
 
   @Post('projects/:projectId/requests')
-  @Roles('Project Sponsor', 'Project Manager', 'Organization Admin', 'Country Admin')
+  // The project side raises funding requests; Country Admin approves them, and the permission matrix gives Organization Admin no approvals:create.
+  @Roles('Project Sponsor', 'Project Manager')
   @RequirePermission('approvals', 'create')
   request(@Param('projectId') projectId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.fundingService.request(projectId, user);

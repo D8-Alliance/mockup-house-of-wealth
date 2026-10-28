@@ -186,7 +186,10 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
   'Project Manager': {
     dashboard: ['read'],
     assets: ['create', 'read', 'update'],
+    // read: the organisation's projects they run (ProjectsService keeps it to their own tenant).
+    marketplace: ['read'],
     pooling: ['create', 'read'],
+    approvals: ['create'],
     governance: ['create', 'read'],
     profile: ['read', 'update'],
   },

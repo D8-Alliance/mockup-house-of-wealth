@@ -36,6 +36,7 @@ export class ProjectsController {
     'Country Admin',
     'Organization Admin',
     'Project Sponsor',
+    'Project Manager',
     'Retail Investor',
     'HNWI Investor',
     'Institutional Investor',
@@ -85,7 +86,8 @@ export class ProjectsController {
   }
 
   @Patch(':id/milestones/:milestoneId')
-  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  // Progress and Shariah/audit sign-off are not the sponsor's to set on their own project.
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Manager')
   @RequirePermission('assets', 'update')
   updateMilestone(@Param('id') id: string, @Param('milestoneId') milestoneId: string, @Body() body: UpdateProjectMilestoneDto, @CurrentUser() user: AuthenticatedUser) {
     return this.projectsService.updateMilestone(id, milestoneId, body, user);
@@ -103,7 +105,6 @@ export class ProjectsController {
     'Institutional Investor',
     'Corporate Investor',
     'Family Office',
-    'Portfolio Manager',
     'Shariah Advisor',
     'Shariah Reviewer',
     'Shariah Committee',
@@ -132,7 +133,6 @@ export class ProjectsController {
     'Institutional Investor',
     'Corporate Investor',
     'Family Office',
-    'Portfolio Manager',
     'Shariah Advisor',
     'Shariah Reviewer',
     'Shariah Committee',
@@ -154,7 +154,6 @@ export class ProjectsController {
     'Institutional Investor',
     'Corporate Investor',
     'Family Office',
-    'Portfolio Manager',
     'Shariah Advisor',
     'Shariah Reviewer',
     'Shariah Committee',
@@ -264,7 +263,6 @@ export class ProjectsController {
     'Institutional Investor',
     'Corporate Investor',
     'Family Office',
-    'Portfolio Manager',
     'Shariah Advisor',
     'Shariah Reviewer',
     'Shariah Committee',
