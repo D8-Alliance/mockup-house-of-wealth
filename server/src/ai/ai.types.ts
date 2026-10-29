@@ -7,6 +7,8 @@ export interface AiProviderRequest {
   context: Record<string, unknown>;
   /** Replaces the general system prompt for features with their own instructions. */
   systemPrompt?: string;
+  /** Caps this feature's answer below the general AI_MAX_TOKENS, so a slow model finishes in time. */
+  maxTokens?: number;
 }
 
 export interface AiProviderResponse {

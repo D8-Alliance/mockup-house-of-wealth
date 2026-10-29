@@ -1,4 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException, Optional } from '@nestjs/common';
+import { AiProviderResponse } from './ai.types';
+import { feasibilityFallback, feasibilityModelContext } from './feasibility-model';
 import { AssetsService } from '../assets/assets.service';
 import { createHash, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
@@ -483,8 +485,14 @@ export class AiService {
   }
 
   analyzeProjectFeasibility(actor: AuthenticatedUser, input: { projectId: string; project: Record<string, unknown>; documents: Array<Record<string, unknown>>; financialAnalysis: Record<string, unknown>; riskAnalysis: Record<string, unknown> }) {
-    return this.run(actor, 'project_feasibility', 'ANALYZE_PROJECT_FEASIBILITY', 'Assess the supplied project facts and extracted evidence. Do not invent financial figures, documents, assumptions, approvals, or returns. Return a cautious recommendation that identifies missing evidence and requires human review.', input as unknown as Record<string, unknown>);
+    // The platform calculates every figure itself; the model only comments on them. A short context and a short
+    // answer keep a CPU model inside the request timeout, and if it still fails the analysis stands on the figures.
+    return this.run(actor, 'project_feasibility', 'ANALYZE_PROJECT_FEASIBILITY', 'Assess the supplied project facts and extracted evidence. Do not invent financial figures, documents, assumptions, approvals, or returns. Return a cautious recommendation that identifies missing evidence and requires human review.', feasibilityModelContext(input), undefined, undefined, {
+      maxTokens: 450,
+      fallback: () => feasibilityFallback(input),
+    });
   }
+
 
   async runProjectFeasibility(actor: AuthenticatedUser, projectId: string) {
     const project = await this.prisma.project.findUnique({ where: { projectId }, include: { documents: { select: { id: true, fileName: true, extractedText: true, extractionStatus: true, createdAt: true } }, evidenceRequirements: true, milestones: { select: { title: true, completionPct: true, status: true } } } });
@@ -1121,20 +1129,31 @@ export class AiService {
     return results;
   }
 
-  private async run(actor: AuthenticatedUser, featureKey: string, action: string, prompt: string, context: Record<string, unknown>, conversationId?: string, systemPrompt?: string) {
+  /**
+   * One AI call, charged and audited. With `options.fallback`, a provider failure does not fail the caller: the
+   * run completes with the fallback (marked aiNarrative UNAVAILABLE) and the credits are still returned.
+   */
+  private async run(actor: AuthenticatedUser, featureKey: string, action: string, prompt: string, context: Record<string, unknown>, conversationId?: string, systemPrompt?: string, options: { maxTokens?: number; fallback?: (reason: string) => AiProviderResponse } = {}) {
     const operationKey = featureKey === 'contract_draft' ? 'CONTRACT_ANALYSIS' : featureKey === 'contract_advisor' || featureKey === 'asset_advisor' || featureKey === 'asset_offer_advisor' || featureKey === 'offer_comparison' || featureKey === 'partnership_review_assistant' || featureKey === 'agreement_gap_scan' ? 'CONTRACT_ANALYSIS' : featureKey === 'due_diligence_assistant' ? 'DUE_DILIGENCE' : featureKey === 'project_feasibility' ? 'FULL_PROJECT_INTELLIGENCE' : featureKey === 'chat' ? 'SIMPLE_QUERY' : featureKey === 'shariah_assistant' ? 'RISK_ANALYSIS' : 'PROJECT_SUMMARY';
     const charge = await this.membership.consumeCredits(actor, operationKey, String(context.projectId || context.subjectId || featureKey));
     const requestId = randomUUID();
     const run = await this.prisma.aiRun.create({ data: { requestId, featureKey, action, userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, conversationId, input: context as Prisma.InputJsonValue, output: { charge: { cost: charge.cost ?? 0, usageTransactionId: charge.usageTransactionId ?? null, exempt: 'exempt' in charge && charge.exempt === true } }, status: 'RUNNING', provider: this.provider.providerName, model: this.provider.modelName } });
     await this.audit.recordActor(actor, { action: 'ai.request', resourceType: 'AiRun', resourceId: run.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { featureKey, requestId } });
     try {
-      const output = this.applyEvidenceGuard(featureKey, context, await this.provider.generate({ featureKey, action, prompt, context, systemPrompt }));
+      const output = this.applyEvidenceGuard(featureKey, context, await this.provider.generate({ featureKey, action, prompt, context, systemPrompt, maxTokens: options.maxTokens }));
       const completed = await this.prisma.aiRun.update({ where: { id: run.id }, data: { status: 'COMPLETED', output: output as unknown as Prisma.InputJsonValue, completedAt: new Date() } });
       await this.audit.recordActor(actor, { action: 'ai.response', resourceType: 'AiRun', resourceId: run.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { featureKey, provider: this.provider.providerName, requiresHumanReview: output.requiresHumanReview } });
       return { ...completed, output };
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       this.logger.warn(`AI run ${run.id} (${featureKey}) failed: ${reason.slice(0, 300)}`);
+      if (options.fallback) {
+        const output = { ...options.fallback(reason), aiNarrative: 'UNAVAILABLE', providerFailure: reason.slice(0, 300) };
+        const completed = await this.prisma.aiRun.update({ where: { id: run.id }, data: { status: 'COMPLETED', output: output as unknown as Prisma.InputJsonValue, completedAt: new Date() } });
+        await this.membership.refundFailedUse(actor, charge, `AIRUN-${run.id}`).catch((refundError) => this.logger.error(`Credit refund for AiRun ${run.id} failed: ${refundError instanceof Error ? refundError.message : refundError}`));
+        await this.audit.recordActor(actor, { action: 'ai.fallback', resourceType: 'AiRun', resourceId: run.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { featureKey, reason: reason.slice(0, 300) } });
+        return { ...completed, output };
+      }
       await this.prisma.aiRun.update({ where: { id: run.id }, data: { status: 'FAILED', output: { error: 'AI provider failed', reason: reason.slice(0, 500) } } });
       // The user is not charged for an answer they did not get.
       const refunded = await this.membership.refundFailedUse(actor, charge, `AIRUN-${run.id}`).then(() => true, (refundError) => { this.logger.error(`Credit refund for AiRun ${run.id} failed: ${refundError instanceof Error ? refundError.message : refundError}`); return false; });

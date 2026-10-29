@@ -1574,7 +1574,8 @@ export interface BackendFeasibilityAssessment {
   id: string;
   requestId: string;
   project?: { projectId: string; projectCode: string; projectName: string; sector: string; fundingRequired: number | string; status: string };
-  output?: { recommendation?: { financialAnalysis?: Record<string, unknown>; riskAnalysis?: Record<string, unknown>; [key: string]: unknown } };
+  /** aiNarrative UNAVAILABLE: the model did not answer, so the run stands on the platform's calculated figures alone. */
+  output?: { recommendation?: { financialAnalysis?: Record<string, unknown>; riskAnalysis?: Record<string, unknown>; [key: string]: unknown }; aiNarrative?: string };
   financialAnalysis: { npv: number | null; irr: number | null; dscr: number | null; roi: number | null; paybackPeriod: number | null; profitMargin: number | null; cashflow: Record<string, unknown>; fundingReadiness: string; assumptions?: Record<string, unknown>; scenarios?: Array<{ name: string; status: string; adjustmentPercent: number | null; npv: number | null; irr: number | null; roi: number | null; paybackPeriod: number | null }>; [key: string]: unknown };
   riskAnalysis: { riskFlags: Array<{ title: string; severity: string; description: string }>; missingEvidence: string[]; keyAssumptions: Array<{ name: string; value: unknown }>; projectRiskAssessment?: { overallLevel: string; risks: Array<{ type?: string; category: string; level: string; reason?: string; description: string; impact: string; mitigation?: string; mitigationAction?: string }>; requiresHumanReview: boolean }; [key: string]: unknown };
   evidenceIntelligence: {
