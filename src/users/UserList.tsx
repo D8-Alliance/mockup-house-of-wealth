@@ -21,7 +21,8 @@ function mapBackendUser(user: BackendUser): AppUser {
     primaryRole: (profile.primaryRole as string) || assignedRoles[0] || 'Guest',
     assignedRoles,
     mfaEnabled: Boolean(profile.mfaEnabled),
-    mfaStatus: (profile.mfaStatus as AppUser['mfaStatus']) || 'Disabled',
+    // Recorded from Keycloak at each sign-in (the token's sign-in methods); unknown until the person signs in.
+    mfaStatus: (profile.mfaStatus as AppUser['mfaStatus']) || 'Not signed in yet',
     kycLevel: (profile.kycLevel as AppUser['kycLevel']) || 'Level 1',
     verified: Boolean(profile.verified),
     profilePhoto: (profile.profilePhoto as string) || '',
@@ -55,10 +56,26 @@ export const UserList: React.FC<UserListProps> = ({
   const [mfaFilter, setMfaFilter] = useState<string>('ALL');
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [loadState, setLoadState] = useState<'loading' | 'loaded' | string>('loading');
+  const [countryFilter, setCountryFilter] = useState<string>('ALL');
+  // A person may hold roles in more than one country; every one of them counts for the country filter.
+  const [countriesByUser, setCountriesByUser] = useState<Map<string, string[]>>(new Map());
+  const [countryNames, setCountryNames] = useState<Map<string, string>>(new Map());
+  const global = currentRole === 'Super Admin' || currentRole === 'Security Administrator' || currentRole === 'System Administrator';
+
+  useEffect(() => {
+    if (!global) return;
+    apiClient.getNetworkOverview()
+      .then(overview => setCountryNames(new Map(overview.countries.map(country => [country.code, country.name]))))
+      .catch(() => undefined);
+  }, [global]);
 
   useEffect(() => {
     apiClient.getUsers()
-      .then(users => { setAllUsers(users.map(mapBackendUser)); setLoadState('loaded'); })
+      .then(users => {
+        setAllUsers(users.map(mapBackendUser));
+        setCountriesByUser(new Map(users.map(user => [user.id, [...new Set(user.assignedRoles.map(assignment => assignment.countryNodeId).filter(Boolean))]])));
+        setLoadState('loaded');
+      })
       .catch(error => setLoadState(error instanceof Error ? error.message : 'The user directory could not be loaded.'));
   }, []);
 
@@ -69,7 +86,7 @@ export const UserList: React.FC<UserListProps> = ({
       return true;
     }
     if (currentRole === 'Country Admin') {
-      return user.countryNodeId === currentCountryNode;
+      return (countriesByUser.get(user.userId) ?? [user.countryNodeId]).includes(currentCountryNode);
     }
     // Org Admin & others: see own organisation
     return user.organisationId === currentOrgId;
@@ -85,8 +102,13 @@ export const UserList: React.FC<UserListProps> = ({
     const matchesStatus = statusFilter === 'ALL' || user.status === statusFilter;
     const matchesRole = roleFilter === 'ALL' || user.primaryRole === roleFilter || user.assignedRoles.includes(roleFilter);
     const matchesMfa = mfaFilter === 'ALL' || (mfaFilter === 'ENABLED' ? user.mfaEnabled : !user.mfaEnabled);
-    return matchesSearch && matchesStatus && matchesRole && matchesMfa;
+    const matchesCountry = countryFilter === 'ALL' || (countriesByUser.get(user.userId) ?? [user.countryNodeId]).includes(countryFilter);
+    return matchesSearch && matchesStatus && matchesRole && matchesMfa && matchesCountry;
   });
+
+  const countryOptions = [...new Set(scopedUsers.flatMap(user => countriesByUser.get(user.userId) ?? [user.countryNodeId]).filter(Boolean))].sort((a, b) => (countryNames.get(a) ?? a).localeCompare(countryNames.get(b) ?? b));
+  const roleOptions = [...new Set(scopedUsers.flatMap(user => user.assignedRoles))].sort();
+  const countryLabel = (code: string) => countryNames.get(code) ? `${countryNames.get(code)} (${code})` : code;
 
   const handleStatusChange = async (userId: string, newStatus: UserAccountStatus) => {
     try {
@@ -130,7 +152,7 @@ export const UserList: React.FC<UserListProps> = ({
       {loadState !== 'loading' && loadState !== 'loaded' && <p role="alert" className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-xs font-bold text-rose-700 dark:text-rose-300">{loadState}</p>}
 
       {/* Search & Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">
+      <div className={`grid grid-cols-1 ${global ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-3 bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800`}>
         <div className="relative">
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
           <input
@@ -141,6 +163,18 @@ export const UserList: React.FC<UserListProps> = ({
             className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-800 rounded-xl text-xs border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white"
           />
         </div>
+
+        {global && (
+          <select
+            value={countryFilter}
+            onChange={e => setCountryFilter(e.target.value)}
+            aria-label="Filter by country"
+            className="bg-white dark:bg-slate-800 text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+          >
+            <option value="ALL">All Countries</option>
+            {countryOptions.map(code => <option key={code} value={code}>{countryLabel(code)}</option>)}
+          </select>
+        )}
 
         <select
           value={statusFilter}
@@ -161,13 +195,7 @@ export const UserList: React.FC<UserListProps> = ({
           className="bg-white dark:bg-slate-800 text-xs px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
         >
           <option value="ALL">All Roles</option>
-          <option value="Project Sponsor">Project Sponsor</option>
-          <option value="Project Manager">Project Manager</option>
-          <option value="Finance Officer">Finance Officer</option>
-          <option value="Compliance Officer">Compliance Officer</option>
-          <option value="Shariah Advisor">Shariah Advisor</option>
-          <option value="Institutional Investor">Institutional Investor</option>
-          <option value="Asset Manager">Asset Manager</option>
+          {roleOptions.map(role => <option key={role} value={role}>{role}</option>)}
         </select>
 
         <select
@@ -206,7 +234,9 @@ export const UserList: React.FC<UserListProps> = ({
                   <tr key={userId} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
                     <td className="p-4">
                       <div className="flex items-center gap-3 cursor-pointer" onClick={() => onSelectUser(u)}>
-                        <img src={photo} alt={fullName} className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+                        {photo
+                          ? <img src={photo} alt="" className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+                          : <span aria-hidden="true" className="w-9 h-9 shrink-0 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 flex items-center justify-center text-[11px] font-black uppercase">{String(fullName || '?').split(/\s+/).slice(0, 2).map((part: string) => part.charAt(0)).join('')}</span>}
                         <div>
                           <span className="font-extrabold text-slate-900 dark:text-white block hover:text-purple-600 transition-colors">
                             {fullName}
@@ -244,6 +274,7 @@ export const UserList: React.FC<UserListProps> = ({
                       }`}>
                         {u.mfaEnabled ? 'Enabled' : u.mfaStatus}
                       </span>
+                      {u.lastLogin && u.lastLogin !== 'Never' && <span className="block mt-1 text-[10px] text-slate-400">Signed in {new Date(u.lastLogin).toLocaleDateString()}</span>}
                     </td>
 
                     <td className="p-4">

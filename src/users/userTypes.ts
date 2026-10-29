@@ -1,5 +1,5 @@
 export type UserAccountStatus = 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'LOCKED' | 'DEACTIVATED';
-export type MfaStatusType = 'Enabled' | 'Disabled' | 'Enforced';
+export type MfaStatusType = 'Enabled' | 'Disabled' | 'Enforced' | 'Not used' | 'Not signed in yet';
 
 export interface RoleAssignmentHistory {
   id: string;

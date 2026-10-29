@@ -21,6 +21,8 @@ export interface JwtPayload {
   iss?: string;
   aud?: string | string[];
   exp?: number;
+  /** When the person signed in (seconds); a refreshed token keeps the original sign-in time. */
+  auth_time?: number;
   amr?: string[];
   email?: string;
   name?: string;
@@ -237,7 +239,7 @@ export class IdentityService {
     if (!existing) {
       // Right after sign-in the app sends several requests with the same new token at once;
       // each may find no session yet, so a duplicate insert is skipped rather than failing.
-      await this.prisma.session.createMany({
+      const created = await this.prisma.session.createMany({
         data: [{
           userId: identity.userId,
           tokenHash,
@@ -248,6 +250,33 @@ export class IdentityService {
         }],
         skipDuplicates: true,
       });
+      if (created.count) await this.recordSignIn(identity.userId, payload);
+    }
+  }
+
+  /**
+   * Keeps how the person last signed in on their profile, from the token Keycloak issued: the methods (amr, e.g.
+   * pwd and otp) and the sign-in time. The User Directory shows MFA from this, so it reflects Keycloak rather than
+   * a setting nobody fills in. Once per new token; a failure here never blocks the request.
+   */
+  private async recordSignIn(userId: string, payload: JwtPayload): Promise<void> {
+    if (!Array.isArray(payload.amr) && typeof payload.auth_time !== 'number') return;
+    try {
+      const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { profile: true } });
+      const profile = (user?.profile && typeof user.profile === 'object' && !Array.isArray(user.profile) ? user.profile : {}) as Record<string, unknown>;
+      const methods = Array.isArray(payload.amr) ? payload.amr.filter((method): method is string => typeof method === 'string') : undefined;
+      const next: Record<string, unknown> = { ...profile };
+      if (methods) {
+        const usedMfa = methods.some((method) => method === 'otp' || method === 'webauthn' || method === 'mfa');
+        next.signInMethods = methods;
+        next.mfaEnabled = usedMfa;
+        next.mfaStatus = usedMfa ? 'Enabled' : 'Not used';
+      }
+      if (typeof payload.auth_time === 'number') next.lastLogin = new Date(payload.auth_time * 1000).toISOString();
+      if (JSON.stringify(next) === JSON.stringify(profile)) return;
+      await this.prisma.user.update({ where: { id: userId }, data: { profile: next as Prisma.InputJsonValue } });
+    } catch (error) {
+      this.logger.warn(`Could not record the sign-in of ${userId}: ${error instanceof Error ? error.message : error}`);
     }
   }
 

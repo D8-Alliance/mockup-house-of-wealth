@@ -12,8 +12,9 @@ import type { ProjectRoadmapAction } from '../../services/apiClient';
 import { PDPPromotionCard } from '../revenue/PDPPromotionCard';
 import {
   Building2, CheckCircle2, Clock, AlertTriangle, ShieldCheck,
-  FileText, Users, MessageSquare, Download, ArrowLeft, Plus, DollarSign, Calendar
+  FileText, Users, MessageSquare, Download, ArrowLeft, Plus, DollarSign, Calendar, Trash2
 } from 'lucide-react';
+import { isProjectLocked } from '../../services/projectLock';
 import { apiClient, BackendProjectAnnouncement, BackendProjectDocument, CreateProjectAnnouncementInput, ProjectTeamCandidate } from '../../services/apiClient';
 import { authService } from '../../auth/services/authService';
 
@@ -168,6 +169,23 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
       setAnnouncementError(error instanceof Error ? error.message : 'Unable to publish announcement.');
     } finally {
       setAnnouncementBusy(false);
+    }
+  };
+
+  // Mirrors DELETE /projects/:id/documents/:documentId: the uploading roles, while the project is not locked.
+  const canRemoveDocuments = ['Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager'].includes(currentRole) && !isProjectLocked(project.serverStatus);
+  const [removingDocument, setRemovingDocument] = useState('');
+  const handleProjectDocumentDelete = async (documentId: string, fileName: string) => {
+    if (!window.confirm(`Remove ${fileName} from the Data Room? The removal is recorded in the audit trail.`)) return;
+    setRemovingDocument(documentId);
+    setDocumentError('');
+    try {
+      await apiClient.deleteProjectDocument(project.id, documentId);
+      setProjectDocuments((current) => current.filter((item) => item.id !== documentId));
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : 'Unable to remove the document.');
+    } finally {
+      setRemovingDocument('');
     }
   };
 
@@ -423,8 +441,22 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
                     <span className="font-bold text-slate-900 dark:text-white">{doc.fileName}</span>
                     <p className="text-[11px] text-slate-500">{(doc.fileSize / 1024 / 1024).toFixed(2)} MB • {doc.extractionStatus} • Uploaded {new Date(doc.createdAt).toLocaleDateString()}</p>
                     {doc.extractionError && <p className="text-[11px] text-rose-600">{doc.extractionError}</p>}
+                    {!!doc.evidenceRequirements?.length && <p className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">Evidence: {doc.evidenceRequirements.map((item) => item.evidenceType.toLowerCase().replace(/_/g, ' ')).join(', ')}</p>}
                   </div>
                 </div>
+                <div className="flex items-center gap-1">
+                {canRemoveDocuments && !doc.evidenceRequirements?.length && (
+                  <button
+                    type="button"
+                    disabled={removingDocument === doc.id}
+                    onClick={() => void handleProjectDocumentDelete(doc.id, doc.fileName)}
+                    title={`Remove ${doc.fileName}`}
+                    aria-label={`Remove ${doc.fileName}`}
+                    className="p-2 text-rose-600 hover:bg-rose-500/10 rounded-lg disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => void apiClient.downloadProjectDocument(project.id, doc.id).catch((error) => setDocumentError(error instanceof Error ? error.message : 'Unable to download document.'))}
@@ -433,6 +465,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
                 >
                   <Download className="w-4 h-4" /> Download
                 </button>
+                </div>
               </div>
             ))}
           </div>

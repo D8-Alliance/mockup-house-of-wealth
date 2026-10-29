@@ -20,9 +20,9 @@ describe('feature module switches guard their APIs', () => {
     expect(Reflect.getMetadata(FEATURE_MODULE_KEY, AssetPartnershipsController)).toBe('ASSET_REGISTRATION');
   });
 
-  it('guards project document and evidence uploads with Document Vault', () => {
+  it('guards project document uploads, removals and evidence uploads with Document Vault', () => {
     const proto = ProjectsController.prototype as unknown as Record<string, unknown>;
     const guarded = Object.getOwnPropertyNames(proto).filter((name) => typeof proto[name] === 'function' && Reflect.getMetadata(FEATURE_MODULE_KEY, proto[name] as object) === 'DOCUMENT_VAULT');
-    expect(guarded.length).toBe(2);
+    expect(guarded.sort()).toEqual(['deleteDocument', 'uploadDocument', 'uploadEvidence']);
   });
 });
