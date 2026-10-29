@@ -21,7 +21,8 @@ function mapBackendUser(user: BackendUser): AppUser {
     primaryRole: (profile.primaryRole as string) || assignedRoles[0] || 'Guest',
     assignedRoles,
     mfaEnabled: Boolean(profile.mfaEnabled),
-    mfaStatus: (profile.mfaStatus as AppUser['mfaStatus']) || 'Disabled',
+    // Recorded from Keycloak at each sign-in (the token's sign-in methods); unknown until the person signs in.
+    mfaStatus: (profile.mfaStatus as AppUser['mfaStatus']) || 'Not signed in yet',
     kycLevel: (profile.kycLevel as AppUser['kycLevel']) || 'Level 1',
     verified: Boolean(profile.verified),
     profilePhoto: (profile.profilePhoto as string) || '',
@@ -233,7 +234,9 @@ export const UserList: React.FC<UserListProps> = ({
                   <tr key={userId} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
                     <td className="p-4">
                       <div className="flex items-center gap-3 cursor-pointer" onClick={() => onSelectUser(u)}>
-                        <img src={photo} alt={fullName} className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+                        {photo
+                          ? <img src={photo} alt="" className="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-slate-700" />
+                          : <span aria-hidden="true" className="w-9 h-9 shrink-0 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 flex items-center justify-center text-[11px] font-black uppercase">{String(fullName || '?').split(/\s+/).slice(0, 2).map((part: string) => part.charAt(0)).join('')}</span>}
                         <div>
                           <span className="font-extrabold text-slate-900 dark:text-white block hover:text-purple-600 transition-colors">
                             {fullName}
@@ -271,6 +274,7 @@ export const UserList: React.FC<UserListProps> = ({
                       }`}>
                         {u.mfaEnabled ? 'Enabled' : u.mfaStatus}
                       </span>
+                      {u.lastLogin && u.lastLogin !== 'Never' && <span className="block mt-1 text-[10px] text-slate-400">Signed in {new Date(u.lastLogin).toLocaleDateString()}</span>}
                     </td>
 
                     <td className="p-4">
