@@ -100,3 +100,34 @@ describe('AiService.reviewProjectFeasibility', () => {
     await expect(service.reviewProjectFeasibility(finance, 'P1', 'RUN-1', { reviewStage: 'RISK_REVIEW', decision: 'ACCEPTED', comment: 'Old run' })).rejects.toThrow(/superseded/);
   });
 });
+
+describe('AiService.latestProjectFeasibility', () => {
+  const project = { projectId: 'P1', projectCode: 'PRJ-1', projectName: 'Kilang Baja', sector: 'Agro', fundingRequired: 1, status: 'APPROVED', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', proposedShariahContract: 'Musharakah', projectSponsorId: 'USR-SP', description: '', sponsorContribution: 0, documents: [], evidenceRequirements: [] };
+  const reviewedRun = { id: 'RUN-REVIEWED', input: { projectId: 'P1' }, status: 'COMPLETED', reviewStage: 'FINAL_DECISION', reviewHistory: [], output: { recommendation: { financialAnalysis: {}, evidenceIntelligence: { scorePercent: 80 }, confidence: {}, riskAnalysis: {}, investmentReadiness: {}, shariahAssessment: {} } } };
+
+  function service(revision: unknown, runs: unknown[] = []) {
+    const prisma = {
+      project: { findUnique: jest.fn(async () => project) },
+      projectFeasibilityRevision: { findFirst: jest.fn(async () => revision) },
+      aiRun: { findMany: jest.fn(async () => runs) },
+    };
+    return { prisma, ai: new AiService(prisma as never, { recordActor: jest.fn() } as never, {} as never, {} as never, {} as never, {} as never) };
+  }
+
+  it('shows every reviewer the run of the latest revision, not a newer run that failed', async () => {
+    // A later analysis that timed out is newer by date but never got a revision.
+    const { prisma, ai } = service({ id: 'REV-2', revisionNumber: 2, aiRun: reviewedRun });
+    for (const actor of [sponsor, finance, committee]) {
+      const latest = await ai.latestProjectFeasibility(actor, 'P1');
+      expect(latest).toMatchObject({ id: 'RUN-REVIEWED', reviewStage: 'FINAL_DECISION', revisionId: 'REV-2', revisionNumber: 2 });
+    }
+    expect(prisma.aiRun.findMany).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the latest completed run for analyses made before revisions existed', async () => {
+    const { prisma, ai } = service(null, [{ ...reviewedRun, id: 'RUN-OLD', reviewStage: 'RISK_REVIEW' }]);
+    const latest = await ai.latestProjectFeasibility(finance, 'P1');
+    expect(latest).toMatchObject({ id: 'RUN-OLD', reviewStage: 'RISK_REVIEW' });
+    expect(prisma.aiRun.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: 'COMPLETED' }) }));
+  });
+});
