@@ -1,0 +1,307 @@
+/*
+ * Wealth Pooling D-8 sign-in: deep green and gold, as in the app. Applies on top of Keycloak's
+ * login theme (login.css), so it only restyles what Keycloak already renders.
+ */
+:root {
+  --how-green-900: #002d24;
+  --how-green-700: #0e5a43;
+  --how-emerald: #059669;
+  --how-emerald-dark: #047857;
+  --how-gold: #d7a735;
+  --how-gold-soft: #f2cf70;
+  --how-ink: #0f172a;
+  --how-muted: #64748b;
+  --how-line: #e2e8f0;
+}
+
+/* Page: green depth with a faint eight-point star lattice, the platform's Islamic geometry. */
+.login-pf body {
+  background-color: var(--how-green-900);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%23d7a735' stroke-opacity='0.06' stroke-width='1.2'%3E%3Cpath d='M60 18l12 30 30 12-30 12-12 30-12-30-30-12 30-12z'/%3E%3Cpath d='M30 30h60v60H30z' transform='rotate(45 60 60)'/%3E%3Cpath d='M30 30h60v60H30z'/%3E%3C/g%3E%3C/svg%3E"),
+    radial-gradient(1100px 600px at 15% 0%, rgba(215, 167, 53, 0.16), transparent 60%),
+    radial-gradient(900px 700px at 100% 100%, rgba(5, 150, 105, 0.28), transparent 60%),
+    linear-gradient(160deg, #003a2e 0%, var(--how-green-900) 45%, #06141c 100%);
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+  background-size: 120px 120px, auto, auto, auto;
+  background-attachment: fixed;
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  min-height: 100%;
+}
+
+.login-pf-page {
+  padding: 32px 16px 48px;
+}
+
+/* Header: the logo and the platform's name in place of the realm name. */
+#kc-header {
+  color: #fff;
+}
+
+#kc-header-wrapper {
+  font-size: 0;
+  letter-spacing: normal;
+  text-transform: none;
+  padding: 28px 10px 24px;
+  text-align: center;
+}
+
+#kc-header-wrapper::before {
+  content: "";
+  display: block;
+  /* A light badge, so the logo's deep green crescent stands out from the green page. */
+  width: 104px;
+  height: 104px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(215, 167, 53, 0.55);
+  background: url("../img/logo.svg") center / 82% no-repeat, radial-gradient(circle at 35% 30%, #ffffff, #f6efdc);
+  box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.55), 0 0 0 6px rgba(215, 167, 53, 0.08);
+}
+
+#kc-header-wrapper::after {
+  content: "Wealth Pooling D-8";
+  display: block;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #fff;
+}
+
+/* The tagline, smaller and in gold. */
+#kc-header::after {
+  content: "Islamic Circular Economy Platform";
+  display: block;
+  margin: -14px 0 22px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: var(--how-gold-soft);
+}
+
+/* Card */
+.card-pf {
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 8px 32px 28px;
+  border: 0;
+  border-top: 4px solid var(--how-gold);
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.login-pf-page .login-pf-header {
+  margin-bottom: 18px;
+}
+
+.login-pf-page .login-pf-header h1,
+#kc-page-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--how-ink);
+  text-align: center;
+  padding-top: 18px;
+}
+
+/* Fields */
+.pf-c-form__label-text,
+.login-pf-page label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.pf-c-form-control,
+.login-pf-page .form-control,
+#kc-form-login input[type="text"],
+#kc-form-login input[type="password"],
+#kc-form-login input[type="email"] {
+  height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--how-line);
+  border-radius: 12px;
+  background: #f8fafc;
+  font-size: 14px;
+  color: var(--how-ink);
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.pf-c-form-control:hover {
+  border-color: #cbd5e1;
+}
+
+.pf-c-form-control:focus,
+.login-pf-page .form-control:focus {
+  outline: none;
+  border-color: var(--how-emerald);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.18);
+}
+
+/* Keycloak draws the input's bottom line with ::after; the rounded border replaces it. */
+.pf-c-form-control::after,
+.pf-c-input-group::after {
+  display: none;
+}
+
+.pf-c-input-group {
+  border-radius: 12px;
+}
+
+.pf-c-input-group .pf-c-form-control {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.pf-c-input-group .pf-c-button.pf-m-control {
+  border: 1px solid var(--how-line);
+  border-left: 0;
+  border-radius: 0 12px 12px 0;
+  background: #f8fafc;
+}
+
+.pf-c-input-group .pf-c-button.pf-m-control::after {
+  display: none;
+}
+
+/* Primary button */
+.pf-c-button.pf-m-primary,
+#kc-login {
+  height: 46px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--how-green-700), var(--how-emerald));
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  box-shadow: 0 10px 20px -10px rgba(5, 150, 105, 0.7);
+  transition: transform 0.1s, box-shadow 0.15s, filter 0.15s;
+}
+
+.pf-c-button.pf-m-primary:hover,
+#kc-login:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 14px 24px -10px rgba(5, 150, 105, 0.8);
+}
+
+.pf-c-button.pf-m-primary:active,
+#kc-login:active {
+  transform: translateY(1px);
+}
+
+.pf-c-button.pf-m-primary:focus-visible,
+#kc-login:focus-visible {
+  outline: 3px solid rgba(215, 167, 53, 0.6);
+  outline-offset: 2px;
+}
+
+#kc-form-buttons {
+  margin-top: 22px;
+}
+
+/* Links and options */
+.login-pf-page a,
+#kc-form-options a,
+#kc-info a {
+  color: var(--how-emerald-dark);
+  font-weight: 700;
+}
+
+.login-pf-page a:hover {
+  color: var(--how-green-700);
+  text-decoration: underline;
+}
+
+#kc-form-options .checkbox label,
+.kc-form-options-wrapper {
+  font-size: 13px;
+  color: var(--how-muted);
+}
+
+#kc-info {
+  border-top: 1px solid var(--how-line);
+  margin-top: 22px;
+  padding-top: 16px;
+  background: transparent;
+}
+
+#kc-info-wrapper {
+  background: transparent;
+  font-size: 13px;
+  color: var(--how-muted);
+  padding: 0;
+  text-align: center;
+}
+
+/* Messages: rounded and in the page's palette. */
+.pf-c-alert,
+.alert {
+  border-radius: 12px;
+  border: 0;
+  box-shadow: none;
+  font-size: 13px;
+}
+
+.alert-error,
+.pf-c-alert.pf-m-danger {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.alert-warning,
+.pf-c-alert.pf-m-warning {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.alert-success,
+.pf-c-alert.pf-m-success {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.alert-info,
+.pf-c-alert.pf-m-info {
+  background: #eff6ff;
+  color: #1e40af;
+}
+
+/* Error pages ("We are sorry..."): the message reads as text, the way back stands out. */
+#kc-error-message .instruction {
+  font-size: 14px;
+  color: #334155;
+  text-align: center;
+}
+
+#kc-error-message #backToApplication {
+  display: inline-block;
+  margin-top: 14px;
+}
+
+/* Under the card: who runs the platform. */
+.login-pf-page::after {
+  content: "Shariah-compliant wealth pooling for D-8 member nations";
+  display: block;
+  margin-top: 26px;
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  color: rgba(242, 207, 112, 0.75);
+}
+
+@media (max-width: 767px) {
+  .login-pf-page {
+    padding-top: 12px;
+  }
+
+  .card-pf {
+    padding: 4px 20px 22px;
+    border-radius: 18px;
+  }
+
+  #kc-header-wrapper::after {
+    font-size: 21px;
+  }
+}

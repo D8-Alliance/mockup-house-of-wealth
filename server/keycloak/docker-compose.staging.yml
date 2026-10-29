@@ -24,3 +24,5 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - ./realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      # Wealth Pooling sign-in pages (Realm settings > Themes > Login theme: house-of-wealth). Restart Keycloak after changing them.
+      - ./themes/house-of-wealth:/opt/keycloak/themes/house-of-wealth:ro

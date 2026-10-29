@@ -1,6 +1,8 @@
 {
   "realm": "house-of-wealth",
   "enabled": true,
+  "displayName": "Wealth Pooling D-8",
+  "loginTheme": "house-of-wealth",
   "sslRequired": "NONE",
   "registrationAllowed": false,
   "resetPasswordAllowed": true,
