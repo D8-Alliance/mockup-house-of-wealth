@@ -161,6 +161,7 @@ export interface BackendNotification {
 
 export const apiClient = {
   getDashboardSummary: () => request<DashboardSummary>('/dashboard/summary'),
+  getNetworkOverview: () => request<NetworkOverview>('/dashboard/network'),
   getFinancialAccounts: () => request<BackendFinancialAccount[]>('/financial/accounts'),
   getFinancialAccountBalance: (accountId: string) => request<{ accountId: string; accountCode: string; currency: string; balance: number; debit: number; credit: number }>(`/financial/accounts/${encodeURIComponent(accountId)}/balance`),
   getFinancialLedger: () => request<BackendLedgerTransaction[]>('/financial/ledger'),
@@ -1016,6 +1017,27 @@ export interface KycQueueItem {
   documentCount: number;
   checkRecommendation?: KycCheckRecommendation | null;
   checkReasons?: string[];
+}
+
+/** Per-country figures from /dashboard/network; money is in each country's own currency. */
+export interface CountryNetworkRow {
+  code: string;
+  name: string;
+  status: string;
+  currency: string;
+  organisations: number;
+  users: number;
+  projects: number;
+  projectValue: number;
+  pools: number;
+  settled: number;
+}
+
+export interface NetworkOverview {
+  source: 'database';
+  countries: CountryNetworkRow[];
+  totals: { activeCountries: number; countries: number; users: number; organisations: number; projects: number; pools: number };
+  waiting: { settlements: number; trancheRequests: number; assetsToVerify: number; kybToReview: number };
 }
 
 export interface DashboardSummary {

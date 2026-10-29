@@ -2,6 +2,7 @@ import React from 'react';
 import { Globe2, Coins, Users, ShieldCheck, Building2, FileCheck, TrendingUp, Zap, Lock, ChevronRight } from 'lucide-react';
 import { useRBAC } from '../../rbac/RBACContext';
 import { MetricCard } from './MetricCard';
+import { NetworkDashboardWidgets } from './NetworkDashboardWidgets';
 import { AssetItem, ContractItem, NavTab } from '../../types';
 
 interface ExecutiveDashboardWidgetsProps {
@@ -19,7 +20,11 @@ export const ExecutiveDashboardWidgets: React.FC<ExecutiveDashboardWidgetsProps>
   setTab,
   onQuickApprove
 }) => {
-  const { canAccessTab } = useRBAC();
+  const { canAccessTab, authMode } = useRBAC();
+  // Outside the demo the figures come from the database; the sample figures below are for the demo only.
+  if (authMode !== 'DEMO' && (currentRole === 'Super Admin' || currentRole === 'Country Admin')) {
+    return <NetworkDashboardWidgets scope={currentRole === 'Super Admin' ? 'global' : 'country'} setTab={setTab} />;
+  }
   if (currentRole === 'Super Admin') {
     return (
       <div className="space-y-6">
@@ -38,7 +43,7 @@ export const ExecutiveDashboardWidgets: React.FC<ExecutiveDashboardWidgetsProps>
             </h3>
             <div className="space-y-3">
               {[
-                { country: 'Malaysia (MY)', code: 'PK', tvl: '$42.1M', status: 'Optimal', latency: '12ms' },
+                { country: 'Pakistan (PK)', code: 'PK', tvl: '$42.1M', status: 'Optimal', latency: '12ms' },
                 { country: 'Turkey (TR)', code: 'TR', tvl: '$31.8M', status: 'Optimal', latency: '18ms' },
                 { country: 'Indonesia (ID)', code: 'ID', tvl: '$28.4M', status: 'Optimal', latency: '24ms' },
                 { country: 'Malaysia (MY)', code: 'MY', tvl: '$22.0M', status: 'Optimal', latency: '15ms' },

@@ -12,19 +12,26 @@ interface RoleAssignmentModalProps {
   onUpdated: () => void;
 }
 
+// Super Admin is not granted here: the platform has one Super Admin, set up on the server.
 const AVAILABLE_ROLES = [
   'Project Sponsor',
   'Project Manager',
+  'Asset Owner',
+  'Asset Manager',
+  'Pool Manager',
   'Finance Officer',
+  'Risk Officer',
   'Compliance Officer',
+  'Legal Officer',
   'Shariah Advisor',
   'Shariah Reviewer',
+  'Shariah Committee',
+  'Auditor',
+  'Retail Investor',
+  'HNWI Investor',
   'Institutional Investor',
-  'Asset Manager',
-  'Asset Owner',
   'Organization Admin',
-  'Country Admin',
-  'Super Admin'
+  'Country Admin'
 ];
 
 export const RoleAssignmentModal: React.FC<RoleAssignmentModalProps> = ({
@@ -37,6 +44,8 @@ export const RoleAssignmentModal: React.FC<RoleAssignmentModalProps> = ({
   const [selectedPrimary, setSelectedPrimary] = useState<string>(user?.primaryRole || 'Project Sponsor');
   const [assignedRoles, setAssignedRoles] = useState<string[]>(user?.assignedRoles || ['Project Sponsor']);
   const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   const { filterEnabled } = useRoleAvailability();
 
   if (!isOpen || !user) return null;
@@ -56,7 +65,9 @@ export const RoleAssignmentModal: React.FC<RoleAssignmentModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reason) return;
+    if (!reason || saving) return;
+    setSaving(true);
+    setError('');
     const userId = user.userId || (user as any).id;
     const organisationId = user.organisationId || currentOrgId;
     const countryNodeId = user.countryNodeId || currentCountryNode;
@@ -72,8 +83,11 @@ export const RoleAssignmentModal: React.FC<RoleAssignmentModalProps> = ({
       ]);
       onUpdated();
       onClose();
-    } catch (error) {
-      console.error('Role assignment failed', error);
+    } catch (cause) {
+      // The server refuses what the person may not grant, e.g. Country Admin by anyone but Super Admin.
+      setError(cause instanceof Error ? cause.message : 'The role change did not go through.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -145,6 +159,8 @@ export const RoleAssignmentModal: React.FC<RoleAssignmentModalProps> = ({
             />
           </div>
 
+          {error && <p role="alert" className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 font-bold">{error}</p>}
+
           <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-700">
             <button
               type="button"
@@ -155,10 +171,11 @@ export const RoleAssignmentModal: React.FC<RoleAssignmentModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 text-white flex items-center gap-1.5"
+              disabled={saving}
+              className="px-4 py-2 rounded-xl font-bold bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white flex items-center gap-1.5"
             >
               <Check className="w-4 h-4" />
-              <span>Save & Log Audit Event</span>
+              <span>{saving ? 'Saving...' : 'Save & Log Audit Event'}</span>
             </button>
           </div>
         </form>

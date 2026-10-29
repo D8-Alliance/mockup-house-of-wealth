@@ -20,6 +20,7 @@ import { TRANSLATIONS } from '../data/translations';
 import { ZakatCalculatorCard } from './financials/ZakatCalculatorCard';
 import { StatementsPanel } from './financials/StatementsPanel';
 import { TaxStatementPanel } from './financials/TaxStatementPanel';
+import { SampleDataNotice } from './common/SampleDataNotice';
 
 interface FinancialTransaction {
   id: string;
@@ -155,6 +156,8 @@ export const FinancialsView: React.FC = () => {
       </div>
 
       {/* Content based on Active Tab */}
+      {['transactions', 'settlement'].includes(activeTab) && <SampleDataNotice subject="The transactions and settlements" />}
+
       {activeTab === 'transactions' && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden space-y-4 p-5">
           <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">

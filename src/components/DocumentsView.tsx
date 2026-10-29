@@ -14,6 +14,7 @@ import {
   FileCode,
   FolderKanban
 } from 'lucide-react';
+import { SampleDataNotice } from './common/SampleDataNotice';
 
 interface VaultDocument {
   id: string;
@@ -75,6 +76,7 @@ export const DocumentsView: React.FC = () => {
 
   return (
     <div className="space-y-8 animate-fade-in">
+      <SampleDataNotice subject="The vault documents" />
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

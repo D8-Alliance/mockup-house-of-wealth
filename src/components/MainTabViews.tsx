@@ -13,6 +13,7 @@ import { LedgerView } from './LedgerView';
 import { UserProfileSettingsView } from './UserProfileSettingsView';
 import { InvestmentsView } from './InvestmentsView';
 import { InvestorPoolsPanel } from './investments/InvestorPoolsPanel';
+import { PlatformOrdersPanel } from './investments/PlatformOrdersPanel';
 import { WalletView } from './WalletView';
 import { FinancialsView } from './FinancialsView';
 import { DocumentsView } from './DocumentsView';
@@ -73,7 +74,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
   onOpenPdpRegister,
   setUser
 }) => {
-  const { currentRole } = useRBAC();
+  const { currentRole, authMode } = useRBAC();
   return (
     <>
       {currentTab === 'dashboard' && (
@@ -99,7 +100,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'admin-center' && (
         <RoleGuard tab="admin-center">
-          <AdminCenterView />
+          <AdminCenterView onNavigate={setTab} />
         </RoleGuard>
       )}
 
@@ -180,6 +181,8 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
         <RoleGuard tab="investments">
           {canInvest(currentRole) ? (
             <InvestorPoolsPanel />
+          ) : authMode !== 'DEMO' ? (
+            <PlatformOrdersPanel />
           ) : (
             <InvestmentsView
               lang={lang}

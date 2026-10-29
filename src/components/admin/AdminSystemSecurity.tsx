@@ -24,7 +24,7 @@ import { ApprovalMatrixPanel } from './ApprovalMatrixPanel';
 import { SystemMonitoringPanel } from './SystemMonitoringPanel';
 
 interface AdminSystemSecurityProps {
-  section: 'sys_country' | 'sys_orgs' | 'sys_roles' | 'sys_permissions' | 'sys_workflow' | 'sys_approvalmatrix' | 'analytics_monitoring';
+  section: 'users_dir' | 'sys_country' | 'sys_orgs' | 'sys_roles' | 'sys_permissions' | 'sys_workflow' | 'sys_approvalmatrix' | 'analytics_monitoring';
   onNavigateSection?: (section: any) => void;
 }
 
@@ -101,6 +101,25 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
             organisation={verificationTargetOrg}
             isOpen={!!verificationTargetOrg}
             onClose={() => setVerificationTargetOrg(null)}
+            onUpdated={forceRefresh}
+          />
+        </>
+      )}
+
+      {/* USER DIRECTORY: the people in the database and the roles they hold */}
+      {section === 'users_dir' && (
+        <>
+          <UserList
+            onSelectUser={user => setSelectedUser(user)}
+            onOpenRoleAssignmentModal={user => setRoleAssignmentTargetUser(user)}
+          />
+          <UserDetailModal user={selectedUser} isOpen={!!selectedUser} onClose={() => setSelectedUser(null)} />
+          {/* Keyed by person, so the role choices start from that person's roles each time it opens. */}
+          <RoleAssignmentModal
+            key={roleAssignmentTargetUser?.userId ?? 'none'}
+            user={roleAssignmentTargetUser}
+            isOpen={!!roleAssignmentTargetUser}
+            onClose={() => setRoleAssignmentTargetUser(null)}
             onUpdated={forceRefresh}
           />
         </>

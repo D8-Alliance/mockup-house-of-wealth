@@ -32,7 +32,9 @@ import {
   Users,
   Power
 } from 'lucide-react';
-import { AdminModuleSection } from '../types';
+import { AdminModuleSection, NavTab } from '../types';
+import { NetworkDashboardWidgets } from './dashboards/NetworkDashboardWidgets';
+import { SampleDataNotice } from './common/SampleDataNotice';
 import { AdminGovernanceDashboards } from './admin/AdminGovernanceDashboards';
 import { AdminComplianceRisk } from './admin/AdminComplianceRisk';
 import { AdminSystemSecurity } from './admin/AdminSystemSecurity';
@@ -52,8 +54,23 @@ import { useRBAC } from '../rbac/RBACContext';
 import { FeatureModuleControlPanel } from './admin/FeatureModuleControlPanel';
 import { RoleAvailabilityPanel } from './admin/RoleAvailabilityPanel';
 
-export const AdminCenterView: React.FC = () => {
-  const { currentRole } = useRBAC();
+/**
+ * Sections still drawn from built-in examples rather than the database; outside the demo they carry a notice.
+ * Remove an id here once its section reads live records.
+ */
+const SAMPLE_DATA_SECTIONS = [
+  'dash_compliance', 'dash_audit', 'dash_finance', 'dash_security', 'sys_reports',
+  'compliance_aml', 'compliance_pep', 'compliance_sanctions', 'risk_register', 'risk_incidents', 'sys_auditlogs',
+  'sys_country', 'sys_orgs', 'sys_roles', 'analytics_monitoring',
+  'fin_fees', 'fin_settlement', 'shariah_templates', 'shariah_fatwa',
+];
+
+interface AdminCenterViewProps {
+  onNavigate?: (tab: NavTab) => void;
+}
+
+export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) => {
+  const { currentRole, authMode } = useRBAC();
   // My reviews on the dashboard may open a queue directly, e.g. PDP applications.
   const [activeSection, setActiveSection] = useState<string>(() => takeAdminSection() ?? 'scoped_dashboard');
 
@@ -95,6 +112,7 @@ export const AdminCenterView: React.FC = () => {
         { id: 'pdp_country_config', label: 'PDP Country Rules', icon: <Globe className="w-4 h-4 text-purple-500" /> },
         { id: 'sys_country', label: 'Country Management', icon: <Globe className="w-4 h-4" /> },
         { id: 'sys_orgs', label: 'Organization Management', icon: <Building2 className="w-4 h-4" /> },
+        { id: 'users_dir', label: 'User Directory', icon: <Users className="w-4 h-4" /> },
         { id: 'sys_roles', label: 'Role Management', icon: <UserCheck className="w-4 h-4" /> },
         { id: 'sys_permissions', label: 'Permission Matrix', icon: <KeyRound className="w-4 h-4" /> },
         { id: 'sys_workflow', label: 'Workflow Engine', icon: <GitPullRequest className="w-4 h-4" /> },
@@ -129,9 +147,13 @@ export const AdminCenterView: React.FC = () => {
 
   const dashboardSections = ['dash_compliance', 'dash_audit', 'dash_finance', 'dash_security', 'sys_reports'];
   const complianceRiskSections = ['compliance_kyc', 'compliance_kyb', 'compliance_aml', 'compliance_pep', 'compliance_sanctions', 'risk_register', 'risk_incidents', 'sys_auditlogs'];
-  const systemSecuritySections = ['sys_country', 'sys_orgs', 'sys_roles', 'sys_permissions', 'sys_workflow', 'sys_approvalmatrix', 'analytics_monitoring'];
+  const systemSecuritySections = ['users_dir', 'sys_country', 'sys_orgs', 'sys_roles', 'sys_permissions', 'sys_workflow', 'sys_approvalmatrix', 'analytics_monitoring'];
 
   const renderScopedDashboard = () => {
+    // Outside the demo, Super Admin and Country Admin see the country network from the database.
+    if (authMode !== 'DEMO' && (currentRole === 'Super Admin' || currentRole === 'Country Admin')) {
+      return <NetworkDashboardWidgets scope={currentRole === 'Super Admin' ? 'global' : 'country'} setTab={onNavigate ?? (() => undefined)} />;
+    }
     if (currentRole === 'Super Admin' || currentRole === 'Security Administrator' || currentRole === 'System Administrator') {
       return (
         <SuperAdminDashboard
@@ -237,6 +259,8 @@ export const AdminCenterView: React.FC = () => {
 
         {/* Main Content Area */}
         <div className="lg:col-span-9 space-y-6">
+          {SAMPLE_DATA_SECTIONS.includes(activeSection) && <SampleDataNotice />}
+
           {activeSection === 'scoped_dashboard' && renderScopedDashboard()}
 
           {activeSection === 'pdp_applications' && <PdpKybReviewPanel />}

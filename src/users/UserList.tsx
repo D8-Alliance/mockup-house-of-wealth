@@ -38,7 +38,8 @@ function mapBackendUser(user: BackendUser): AppUser {
 
 interface UserListProps {
   onSelectUser: (user: AppUser) => void;
-  onOpenInviteModal: () => void;
+  /** Left out where people join by signing up, so there is no invite button. */
+  onOpenInviteModal?: () => void;
   onOpenRoleAssignmentModal: (user: AppUser) => void;
 }
 
@@ -53,11 +54,12 @@ export const UserList: React.FC<UserListProps> = ({
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
   const [mfaFilter, setMfaFilter] = useState<string>('ALL');
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
+  const [loadState, setLoadState] = useState<'loading' | 'loaded' | string>('loading');
 
   useEffect(() => {
     apiClient.getUsers()
-      .then(users => setAllUsers(users.map(mapBackendUser)))
-      .catch(error => console.error('User directory load failed', error));
+      .then(users => { setAllUsers(users.map(mapBackendUser)); setLoadState('loaded'); })
+      .catch(error => setLoadState(error instanceof Error ? error.message : 'The user directory could not be loaded.'));
   }, []);
 
 
@@ -115,14 +117,17 @@ export const UserList: React.FC<UserListProps> = ({
           </p>
         </div>
 
-        <button
+        {onOpenInviteModal && <button
           onClick={onOpenInviteModal}
           className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 shadow cursor-pointer transition-all shrink-0"
         >
           <UserPlus className="w-4 h-4" />
           <span>Invite New User</span>
-        </button>
+        </button>}
       </div>
+
+      {loadState === 'loading' && <p className="text-xs text-slate-500">Loading users...</p>}
+      {loadState !== 'loading' && loadState !== 'loaded' && <p role="alert" className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-xs font-bold text-rose-700 dark:text-rose-300">{loadState}</p>}
 
       {/* Search & Filters */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800">

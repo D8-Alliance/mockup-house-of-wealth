@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PolicyService } from '../policy/policy.service';
 import { PROJECT_REVIEWER_ROLES, tenantScopeFilter } from '../tenancy/tenant-scope';
+import { networkOverview } from './dashboard.network';
 
 @Injectable()
 export class DashboardService {
@@ -38,5 +39,10 @@ export class DashboardService {
       fundingRequestCount: funding._count._all,
       fundingRequested: Number(funding._sum.requestedAmount || 0),
     };
+  }
+
+  /** The country network as the database has it, for Super Admin (every country) and Country Admin (their own). */
+  network(actor: AuthenticatedUser) {
+    return networkOverview(this.prisma, actor);
   }
 }

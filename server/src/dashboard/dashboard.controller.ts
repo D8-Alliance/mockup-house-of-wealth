@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { RequirePermission, Roles } from '../auth/roles.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { DashboardService } from './dashboard.service';
 
@@ -10,5 +11,12 @@ export class DashboardController {
   @Get('summary')
   summary(@CurrentUser() actor: AuthenticatedUser) {
     return this.dashboard.summary(actor);
+  }
+
+  @Get('network')
+  @Roles('Super Admin', 'Country Admin')
+  @RequirePermission('dashboard', 'read')
+  network(@CurrentUser() actor: AuthenticatedUser) {
+    return this.dashboard.network(actor);
   }
 }
