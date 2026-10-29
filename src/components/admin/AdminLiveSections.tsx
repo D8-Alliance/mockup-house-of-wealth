@@ -40,7 +40,7 @@ const label = (code: string) => code.toLowerCase().split('_').map((word) => word
 export const LiveOrganisations: React.FC = () => {
   const { data, error } = useServerData<OrganisationDirectoryRow[]>(apiClient.getOrganisationDirectory);
   return (
-    <Card icon={<Building2 className="w-5 h-5 text-purple-600" />} title="Organisations" lead="Every organisation in your scope, its verification (KYB) and what it holds. Verification decisions are made in KYB Corporate Verification.">
+    <Card icon={<Building2 className="w-5 h-5 text-purple-600" />} title="Organisations" lead="Every organisation in your scope, its verification (KYB) and what it holds. Verification decisions are made in Organisation Verification.">
       <State error={error} loading={!data} empty={!!data && data.length === 0} emptyText="No organisation is registered yet." />
       {data && data.length > 0 && (
         <div className="overflow-x-auto">
