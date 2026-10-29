@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma.service';
 import { assertTenantScope, tenantScopeFilter, assertProjectAccess } from '../tenancy/tenant-scope';
 import { assertProjectUnlocked } from '../projects/project-lock';
 import { inspectDocument, withStoredChecks } from '../projects/document-integrity';
-import pdfParse from 'pdf-parse';
+import { readPdfPageItems } from '../documents/pdf-reader';
 import * as XLSX from 'xlsx';
 import { AiProvider } from './ai.provider';
 import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, RagUploadMetadataDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
@@ -1009,7 +1009,7 @@ export class AiService {
   async uploadPdf(actor: AuthenticatedUser, metadata: RagUploadMetadataDto, file?: Express.Multer.File) {
     if (!file) throw new BadRequestException('A PDF file is required');
     // Page-aware extraction that removes overlaid duplicate text, running headers and TOC leaders.
-    const pages = cleanPages(await extractPdfPages(pdfParse, file.buffer));
+    const pages = cleanPages(await extractPdfPages(readPdfPageItems, file.buffer));
     const content = pages.filter(Boolean).join('\n\n').trim();
     if (content.length < 20) throw new BadRequestException('The PDF contains no extractable text. Scanned PDFs require OCR before upload.');
 

@@ -11,8 +11,8 @@ export interface RagChunkInput {
 }
 
 type PdfTextItem = { str: string; width: number; transform: number[] };
-type PdfPageData = { getTextContent: (options: Record<string, boolean>) => Promise<{ items: PdfTextItem[] }> };
-type PdfParse = (buffer: Buffer, options?: { pagerender?: (page: PdfPageData) => Promise<string> }) => Promise<{ text: string; numpages: number }>;
+/** Each page's text items in page order (documents/pdf-reader.ts readPdfPageItems). */
+type ReadPageItems = (buffer: Buffer) => Promise<PdfTextItem[][]>;
 
 /** Bigram Dice similarity (0..1), used to recognise near-identical overlay copies. */
 function similarity(a: string, b: string): number {
@@ -32,62 +32,56 @@ function similarity(a: string, b: string): number {
 /**
  * Some PDFs (e.g. AAOIFI standards) draw every line twice at the same position
  * to fake bold type, often one text item per character, and either copy may
- * miss a glyph ("acordance"). pdf-parse's default renderer emits both copies
+ * miss a glyph ("acordance"). a plain text extraction emits both copies
  * back to back. Items repeating an earlier item's text at (almost) the same
  * position on the line are dropped, multi-character items that overlap and are
  * near-identical keep the more complete copy, and each line is re-ordered by x
  * so glyphs recovered from the second copy land in the right place.
  */
-export async function extractPdfPages(pdfParse: PdfParse, buffer: Buffer): Promise<string[]> {
-  const pages: string[] = [];
-  await pdfParse(buffer, {
-    pagerender: async (pageData) => {
-      const content = await pageData.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
-      const lines: string[] = [];
-      let parts: Array<{ str: string; x: number; width: number }> = [];
-      let lastY: number | undefined;
-      const endLine = () => {
-        const sorted = [...parts].sort((a, b) => a.x - b.x);
-        // A line drawn glyph-by-glyph plus a hidden whole-line text layer: keep the
-        // whole-line copy (the glyph layer drops ligatures such as "cc" or "pp").
-        const glyphs = sorted.filter((part) => part.str.length <= 1);
-        const runs = sorted.filter((part) => part.str.length > 1);
-        const glyphText = glyphs.map((part) => part.str).join('').trim();
-        const runText = runs.map((part) => part.str).join('').trim();
-        const layered = glyphText.length >= 5 && runText.length >= 5
-          && glyphText.length >= 0.6 * runText.length && similarity(glyphText, runText) >= 0.7;
-        if (sorted.length) lines.push((layered ? runs : sorted).map((part) => part.str).join(''));
-        parts = [];
-      };
-      for (const item of content.items) {
-        const x = item.transform[4];
-        const y = item.transform[5];
-        if (lastY !== undefined && Math.abs(y - lastY) >= 2) endLine();
-        lastY = y;
-        const str = item.str;
-        const tolerance = Math.max(1, 0.5 * (item.width || 0));
-        if (parts.some((part) => part.str === str && Math.abs(part.x - x) < tolerance)) continue;
-        const overlay = str.trim().length >= 2 ? parts.find((part) => {
-          const overlapWidth = Math.min(part.x + part.width, x + item.width) - Math.max(part.x, x);
-          const positional = part.width > 0 && item.width > 0
-            ? overlapWidth > 0.5 * Math.min(part.width, item.width)
-            : Math.abs(part.x - x) < 2;
-          return positional && similarity(part.str.trim(), str.trim()) >= 0.8;
-        }) : undefined;
-        if (overlay) {
-          if (str.trim().length > overlay.str.trim().length) overlay.str = str;
-        } else {
-          parts.push({ str, x, width: item.width });
-        }
-      }
-      endLine();
-      const text = lines.join('\n');
-      // pdf-parse renders pages sequentially, so push order is page order.
-      pages.push(text);
-      return text;
-    },
-  });
-  return pages;
+export async function extractPdfPages(readPageItems: ReadPageItems, buffer: Buffer): Promise<string[]> {
+  return (await readPageItems(buffer)).map(pageText);
+}
+
+function pageText(items: PdfTextItem[]): string {
+  const lines: string[] = [];
+  let parts: Array<{ str: string; x: number; width: number }> = [];
+  let lastY: number | undefined;
+  const endLine = () => {
+    const sorted = [...parts].sort((a, b) => a.x - b.x);
+    // A line drawn glyph-by-glyph plus a hidden whole-line text layer: keep the
+    // whole-line copy (the glyph layer drops ligatures such as "cc" or "pp").
+    const glyphs = sorted.filter((part) => part.str.length <= 1);
+    const runs = sorted.filter((part) => part.str.length > 1);
+    const glyphText = glyphs.map((part) => part.str).join('').trim();
+    const runText = runs.map((part) => part.str).join('').trim();
+    const layered = glyphText.length >= 5 && runText.length >= 5
+      && glyphText.length >= 0.6 * runText.length && similarity(glyphText, runText) >= 0.7;
+    if (sorted.length) lines.push((layered ? runs : sorted).map((part) => part.str).join(''));
+    parts = [];
+  };
+  for (const item of items) {
+    const x = item.transform[4];
+    const y = item.transform[5];
+    if (lastY !== undefined && Math.abs(y - lastY) >= 2) endLine();
+    lastY = y;
+    const str = item.str;
+    const tolerance = Math.max(1, 0.5 * (item.width || 0));
+    if (parts.some((part) => part.str === str && Math.abs(part.x - x) < tolerance)) continue;
+    const overlay = str.trim().length >= 2 ? parts.find((part) => {
+      const overlapWidth = Math.min(part.x + part.width, x + item.width) - Math.max(part.x, x);
+      const positional = part.width > 0 && item.width > 0
+        ? overlapWidth > 0.5 * Math.min(part.width, item.width)
+        : Math.abs(part.x - x) < 2;
+      return positional && similarity(part.str.trim(), str.trim()) >= 0.8;
+    }) : undefined;
+    if (overlay) {
+      if (str.trim().length > overlay.str.trim().length) overlay.str = str;
+    } else {
+      parts.push({ str, x, width: item.width });
+    }
+  }
+  endLine();
+  return lines.join('\n');
 }
 
 /** Fallback for text that still contains a whole line repeated back-to-back ("abcabc" or "abcbc"). */

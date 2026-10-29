@@ -1,7 +1,7 @@
 import { copyFile, mkdir, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import pdfParse from 'pdf-parse';
+import { readPdfText } from '../../documents/pdf-reader';
 import { createWorker, Worker } from 'tesseract.js';
 
 export interface DocumentText {
@@ -25,8 +25,7 @@ export class DocumentTextReader {
 
   async read(document: { mimeType: string; content: Buffer }): Promise<DocumentText> {
     if (document.mimeType === 'application/pdf') {
-      const parsed = await pdfParse(document.content).catch(() => null);
-      const text = parsed?.text.trim() ?? '';
+      const text = await readPdfText(document.content).catch(() => '');
       if (text) return { text, method: 'pdf-text' };
       // A scanned PDF has no text layer. Scanners and phone apps store each page as a JPEG
       // inside the PDF, so those images are read with OCR instead.

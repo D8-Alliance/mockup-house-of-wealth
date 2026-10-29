@@ -17,7 +17,7 @@ import { safeguardFacts } from '../capital-takaful/safeguard-facts';
 /** Fields an accepted asset partnership relies on: its agreement names the project, its akad and where it is. */
 export const PARTNERSHIP_FIXED_FIELDS = ['projectName', 'sector', 'proposedShariahContract', 'location'] as const;
 const PARTNERSHIP_LOCKING = ['ACCEPTED', 'APPROVED'];
-import pdfParse from 'pdf-parse';
+import { readPdfText } from '../documents/pdf-reader';
 import * as XLSX from 'xlsx';
 import { Receipt } from '../billing/receipt-pdf';
 import { RECEIPT_AKAD } from '../billing/receipt-akad';
@@ -342,8 +342,7 @@ export class ProjectsService {
     if (file.mimetype === 'application/pdf' || extension === 'pdf') {
       extractionStatus = 'EXTRACTED';
       try {
-        const parsed = await pdfParse(file.buffer);
-        extractedText = parsed.text.trim();
+        extractedText = await readPdfText(file.buffer);
         if (extractedText.length < 20) {
           extractionStatus = 'FAILED';
           extractionError = 'The PDF contains no extractable text. Scanned PDFs require OCR.';
