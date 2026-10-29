@@ -10,7 +10,7 @@ const STAMP = 'DOKUMEN CONTOH UNTUK UJIAN SISTEM (SIT) - BUKAN DOKUMEN SAH / TES
 const rm = (n) => 'RM ' + n.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 function pdf(file, title, build) {
-  const doc = new PDFDocument({ size: 'A4', margin: 50, pdfVersion: '1.4', info: { Title: title, Author: 'SIT D-8 Wealth Pooling', Producer: 'SIT sample generator', CreationDate: new Date('2026-10-20T09:00:00+08:00'), ModDate: new Date('2026-10-20T09:00:00+08:00') } });
+  const doc = new PDFDocument({ size: 'A4', margin: 50, pdfVersion: '1.4', compress: false, info: { Title: title, Author: 'SIT D-8 Wealth Pooling', Producer: 'SIT sample generator', CreationDate: new Date('2026-10-20T09:00:00+08:00'), ModDate: new Date('2026-10-20T09:00:00+08:00') } });
   doc.pipe(fs.createWriteStream(path.join(out, file)));
   const stamp = () => { doc.save().fontSize(8).fillColor('#b91c1c').text(STAMP, 50, 20, { width: 495, align: 'center' }).restore(); doc.fillColor('black'); };
   stamp(); doc.on('pageAdded', stamp);

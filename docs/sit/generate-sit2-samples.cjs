@@ -14,7 +14,7 @@ const DATE = new Date('2026-10-20T09:00:00+08:00');
 
 function pdf(file, title, build) {
   // PDF 1.4: the server's PDF reader (pdf-parse 1.1.1) cannot read pdfkit's default output.
-  const doc = new PDFDocument({ size: 'A4', margin: 50, pdfVersion: '1.4', info: { Title: title, Author: 'SIT D-8 Wealth Pooling', Producer: 'SIT sample generator', CreationDate: DATE, ModDate: DATE } });
+  const doc = new PDFDocument({ size: 'A4', margin: 50, pdfVersion: '1.4', compress: false, info: { Title: title, Author: 'SIT D-8 Wealth Pooling', Producer: 'SIT sample generator', CreationDate: DATE, ModDate: DATE } });
   doc.pipe(fs.createWriteStream(path.join(out, file)));
   const stamp = () => { doc.save().fontSize(8).fillColor('#b91c1c').text(STAMP, 50, 20, { width: 495, align: 'center' }).restore(); doc.fillColor('black'); };
   stamp(); doc.on('pageAdded', stamp);
