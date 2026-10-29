@@ -1,0 +1,4 @@
+# Documents are binary: line-ending conversion would move the byte offsets a PDF depends on.
+*.pdf binary
+*.xlsx binary
+*.docx binary
