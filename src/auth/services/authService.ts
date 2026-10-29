@@ -9,7 +9,8 @@ export interface IAuthProvider {
   login(credentials: LoginCredentials): { success: boolean; mfaRequired?: boolean; challengeId?: string; error?: string; session?: AuthSession };
   completeMfa(challengeId: string, otpCode: string, selectedRole: UserRole): { success: boolean; error?: string; session?: AuthSession };
   register(credentials: RegisterCredentials): { success: boolean; error?: string; session?: AuthSession; user?: AuthUser };
-  logout(): void;
+  /** endSingleSignOn: the user chose to sign out, so end the identity provider's session as well. */
+  logout(options?: { endSingleSignOn?: boolean }): void;
   switchRole(targetRole: UserRole): boolean;
   setMode(mode: AuthMode): void;
   enterAsGuest(): void;
@@ -43,8 +44,8 @@ class AuthService {
     return this.provider.register(credentials);
   }
 
-  public logout(): void {
-    this.provider.logout();
+  public logout(options?: { endSingleSignOn?: boolean }): void {
+    this.provider.logout(options);
   }
 
   public switchRole(targetRole: UserRole): boolean {

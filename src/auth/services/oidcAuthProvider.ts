@@ -7,6 +7,10 @@ const redirectUri = import.meta.env.VITE_OIDC_REDIRECT_URI as string | undefined
 const storageKey = 'how-oidc-session';
 const transactionKey = 'how-oidc-pkce';
 const refreshKey = 'how-oidc-refresh';
+// Proves to Keycloak which session to end on sign-out (id_token_hint), so it ends it without asking.
+const idTokenKey = 'how-oidc-id-token';
+// Set when the app signs out but Keycloak's session may still be alive: the next sign-in asks for the password.
+const forceLoginKey = 'how-oidc-force-login';
 
 /**
  * The identity provider's own account pages (Keycloak account console), where users change their
@@ -152,6 +156,7 @@ export class OidcAuthProvider {
       expiresAt: new Date(Date.now() + (tokens.expires_in || 300) * 1000).toISOString(),
     };
     sessionStorage.setItem(storageKey, JSON.stringify(this.session));
+    if (tokens.id_token) sessionStorage.setItem(idTokenKey, tokens.id_token);
     if (tokens.refresh_token) {
       // refresh_expires_in 0 means an offline token with no fixed expiry.
       const refreshExpiresAt = tokens.refresh_expires_in ? Date.now() + tokens.refresh_expires_in * 1000 : Number.MAX_SAFE_INTEGER;
@@ -166,6 +171,7 @@ export class OidcAuthProvider {
     this.session = null;
     sessionStorage.removeItem(storageKey);
     sessionStorage.removeItem(refreshKey);
+    sessionStorage.removeItem(idTokenKey);
   }
 
   private readRefreshToken(): { token: string; expiresAt: number } | null {
@@ -192,6 +198,10 @@ export class OidcAuthProvider {
         code_challenge_method: 'S256',
         state,
       });
+      if (readFlag()) {
+        params.set('prompt', 'login');
+        clearFlag();
+      }
       window.location.assign(`${config.issuer}/protocol/openid-connect/auth?${params}`);
     });
     return { success: false, error: 'Redirecting to Keycloak...' };
@@ -199,7 +209,13 @@ export class OidcAuthProvider {
 
   completeMfa() { return { success: false, error: 'MFA is handled by Keycloak.' }; }
   register(_credentials: RegisterCredentials) { return { success: false, error: 'Registration is handled by Keycloak.' }; }
-  logout() {
+  /**
+   * Signing out ends the Keycloak session too (endSingleSignOn), or Keycloak would sign the same person
+   * straight back in on the next "Sign in", with no password asked. Clearing a failed sign-in stays on the
+   * page so its error shows, and makes the next sign-in ask for the password instead.
+   */
+  logout(options?: { endSingleSignOn?: boolean }) {
+    const idToken = sessionStorage.getItem(idTokenKey);
     const token = this.session?.token;
     if (token) {
       const apiBase = import.meta.env.VITE_API_BASE_URL || `http://${window.location.hostname}:3001`;
@@ -209,6 +225,13 @@ export class OidcAuthProvider {
       }).catch(() => undefined);
     }
     this.clearSession();
+    if (options?.endSingleSignOn && idToken && issuer && redirectUri) {
+      const config = requiredConfig();
+      const params = new URLSearchParams({ client_id: config.clientId, id_token_hint: idToken, post_logout_redirect_uri: config.redirectUri });
+      window.location.assign(`${config.issuer}/protocol/openid-connect/logout?${params}`);
+    } else if (issuer) {
+      setFlag();
+    }
   }
   switchRole(_role: UserRole) { return false; }
   setMode(_mode: 'DEMO' | 'PRE_PRODUCTION' | 'PRODUCTION') {}
@@ -218,5 +241,10 @@ export class OidcAuthProvider {
     try { return JSON.parse(sessionStorage.getItem(storageKey) || 'null') as AuthSession | null; } catch { return null; }
   }
 }
+
+// The flag outlives the tab (a new tab signs in fresh too); storage can be unavailable in private modes.
+function readFlag(): boolean { try { return localStorage.getItem(forceLoginKey) === '1'; } catch { return false; } }
+function setFlag(): void { try { localStorage.setItem(forceLoginKey, '1'); } catch { /* the next sign-in may reuse the Keycloak session */ } }
+function clearFlag(): void { try { localStorage.removeItem(forceLoginKey); } catch { /* nothing to clear */ } }
 
 export const oidcAuthProvider = new OidcAuthProvider();

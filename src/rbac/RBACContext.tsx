@@ -168,7 +168,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
   };
 
   const logoutUser = () => {
-    authService.logout();
+    authService.logout({ endSingleSignOn: true });
     setAuthState(authService.getAuthState());
     setCurrentRoleState('Guest');
     setGuestBrowsing(false);
