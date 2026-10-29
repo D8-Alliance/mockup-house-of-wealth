@@ -644,6 +644,12 @@ export class MembershipService {
       const calculationId = String(metadata.calculationId || payment.productId);
       if (!gatewayAccountId || !zakatAccountId) throw new BadRequestException('Zakat payment accounts are not configured.');
       await this.ledger.recordZakatPaymentInTransaction(tx, settlementActor, { calculationId, payerUserId: payment.userId, organisationId: payment.organisationId, countryNodeId: payment.countryNodeId, amount: Number(payment.amountMYR), currency: payment.currency, posting: { transactionType: 'ZAKAT_PAYMENT', referenceType: 'PaymentTransaction', referenceId: payment.id, currency: payment.currency, description: `Zakat payment for ${calculationId}`, idempotencyKey: `zakat-payment:${payment.id}`, entries: [{ accountId: gatewayAccountId, direction: 'DEBIT', amount: Number(payment.amountMYR), description: 'ToyyibPay cash received' }, { accountId: zakatAccountId, direction: 'CREDIT', amount: Number(payment.amountMYR), description: 'Zakat payable recognized' }] } });
+    } else if (payment.productType === 'PROJECT_PROMOTION') {
+      const campaign = await tx.projectPromotionCampaign.findUnique({ where: { id: payment.productId }, include: { payment: true } });
+      if (!campaign?.payment) throw new BadRequestException('Promotion for payment was not found.');
+      await tx.promotionPayment.update({ where: { id: campaign.payment.id }, data: { status: 'PAID', providerRef: payment.providerBillCode ?? payment.id } });
+      // A campaign replaced by a newer one while its bill was open stays expired: the money is recorded, the slot is not reopened.
+      await tx.projectPromotionCampaign.update({ where: { id: campaign.id }, data: { paymentStatus: 'PAID', ...(campaign.status === 'EXPIRED' ? {} : { status: 'ACTIVE' }) } });
     }
     await this.audit.record({ userId: payment.userId, action: 'payment.toyyibpay.settled', resourceType: 'PaymentTransaction', resourceId: payment.id, organisationId: payment.organisationId, countryNodeId: payment.countryNodeId, metadata: { productType: payment.productType, productId: payment.productId } }, tx);
     await tx.paymentTransaction.update({ where: { id: payment.id }, data: { metadata: { ...metadata, fulfilled: true, fulfilledAt: new Date().toISOString() } } });

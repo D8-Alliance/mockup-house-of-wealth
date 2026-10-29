@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseEnumPipe, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
-import { PoolsService } from './pools.service';
+import { POOL_SIGN_OFF_STEPS, PoolSignOffStep, PoolsService } from './pools.service';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { CreatePoolDto, SetAkadTermsDto, UpdatePoolStatusDto } from './pools.dto';
@@ -51,6 +51,22 @@ export class PoolsController {
   @RequirePermission('pooling', 'update')
   transitionStatus(@Param('id') id: string, @Body() body: UpdatePoolStatusDto, @CurrentUser() user: AuthenticatedUser) {
     return this.poolsService.transitionStatus(id, body.status, user, body.note);
+  }
+
+  /** One governance sign-off on a DRAFT pool; the fourth makes it APPROVED. */
+  @Post(':id/sign-offs/:step')
+  @Roles('Super Admin', 'Country Admin', 'Pool Manager')
+  @RequirePermission('pooling', 'approve')
+  signOff(@Param('id') id: string, @Param('step', new ParseEnumPipe(POOL_SIGN_OFF_STEPS)) step: PoolSignOffStep, @CurrentUser() user: AuthenticatedUser) {
+    return this.poolsService.signOff(id, step, user);
+  }
+
+  /** Opens an APPROVED pool to investors. */
+  @Post(':id/open')
+  @Roles('Super Admin', 'Country Admin', 'Pool Manager')
+  @RequirePermission('pooling', 'approve')
+  open(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.poolsService.open(id, user);
   }
 }
 

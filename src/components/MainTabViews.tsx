@@ -13,6 +13,7 @@ import { LedgerView } from './LedgerView';
 import { UserProfileSettingsView } from './UserProfileSettingsView';
 import { InvestmentsView } from './InvestmentsView';
 import { InvestorPoolsPanel } from './investments/InvestorPoolsPanel';
+import { InvestorPositionsPanel } from './investments/InvestorPositionsPanel';
 import { PlatformOrdersPanel } from './investments/PlatformOrdersPanel';
 import { LivePoolsPanel } from '../pooling/LivePoolsPanel';
 import { LiveDocumentVault } from './documents/LiveDocumentVault';
@@ -154,16 +155,17 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'pooling' && (
         <RoleGuard tab="pooling">
-          {authMode !== 'DEMO' ? <LivePoolsPanel mode="manage" /> : <PoolingView
+          {/* The pooling page reads projects and pools from the database in every mode. */}
+          <PoolingView
             lang={lang}
             onOpenAssetRegister={() => onOpenAssetRegister()}
-          />}
+          />
         </RoleGuard>
       )}
 
       {currentTab === 'ledger' && (
         <RoleGuard tab="ledger">
-          <LedgerView transactions={ledger} lang={lang} />
+          <LedgerView lang={lang} />
         </RoleGuard>
       )}
 
@@ -183,7 +185,10 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
       {currentTab === 'investments' && (
         <RoleGuard tab="investments">
           {canInvest(currentRole) ? (
-            <InvestorPoolsPanel />
+            <div className="space-y-4">
+              <InvestorPositionsPanel />
+              <InvestorPoolsPanel />
+            </div>
           ) : authMode !== 'DEMO' ? (
             <PlatformOrdersPanel />
           ) : (

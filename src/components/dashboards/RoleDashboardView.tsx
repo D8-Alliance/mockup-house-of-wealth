@@ -9,6 +9,7 @@ import { MY_REVIEWS_ROLES, MyReviewsPanel } from './MyReviewsPanel';
 import { OrganisationKybPanel } from '../../organisations/OrganisationKybPanel';
 import { SafeguardReviewQueue } from '../sponsor/SafeguardReviewQueue';
 import { FundingReviewQueue } from '../sponsor/FundingReviewQueue';
+import { PayoutVerificationPanel } from '../admin/PayoutVerificationPanel';
 import { canDraftAgreement, openAiEngineSection } from '../../ai/aiEngineNavigation';
 import { UserProfile, AssetItem, ContractItem, LanguageCode, NavTab } from '../../types';
 import { 
@@ -272,6 +273,9 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
       {isAuthenticated && ['Super Admin', 'Country Admin', 'Finance Officer', 'Risk Officer', 'Compliance Officer'].includes(currentRole) && <SafeguardReviewQueue />}
 
       {isAuthenticated && ['Super Admin', 'Country Admin', 'Finance Officer'].includes(currentRole) && <FundingReviewQueue role={currentRole} />}
+
+      {/* Payout bank accounts waiting for a settlement operator (POST /distributions/payout-destinations/:id/verify). */}
+      {isAuthenticated && ['Super Admin', 'Settlement Officer'].includes(currentRole) && <PayoutVerificationPanel />}
 
       {isAuthenticated && (currentRole === 'Asset Owner' || currentRole === 'Asset Manager') && <DashboardOpenNeedsPanel setTab={setTab} onOpenAssetRegister={onOpenAssetRegister} />}
 

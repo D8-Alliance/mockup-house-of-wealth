@@ -283,6 +283,7 @@ export type AdminModuleSection =
   | 'fin_fees'
   | 'fin_revenue'
   | 'fin_settlement'
+  | 'fin_payout_verification'
   | 'sys_digitalsig'
   | 'sys_doc_templates'
   | 'shariah_templates'

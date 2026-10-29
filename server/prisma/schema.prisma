@@ -577,6 +577,15 @@ model WealthPool {
   countryNodeId            String
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
+  // Governance sign-offs a DRAFT pool needs before it becomes APPROVED and can open; null until signed.
+  shariahApprovedBy        String?
+  shariahApprovedAt        DateTime?
+  complianceApprovedBy     String?
+  complianceApprovedAt     DateTime?
+  riskApprovedBy           String?
+  riskApprovedAt           DateTime?
+  authorisedApprovedBy     String?
+  authorisedApprovedAt     DateTime?
 
   project          Project           @relation(fields: [projectId], references: [projectId])
   organisation     Organisation      @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])

@@ -1,5 +1,7 @@
 import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { createTransport, Transporter } from 'nodemailer';
 import { FcmClient, loadServiceAccount } from './fcm-client';
+import { emailProvider, smtpOptions } from './email-config';
 
 @Injectable()
 export class NotificationDeliveryService {
@@ -14,9 +16,22 @@ export class NotificationDeliveryService {
 
   private async email(input: { title: string; message: string; recipientEmail?: string }) {
     // Email is optional while Firebase Push is the active delivery channel.
-    if (process.env.NOTIFICATION_EMAIL_PROVIDER !== 'resend' || !process.env.RESEND_API_KEY || !process.env.NOTIFICATION_EMAIL_FROM || !input.recipientEmail) throw new ServiceUnavailableException('Resend email notification is not configured.');
+    const provider = emailProvider();
+    if (!provider || !input.recipientEmail) throw new ServiceUnavailableException('Email notification is not configured.');
+    if (provider === 'smtp') {
+      await this.smtp().sendMail({ from: process.env.NOTIFICATION_EMAIL_FROM, to: input.recipientEmail, subject: input.title, text: input.message });
+      return;
+    }
     const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: process.env.NOTIFICATION_EMAIL_FROM, to: [input.recipientEmail], subject: input.title, text: input.message }) });
     if (!response.ok) throw new Error(`Email provider returned ${response.status}`);
+  }
+
+  // One pooled SMTP connection, reused between sends.
+  private smtpTransport: Transporter | null = null;
+
+  private smtp(): Transporter {
+    this.smtpTransport ??= createTransport({ ...smtpOptions(), pool: true });
+    return this.smtpTransport;
   }
 
   private async sms(input: { title: string; message: string; recipientPhone?: string }) {

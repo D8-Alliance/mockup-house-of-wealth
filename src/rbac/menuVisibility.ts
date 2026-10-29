@@ -37,3 +37,8 @@ export const canSubmitProject = (role: UserRole) => PROJECT_SUBMITTER_ROLES.has(
 const POOL_MANAGER_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Super Admin', 'Country Admin', 'Organization Admin', 'Pool Manager']);
 
 export const canManagePools = (role: UserRole) => POOL_MANAGER_ROLES.has(role);
+
+/** Who may sign off a draft pool and open it (POST /pools/:id/sign-offs/:step and /pools/:id/open). */
+const POOL_APPROVER_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Super Admin', 'Country Admin', 'Pool Manager']);
+
+export const canApprovePools = (role: UserRole) => POOL_APPROVER_ROLES.has(role);

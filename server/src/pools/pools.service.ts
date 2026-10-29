@@ -11,6 +11,9 @@ import { assertCanViewPool, poolVisibilityFilter } from './pool-access';
 import { FUNDABLE_PROJECT_STATUSES, hasCurrentFinalApproval } from '../projects/project-lock';
 import { safeguardFacts } from '../capital-takaful/safeguard-facts';
 
+export const POOL_SIGN_OFF_STEPS = ['shariah', 'compliance', 'risk', 'authorised'] as const;
+export type PoolSignOffStep = (typeof POOL_SIGN_OFF_STEPS)[number];
+
 @Injectable()
 export class PoolsService {
   constructor(
@@ -61,7 +64,7 @@ export class PoolsService {
     const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: id }, include: { project: { select: { projectName: true } } } });
     if (!pool) throw new NotFoundException('Pool not found');
     assertTenantScope(user, pool, 'Pool');
-    if (!['OPEN', 'PAUSED'].includes(pool.status)) throw new BadRequestException('Akad terms can only be set while the pool is OPEN or PAUSED.');
+    if (!['DRAFT', 'APPROVED', 'OPEN', 'PAUSED'].includes(pool.status)) throw new BadRequestException('Akad terms can only be set before the pool is full or closed.');
     return this.prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT "poolId" FROM "WealthPool" WHERE "poolId" = ${id} FOR UPDATE`;
       const current = await this.currentTerms(tx, id);
@@ -100,6 +103,44 @@ export class PoolsService {
     return updated;
   }
 
+  /**
+   * Records one governance sign-off on a DRAFT pool. Once Shariah, compliance, risk and the
+   * authorised executive have all signed, the pool becomes APPROVED and can be opened.
+   */
+  async signOff(id: string, step: PoolSignOffStep, user: AuthenticatedUser) {
+    const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: id } });
+    if (!pool) throw new NotFoundException('Pool not found');
+    assertTenantScope(user, pool, 'Pool');
+    if (pool.status !== 'DRAFT') throw new BadRequestException(`Only a DRAFT pool takes sign-offs; this pool is ${pool.status}.`);
+    if (pool[`${step}ApprovedAt`]) return pool;
+    return this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.wealthPool.updateMany({
+        where: { poolId: id, status: 'DRAFT', [`${step}ApprovedAt`]: null },
+        data: { [`${step}ApprovedBy`]: user.name, [`${step}ApprovedAt`]: new Date() },
+      });
+      if (!claimed.count) throw new ConflictException('The pool changed while you were signing; reload and try again.');
+      let result = await tx.wealthPool.findUniqueOrThrow({ where: { poolId: id } });
+      const allSigned = POOL_SIGN_OFF_STEPS.every((item) => result[`${item}ApprovedAt`]);
+      if (allSigned) result = await tx.wealthPool.update({ where: { poolId: id }, data: { status: 'APPROVED' } });
+      await this.audit.recordActor(user, { action: 'pool.sign_off', resourceType: 'WealthPool', resourceId: id, organisationId: pool.organisationId, countryNodeId: pool.countryNodeId, metadata: { step, status: result.status } }, tx);
+      return result;
+    });
+  }
+
+  /** Opens an APPROVED pool for investor subscriptions. */
+  async open(id: string, user: AuthenticatedUser) {
+    const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: id } });
+    if (!pool) throw new NotFoundException('Pool not found');
+    assertTenantScope(user, pool, 'Pool');
+    if (pool.status !== 'APPROVED') throw new BadRequestException('Pool cannot be opened until all governance sign-offs are complete.');
+    return this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.wealthPool.updateMany({ where: { poolId: id, status: 'APPROVED' }, data: { status: 'OPEN' } });
+      if (!claimed.count) throw new BadRequestException('Pool status changed concurrently.');
+      await this.audit.recordActor(user, { action: 'pool.status_change', resourceType: 'WealthPool', resourceId: id, organisationId: pool.organisationId, countryNodeId: pool.countryNodeId, metadata: { fromStatus: 'APPROVED', toStatus: 'OPEN', note: null } }, tx);
+      return tx.wealthPool.findUniqueOrThrow({ where: { poolId: id } });
+    });
+  }
+
   async create(dto: CreatePoolDto, user: AuthenticatedUser) {
     assertTenantScope(user, { countryNodeId: dto.countryNodeId, organisationId: dto.organisationId }, 'Target tenant');
     const invalidShare = validateProfitShare(dto.akadType, dto.investorProfitSharePct);
@@ -136,7 +177,8 @@ export class PoolsService {
           currency: dto.currency,
           investmentStructure: dto.investmentStructure || AKAD_RULES[dto.akadType].label,
           indicativeExpectedReturn: dto.indicativeExpectedReturn,
-          status: 'OPEN',
+          // Governance signs off before investors see it (see signOff and open).
+          status: 'DRAFT',
           projectId: dto.projectId,
           organisationId: dto.organisationId,
           countryNodeId: dto.countryNodeId,

@@ -167,6 +167,8 @@ export const apiClient = {
   getFinancialLedger: () => request<BackendLedgerTransaction[]>('/financial/ledger'),
   transferFinancialAccounts: (input: { sourceAccountId: string; destinationAccountId: string; amount: number; description: string; idempotencyKey: string }) => request<BackendLedgerTransaction>('/financial/transfers', { method: 'POST', body: JSON.stringify(input) }),
   getInvestmentOrders: () => request<BackendInvestmentOrder[]>('/investments/orders'),
+  /** The signed-in investor's holding in each pool (server/src/investments/positions.ts). */
+  getInvestmentPositions: () => request<InvestorPosition[]>('/investments/positions'),
   createInvestmentOrder: (input: { poolId: string; amount: number; currency: string; idempotencyKey: string; akadTermsId: string; acceptAkad: true }) => request<BackendInvestmentOrder>('/investments/orders', { method: 'POST', body: JSON.stringify(input) }),
   getSettlementQueue: () => request<SettlementQueueOrder[]>('/investments/settlement-queue'),
   settleInvestmentOrder: (id: string, paymentReference: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/settle`, { method: 'POST', body: JSON.stringify({ paymentReference }) }),
@@ -197,6 +199,10 @@ export const apiClient = {
   getPool: (poolId: string) => request<BackendPoolDetail>(`/pools/${encodeURIComponent(poolId)}`),
   setPoolStatus: (poolId: string, status: 'OPEN' | 'PAUSED' | 'FULL' | 'CLOSED', note?: string) => request<BackendPool>(`/pools/${encodeURIComponent(poolId)}/status`, { method: 'PATCH', body: JSON.stringify({ status, note }) }),
   createPool: (input: { projectId: string; poolName: string; currency: string; indicativeExpectedReturn: number; organisationId: string; countryNodeId: string; akadType: 'MUDARABAH' | 'MUSHARAKAH' | 'WAKALAH' | 'IJARAH'; investorProfitSharePct: number }) => request<BackendPool>('/pools', { method: 'POST', body: JSON.stringify(input) }),
+  /** One governance sign-off on a DRAFT pool; the fourth makes it APPROVED. */
+  signOffPool: (poolId: string, step: PoolSignOffStep) => request<BackendPool>(`/pools/${encodeURIComponent(poolId)}/sign-offs/${step}`, { method: 'POST' }),
+  /** Opens an APPROVED pool to investors. */
+  openPool: (poolId: string) => request<BackendPool>(`/pools/${encodeURIComponent(poolId)}/open`, { method: 'POST' }),
   getFundingRequests: (projectId: string) => request<BackendFundingRequest[]>(`/funding/requests/${encodeURIComponent(projectId)}`),
   requestTrancheRelease: (projectId: string, milestoneId: string) => request<{ requestId: string; status: string }>(`/funding/projects/${encodeURIComponent(projectId)}/requests`, { method: 'POST', body: JSON.stringify({ milestoneId }) }),
   getFundingQueue: () => request<BackendFundingRequest[]>('/funding/queue'),
@@ -297,6 +303,9 @@ export const apiClient = {
   addMyPayoutAccount: (input: NewPayoutAccount) => request<PayoutAccount>('/users/me/payout-accounts', { method: 'POST', body: JSON.stringify(input) }),
   setDefaultPayoutAccount: (id: string) => request<PayoutAccount[]>(`/users/me/payout-accounts/${encodeURIComponent(id)}/default`, { method: 'PATCH' }),
   removeMyPayoutAccount: (id: string) => request<PayoutAccount[]>(`/users/me/payout-accounts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  /** Settlement review: every payout account in the operator's scope, masked. */
+  getPayoutAccountsForReview: () => request<PayoutAccountForReview[]>('/distributions/payout-destinations'),
+  verifyPayoutAccount: (id: string) => request<PayoutAccountForReview>(`/distributions/payout-destinations/${encodeURIComponent(id)}/verify`, { method: 'POST' }),
   getUsers: () => request<BackendUser[]>('/users'),
   getOrganisationDirectory: () => request<OrganisationDirectoryRow[]>('/organisations'),
   getContractTemplates: () => request<ContractTemplateRow[]>('/contract-intelligence/templates'),
@@ -1195,6 +1204,15 @@ export interface PayoutAccount {
   createdAt: string;
 }
 
+/** A payout account as settlement operators review it; REMOVED ones are kept for past payouts. */
+export interface PayoutAccountForReview extends Omit<PayoutAccount, 'status'> {
+  ownerUserId: string;
+  ownerName: string | null;
+  status: 'PENDING_VERIFICATION' | 'VERIFIED' | 'REMOVED';
+  verifiedBy: string | null;
+  verifiedByName: string | null;
+}
+
 export interface NewPayoutAccount {
   provider: string;
   destinationType: 'BANK_ACCOUNT' | 'DUITNOW_PROXY';
@@ -1500,6 +1518,26 @@ export interface PlatformRevenue {
   campaigns: Array<{ id: string; packageName: string; projectName: string; status: string; paymentStatus: string; paymentMethod: string; priceMYR: number; creditsCost: number; startDate: string; endDate?: string | null; views: number; clicks: number; investorLeads: number }>;
 }
 
+export type PoolSignOffStep = 'shariah' | 'compliance' | 'risk' | 'authorised';
+
+export interface InvestorPosition {
+  poolId: string;
+  poolName: string;
+  projectName: string;
+  poolStatus: string;
+  contract: string;
+  currency: string;
+  indicativeExpectedReturn: number;
+  investorProfitSharePct: number | null;
+  capital: number;
+  pendingAmount: number;
+  poolSharePct: number;
+  profitEarned: number;
+  profitPaid: number;
+  returnPct: number;
+  firstInvestedAt: string | null;
+}
+
 export interface BackendPool {
   poolId: string;
   poolName: string;
@@ -1508,12 +1546,22 @@ export interface BackendPool {
   indicativeExpectedReturn: number | string;
   status: string;
   projectId: string;
+  organisationId?: string;
   countryNodeId?: string;
   createdAt?: string;
   /** Sent with the pool list: the project's name, its funding target and the settled money raised so far. */
   projectName?: string;
   targetAmount?: number;
   raisedAmount?: number;
+  /** Governance sign-offs; null until signed. */
+  shariahApprovedBy?: string | null;
+  shariahApprovedAt?: string | null;
+  complianceApprovedBy?: string | null;
+  complianceApprovedAt?: string | null;
+  riskApprovedBy?: string | null;
+  riskApprovedAt?: string | null;
+  authorisedApprovedBy?: string | null;
+  authorisedApprovedAt?: string | null;
 }
 
 export interface BackendFundingRequest {
@@ -1555,6 +1603,11 @@ export interface BackendProject {
   countryNodeId: string;
   sector: string;
   fundingRequired: number | string;
+  totalProjectCost?: number | string;
+  sponsorContribution?: number | string;
+  projectSponsorId?: string;
+  createdAt?: string;
+  updatedAt?: string;
   proposedShariahContract: string;
   status: string;
   sponsorEntityType?: string | null;
@@ -1848,6 +1901,9 @@ export interface BackendProjectPromotion {
   clicks: number;
   investorLeads: number;
   payment?: { id: string; amountMYR: number | string; method: string; status: string; providerRef?: string | null; createdAt: string; updatedAt: string } | null;
+  /** Set when the promotion is paid in RM through ToyyibPay: where to send the payer. */
+  paymentId?: string;
+  paymentUrl?: string;
 }
 
 export interface CreateProjectPromotionInput {

@@ -8,8 +8,12 @@ export type ProjectStatus =
   | 'RISK_REVIEW'
   | 'APPROVED'
   | 'REJECTED'
+  | 'FUNDING_OPEN'
   | 'POOLING'
   | 'FUNDING'
+  | 'FUNDED'
+  | 'EXECUTION'
+  | 'PROFIT_DISTRIBUTION'
   | 'ACTIVE'
   | 'COMPLETED'
   | 'CANCELLED';

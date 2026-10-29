@@ -31,38 +31,40 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({ isOpen, onCl
   const [businessModelSummary, setBusinessModelSummary] = useState('');
   const [proposedShariahContract, setProposedShariahContract] = useState<'Mudarabah' | 'Musharakah' | 'Wakalah' | 'Ijarah' | 'Murabahah'>('Mudarabah');
 
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
   if (!isOpen) return null;
 
-  const handleSubmit = (isSubmit: boolean) => {
-    const created = projectService.createProject({
-      projectName: projectName || 'Untitled Agriculture Venture',
-      sector,
-      category,
-      location,
-      currency,
-      totalProjectCost,
-      sponsorContribution,
-      fundingRequired,
-      minimumFunding,
-      maximumFunding,
-      projectDurationMonths,
-      indicativeExpectedReturn,
-      riskLevel,
-      description,
-      businessModelSummary,
-      proposedShariahContract,
-      organisationId: activeUser.organisationId || 'ORG-FELDA-MYS',
-      countryNodeId: activeUser.countryNodeId || 'CN-MYS',
-      projectSponsorName: activeUser.name,
-      status: isSubmit ? 'SUBMITTED' : 'DRAFT'
-    }, activeUser.id, currentRole);
+  // The server registers the project as a draft for the signed-in user's organisation; submitting
+  // then moves it into due diligence. Currency comes from the country node, not this form.
+  const handleSubmit = async (isSubmit: boolean) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const created = await projectService.createProject({
+        projectName: projectName || 'Untitled Agriculture Venture',
+        sector,
+        location,
+        totalProjectCost,
+        sponsorContribution,
+        fundingRequired,
+        projectDurationMonths,
+        indicativeExpectedReturn,
+        description: [description, businessModelSummary].filter(Boolean).join('\n\n'),
+        proposedShariahContract,
+      }, activeUser.id, { organisationId: activeUser.organisationId, countryNodeId: activeUser.countryNodeId });
 
-    if (isSubmit) {
-      projectService.updateProjectStatus(created.projectId, 'SUBMITTED', activeUser.id, currentRole, 'Initial submission by Project Sponsor / Delivery Partner.');
+      if (isSubmit) {
+        await projectService.updateProjectStatus(created.projectId, 'DUE_DILIGENCE', activeUser.id, currentRole, 'Initial submission by Project Sponsor / Delivery Partner.');
+      }
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'The project could not be saved.');
+    } finally {
+      setBusy(false);
     }
-
-    onSaved();
-    onClose();
   };
 
   return (
@@ -240,10 +242,13 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({ isOpen, onCl
             </button>
           ) : <div />}
 
+          {error && <p className="text-xs font-semibold text-red-600 dark:text-red-400 max-w-xs">{error}</p>}
+
           <div className="flex gap-2">
             <button
-              onClick={() => handleSubmit(false)}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 flex items-center gap-1.5"
+              onClick={() => void handleSubmit(false)}
+              disabled={busy}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 flex items-center gap-1.5 disabled:opacity-50"
             >
               <Save className="w-3.5 h-3.5" />
               Save Draft
@@ -258,8 +263,9 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({ isOpen, onCl
               </button>
             ) : (
               <button
-                onClick={() => handleSubmit(true)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 flex items-center gap-1.5"
+                onClick={() => void handleSubmit(true)}
+                disabled={busy}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 flex items-center gap-1.5 disabled:opacity-50"
               >
                 <Send className="w-3.5 h-3.5" />
                 Submit Project

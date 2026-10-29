@@ -43,8 +43,13 @@ export class PayoutDestinationService {
     return this.publicDestination(destination);
   }
 
-  list(actor: AuthenticatedUser) {
-    return this.prisma.payoutDestination.findMany({ where: { ...tenantScopeFilter(actor), ...(actor.role === 'Super Admin' || actor.role === 'Settlement Officer' ? {} : { ownerUserId: actor.userId }) }, orderBy: { createdAt: 'desc' }, select: PUBLIC_FIELDS });
+  /** Settlement operators see every account in scope, with the owner's and verifier's names for their review screen. */
+  async list(actor: AuthenticatedUser) {
+    const rows = await this.prisma.payoutDestination.findMany({ where: { ...tenantScopeFilter(actor), ...(actor.role === 'Super Admin' || actor.role === 'Settlement Officer' ? {} : { ownerUserId: actor.userId }) }, orderBy: { createdAt: 'desc' }, select: PUBLIC_FIELDS });
+    const userIds = [...new Set(rows.flatMap((row) => (row.verifiedBy ? [row.ownerUserId, row.verifiedBy] : [row.ownerUserId])))];
+    const users = userIds.length ? await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }) : [];
+    const names = new Map(users.map((user) => [user.id, user.name]));
+    return rows.map((row) => ({ ...row, ownerName: names.get(row.ownerUserId) ?? null, verifiedByName: row.verifiedBy ? names.get(row.verifiedBy) ?? null : null }));
   }
 
   /** The signed-in user's own accounts, default first. Removed ones are kept for past payouts but not shown. */

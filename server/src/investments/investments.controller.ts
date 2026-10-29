@@ -24,6 +24,10 @@ export class InvestmentsController {
   @Get('orders')
   list(@CurrentUser() actor: AuthenticatedUser) { return this.investments.listOrders(actor); }
 
+  /** The signed-in investor's holding in each pool; investor accounts only. */
+  @Get('positions')
+  positions(@CurrentUser() actor: AuthenticatedUser) { return this.investments.positions(actor); }
+
   @Get('orders/:id')
   get(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.investments.getOrder(actor, id); }
 

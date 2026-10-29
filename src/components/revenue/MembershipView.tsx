@@ -119,8 +119,10 @@ export const MembershipView: React.FC<MembershipViewProps> = ({
     setPaymentNotice({ tone: 'pending', text: 'Confirming your ToyyibPay payment…' });
     void apiClient.verifyMembershipPayment(paymentId)
       .then((result) => {
-        const product = result.productType === 'MEMBERSHIP' ? 'membership plan' : 'AI credits';
-        if (result.status === 'PAID') setPaymentNotice({ tone: 'success', text: `Payment received. Your ${product} ${result.productType === 'MEMBERSHIP' ? 'is now active' : 'have been added'}.` });
+        const paid = result.productType === 'MEMBERSHIP' ? 'Your membership plan is now active.'
+          : result.productType === 'PROJECT_PROMOTION' ? 'Your project promotion is now active.'
+          : 'Your AI credits have been added.';
+        if (result.status === 'PAID') setPaymentNotice({ tone: 'success', text: `Payment received. ${paid}` });
         else if (result.status === 'FAILED') setPaymentNotice({ tone: 'error', text: 'ToyyibPay reported the payment as unsuccessful. You have not been charged for this order.' });
         else setPaymentNotice({ tone: 'pending', text: 'ToyyibPay has not confirmed this payment yet. Refresh this page in a few minutes.' });
         void refreshCreditBalance();

@@ -1,11 +1,71 @@
 import { WealthPool } from './poolTypes';
-import { INITIAL_WEALTH_POOLS } from '../data/mockPoolingWorkflowDataPart3';
-import { auditLogger } from '../audit/auditLogger';
-import { notificationService } from '../notifications/notificationService';
-import { generateNumericId } from '../utils/id';
+import { apiClient, BackendPool, PoolSignOffStep } from '../services/apiClient';
+import { projectService } from '../projects/projectService';
+
+/**
+ * Wealth pools for the Wealth Pooling page, read from the server. A new pool is DRAFT until
+ * Shariah, compliance, risk and an authorised executive sign off (then APPROVED), and an
+ * approver opens it to investors. The list is cached after refresh() for synchronous lookups.
+ */
+function mapPool(raw: BackendPool): WealthPool {
+  const project = projectService.getProjectById(raw.projectId);
+  const targetAmount = raw.targetAmount ?? project?.fundingRequired ?? 0;
+  const amountRaised = raw.raisedAmount ?? 0;
+  return {
+    poolId: raw.poolId,
+    poolCode: raw.poolId.slice(-8).toUpperCase(),
+    poolName: raw.poolName,
+    projectId: raw.projectId,
+    projectName: raw.projectName || project?.projectName || '',
+    organisationId: raw.organisationId || project?.organisationId || '',
+    organisationName: project?.organisationName || '',
+    countryNodeId: raw.countryNodeId || project?.countryNodeId || '',
+    poolType: 'SME / Trade',
+    investmentStructure: raw.investmentStructure as WealthPool['investmentStructure'],
+    targetAmount,
+    minimumAmount: targetAmount,
+    maximumAmount: targetAmount,
+    amountRaised,
+    // The server sets no per-investor limits; the most anyone can add is what is left to raise.
+    minimumInvestment: 1,
+    maximumInvestment: Math.max(1, targetAmount - amountRaised),
+    currency: raw.currency,
+    durationMonths: project?.projectDurationMonths ?? 0,
+    indicativeExpectedReturn: Number(raw.indicativeExpectedReturn),
+    riskLevel: 'Medium',
+    openingDate: '',
+    closingDate: '',
+    status: raw.status as WealthPool['status'],
+    investorCount: 0,
+    feesDescription: project ? `Raises funding for ${project.projectName}.` : '',
+    distributionFrequency: 'At Maturity',
+    riskDisclosure: 'Indicative expected returns are not guaranteed.',
+    approvals: {
+      shariahApproval: !!raw.shariahApprovedAt,
+      shariahApprovedBy: raw.shariahApprovedBy ?? undefined,
+      shariahApprovedAt: raw.shariahApprovedAt ?? undefined,
+      complianceApproval: !!raw.complianceApprovedAt,
+      complianceApprovedBy: raw.complianceApprovedBy ?? undefined,
+      complianceApprovedAt: raw.complianceApprovedAt ?? undefined,
+      riskApproval: !!raw.riskApprovedAt,
+      riskApprovedBy: raw.riskApprovedBy ?? undefined,
+      riskApprovedAt: raw.riskApprovedAt ?? undefined,
+      authorisedApproval: !!raw.authorisedApprovedAt,
+      authorisedApprovedBy: raw.authorisedApprovedBy ?? undefined,
+      authorisedApprovedAt: raw.authorisedApprovedAt ?? undefined,
+    },
+    createdAt: raw.createdAt || '',
+    updatedAt: raw.createdAt || '',
+  };
+}
 
 class PoolService {
-  private pools: WealthPool[] = [...INITIAL_WEALTH_POOLS];
+  private pools: WealthPool[] = [];
+
+  /** Call after projectService.refresh(), so pools can show their project's organisation and tenure. */
+  public async refresh(): Promise<void> {
+    this.pools = (await apiClient.getPools()).map(pool => mapPool(pool));
+  }
 
   public getAllPools(): WealthPool[] {
     return [...this.pools];
@@ -19,178 +79,31 @@ class PoolService {
     return this.pools.filter(p => p.projectId === projectId);
   }
 
-  public createPool(poolData: Partial<WealthPool>, userId: string, userRole: string): WealthPool {
-    // A pool created on the server keeps the server's id and status.
-    const newId = poolData.poolId || `POOL-${poolData.countryNodeId || 'MYS'}-${generateNumericId('P', 4)}`;
-    const newCode = `POOL-${(poolData.poolName || 'SUKUK').toUpperCase().slice(0, 8)}-${Math.floor(100 + Math.random() * 900)}`;
-
-    const newPool: WealthPool = {
-      poolId: newId,
-      poolCode: newCode,
-      poolName: poolData.poolName || 'New Wealth Sukuk Pool',
-      projectId: poolData.projectId || 'PROJ-MYS-001',
-      projectName: poolData.projectName || 'FELDA Agri Expansion',
-      organisationId: poolData.organisationId || 'ORG-FELDA-MYS',
-      organisationName: poolData.organisationName || 'FELDA Holdings Berhad',
-      countryNodeId: poolData.countryNodeId || 'CN-MYS',
-      poolType: poolData.poolType || 'Agriculture',
-      investmentStructure: poolData.investmentStructure || 'Mudarabah',
-      targetAmount: poolData.targetAmount || 8000000,
-      minimumAmount: poolData.minimumAmount || 5000000,
-      maximumAmount: poolData.maximumAmount || 10000000,
-      amountRaised: 0,
-      minimumInvestment: poolData.minimumInvestment || 10000,
-      maximumInvestment: poolData.maximumInvestment || 1000000,
-      currency: poolData.currency || 'USD',
-      durationMonths: poolData.durationMonths || 60,
-      indicativeExpectedReturn: poolData.indicativeExpectedReturn || 8.5,
-      riskLevel: poolData.riskLevel || 'Medium',
-      openingDate: poolData.openingDate || new Date().toISOString().split('T')[0],
-      closingDate: poolData.closingDate || '2026-12-31',
-      status: poolData.status || 'DRAFT',
-      investorCount: 0,
-      feesDescription: poolData.feesDescription || '1.5% p.a. Mudarib management fee.',
-      distributionFrequency: poolData.distributionFrequency || 'Quarterly',
-      riskDisclosure: poolData.riskDisclosure || 'Indicative expected returns are for demonstration only and do not constitute a guaranteed return.',
-      approvals: {
-        shariahApproval: false,
-        complianceApproval: false,
-        riskApproval: false,
-        authorisedApproval: false
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    this.pools.unshift(newPool);
-
-    auditLogger.logEvent({
-      userId,
-      organisationId: newPool.organisationId,
-      countryNodeId: newPool.countryNodeId,
-      role: userRole,
-      action: 'pool_create',
-      resourceType: 'pool',
-      resourceId: newId,
-      result: 'Success',
-      metadata: { poolName: newPool.poolName, targetAmount: newPool.targetAmount }
-    });
-
-    notificationService.notify(
-      'Wealth Pool Structured',
-      `Wealth Pool "${newPool.poolName}" created in ${newPool.status} status.`,
-      'info',
-      'pool',
-      newId
-    );
-
-    return newPool;
+  private upsert(pool: WealthPool): void {
+    const idx = this.pools.findIndex(p => p.poolId === pool.poolId);
+    if (idx >= 0) this.pools[idx] = pool;
+    else this.pools.unshift(pool);
   }
 
-  public approvePoolStep(
-    poolId: string, 
-    step: 'shariah' | 'compliance' | 'risk' | 'authorised', 
-    userId: string, 
-    userRole: string
-  ): WealthPool {
-    const pool = this.getPoolById(poolId);
-    if (!pool) throw new Error('Pool not found');
-
-    const now = new Date().toISOString();
-    if (step === 'shariah') {
-      pool.approvals.shariahApproval = true;
-      pool.approvals.shariahApprovedBy = userRole;
-      pool.approvals.shariahApprovedAt = now;
-    } else if (step === 'compliance') {
-      pool.approvals.complianceApproval = true;
-      pool.approvals.complianceApprovedBy = userRole;
-      pool.approvals.complianceApprovedAt = now;
-    } else if (step === 'risk') {
-      pool.approvals.riskApproval = true;
-      pool.approvals.riskApprovedBy = userRole;
-      pool.approvals.riskApprovedAt = now;
-    } else if (step === 'authorised') {
-      pool.approvals.authorisedApproval = true;
-      pool.approvals.authorisedApprovedBy = userRole;
-      pool.approvals.authorisedApprovedAt = now;
-    }
-
-    const allApproved = 
-      pool.approvals.shariahApproval &&
-      pool.approvals.complianceApproval &&
-      pool.approvals.riskApproval &&
-      pool.approvals.authorisedApproval;
-
-    if (allApproved) {
-      pool.status = 'APPROVED';
-
-      auditLogger.logEvent({
-        userId,
-        organisationId: pool.organisationId,
-        countryNodeId: pool.countryNodeId,
-        role: userRole,
-        action: 'pool_approve',
-        resourceType: 'pool',
-        resourceId: poolId,
-        result: 'Success',
-        metadata: { poolName: pool.poolName }
-      });
-
-      notificationService.notify(
-        'Pool Fully Approved',
-        `Pool "${pool.poolName}" has received all 4 governance sign-offs and is APPROVED for opening.`,
-        'success',
-        'pool',
-        poolId
-      );
-    }
-
-    pool.updatedAt = now;
+  /** Single-pool responses carry no amounts, so they are kept from the cached row. */
+  private async replaceFrom(raw: BackendPool): Promise<WealthPool> {
+    const cached = this.getPoolById(raw.poolId);
+    const pool = mapPool({ ...raw, targetAmount: cached?.targetAmount, raisedAmount: cached?.amountRaised });
+    this.upsert(pool);
     return pool;
   }
 
-  public openPool(poolId: string, userId: string, userRole: string): WealthPool {
-    const pool = this.getPoolById(poolId);
-    if (!pool) throw new Error('Pool not found');
+  /** Pause, reopen, mark full or close an opened pool; the note goes to the audit trail. */
+  public async setStatus(poolId: string, status: 'OPEN' | 'PAUSED' | 'FULL' | 'CLOSED', note?: string): Promise<WealthPool> {
+    return this.replaceFrom(await apiClient.setPoolStatus(poolId, status, note));
+  }
 
-    const allApproved = 
-      pool.approvals.shariahApproval &&
-      pool.approvals.complianceApproval &&
-      pool.approvals.riskApproval &&
-      pool.approvals.authorisedApproval;
+  public async approvePoolStep(poolId: string, step: PoolSignOffStep, _userId: string, _userRole: string): Promise<WealthPool> {
+    return this.replaceFrom(await apiClient.signOffPool(poolId, step));
+  }
 
-    if (!allApproved || pool.status !== 'APPROVED') {
-      throw new Error('Approval Dependency Error: Pool cannot be OPENED until Shariah, Compliance, Risk, and Executive approvals are completed.');
-    }
-
-    if (userRole === 'Investor') {
-      throw new Error('Segregation of Duties Violation: Investors cannot open or approve wealth pools.');
-    }
-
-    pool.status = 'OPEN';
-    pool.updatedAt = new Date().toISOString();
-
-    auditLogger.logEvent({
-      userId,
-      organisationId: pool.organisationId,
-      countryNodeId: pool.countryNodeId,
-      role: userRole,
-      action: 'pool_open',
-      resourceType: 'pool',
-      resourceId: poolId,
-      result: 'Success',
-      metadata: { poolName: pool.poolName }
-    });
-
-    notificationService.notify(
-      'Wealth Pool Opened for Subscriptions',
-      `Wealth Pool "${pool.poolName}" is now OPEN on the Marketplace for eligible investors.`,
-      'success',
-      'pool',
-      poolId
-    );
-
-    return pool;
+  public async openPool(poolId: string, _userId: string, _userRole: string): Promise<WealthPool> {
+    return this.replaceFrom(await apiClient.openPool(poolId));
   }
 }
 

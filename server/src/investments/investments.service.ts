@@ -8,6 +8,7 @@ import { assertTenantScope, postingOnBehalfOf, tenantScopeFilter } from '../tena
 import { advanceProjectStatus, RAISING_PROJECT_STATUSES } from '../projects/project-status';
 import { CreateInvestmentOrderDto } from './investments.dto';
 import { assertCanViewPool, INVESTOR_ROLES } from '../pools/pool-access';
+import { buildPositions, EARNED_DISTRIBUTION_STATUSES, InvestorPosition } from './positions';
 
 const SETTLEMENT_ROLES = new Set(['Super Admin', 'Settlement Officer', 'Portfolio Manager', 'Finance Officer']);
 /** Settlement staff who confirm transfers for every organisation of their country, not only their own. */
@@ -62,6 +63,40 @@ export class InvestmentsService {
     // An investor sees only their own orders (they sit in the pool's organisation, not the investor's).
     const where = INVESTOR_ROLES.has(actor.role) ? { investorUserId: actor.userId } : tenantScopeFilter(actor);
     return this.prisma.investmentOrder.findMany({ where, orderBy: { createdAt: 'desc' }, include: { contribution: true, pool: { select: { poolName: true } } }, take: 100 });
+  }
+
+  /** The signed-in investor's holding in each pool: capital, pool share and profit (see positions.ts). */
+  async positions(actor: AuthenticatedUser): Promise<InvestorPosition[]> {
+    if (!INVESTOR_ROLES.has(actor.role)) throw new ForbiddenException('Positions are for investor accounts.');
+    const orders = await this.prisma.investmentOrder.findMany({
+      where: { investorUserId: actor.userId, status: { in: ['PENDING', 'SETTLED'] } },
+      include: {
+        akadTerms: { select: { investorProfitSharePct: true } },
+        pool: { select: { poolName: true, status: true, currency: true, investmentStructure: true, indicativeExpectedReturn: true, project: { select: { projectName: true } } } },
+      },
+    });
+    if (!orders.length) return [];
+    const poolIds = [...new Set(orders.map((order) => order.poolId))];
+    const [totals, allocations] = await Promise.all([
+      this.prisma.investmentContribution.groupBy({ by: ['poolId'], where: { poolId: { in: poolIds }, status: 'POSTED' }, _sum: { amount: true } }),
+      this.prisma.distributionAllocation.findMany({
+        where: { beneficiaryUserId: actor.userId, distribution: { poolId: { in: poolIds }, status: { in: EARNED_DISTRIBUTION_STATUSES } } },
+        select: { amount: true, distribution: { select: { poolId: true } }, payoutInstruction: { select: { status: true } } },
+      }),
+    ]);
+    return buildPositions(
+      orders.map((order) => ({
+        poolId: order.poolId,
+        amount: Number(order.amount),
+        status: order.status,
+        settledAt: order.settledAt,
+        createdAt: order.createdAt,
+        investorProfitSharePct: order.akadTerms ? Number(order.akadTerms.investorProfitSharePct) : null,
+        pool: { poolName: order.pool.poolName, status: order.pool.status, currency: order.pool.currency, investmentStructure: order.pool.investmentStructure, indicativeExpectedReturn: Number(order.pool.indicativeExpectedReturn), projectName: order.pool.project.projectName },
+      })),
+      new Map(totals.map((row) => [row.poolId ?? '', Number(row._sum.amount ?? 0)])),
+      allocations.map((allocation) => ({ poolId: allocation.distribution.poolId ?? '', amount: Number(allocation.amount), paid: allocation.payoutInstruction?.status === 'SETTLED' })),
+    );
   }
 
   async getOrder(actor: AuthenticatedUser, id: string) {

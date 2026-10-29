@@ -38,6 +38,7 @@ import { LiveAuditLog } from './admin/LiveAuditLog';
 import { LiveContractTemplates, LiveCountryNodes, LiveOrganisations, LiveSystemStatus } from './admin/AdminLiveSections';
 import { LivePermissionMatrix, LivePromotions, LiveRevenue, LiveWorkflowPipelines } from './admin/AdminLivePlatformSections';
 import { FundingReviewQueue } from './sponsor/FundingReviewQueue';
+import { PayoutVerificationPanel } from './admin/PayoutVerificationPanel';
 import { AdminGovernanceDashboards } from './admin/AdminGovernanceDashboards';
 import { AdminComplianceRisk } from './admin/AdminComplianceRisk';
 import { AdminSystemSecurity } from './admin/AdminSystemSecurity';
@@ -151,6 +152,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
         { id: 'fin_ai_monetisation', label: 'AI Token Economics', icon: <Sparkles className="w-4 h-4 text-purple-500" /> },
         { id: 'fin_fees', label: 'Platform Fees', icon: <DollarSign className="w-4 h-4" /> },
         { id: 'fin_settlement', label: 'Settlement Clearing', icon: <ArrowUpRight className="w-4 h-4" /> },
+        { id: 'fin_payout_verification', label: 'Payout Account Verification', icon: <ShieldAlert className="w-4 h-4 text-emerald-500" /> },
         { id: 'shariah_templates', label: 'Contract Templates', icon: <FileText className="w-4 h-4" /> },
         { id: 'shariah_governance', label: 'Shariah Governance', icon: <Award className="w-4 h-4" /> },
         { id: 'shariah_fatwa', label: 'Fatwa Repository', icon: <BookOpen className="w-4 h-4" /> }
@@ -290,6 +292,8 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
 
           {activeSection === 'pdp_applications' && <PdpKybReviewPanel />}
 
+          {activeSection === 'fin_payout_verification' && <PayoutVerificationPanel />}
+
           {activeSection === 'pdp_country_config' && <PDPCountryConfigAdminPanel />}
 
           {!LiveSection && activeSection === 'fin_revenue' && <RevenueManagementHub />}
@@ -323,7 +327,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
             />
           )}
 
-          {activeSection !== 'scoped_dashboard' && activeSection !== 'pdp_applications' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'sys_modules' && activeSection !== 'sys_role_availability' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && !LiveSection && !(live && activeSection === 'fin_settlement') && (
+          {activeSection !== 'scoped_dashboard' && activeSection !== 'pdp_applications' && activeSection !== 'fin_payout_verification' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'sys_modules' && activeSection !== 'sys_role_availability' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && !LiveSection && !(live && activeSection === 'fin_settlement') && (
             <AdminFinanceTemplates section={activeSection as any} />
           )}
         </div>

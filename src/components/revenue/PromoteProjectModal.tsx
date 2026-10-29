@@ -58,6 +58,11 @@ export const PromoteProjectModal: React.FC<PromoteProjectModalProps> = ({
         startDate,
         paymentMethod: payMethod,
       });
+      // Paid in RM: continue to ToyyibPay. It sends the payer back to the app, which confirms the payment and activates the promotion.
+      if (result.paymentUrl) {
+        window.location.assign(result.paymentUrl);
+        return;
+      }
       if (result.status === 'PENDING_PAYMENT') {
         setPromotionError('Payment is pending. The promotion will activate after payment confirmation.');
         return;

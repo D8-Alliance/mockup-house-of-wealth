@@ -1,4 +1,6 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { ToyyibPayService } from '../membership/toyyibpay.service';
+import { MembershipService, simulatedPaymentsAllowed } from '../membership/membership.service';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -59,6 +61,9 @@ export class ProjectsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly policy: PolicyService,
+    // Promotions paid in RM go through ToyyibPay like memberships; the payment module fulfils them.
+    @Optional() private readonly toyyibPay?: ToyyibPayService,
+    @Optional() private readonly membership?: MembershipService,
   ) {}
 
   async list(user: AuthenticatedUser) {
@@ -102,7 +107,8 @@ export class ProjectsService {
       this.prisma.shariahReview.findFirst({ where: { projectId }, orderBy: { createdAt: 'desc' }, select: { status: true } }),
       this.prisma.projectAssetNeed.findMany({ where: { projectId }, select: { status: true } }),
       this.prisma.assetEngagement.findMany({ where: { projectId, status: { notIn: ['DECLINED', 'WITHDRAWN', 'REJECTED'] } }, select: { id: true, status: true } }),
-      this.prisma.wealthPool.count({ where: { projectId } }),
+      // A draft or approved pool is not launched yet: investors only see it once it opens.
+      this.prisma.wealthPool.count({ where: { projectId, status: { notIn: ['DRAFT', 'APPROVED'] } } }),
       this.prisma.countryNode.findUnique({ where: { code: project.countryNodeId }, select: { currency: true } }),
     ]);
     const pdp = await this.prisma.pdpApplication.findFirst({
@@ -580,6 +586,14 @@ export class ProjectsService {
     if (!campaign?.payment) throw new NotFoundException('Promotion payment not found');
     if (campaign.payment.userId !== user.userId) throw new ForbiddenException('Promotion payment is not owned by this user');
     if (campaign.payment.status === 'PAID') return campaign;
+    // A ToyyibPay bill is confirmed only by ToyyibPay itself: re-verify it and let the payment module activate the campaign.
+    const bill = await this.prisma.paymentTransaction.findFirst({ where: { productType: 'PROJECT_PROMOTION', productId: campaign.id }, orderBy: { createdAt: 'desc' }, select: { id: true } });
+    if (bill && this.membership) {
+      await this.membership.verifyToyyibPayPayment(user, bill.id);
+      return this.prisma.projectPromotionCampaign.findUniqueOrThrow({ where: { id: campaign.id }, include: { payment: true } });
+    }
+    // Without a payment gateway (local development) the payment is simulated; never in production.
+    if (!simulatedPaymentsAllowed()) throw new BadRequestException('This promotion is paid through ToyyibPay; it activates once ToyyibPay confirms the payment.');
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.promotionPayment.update({ where: { id: campaign.payment!.id }, data: { status: 'PAID', providerRef: `SIM-${Date.now()}` } });
       return tx.projectPromotionCampaign.update({ where: { id: campaign.id }, data: { status: 'ACTIVE', paymentStatus: 'PAID' }, include: { payment: true } });
@@ -624,7 +638,7 @@ export class ProjectsService {
     if (Number.isNaN(startDate.getTime())) throw new BadRequestException('Start date is invalid.');
     const endDate = promotionPackage.durationDays ? new Date(startDate.getTime() + promotionPackage.durationDays * 86400000) : null;
 
-    return this.prisma.$transaction(async (tx) => {
+    const campaign = await this.prisma.$transaction(async (tx) => {
       let paymentStatus = 'PAID';
       let campaignStatus = 'ACTIVE';
       if (dto.paymentMethod === 'CREDITS' && promotionPackage.creditsCost > 0) {
@@ -662,6 +676,26 @@ export class ProjectsService {
       await this.audit.recordActor(user, { action: 'project.promotion.create', resourceType: 'ProjectPromotionCampaign', resourceId: campaign.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { packageId: promotionPackage.id, paymentStatus } });
       return campaign;
     });
+
+    // An RM price is paid through ToyyibPay; the payment module activates the campaign once
+    // ToyyibPay confirms the bill (callback, return page or reconciliation).
+    if (campaign.paymentStatus !== 'PENDING' || !this.toyyibPay?.isConfigured()) return campaign;
+    const bill = await this.toyyibPay.createBill(user, {
+      productType: 'PROJECT_PROMOTION',
+      productId: campaign.id,
+      description: `${promotionPackage.title} for ${project.projectName}`,
+      amountMYR: promotionPackage.priceMYR,
+      metadata: { projectId: project.projectId, packageId: promotionPackage.id },
+    }, { onFailed: () => this.markPromotionPaymentFailed(campaign.id) });
+    await this.prisma.promotionPayment.update({ where: { campaignId: campaign.id }, data: { providerRef: bill.billCode } });
+    return { ...campaign, paymentId: bill.paymentId, paymentUrl: bill.paymentUrl };
+  }
+
+  private async markPromotionPaymentFailed(campaignId: string) {
+    await this.prisma.$transaction([
+      this.prisma.promotionPayment.updateMany({ where: { campaignId, status: 'PENDING' }, data: { status: 'FAILED' } }),
+      this.prisma.projectPromotionCampaign.updateMany({ where: { id: campaignId, status: 'PENDING_PAYMENT' }, data: { status: 'PAYMENT_FAILED', paymentStatus: 'FAILED' } }),
+    ]);
   }
 
   private toTeamMember(member: { id: string; projectRole: string; user: { id: string; name: string; email: string; profile: unknown } }) {

@@ -5,6 +5,7 @@ import { existsSync, writeFileSync } from 'node:fs';
 import { AuditService } from '../../audit/audit.service';
 import { AuthenticatedUser } from '../../auth/identity.service';
 import { NotificationDeliveryService } from '../../notifications/notification-delivery.service';
+import { emailProvider } from '../../notifications/email-config';
 import { NotificationService } from '../../notifications/notification.service';
 import { PrismaService } from '../../prisma.service';
 import { formatLocalDateTime } from '../../tenancy/country-time';
@@ -43,7 +44,7 @@ export class AgreementSigningService {
   /** EMAIL when an email provider is set up; TEST (the code shown on screen) only outside production. */
   codeChannel(): 'EMAIL' | 'TEST' {
     const wanted = (process.env.SIGNING_OTP_CHANNEL ?? '').toLowerCase();
-    const emailReady = process.env.NOTIFICATION_EMAIL_PROVIDER === 'resend' && Boolean(process.env.RESEND_API_KEY) && Boolean(process.env.NOTIFICATION_EMAIL_FROM);
+    const emailReady = emailProvider() !== null;
     if (wanted !== 'test' && emailReady) return 'EMAIL';
     if (process.env.NODE_ENV === 'production' && wanted !== 'test') throw new ServiceUnavailableException('Signing codes cannot be sent: no email provider is set up.');
     return 'TEST';
