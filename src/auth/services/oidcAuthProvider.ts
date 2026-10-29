@@ -11,6 +11,8 @@ const refreshKey = 'how-oidc-refresh';
 const idTokenKey = 'how-oidc-id-token';
 // Set when the app signs out but Keycloak's session may still be alive: the next sign-in asks for the password.
 const forceLoginKey = 'how-oidc-force-login';
+/** Added to the app's address on the way back from Keycloak's logout. */
+export const SIGNED_OUT_PARAM = 'signed_out';
 
 /**
  * The identity provider's own account pages (Keycloak account console), where users change their
@@ -227,7 +229,7 @@ export class OidcAuthProvider {
     this.clearSession();
     if (options?.endSingleSignOn && idToken && issuer && redirectUri) {
       const config = requiredConfig();
-      const params = new URLSearchParams({ client_id: config.clientId, id_token_hint: idToken, post_logout_redirect_uri: config.redirectUri });
+      const params = new URLSearchParams({ client_id: config.clientId, id_token_hint: idToken, post_logout_redirect_uri: signedOutUri(config.redirectUri) });
       window.location.assign(`${config.issuer}/protocol/openid-connect/logout?${params}`);
     } else if (issuer) {
       setFlag();
@@ -240,6 +242,13 @@ export class OidcAuthProvider {
   private readSession(): AuthSession | null {
     try { return JSON.parse(sessionStorage.getItem(storageKey) || 'null') as AuthSession | null; } catch { return null; }
   }
+}
+
+/** Where Keycloak sends the browser after signing out: the app, which then opens sign-in. */
+function signedOutUri(redirect: string): string {
+  const url = new URL(redirect);
+  url.searchParams.set(SIGNED_OUT_PARAM, '1');
+  return url.toString();
 }
 
 // The flag outlives the tab (a new tab signs in fresh too); storage can be unavailable in private modes.

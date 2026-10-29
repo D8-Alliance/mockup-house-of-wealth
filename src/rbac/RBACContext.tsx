@@ -1,3 +1,4 @@
+import { SIGNED_OUT_PARAM } from '../auth/services/oidcAuthProvider';
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { UserRole, ResourceModule, PermissionAction, RoleDefinition } from './types';
 import { ROLE_DEFINITIONS } from './roleDefinitions';
@@ -67,7 +68,15 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
 }) => {
   const [authState, setAuthState] = useState<AuthState>(authService.getAuthState());
   const [currentRole, setCurrentRoleState] = useState<UserRole>('Guest');
-  const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+  // Back from signing out (Keycloak's logout returns with ?signed_out=1): offer sign-in straight away.
+  const [showLoginModal, setShowLoginModal] = useState<boolean>(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has(SIGNED_OUT_PARAM)) return false;
+    params.delete(SIGNED_OUT_PARAM);
+    const rest = params.toString();
+    window.history.replaceState({}, document.title, window.location.pathname + (rest ? `?${rest}` : ''));
+    return true;
+  });
   const [guestBrowsing, setGuestBrowsing] = useState<boolean>(false);
   const [authMode, setAuthModeState] = useState<AuthMode>(authService.getAuthState().mode);
   const [backendAccess, setBackendAccess] = useState<BackendAccess | null>(null);
