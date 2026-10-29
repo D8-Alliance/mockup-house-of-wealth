@@ -4,6 +4,7 @@ import { useRBAC } from '../../rbac/RBACContext';
 import { MetricCard } from './MetricCard';
 import { NavTab } from '../../types';
 import { apiClient, NetworkOverview } from '../../services/apiClient';
+import { openAdminSection } from '../adminNavigation';
 
 interface NetworkDashboardWidgetsProps {
   /** Super Admin sees every country; a Country Admin sees only theirs (the server scopes it). */
@@ -34,7 +35,7 @@ export const NetworkDashboardWidgets: React.FC<NetworkDashboardWidgetsProps> = (
     { label: 'Investor payments to settle', count: waiting.settlements, allowed: true, open: toQueue },
     { label: 'Tranche releases to decide or pay', count: waiting.trancheRequests, allowed: true, open: toQueue },
     { label: 'Assets waiting for verification', count: waiting.assetsToVerify, allowed: canAccessTab('assets'), open: () => setTab('assets') },
-    { label: 'Organisation KYB to review', count: waiting.kybToReview, allowed: canAccessTab('admin-center'), open: () => setTab('admin-center') },
+    { label: 'Organisation KYB to review', count: waiting.kybToReview, allowed: canAccessTab('admin-center'), open: () => { openAdminSection('org_verification'); setTab('admin-center'); } },
   ] : [];
 
   return (

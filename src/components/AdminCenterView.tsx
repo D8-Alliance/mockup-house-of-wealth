@@ -38,6 +38,10 @@ import { LiveAuditLog } from './admin/LiveAuditLog';
 import { LiveContractTemplates, LiveCountryNodes, LiveOrganisations, LiveSystemStatus } from './admin/AdminLiveSections';
 import { LivePermissionMatrix, LivePromotions, LiveRevenue, LiveWorkflowPipelines } from './admin/AdminLivePlatformSections';
 import { FundingReviewQueue } from './sponsor/FundingReviewQueue';
+import { OrganisationVerificationPanel, OrganisationVerificationTab } from './admin/OrganisationVerificationPanel';
+
+/** Organisation KYB and PDP applications share one screen; older links (e.g. from My reviews) open their tab. */
+const ORGANISATION_VERIFICATION: Record<string, OrganisationVerificationTab> = { org_verification: 'kyb', compliance_kyb: 'kyb', pdp_applications: 'pdp' };
 import { AdminGovernanceDashboards } from './admin/AdminGovernanceDashboards';
 import { AdminComplianceRisk } from './admin/AdminComplianceRisk';
 import { AdminSystemSecurity } from './admin/AdminSystemSecurity';
@@ -48,7 +52,6 @@ import { OrganisationAdminDashboard } from './admin/OrganisationAdminDashboard';
 import { AdminAIAnalyticsPanel } from '../ai/monetisation/AdminAIAnalyticsPanel';
 import { MarketplaceMonetisationHub } from './revenue/MarketplaceMonetisationHub';
 import { RevenueManagementHub } from './revenue/RevenueManagementHub';
-import { PdpKybReviewPanel } from '../pdp/components/PdpKybReviewPanel';
 import { takeAdminSection } from './adminNavigation';
 import { PDPCountryConfigAdminPanel } from '../pdp/components/PDPCountryConfigAdminPanel';
 import { AdminShariahContentManager } from './info/AdminShariahContentManager';
@@ -111,9 +114,8 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
     {
       group: 'Identity & Compliance',
       items: [
-        { id: 'pdp_applications', label: 'PDP Applications Queue', icon: <Building2 className="w-4 h-4 text-purple-500" /> },
+        { id: 'org_verification', label: 'Organisation Verification', icon: <Building2 className="w-4 h-4 text-purple-500" /> },
         { id: 'compliance_kyc', label: 'KYC Verification', icon: <UserPlus className="w-4 h-4" /> },
-        { id: 'compliance_kyb', label: 'KYB Corporate Verification', icon: <Building2 className="w-4 h-4" /> },
         { id: 'compliance_aml', label: 'AML Transaction Monitoring', icon: <ShieldAlert className="w-4 h-4" /> },
         { id: 'compliance_pep', label: 'PEP Screening', icon: <Search className="w-4 h-4" /> },
         { id: 'compliance_sanctions', label: 'Sanction Screening', icon: <Lock className="w-4 h-4" /> }
@@ -168,7 +170,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
   ];
 
   const dashboardSections = ['dash_compliance', 'dash_audit', 'dash_finance', 'dash_security', 'sys_reports'];
-  const complianceRiskSections = ['compliance_kyc', 'compliance_kyb', 'compliance_aml', 'compliance_pep', 'compliance_sanctions', 'risk_register', 'risk_incidents', 'sys_auditlogs'];
+  const complianceRiskSections = ['compliance_kyc', 'compliance_aml', 'compliance_pep', 'compliance_sanctions', 'risk_register', 'risk_incidents', 'sys_auditlogs'];
   const systemSecuritySections = ['users_dir', 'sys_country', 'sys_orgs', 'sys_roles', 'sys_permissions', 'sys_workflow', 'sys_approvalmatrix', 'analytics_monitoring'];
 
   const renderScopedDashboard = () => {
@@ -257,7 +259,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
                     {cat.group}
                   </span>
                   {cat.items.map(item => {
-                    const active = activeSection === item.id;
+                    const active = activeSection === item.id || (item.id === 'org_verification' && activeSection in ORGANISATION_VERIFICATION);
                     return (
                       <button
                         key={item.id}
@@ -288,7 +290,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
 
           {activeSection === 'scoped_dashboard' && renderScopedDashboard()}
 
-          {activeSection === 'pdp_applications' && <PdpKybReviewPanel />}
+          {activeSection in ORGANISATION_VERIFICATION && <OrganisationVerificationPanel key={activeSection} initialTab={ORGANISATION_VERIFICATION[activeSection]} />}
 
           {activeSection === 'pdp_country_config' && <PDPCountryConfigAdminPanel />}
 
@@ -323,7 +325,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
             />
           )}
 
-          {activeSection !== 'scoped_dashboard' && activeSection !== 'pdp_applications' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'sys_modules' && activeSection !== 'sys_role_availability' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && !LiveSection && !(live && activeSection === 'fin_settlement') && (
+          {activeSection !== 'scoped_dashboard' && !(activeSection in ORGANISATION_VERIFICATION) && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'sys_modules' && activeSection !== 'sys_role_availability' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && !LiveSection && !(live && activeSection === 'fin_settlement') && (
             <AdminFinanceTemplates section={activeSection as any} />
           )}
         </div>
