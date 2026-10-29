@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException, Optional } from '@nestjs/common';
+import { extractFinancialFacts, missingFeasibilityEvidence } from './financial-facts';
 import { AiProviderResponse } from './ai.types';
 import { feasibilityFallback, feasibilityModelContext } from './feasibility-model';
 import { AssetsService } from '../assets/assets.service';
@@ -504,7 +505,7 @@ export class AiService {
     const evidenceIntelligence = this.buildEvidenceIntelligence(project, project.documents, financialAnalysis, project.evidenceRequirements);
     const projectRiskAssessment = this.buildProjectRiskAssessment(financialAnalysis, evidenceIntelligence, project.milestones);
     const projectFeasibility = this.buildProjectFeasibilityScore(financialAnalysis, evidenceIntelligence, projectRiskAssessment, project.milestones);
-    const riskAnalysis = { ...this.buildFeasibilityRiskAnalysis(project, project.documents), projectRiskAssessment };
+    const riskAnalysis = { ...this.buildFeasibilityRiskAnalysis(project, project.documents, project.evidenceRequirements), projectRiskAssessment };
     const shariahAssessment = this.buildShariahStructureAssessment(project.proposedShariahContract, project, project.documents);
     const aiRun = await this.analyzeProjectFeasibility(actor, { projectId, project: { projectId, projectCode: project.projectCode, projectName: project.projectName, description: project.description, sector: project.sector, totalProjectCost: project.totalProjectCost.toString(), sponsorContribution: project.sponsorContribution.toString(), fundingRequired: project.fundingRequired.toString(), proposedShariahContract: project.proposedShariahContract, status: project.status, milestones: project.milestones }, documents: project.documents.map(({ extractedText, ...document }) => ({ ...document, textLength: extractedText.length })), financialAnalysis, riskAnalysis });
     const investmentReadiness = this.buildInvestmentReadiness(evidenceIntelligence, financialAnalysis, projectRiskAssessment, shariahAssessment, projectFeasibility);
@@ -678,7 +679,7 @@ export class AiService {
     return { structure, reviewTitle: `${structure} Review`, suitability: missing.length ? 'REQUIRES_SHARIAH_REVIEW' : 'READY_FOR_SHARIAH_REVIEW', checks: checks.map((check) => ({ label: check.label, status: check.complete ? 'COMPLETE' : 'MISSING' })), assessment, requiredInformation: missing, missingInformation: missing, potentialConcerns: missing.length ? ['The proposed structure is detected but cannot be treated as Shariah-approved until the missing information is independently reviewed.', ...missing] : ['Confirm asset ownership, risk allocation, profit treatment, and prohibited elements during formal Shariah review.'], status, statusFlow: ['DETECTED', 'REQUIRES_INFORMATION', 'READY_FOR_SHARIAH_REVIEW', 'REVIEWED_BY_SHARIAH_REVIEWER'], humanReviewStatus: 'NOT_REVIEWED', humanReviewRequired: true, disclaimer: 'AI assessment is not a Shariah ruling or approval. Final determination requires qualified Shariah review.' };
   }
 
-  private buildFeasibilityRiskAnalysis(project: { description: string; status: string }, documents: Array<{ fileName: string; extractedText: string; extractionStatus: string }>) { const text = documents.map((document) => document.extractedText).join('\n').toLowerCase(); const missingEvidence = ['financial model or cashflow forecast', 'asset appraisal or valuation', 'legal and ownership evidence'].filter((item) => !text.includes(item.split(' ')[0])); const riskFlags = [...(missingEvidence.length ? [{ title: 'Missing evidence', severity: 'HIGH', description: `Missing: ${missingEvidence.join(', ')}` }] : []), ...(documents.some((document) => document.extractionStatus === 'FAILED') ? [{ title: 'Document extraction failure', severity: 'HIGH', description: 'One or more uploaded documents could not be reliably extracted.' }] : [])]; return { riskFlags, missingEvidence, keyAssumptions: [{ name: 'Project description', value: project.description }, { name: 'Project lifecycle status', value: project.status }, { name: 'Uploaded document count', value: documents.length }], sourceDocuments: documents.map((document) => document.fileName) }; }
+  private buildFeasibilityRiskAnalysis(project: { description: string; status: string }, documents: Array<{ fileName: string; extractedText: string; extractionStatus: string }>, evidenceRequirements: Array<{ evidenceType: string; uploadedDocumentId?: string | null }> = []) { const text = documents.map((document) => document.extractedText).join('\n').toLowerCase(); const missingEvidence = missingFeasibilityEvidence(text, evidenceRequirements); const riskFlags = [...(missingEvidence.length ? [{ title: 'Missing evidence', severity: 'HIGH', description: `Missing: ${missingEvidence.join(', ')}` }] : []), ...(documents.some((document) => document.extractionStatus === 'FAILED') ? [{ title: 'Document extraction failure', severity: 'HIGH', description: 'One or more uploaded documents could not be reliably extracted.' }] : [])]; return { riskFlags, missingEvidence, keyAssumptions: [{ name: 'Project description', value: project.description }, { name: 'Project lifecycle status', value: project.status }, { name: 'Uploaded document count', value: documents.length }], sourceDocuments: documents.map((document) => document.fileName) }; }
 
   private buildProjectFeasibilityScore(financialAnalysis: Record<string, any>, evidenceIntelligence: Record<string, any>, projectRiskAssessment: { overallLevel: string }, milestones: Array<{ title: string; completionPct: number; status: string }>) {
     const hasCoverage = (key: string, status = 'COMPLETED') => evidenceIntelligence.coverage?.some((item: { key: string; status: string }) => item.key === key && item.status === status);
@@ -787,26 +788,9 @@ export class AiService {
   }
 
   private extractFinancialFacts(text: string) {
-    const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const money = (line: string) => {
-      const matches = [...line.matchAll(/(?:MYR|RM|USD|EUR|GBP)\s*([\d,]+(?:\.\d+)?)\s*(million|billion|m|b)?/gi)];
-      const match = matches.at(-1);
-      if (!match) return null;
-      const value = Number(match[1].replace(/,/g, ''));
-      return match[2]?.toLowerCase().startsWith('b') ? value * 1e9 : match[2]?.toLowerCase().startsWith('m') ? value * 1e6 : value;
-    };
-    const labelled = (patterns: RegExp[]) => { const line = lines.find((candidate) => patterns.some((pattern) => pattern.test(candidate))); return line ? money(line) : null; };
-    const cashflowLines = lines.filter((line) => /cash flow|free cash flow|net cash flow/i.test(line));
-    const cashFlows = cashflowLines.map(money).filter((value): value is number => value !== null);
-    const rateLine = lines.find((line) => /discount rate|hurdle rate/i.test(line));
-    const rateMatch = rateLine?.match(/([\d.]+)\s*%/);
-    const scenarioAdjustment = (scenario: string) => {
-      const line = lines.find((candidate) => new RegExp(scenario, 'i').test(candidate) && /cash flow|revenue|opex|cost|sensitivity/.test(candidate));
-      const match = line?.match(/([+-]?[\d.]+)\s*%/);
-      return match ? Number(match[1]) / 100 : null;
-    };
-    return { cashFlows, capex: labelled([/capex|capital expenditure|construction cost/i]), opex: labelled([/opex|operating expense|operating cost/i]), revenue: labelled([/revenue|sales|turnover/i]), operatingCashflow: labelled([/operating cash flow|ebitda|operating profit/i]), debtService: labelled([/debt service|finance payment|principal and interest/i]), discountRate: rateMatch ? Number(rateMatch[1]) / 100 : null, scenarioAdjustments: { downside: scenarioAdjustment('downside'), upside: scenarioAdjustment('upside') }, source: cashflowLines.length ? 'EXTRACTED_DOCUMENT_LINES' : 'NOT_AVAILABLE' };
+    return extractFinancialFacts(text);
   }
+
 
   private buildScenarioAnalysis(cashFlows: number[], initialInvestment: number, facts: { discountRate: number | null; scenarioAdjustments: { downside: number | null; upside: number | null } }) {
     const calculate = (name: string, adjustment: number | null) => {
