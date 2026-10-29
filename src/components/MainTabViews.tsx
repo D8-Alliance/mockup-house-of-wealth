@@ -14,6 +14,8 @@ import { UserProfileSettingsView } from './UserProfileSettingsView';
 import { InvestmentsView } from './InvestmentsView';
 import { InvestorPoolsPanel } from './investments/InvestorPoolsPanel';
 import { PlatformOrdersPanel } from './investments/PlatformOrdersPanel';
+import { LivePoolsPanel } from '../pooling/LivePoolsPanel';
+import { LiveDocumentVault } from './documents/LiveDocumentVault';
 import { WalletView } from './WalletView';
 import { FinancialsView } from './FinancialsView';
 import { DocumentsView } from './DocumentsView';
@@ -74,7 +76,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
   onOpenPdpRegister,
   setUser
 }) => {
-  const { currentRole, authMode } = useRBAC();
+  const { currentRole, authMode, checkPermission } = useRBAC();
   return (
     <>
       {currentTab === 'dashboard' && (
@@ -141,20 +143,21 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'marketplace' && (
         <RoleGuard tab="marketplace">
-          <AssetDiscoveryView
+          {/* Outside the demo the marketplace is the pools open for investment, from the database. */}
+          {authMode !== 'DEMO' ? <LivePoolsPanel mode="marketplace" /> : <AssetDiscoveryView
             items={marketplace}
             lang={lang}
             onSelectInvestment={() => onOpenContractWizard()}
-          />
+          />}
         </RoleGuard>
       )}
 
       {currentTab === 'pooling' && (
         <RoleGuard tab="pooling">
-          <PoolingView
+          {authMode !== 'DEMO' ? <LivePoolsPanel mode="manage" /> : <PoolingView
             lang={lang}
             onOpenAssetRegister={() => onOpenAssetRegister()}
-          />
+          />}
         </RoleGuard>
       )}
 
@@ -206,7 +209,8 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'documents' && (
         <RoleGuard tab="documents">
-          <DocumentsView />
+          {/* The live vault lists project documents, so it needs project read access (marketplace:read on the server). */}
+          {authMode !== 'DEMO' && checkPermission('marketplace', 'read') ? <LiveDocumentVault /> : <DocumentsView />}
         </RoleGuard>
       )}
 

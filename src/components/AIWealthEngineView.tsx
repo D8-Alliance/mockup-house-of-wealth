@@ -79,7 +79,9 @@ interface AIWealthEngineViewProps {
 }
 
 export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNavigateToMembership }) => {
-  const { activeUser, isAuthenticated } = useRBAC();
+  const { activeUser, isAuthenticated, authMode } = useRBAC();
+  // Tools that still run on sample data are offered in the demo only.
+  const sampleHidden = authMode !== 'DEMO';
   // Another screen may ask to open a section, e.g. the dashboard's Draft Agreement button.
   const [activeTab, setActiveTab] = useState<AIEngineTab>(() => (takeAiEngineSection() as AIEngineTab | null) ?? 'overview');
   const [chatOpen, setChatOpen] = useState(false);
@@ -133,7 +135,8 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
     if (!canViewProjectFeasibility && activeTab === 'project-analyzer') setActiveTab('overview');
     if (!canViewCitationAudit && activeTab === 'citation-audit') setActiveTab('overview');
     if (!canUseAiTab(activeTab, activeUser.role) || hiddenAiTabs(activeUser.role).includes(activeTab)) setActiveTab('overview');
-  }, [activeTab, activeUser.role, canViewAiAdministration, canViewProjectFeasibility, canViewCitationAudit]);
+    if (sampleHidden && SAMPLE_TABS.includes(activeTab)) setActiveTab('overview');
+  }, [activeTab, activeUser.role, canViewAiAdministration, canViewProjectFeasibility, canViewCitationAudit, sampleHidden]);
 
   if (aiModuleDisabled) {
     return (
@@ -155,7 +158,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
   const assetSide = ['Asset Owner', 'Asset Manager'].includes(activeUser.role);
   // Tabs the server would refuse for this role are hidden too (aiTabAccess.ts mirrors its role lists).
   const hiddenForRole: AIEngineTab[] = [
-    ...(assetSide ? ['investment-matcher', 'portfolio-analysis', 'risk-analyzer', 'scenarios', 'pool-optimizer'] as AIEngineTab[] : []),
+    ...(assetSide || sampleHidden ? SAMPLE_TABS as AIEngineTab[] : []),
     ...(Object.keys(AI_TAB_ROLES) as AIEngineTab[]).filter((tab) => !canUseAiTab(tab, activeUser.role)),
     ...(hiddenAiTabs(activeUser.role) as AIEngineTab[]),
   ];

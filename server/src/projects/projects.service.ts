@@ -237,6 +237,26 @@ export class ProjectsService {
     }
   }
 
+  /**
+   * Every project document the caller may see, newest first, for the Document Vault: the same project scope as
+   * the project list (reviewers: submitted projects of their country; others: their tenant). Metadata only.
+   */
+  async documentVault(user: AuthenticatedUser) {
+    const reviewer = PROJECT_REVIEWER_ROLES.includes(user.role);
+    if (user.role !== 'Super Admin' && !reviewer && !this.policy.can(user.role, 'marketplace', 'read')) {
+      throw new ForbiddenException(this.policy.evaluate(user.role, 'marketplace', 'read').reason);
+    }
+    const project = reviewer
+      ? { countryNodeId: user.countryNodeId, OR: [{ organisationId: user.organisationId }, { status: { not: 'DRAFT' } }] }
+      : { ...tenantScopeFilter(user), ...(user.role === 'Project Sponsor' ? { projectSponsorId: user.userId } : {}) };
+    return this.prisma.projectDocument.findMany({
+      where: { project },
+      select: { id: true, projectId: true, fileName: true, mimeType: true, fileSize: true, extractionStatus: true, sha256: true, uploadedBy: true, createdAt: true, countryNodeId: true, project: { select: { projectName: true, projectCode: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+  }
+
   async listDocuments(projectId: string, user: AuthenticatedUser) {
     const project = await this.getForReview(projectId, user);
     return this.prisma.projectDocument.findMany({

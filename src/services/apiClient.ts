@@ -195,6 +195,7 @@ export const apiClient = {
   deleteBeneficiary: (id: string) => request<{ id: string }>(`/estate/beneficiaries/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getPools: () => request<BackendPool[]>('/pools'),
   getPool: (poolId: string) => request<BackendPoolDetail>(`/pools/${encodeURIComponent(poolId)}`),
+  setPoolStatus: (poolId: string, status: 'OPEN' | 'PAUSED' | 'FULL' | 'CLOSED', note?: string) => request<BackendPool>(`/pools/${encodeURIComponent(poolId)}/status`, { method: 'PATCH', body: JSON.stringify({ status, note }) }),
   createPool: (input: { projectId: string; poolName: string; currency: string; indicativeExpectedReturn: number; organisationId: string; countryNodeId: string; akadType: 'MUDARABAH' | 'MUSHARAKAH' | 'WAKALAH' | 'IJARAH'; investorProfitSharePct: number }) => request<BackendPool>('/pools', { method: 'POST', body: JSON.stringify(input) }),
   getFundingRequests: (projectId: string) => request<BackendFundingRequest[]>(`/funding/requests/${encodeURIComponent(projectId)}`),
   requestTrancheRelease: (projectId: string, milestoneId: string) => request<{ requestId: string; status: string }>(`/funding/projects/${encodeURIComponent(projectId)}/requests`, { method: 'POST', body: JSON.stringify({ milestoneId }) }),
@@ -273,6 +274,7 @@ export const apiClient = {
     formData.append('file', file);
     return request<BackendProjectDocument>(`/projects/${encodeURIComponent(projectId)}/documents`, { method: 'POST', body: formData });
   },
+  getDocumentVault: () => request<VaultDocumentRow[]>('/projects/document-vault'),
   downloadProjectDocument: async (projectId: string, documentId: string) => {
     const token = authService.getAuthState().session?.token;
     const response = await apiFetch(`${API_BASE_URL}/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/download`, {
@@ -296,6 +298,9 @@ export const apiClient = {
   setDefaultPayoutAccount: (id: string) => request<PayoutAccount[]>(`/users/me/payout-accounts/${encodeURIComponent(id)}/default`, { method: 'PATCH' }),
   removeMyPayoutAccount: (id: string) => request<PayoutAccount[]>(`/users/me/payout-accounts/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getUsers: () => request<BackendUser[]>('/users'),
+  getOrganisationDirectory: () => request<OrganisationDirectoryRow[]>('/organisations'),
+  getContractTemplates: () => request<ContractTemplateRow[]>('/contract-intelligence/templates'),
+  getHealth: () => request<{ status: string; service: string; time: string }>('/health'),
   updateUserStatus: (userId: string, status: string) => request<BackendUser>(`/users/${userId}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
@@ -322,6 +327,18 @@ export const apiClient = {
     }),
   getMembershipStatus: () => request<BackendMembershipStatus>('/membership/me'),
   getPaymentOptions: () => request<{ simulatedPaymentsAllowed: boolean }>('/membership/payment-options'),
+  getAuditEvents: (query: AuditEventQuery) => request<AuditEventPage>(`/admin/audit/events?${auditQueryString(query)}`),
+  exportAuditEvents: async (query: AuditEventQuery) => {
+    const token = authService.getAuthState().session?.token;
+    const response = await apiFetch(`${API_BASE_URL}/admin/audit/events/export?${auditQueryString(query)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!response.ok) throw new Error(await response.text() || `Audit export failed with status ${response.status}`);
+    const blobUrl = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || 'audit-events.csv';
+    link.click();
+    URL.revokeObjectURL(blobUrl);
+  },
   getHashChainIntegrity: () => request<HashChainReport>('/admin/audit/integrity'),
   sealHashChains: () => request<HashChainReport>('/admin/audit/integrity/seal', { method: 'POST' }),
   cancelMembershipPayment: (paymentId: string) => request<{ status: string; paymentId: string }>(`/membership/me/payments/${encodeURIComponent(paymentId)}/cancel`, { method: 'POST' }),
@@ -1385,6 +1402,82 @@ export interface BackendRagSearchResult {
   score?: number;
 }
 
+/** A project document as the Document Vault lists it: metadata only, the file is downloaded separately. */
+export interface VaultDocumentRow {
+  id: string;
+  projectId: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  extractionStatus: string;
+  sha256?: string | null;
+  uploadedBy: string;
+  createdAt: string;
+  countryNodeId: string;
+  project: { projectName: string; projectCode: string };
+}
+
+/** Filters for GET /admin/audit/events; the server scopes the events to the caller's tenant. */
+export interface AuditEventQuery {
+  page?: number;
+  limit?: number;
+  action?: string;
+  resourceType?: string;
+  userId?: string;
+  from?: string;
+  to?: string;
+}
+
+export interface AuditEventRow {
+  id: string;
+  userId: string;
+  userEmail?: string | null;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  organisationId?: string | null;
+  countryNodeId?: string | null;
+  result: string;
+  metadata: unknown;
+  createdAt: string;
+}
+
+export interface AuditEventPage {
+  data: AuditEventRow[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+const auditQueryString = (query: AuditEventQuery) => new URLSearchParams(Object.entries(query).filter(([, value]) => value !== undefined && value !== '').map(([key, value]) => [key, String(value)])).toString();
+
+export interface OrganisationDirectoryRow {
+  id: string;
+  name: string;
+  countryNodeId: string;
+  status: string;
+  kybStatus: string;
+  registrationNumber?: string | null;
+  createdAt: string;
+  users: number;
+  projects: number;
+  pools: number;
+}
+
+export interface ContractTemplateRow {
+  id: string;
+  contractType: string;
+  templateName: string;
+  jurisdiction: string;
+  industry: string;
+  version: number;
+  status: string;
+  approvalStatus: string;
+  createdDate: string;
+  clauses: Array<{ id: string }>;
+}
+
 export interface BackendPool {
   poolId: string;
   poolName: string;
@@ -1393,6 +1486,12 @@ export interface BackendPool {
   indicativeExpectedReturn: number | string;
   status: string;
   projectId: string;
+  countryNodeId?: string;
+  createdAt?: string;
+  /** Sent with the pool list: the project's name, its funding target and the settled money raised so far. */
+  projectName?: string;
+  targetAmount?: number;
+  raisedAmount?: number;
 }
 
 export interface BackendFundingRequest {

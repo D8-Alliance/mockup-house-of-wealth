@@ -24,7 +24,11 @@ export class PoolsService {
     if (user.role !== 'Super Admin' && !this.policy.can(user.role, 'pooling', 'read')) {
       throw new ForbiddenException(this.policy.evaluate(user.role, 'pooling', 'read').reason);
     }
-    return this.prisma.wealthPool.findMany({ where, orderBy: { createdAt: 'desc' }, take: 100 });
+    const pools = await this.prisma.wealthPool.findMany({ where, orderBy: { createdAt: 'desc' }, take: 100, include: { project: { select: { projectName: true, fundingRequired: true } } } });
+    // What each pool has raised: investor money Finance has settled (posted contributions).
+    const raised = pools.length ? await this.prisma.investmentContribution.groupBy({ by: ['poolId'], where: { poolId: { in: pools.map((pool) => pool.poolId) }, status: 'POSTED' }, _sum: { amount: true } }) : [];
+    const raisedByPool = new Map(raised.map((row) => [row.poolId, Number(row._sum.amount || 0)]));
+    return pools.map(({ project, ...pool }) => ({ ...pool, projectName: project.projectName, targetAmount: Number(project.fundingRequired), raisedAmount: raisedByPool.get(pool.poolId) ?? 0 }));
   }
 
   async get(id: string, user: AuthenticatedUser) {

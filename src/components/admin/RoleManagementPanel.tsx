@@ -11,6 +11,7 @@ import {
 import { UserRole, RoleDefinition, ResourceModule, ROLE_CATEGORIES } from '../../rbac/types';
 import { ROLE_DEFINITIONS } from '../../rbac/roleDefinitions';
 import { userService } from '../../users/userService';
+import { apiClient } from '../../services/apiClient';
 import { useRBAC } from '../../rbac/RBACContext';
 
 interface RoleManagementPanelProps {
@@ -22,7 +23,7 @@ export const RoleManagementPanel: React.FC<RoleManagementPanelProps> = ({
   onNavigateToPermissions,
   onNavigateToUserList
 }) => {
-  const { currentRole, setRole } = useRBAC();
+  const { currentRole, setRole, authMode } = useRBAC();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [selectedRole, setSelectedRole] = useState<RoleDefinition | null>(null);
@@ -30,7 +31,15 @@ export const RoleManagementPanel: React.FC<RoleManagementPanelProps> = ({
   const [activeTab, setActiveTab] = useState<'cards' | 'table'>('cards');
 
   const allRolesList = Object.values(ROLE_DEFINITIONS) as RoleDefinition[];
-  const allUsers = userService.getAllUsers();
+  // Who holds each role: the demo's sample people, or outside the demo the people in the database.
+  const [liveUsers, setLiveUsers] = useState<Array<{ primaryRole: string; assignedRoles: string[] }> | null>(null);
+  React.useEffect(() => {
+    if (authMode === 'DEMO') return;
+    void apiClient.getUsers()
+      .then((users) => setLiveUsers(users.map((user) => { const roles = user.assignedRoles.map((assignment) => assignment.role); return { primaryRole: roles[0] ?? '', assignedRoles: roles }; })))
+      .catch(() => setLiveUsers([]));
+  }, [authMode]);
+  const allUsers = authMode === 'DEMO' ? userService.getAllUsers() : liveUsers ?? [];
 
   const categories = ['ALL', ...ROLE_CATEGORIES];
 
@@ -76,13 +85,14 @@ export const RoleManagementPanel: React.FC<RoleManagementPanelProps> = ({
               <span>Permission Matrix</span>
             </button>
           )}
-          <button
+          {/* Roles are fixed by the server's role list; custom roles exist only in the demo. */}
+          {authMode === 'DEMO' && <button
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 shadow cursor-pointer transition-all"
           >
             <Plus className="w-4 h-4" />
             <span>Create Custom Role</span>
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -238,7 +248,7 @@ export const RoleManagementPanel: React.FC<RoleManagementPanelProps> = ({
                   >
                     View Details
                   </button>
-                  <button
+                  {authMode === 'DEMO' && <button
                     onClick={() => setRole(role.role)}
                     disabled={isCurrentActive}
                     className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
@@ -248,7 +258,7 @@ export const RoleManagementPanel: React.FC<RoleManagementPanelProps> = ({
                     }`}
                   >
                     {isCurrentActive ? 'Active Role' : 'Switch To'}
-                  </button>
+                  </button>}
                 </div>
               </div>
             </div>
@@ -348,7 +358,7 @@ export const RoleManagementPanel: React.FC<RoleManagementPanelProps> = ({
                   <p className="text-[11px] text-slate-500">{selectedRole.demoUser.organization}</p>
                 </div>
               </div>
-              <button
+              {authMode === 'DEMO' && <button
                 onClick={() => {
                   setRole(selectedRole.role);
                   setSelectedRole(null);
@@ -356,7 +366,7 @@ export const RoleManagementPanel: React.FC<RoleManagementPanelProps> = ({
                 className="px-3.5 py-2 rounded-xl bg-purple-600 text-white font-bold text-xs hover:bg-purple-500 transition-all cursor-pointer shrink-0"
               >
                 Impersonate Role
-              </button>
+              </button>}
             </div>
           </div>
         </div>

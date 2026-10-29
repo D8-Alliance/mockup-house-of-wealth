@@ -34,7 +34,9 @@ import {
 } from 'lucide-react';
 import { AdminModuleSection, NavTab } from '../types';
 import { NetworkDashboardWidgets } from './dashboards/NetworkDashboardWidgets';
-import { SampleDataNotice } from './common/SampleDataNotice';
+import { LiveAuditLog } from './admin/LiveAuditLog';
+import { LiveContractTemplates, LiveCountryNodes, LiveOrganisations, LiveSystemStatus } from './admin/AdminLiveSections';
+import { FundingReviewQueue } from './sponsor/FundingReviewQueue';
 import { AdminGovernanceDashboards } from './admin/AdminGovernanceDashboards';
 import { AdminComplianceRisk } from './admin/AdminComplianceRisk';
 import { AdminSystemSecurity } from './admin/AdminSystemSecurity';
@@ -55,14 +57,25 @@ import { FeatureModuleControlPanel } from './admin/FeatureModuleControlPanel';
 import { RoleAvailabilityPanel } from './admin/RoleAvailabilityPanel';
 
 /**
- * Sections still drawn from built-in examples rather than the database; outside the demo they carry a notice.
- * Remove an id here once its section reads live records.
+ * Outside the demo these sections read the database instead of the built-in examples.
  */
-const SAMPLE_DATA_SECTIONS = [
+const LIVE_SECTIONS: Record<string, React.FC> = {
+  sys_auditlogs: LiveAuditLog,
+  sys_orgs: LiveOrganisations,
+  sys_country: LiveCountryNodes,
+  shariah_templates: LiveContractTemplates,
+  analytics_monitoring: LiveSystemStatus,
+};
+
+/**
+ * Sections with no source of real records yet, so outside the demo they are not offered at all rather than
+ * showing invented figures. AML, PEP and sanctions screening need an external screening provider; the risk
+ * register, incidents, fee schedule and fatwa repository need their own records. See PENDING_ACTIVITIES item 23.
+ */
+const DEMO_ONLY_SECTIONS = [
   'dash_compliance', 'dash_audit', 'dash_finance', 'dash_security', 'sys_reports',
-  'compliance_aml', 'compliance_pep', 'compliance_sanctions', 'risk_register', 'risk_incidents', 'sys_auditlogs',
-  'sys_country', 'sys_orgs', 'sys_roles', 'analytics_monitoring',
-  'fin_fees', 'fin_settlement', 'shariah_templates', 'shariah_fatwa',
+  'compliance_aml', 'compliance_pep', 'compliance_sanctions', 'risk_register', 'risk_incidents',
+  'fin_fees', 'shariah_fatwa',
 ];
 
 interface AdminCenterViewProps {
@@ -71,8 +84,11 @@ interface AdminCenterViewProps {
 
 export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) => {
   const { currentRole, authMode } = useRBAC();
+  const live = authMode !== 'DEMO';
   // My reviews on the dashboard may open a queue directly, e.g. PDP applications.
-  const [activeSection, setActiveSection] = useState<string>(() => takeAdminSection() ?? 'scoped_dashboard');
+  const [chosenSection, setActiveSection] = useState<string>(() => takeAdminSection() ?? 'scoped_dashboard');
+  const activeSection = live && DEMO_ONLY_SECTIONS.includes(chosenSection) ? 'scoped_dashboard' : chosenSection;
+  const LiveSection = live ? LIVE_SECTIONS[activeSection] : undefined;
 
   const navCategories = [
     {
@@ -209,7 +225,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
               <span>Module Controls</span>
             </button>
             <button 
-              onClick={() => setActiveSection('sys_reports')}
+              onClick={() => setActiveSection(live ? 'sys_auditlogs' : 'sys_reports')}
               className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-2 shadow cursor-pointer transition-all"
             >
               <Download className="w-4 h-4" />
@@ -229,7 +245,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
             </div>
 
             <div className="space-y-4 text-xs">
-              {navCategories.map((cat, idx) => (
+              {navCategories.map(cat => ({ ...cat, items: cat.items.filter(item => !(live && DEMO_ONLY_SECTIONS.includes(item.id))) })).filter(cat => cat.items.length > 0).map((cat, idx) => (
                 <div key={idx} className="space-y-1">
                   <span className="font-extrabold text-[10px] text-purple-600 dark:text-purple-400 uppercase tracking-wider block px-2 mb-1">
                     {cat.group}
@@ -259,7 +275,10 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
 
         {/* Main Content Area */}
         <div className="lg:col-span-9 space-y-6">
-          {SAMPLE_DATA_SECTIONS.includes(activeSection) && <SampleDataNotice />}
+          {LiveSection && <LiveSection />}
+
+          {/* Investor payments waiting for Finance, and tranche releases: the same queue as on the dashboard. */}
+          {live && activeSection === 'fin_settlement' && <FundingReviewQueue role={currentRole} />}
 
           {activeSection === 'scoped_dashboard' && renderScopedDashboard()}
 
@@ -283,22 +302,22 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
             <AdminPageContentManager />
           )}
 
-          {dashboardSections.includes(activeSection) && (
+          {!LiveSection && !(live && activeSection === 'fin_settlement') && dashboardSections.includes(activeSection) && (
             <AdminGovernanceDashboards section={activeSection as any} />
           )}
 
-          {complianceRiskSections.includes(activeSection) && (
+          {!LiveSection && complianceRiskSections.includes(activeSection) && (
             <AdminComplianceRisk section={activeSection as any} />
           )}
 
-          {systemSecuritySections.includes(activeSection) && (
+          {!LiveSection && systemSecuritySections.includes(activeSection) && (
             <AdminSystemSecurity 
               section={activeSection as any} 
               onNavigateSection={(sec) => setActiveSection(sec)}
             />
           )}
 
-          {activeSection !== 'scoped_dashboard' && activeSection !== 'pdp_applications' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'sys_modules' && activeSection !== 'sys_role_availability' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && (
+          {activeSection !== 'scoped_dashboard' && activeSection !== 'pdp_applications' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'sys_modules' && activeSection !== 'sys_role_availability' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && !LiveSection && !(live && activeSection === 'fin_settlement') && (
             <AdminFinanceTemplates section={activeSection as any} />
           )}
         </div>

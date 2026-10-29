@@ -20,21 +20,51 @@ import { TRANSLATIONS } from '../data/translations';
 import { ZakatCalculatorCard } from './financials/ZakatCalculatorCard';
 import { StatementsPanel } from './financials/StatementsPanel';
 import { TaxStatementPanel } from './financials/TaxStatementPanel';
-import { SampleDataNotice } from './common/SampleDataNotice';
+import { useRBAC } from '../rbac/RBACContext';
+import { apiClient, BackendInvestmentOrder } from '../services/apiClient';
 
 interface FinancialTransaction {
   id: string;
-  type: 'Profit Disbursement' | 'Capital Injection' | 'Zakat Channeling' | 'SWIFT Settlement' | 'Fee Deduction';
+  type: string;
   amount: number;
+  /** Outside the demo, each ledger transaction keeps its own currency; amounts are never added across currencies. */
+  currency?: string;
   date: string;
   counterparty: string;
-  status: 'Settled' | 'Pending Clearance' | 'Processing';
+  status: string;
   referenceHash: string;
 }
+
+const money = (value: number, currency = 'USD') => `${currency === 'MYR' ? 'RM ' : currency === 'USD' ? '$' : currency + ' '}${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+const words = (code: string) => code.toLowerCase().split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
 export const FinancialsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'transactions' | 'statements' | 'profit' | 'zakat' | 'settlement'>('transactions');
   const [searchTerm, setSearchTerm] = useState('');
+  const { authMode } = useRBAC();
+  const live = authMode !== 'DEMO';
+  // Outside the demo: the double-entry ledger and the investor orders, from the server.
+  const [ledgerRows, setLedgerRows] = useState<FinancialTransaction[] | null>(null);
+  const [orders, setOrders] = useState<BackendInvestmentOrder[] | null>(null);
+  const [loadError, setLoadError] = useState('');
+  React.useEffect(() => {
+    if (!live) return;
+    setLoadError('');
+    void apiClient.getFinancialLedger()
+      .then((items) => setLedgerRows(items.map((item) => ({
+        id: item.transactionNumber,
+        type: words(item.transactionType),
+        // A balanced transaction: its debits equal its credits, so the debit side is its amount.
+        amount: item.entries.filter((entry) => entry.direction === 'DEBIT').reduce((sum, entry) => sum + Number(entry.amount), 0),
+        currency: item.currency,
+        date: new Date(item.createdAt).toLocaleString(),
+        counterparty: item.description,
+        status: item.status === 'POSTED' ? 'Settled' : words(item.status),
+        referenceHash: words(item.referenceType) + ' ' + item.referenceId,
+      }))))
+      .catch((cause) => { setLedgerRows([]); setLoadError(cause instanceof Error ? cause.message : 'The ledger could not be loaded.'); });
+    void apiClient.getInvestmentOrders().then(setOrders).catch(() => setOrders([]));
+  }, [live]);
 
 
   // Transactions list
@@ -77,7 +107,7 @@ export const FinancialsView: React.FC = () => {
     }
   ]);
 
-  const filteredTx = transactions.filter(t => 
+  const filteredTx = (live ? ledgerRows ?? [] : transactions).filter(t => 
     t.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.counterparty.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.type.toLowerCase().includes(searchTerm.toLowerCase())
@@ -143,7 +173,7 @@ export const FinancialsView: React.FC = () => {
             activeTab === 'settlement' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
           }`}
         >
-          SWIFT Clearance Queue
+          {live ? 'Settlement' : 'SWIFT Clearance Queue'}
         </button>
         <button
           onClick={() => setActiveTab('statements')}
@@ -156,7 +186,7 @@ export const FinancialsView: React.FC = () => {
       </div>
 
       {/* Content based on Active Tab */}
-      {['transactions', 'settlement'].includes(activeTab) && <SampleDataNotice subject="The transactions and settlements" />}
+      {live && loadError && <p role="alert" className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-xs font-bold text-rose-700 dark:text-rose-300">{loadError}</p>}
 
       {activeTab === 'transactions' && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden space-y-4 p-5">
@@ -182,7 +212,7 @@ export const FinancialsView: React.FC = () => {
                   <th className="p-3.5">Transaction Type</th>
                   <th className="p-3.5">Counterparty</th>
                   <th className="p-3.5">Date & Time</th>
-                  <th className="p-3.5">Amount ($)</th>
+                  <th className="p-3.5">Amount</th>
                   <th className="p-3.5 text-right">Status</th>
                 </tr>
               </thead>
@@ -196,7 +226,7 @@ export const FinancialsView: React.FC = () => {
                     <td className="p-3.5 font-semibold text-slate-700 dark:text-slate-300">{tx.type}</td>
                     <td className="p-3.5 text-slate-600 dark:text-slate-400">{tx.counterparty}</td>
                     <td className="p-3.5 text-slate-500">{tx.date}</td>
-                    <td className="p-3.5 font-black text-slate-900 dark:text-white">${tx.amount.toLocaleString()}</td>
+                    <td className="p-3.5 font-black text-slate-900 dark:text-white whitespace-nowrap">{money(tx.amount, tx.currency)}</td>
                     <td className="p-3.5 text-right">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${
                         tx.status === 'Settled' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
@@ -208,6 +238,7 @@ export const FinancialsView: React.FC = () => {
                 ))}
               </tbody>
             </table>
+            {filteredTx.length === 0 && <p className="p-4 text-xs text-slate-500">{live && !ledgerRows ? 'Loading the ledger...' : 'No ledger transaction yet.'}</p>}
           </div>
         </div>
       )}
@@ -234,7 +265,27 @@ export const FinancialsView: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'settlement' && (
+      {activeTab === 'settlement' && live && (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-sm space-y-4">
+          <h3 className="text-lg font-black text-slate-900 dark:text-white">Investor Payment Settlement</h3>
+          <p className="text-xs text-slate-500">Investor transfers and whether Finance has matched each to the bank statement. Newest first.</p>
+          {!orders && <p className="text-xs text-slate-500">Loading...</p>}
+          {orders && orders.length === 0 && <p className="text-xs text-slate-500">No investor order yet.</p>}
+          {orders?.map(order => (
+            <div key={order.id} className="p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-xs">
+              <div>
+                <div className="font-bold text-slate-900 dark:text-white">{order.orderNumber} · {order.pool?.poolName ?? order.poolId}</div>
+                <div className="text-slate-400">{money(Number(order.amount), order.currency)} · placed {new Date(order.createdAt).toLocaleDateString()}{order.paymentReference ? ' · bank ref ' + order.paymentReference : ''}</div>
+              </div>
+              <span className={`px-3 py-1 rounded-full font-bold border self-start sm:self-auto ${order.status === 'SETTLED' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : order.status === 'PENDING' ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' : 'bg-slate-500/10 text-slate-500 border-slate-500/20'}`}>
+                {order.status === 'SETTLED' ? 'Settled' + (order.settledAt ? ' ' + new Date(order.settledAt).toLocaleDateString() : '') : order.status === 'PENDING' ? 'Waiting for Finance' : 'Cancelled'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'settlement' && !live && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-sm space-y-4">
           <h3 className="text-lg font-black text-slate-900 dark:text-white">SWIFT Interbank Settlement Clearance</h3>
           <p className="text-xs text-slate-500">Cross-border transfers cleared via central D-8 node clearance network.</p>

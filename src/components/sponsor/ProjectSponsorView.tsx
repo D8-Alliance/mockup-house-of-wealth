@@ -72,7 +72,9 @@ interface ProjectSponsorViewProps {
 
 export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNavigate }) => {
   // The tenant the server resolved for this sign-in; a Keycloak token carries no organisation claim.
-  const { tenantContext } = useRBAC();
+  const { tenantContext, authMode } = useRBAC();
+  // The PDP plan card and the report and settings placeholders have no server records; the demo keeps them.
+  const demo = authMode === 'DEMO';
   const [projects, setProjects] = useState<SponsorProject[]>([]);
   const [projectLoadError, setProjectLoadError] = useState('');
   const [selectedProject, setSelectedProject] = useState<SponsorProject | null>(null);
@@ -360,7 +362,7 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
           { id: 'campaigns', label: 'Funding Campaigns', icon: <DollarSign className="w-4 h-4" /> },
           { id: 'reports', label: 'Reports & Audit Trail', icon: <PieChart className="w-4 h-4" /> },
           { id: 'settings', label: 'PDP Settings', icon: <Settings className="w-4 h-4" /> }
-        ].map(tab => (
+        ].filter(tab => demo || (tab.id !== 'reports' && tab.id !== 'settings')).map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
@@ -377,7 +379,7 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
       </div>
 
       {/* PDP Subscription Status Card */}
-      {activeTab === 'dashboard' && (
+      {demo && activeTab === 'dashboard' && (
         <PDPSubscriptionCard
           currentTierId={pdpSub.planId}
           activeProjectsCount={pdpSub.activeProjectsCount}

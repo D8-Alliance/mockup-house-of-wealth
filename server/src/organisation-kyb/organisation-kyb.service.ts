@@ -87,6 +87,25 @@ export class OrganisationKybService {
     return this.mine(actor);
   }
 
+  /**
+   * The organisation directory for platform administration: Super Admin sees every organisation,
+   * a Country Admin those of their country. People count once per organisation, however many roles they hold.
+   */
+  async directory(actor: AuthenticatedUser) {
+    if (actor.role !== 'Super Admin' && actor.role !== 'Country Admin') throw new ForbiddenException('Only Super Admin and Country Admin see the organisation directory.');
+    const scope = actor.role === 'Super Admin' ? {} : { countryNodeId: actor.countryNodeId };
+    const [organisations, members] = await Promise.all([
+      this.prisma.organisation.findMany({
+        where: scope, orderBy: { name: 'asc' }, take: 500,
+        select: { id: true, name: true, countryNodeId: true, status: true, kybStatus: true, registrationNumber: true, createdAt: true, _count: { select: { projects: true, pools: true } } },
+      }),
+      this.prisma.userRoleAssignment.findMany({ where: { ...scope, isActive: true }, select: { organisationId: true, userId: true }, distinct: ['organisationId', 'userId'] }),
+    ]);
+    const people = new Map<string, number>();
+    for (const member of members) people.set(member.organisationId, (people.get(member.organisationId) ?? 0) + 1);
+    return organisations.map(({ _count, ...organisation }) => ({ ...organisation, users: people.get(organisation.id) ?? 0, projects: _count.projects, pools: _count.pools }));
+  }
+
   async queue(actor: AuthenticatedUser, status?: string) {
     this.assertReviewer(actor);
     const organisations = await this.prisma.organisation.findMany({

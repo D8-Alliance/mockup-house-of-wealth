@@ -35,6 +35,10 @@ export class OrganisationKybController {
   @Roles(...SUBMITTERS)
   submit(@CurrentUser() actor: AuthenticatedUser) { return this.kyb.submit(actor); }
 
+  @Get()
+  @Roles('Super Admin', 'Country Admin')
+  directory(@CurrentUser() actor: AuthenticatedUser) { return this.kyb.directory(actor); }
+
   @Get('kyb')
   @Roles(...REVIEWERS)
   queue(@CurrentUser() actor: AuthenticatedUser, @Query('status') status?: string) { return this.kyb.queue(actor, status); }

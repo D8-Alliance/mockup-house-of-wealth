@@ -14,7 +14,6 @@ import { poolService } from '../pooling/poolService';
 import { Project } from '../projects/projectTypes';
 import { WealthPool } from '../pooling/poolTypes';
 import { Plus, ShieldCheck, ArrowRight, Layers, FileSpreadsheet, Lock } from 'lucide-react';
-import { SampleDataNotice } from './common/SampleDataNotice';
 
 interface PoolingViewProps {
   lang: LanguageCode;
@@ -40,7 +39,6 @@ export const PoolingView: React.FC<PoolingViewProps> = ({ lang }) => {
 
   return (
     <div className="space-y-8 animate-fadeIn">
-      <SampleDataNotice subject="The projects and wealth pools" />
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
         <div>

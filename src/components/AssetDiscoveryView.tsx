@@ -16,7 +16,6 @@ import { TRANSLATIONS } from '../data/translations';
 import { SponsoredMarketplaceBanner } from './revenue/SponsoredMarketplaceBanner';
 import { useRBAC } from '../rbac/RBACContext';
 import { canInvest } from '../rbac/menuVisibility';
-import { SampleDataNotice } from './common/SampleDataNotice';
 
 interface AssetDiscoveryViewProps {
   items: MarketplaceItem[];
@@ -61,7 +60,6 @@ export const AssetDiscoveryView: React.FC<AssetDiscoveryViewProps> = ({
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <SampleDataNotice subject="The marketplace listings" />
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
