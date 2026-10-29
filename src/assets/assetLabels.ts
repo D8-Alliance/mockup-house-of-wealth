@@ -56,6 +56,7 @@ export function documentChecklist(assetType: AssetTypeCode, details?: AssetDetai
     { type: 'OWNERSHIP', required: true },
     { type: 'INSPECTION', required: false },
     { type: 'ROAD_TAX', required: false },
+    { type: 'VALUATION', required: false },
     { type: 'INSURANCE', required: false },
     { type: 'SITE_PHOTO', required: false },
   ];
@@ -63,6 +64,8 @@ export function documentChecklist(assetType: AssetTypeCode, details?: AssetDetai
     { type: 'OWNERSHIP', required: true },
     { type: 'SERIAL_PLATE', required: true },
     { type: 'DOSH_CERTIFICATE', required: Boolean(details?.requiresDoshCertificate) },
+    // A partnership contribution or a sale needs an independent valuation (asset-structuring.ts), machines included.
+    { type: 'VALUATION', required: false },
     { type: 'INSURANCE', required: false },
     { type: 'SITE_PHOTO', required: false },
   ];
