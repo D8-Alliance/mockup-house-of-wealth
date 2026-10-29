@@ -24,12 +24,12 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 16 | DigitalOcean (staging siap) | Fail ke Spaces, model AI sebenar di staging, tetapan Keycloak, sandaran, pilot production | Bajet; lokasi data; tindakan Keycloak oleh pemilik |
 | 17 | Entiti berasingan dan pihak berkaitan | No. SSM, jenis entiti, syarikat induk; skrin cipta organisasi | Boleh dimulakan |
 | 18 | Prestasi projek PDP dan kontrak | Laporan KPI berkala; "My Contracts" masih data contoh | Keputusan senarai KPI |
-| 19 | Benefisiari dan pusaka | Simpanan backend, Estate Officer, aliran kematian | Keputusan proses; nasihat Shariah dan undang-undang |
+| 19 | Benefisiari dan pusaka | Estate Officer, aliran kematian, qabul hibah (simpanan backend siap 2026-10-28) | Keputusan proses; nasihat Shariah dan undang-undang |
 | 20 | Modul aset | Pendaftaran semua jenis dan perkongsian aset dengan projek PDP siap; baki: isi perjanjian daripada perkongsian, aliran tunai sewa/untung, peringatan tarikh luput, Fasa C (e-Tanah/JPJ/JKKP) | Boleh diteruskan |
 | 21 | Profile & Settings | Skrin pengesahan akaun bank (Settlement Officer); kontrak dan mata wang pilihan belum digunakan | Boleh dimulakan |
 | 22 | Pendaftaran dan pengurusan pengguna | Notis privasi rasmi; Fasa 2 (RoleGrantRequest, skrin Users); Fasa 3 (daftar sendiri) | Butiran syarikat dan semakan peguam |
 | 23 | Skrin yang masih data contoh | Lihat senarai penuh dalam item 23 | Boleh dimulakan mengikut keutamaan |
-| 24 | Perkara teknikal kecil | Saiz bundle frontend, AiRun tergantung, kebersihan data local | Boleh dimulakan |
+| 24 | Perkara teknikal kecil | Saiz bundle frontend, kebersihan data local | Boleh dimulakan |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -438,22 +438,22 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 ## 23. Skrin yang masih menggunakan data contoh
 
-- **Status:** Senarai disemak 2026-10-16, dikemas kini 2026-10-28. Skrin ini kelihatan berfungsi tetapi tidak membaca atau menyimpan data di server, jadi ia boleh mengelirukan dalam staging atau pilot.
+- **Status:** Senarai disemak 2026-10-16, dikemas kini 2026-10-29. Skrin ini kelihatan berfungsi tetapi tidak membaca atau menyimpan data di server, jadi ia boleh mengelirukan dalam staging atau pilot.
 - **Sejak 2026-10-27:** Finance, Risk dan Compliance Officer hanya melihat Dashboard, AI Wealth Engine (Project Feasibility), Contracts (perjanjian untuk disemak) dan Profile; Compliance juga Admin Center. Tab contoh (Marketplace, Wealth Pooling, Investments, Wallet, Financials, Documents, Audit & Ledger) disembunyikan untuk mereka, dan Membership/Billing disembunyikan untuk semua staf penyemak. Senarai contoh My Contracts kini hanya untuk pelabur. Kembalikan tab apabila ia membaca server.
 - **Sejak 2026-10-28:** pelabur (Retail, HNWI, Institutional, Corporate, Family Office) hanya melihat Dashboard, AI Wealth Engine (tanpa alat draf, term sheet dan due diligence projek), Investments (kini menu utama: borang KYC jika belum disahkan, pool OPEN, pesanan), Financials & Zakat, Beneficiaries dan Profile. Marketplace, Wealth Pooling, Multi-Wallet, Document Vault dan Audit & Ledger disembunyikan untuk mereka. Multi-Wallet kosong bagi pelabur kerana akaun pelabur yang dicipta semasa settlement berada dalam organisasi pool, bukan organisasi pelabur; perlu reka bentuk akaun pelabur sebelum tab ini dikembalikan. Transaksi dalam Financials & Zakat masih contoh (penyata, cukai dan zakat sebenar).
 
 | Skrin | Data sekarang | Rujukan |
 |---|---|---|
-| Investments (Portfolio Manager sahaja) | Senarai contoh dalam `InvestmentsView.tsx` | Sejak 2026-10-28 pelabur melihat pool OPEN sebenar, menerima terma akad, membuat pesanan dan membatalkannya sebelum Finance mengesahkan bayaran (`InvestorPoolsPanel`). Posisi pelaburan selepas bayaran disahkan (unit, keuntungan) belum ada |
+| Investments (staf) | Sejak 2026-10-29, di luar mod DEMO staf (Super Admin, Country Admin, Portfolio Manager dan lain-lain) melihat pesanan pelabur sebenar (`PlatformOrdersPanel`); senarai contoh `InvestmentsView.tsx` kini untuk DEMO sahaja | Sejak 2026-10-28 pelabur melihat pool OPEN sebenar, menerima terma akad, membuat pesanan dan membatalkannya sebelum Finance mengesahkan bayaran (`InvestorPoolsPanel`). Posisi pelaburan selepas bayaran disahkan (unit, keuntungan) belum ada |
 | My Contracts (senarai pelabur di bawah panel perjanjian) | `INITIAL_CONTRACTS`; kini hanya dipaparkan kepada pelabur | Item 18 |
-| Document Vault | Contoh | Dokumen projek sebenar sudah ada di server |
-| Asset Marketplace dan dashboard eksekutif | `INITIAL_ASSETS` | Item 20 |
+| Document Vault | Contoh; berlabel "Sample data" di luar DEMO sejak 2026-10-29 | Dokumen projek sebenar sudah ada di server |
+| Asset Marketplace | `INITIAL_MARKETPLACE`; berlabel "Sample data" di luar DEMO sejak 2026-10-29 | Item 20 |
 | Audit & Ledger | Jadual dari `ledger` dalam pelayar (kosong); ringkasan kini dikira dari jadual, bukan angka tetap | Ini dompet pelabur, bukan jejak audit. API audit sebenar sudah ada (`GET /admin/audit/events`, eksport CSV, rantaian hash): bina skrin jejak audit untuk Compliance dan Auditor. Ledger dompet menunggu ledger posting (item capital/escrow) |
-| Beneficiaries | Disimpan dalam pelayar sahaja | Item 19 |
-| Angka dashboard Super Admin | Contoh | Boleh diganti dengan ringkasan server |
+| Admin Center: papan pemuka Compliance/Audit/Finance/Security, Regulatory Reports, AML, PEP, Sanctions, Risk Register, Incidents, Audit Logs, Country Management, Organization Management, Role Management, System Monitoring, Platform Fees, Settlement Clearing, Contract Templates, Fatwa Repository | Perkhidmatan contoh dalam pelayar (`countryNodeService`, `organisationService`, `userService`, `auditLogger`); berlabel "Sample data" di luar DEMO (`SAMPLE_DATA_SECTIONS` dalam `AdminCenterView.tsx`; buang id dari senarai itu apabila bahagian membaca server) | Sejak 2026-10-29 Executive Scope Dashboard (Super Admin, Country Admin) dan papan pemuka utama membaca `GET /dashboard/network`, dan User Directory baharu membaca pengguna dan peranan sebenar. API audit sudah ada untuk Audit Logs |
+| Financials & Zakat: tab Transactions dan Settlement | Contoh; berlabel "Sample data" di luar DEMO | Statements, Tax dan Zakat membaca server |
 | AI: Pool Matcher, Portfolio Health, Risk & Early Warning, Stress Scenarios, Pool Sizing Optimizer | Contoh (tiada panggilan server) | Disembunyikan untuk Asset Owner sahaja |
 | Sponsor Portal: pelan langganan PDP (RM 99/bulan, slot projek), laporan contoh (FELDA Bio-Refinery), Launch Wealth Pool | `revenueService` dan data contoh dalam pelayar | Sejak 2026-10-20 permohonan PDP, nama organisasi dan projek dibaca dari server. Sejak 2026-10-22 penyemak KYB (Country Admin, KYB Officer, Compliance Officer, Super Admin) ada senarai sebenar di Admin Center › PDP Applications Queue: lulus, minta maklumat tambahan (pemohon membetulkan dan menghantar semula) atau tolak, dengan notifikasi. Baki: fail dokumen PDP belum dimuat naik ke server (borang hanya merekod nama dokumen) |
-| Wealth Pooling MVP Workflow Console (senarai projek dan pool, End-to-End Test Engine) | `INITIAL_PROJECTS` dalam pelayar, termasuk projek Turki dan Nigeria yang dipaparkan kepada pengguna Malaysia; enjin ujian hanya simulasi. Pool sebenar yang dicipta dari projek (SIT langkah E) tidak muncul di sini | Projek dan pool sebenar sudah ada di server. Sejak 2026-10-19 butang Submit New Project dan enjin ujian hanya untuk peranan yang boleh mencipta projek; Structure Pool dan kelulusan pool hanya untuk pengurus pool |
+| Wealth Pooling MVP Workflow Console (senarai projek dan pool, End-to-End Test Engine) | Berlabel "Sample data" di luar DEMO sejak 2026-10-29. `INITIAL_PROJECTS` dalam pelayar, termasuk projek Turki dan Nigeria yang dipaparkan kepada pengguna Malaysia; enjin ujian hanya simulasi. Pool sebenar yang dicipta dari projek (SIT langkah E) tidak muncul di sini | Projek dan pool sebenar sudah ada di server. Sejak 2026-10-19 butang Submit New Project dan enjin ujian hanya untuk peranan yang boleh mencipta projek; Structure Pool dan kelulusan pool hanya untuk pengurus pool |
 
 **Cadangan (dikemas kini 2026-10-27):** keutamaan (1) Wealth Pooling dari pangkalan data, supaya pool sebenar kelihatan; (2) jejak audit sebenar untuk Compliance dan Auditor; (3) My Contracts dan posisi pelaburan dari pesanan sebenar (pesanan pelaburan siap 2026-10-28); (4) Asset Marketplace dari pool yang dibuka (banner tajaan contoh tamat 2026-08-31). Sementara itu, sembunyikan atau tandakan skrin contoh dengan label "Contoh".
 
@@ -462,5 +462,4 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 - **Status:** Dicatat 2026-10-16.
 
 1. **Saiz bundle frontend:** satu fail JavaScript kira-kira 1.9 MB (430 KB selepas gzip). Pecahkan dengan `import()` dinamik untuk skrin besar (AI Wealth Engine, Admin Center) supaya muat pertama lebih pantas, terutamanya di telefon.
-2. **AiRun tergantung:** permintaan AI yang terputus kerana pelayan dimulakan semula kekal `RUNNING` selama-lamanya. Tambah job pembersihan yang menandakannya FAILED dan memulangkan kredit (pemulangan kredit untuk kegagalan biasa sudah ada sejak 2026-10-16).
-3. **Data ujian local:** aset ujian `ASSET-MYS-JZW65Y19` dan rekod AiRun ujian dalam database local; bersihkan jika perlu (data demo Plesk dirakam daripadanya).
+2. **Data ujian local:** aset ujian `ASSET-MYS-JZW65Y19` dan rekod AiRun ujian dalam database local; bersihkan jika perlu (data demo Plesk dirakam daripadanya).
