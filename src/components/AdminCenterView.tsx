@@ -36,6 +36,7 @@ import { AdminModuleSection, NavTab } from '../types';
 import { NetworkDashboardWidgets } from './dashboards/NetworkDashboardWidgets';
 import { LiveAuditLog } from './admin/LiveAuditLog';
 import { LiveContractTemplates, LiveCountryNodes, LiveOrganisations, LiveSystemStatus } from './admin/AdminLiveSections';
+import { LivePermissionMatrix, LivePromotions, LiveRevenue, LiveWorkflowPipelines } from './admin/AdminLivePlatformSections';
 import { FundingReviewQueue } from './sponsor/FundingReviewQueue';
 import { AdminGovernanceDashboards } from './admin/AdminGovernanceDashboards';
 import { AdminComplianceRisk } from './admin/AdminComplianceRisk';
@@ -65,17 +66,22 @@ const LIVE_SECTIONS: Record<string, React.FC> = {
   sys_country: LiveCountryNodes,
   shariah_templates: LiveContractTemplates,
   analytics_monitoring: LiveSystemStatus,
+  sys_permissions: LivePermissionMatrix,
+  sys_workflow: LiveWorkflowPipelines,
+  fin_revenue: LiveRevenue,
+  fin_marketplace_monetisation: LivePromotions,
 };
 
 /**
  * Sections with no source of real records yet, so outside the demo they are not offered at all rather than
  * showing invented figures. AML, PEP and sanctions screening need an external screening provider; the risk
- * register, incidents, fee schedule and fatwa repository need their own records. See PENDING_ACTIVITIES item 23.
+ * register, incidents, fee schedule and fatwa repository need their own records. The approval matrix and PDP
+ * country rules are settings the server does not read (approvals happen in the review queues). See PENDING_ACTIVITIES item 23.
  */
 const DEMO_ONLY_SECTIONS = [
   'dash_compliance', 'dash_audit', 'dash_finance', 'dash_security', 'sys_reports',
   'compliance_aml', 'compliance_pep', 'compliance_sanctions', 'risk_register', 'risk_incidents',
-  'fin_fees', 'shariah_fatwa',
+  'fin_fees', 'shariah_fatwa', 'sys_approvalmatrix', 'pdp_country_config',
 ];
 
 interface AdminCenterViewProps {
@@ -286,9 +292,9 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
 
           {activeSection === 'pdp_country_config' && <PDPCountryConfigAdminPanel />}
 
-          {activeSection === 'fin_revenue' && <RevenueManagementHub />}
+          {!LiveSection && activeSection === 'fin_revenue' && <RevenueManagementHub />}
 
-          {activeSection === 'fin_marketplace_monetisation' && <MarketplaceMonetisationHub />}
+          {!LiveSection && activeSection === 'fin_marketplace_monetisation' && <MarketplaceMonetisationHub />}
 
           {activeSection === 'fin_ai_monetisation' && <AdminAIAnalyticsPanel />}
 

@@ -419,6 +419,11 @@ export class PolicyEngine {
     return this.evaluate(role, resource, action).allowed;
   }
 
+  /** Every role's permissions as the server enforces them, for the Admin Center permission matrix. */
+  public matrix(): Array<{ role: UserRole; permissions: Partial<Record<ResourceModule, PermissionAction[]>> }> {
+    return USER_ROLES.map((role) => ({ role, permissions: PERMISSIONS[role] ?? {} }));
+  }
+
   public accessibleResources(role: UserRole): ResourceModule[] {
     const perms = PERMISSIONS[role] ?? {};
     return (Object.keys(perms) as ResourceModule[]).filter((r) => (perms[r] ?? []).length > 0);

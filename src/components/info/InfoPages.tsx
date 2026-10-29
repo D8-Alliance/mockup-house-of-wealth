@@ -464,7 +464,7 @@ export function ShariahGovernancePage() {
     return unsub;
   }, [authMode]);
 
-  const canEdit = isAuthenticated && isAdminRole(currentRole);
+  const canEdit = isAuthenticated && isAdminRole(currentRole, authMode);
 
   const principles = [
     { title: 'No Riba (Interest)', detail: 'All financing structures are strictly interest-free. Returns derive from real economic activity and risk sharing.' },

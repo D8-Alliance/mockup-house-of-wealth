@@ -13,6 +13,10 @@ export class PolicyService {
     return this.engine.can(role, resource, action);
   }
 
+  public matrix() {
+    return this.engine.matrix();
+  }
+
   public accessibleResources(role: UserRole): ResourceModule[] {
     return this.engine.accessibleResources(role);
   }

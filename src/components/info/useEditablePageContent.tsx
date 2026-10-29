@@ -35,7 +35,7 @@ export function useEditablePageContent(pageId: PageId): EditablePageContent {
     return unsub;
   }, [authMode, pageId]);
 
-  const canEdit = isAuthenticated && isAdminRole(currentRole);
+  const canEdit = isAuthenticated && isAdminRole(currentRole, authMode);
 
   return {
     content,

@@ -1,5 +1,6 @@
 import { ShariahContent, ShariahContentRevision, ContentStatus } from './coreValuesTypes';
 import { INITIAL_SHARIAH_CONTENT, SHARIAH_CONTENT_ID } from './coreValuesSeed';
+import { contentStore } from '../components/info/contentStore';
 
 const STORAGE_KEY = 'how.shariah.content';
 const REVISIONS_KEY = 'how.shariah.revisions';
@@ -23,11 +24,13 @@ export class ShariahContentService {
 
   setMode(mode: Mode): void {
     this.mode = mode;
+    contentStore.setMode(mode);
   }
 
   subscribe(fn: () => void): () => void {
+    const fromStore = contentStore.subscribe(fn);
     this.listeners.add(fn);
-    return () => this.listeners.delete(fn);
+    return () => { fromStore(); this.listeners.delete(fn); };
   }
 
   private emit() {
@@ -36,7 +39,7 @@ export class ShariahContentService {
 
   private loadStorage<T>(key: string, fallback: T): T {
     try {
-      const raw = localStorage.getItem(key);
+      const raw = contentStore.get(key);
       return raw ? (JSON.parse(raw) as T) : fallback;
     } catch {
       return fallback;
@@ -73,7 +76,7 @@ export class ShariahContentService {
   }
 
   hasDraft(): boolean {
-    return localStorage.getItem('how.shariah.draft') !== null;
+    return contentStore.get('how.shariah.draft') !== null;
   }
 
   getRevisions(): ShariahContentRevision[] {
@@ -89,10 +92,9 @@ export class ShariahContentService {
       updatedAt: new Date().toISOString(),
       updatedBy: editorName
     };
-    localStorage.setItem('how.shariah.draft', JSON.stringify(draft));
-    localStorage.setItem(STATUS_KEY, 'draft');
+    contentStore.set('how.shariah.draft', JSON.stringify(draft));
+    contentStore.set(STATUS_KEY, JSON.stringify('draft'));
     this.recordRevision(draft, 'draft', editorName, note);
-    if (this.mode !== 'DEMO') this.pushChanges(draft, 'draft', editorName, note);
     this.emit();
     return draft;
   }
@@ -107,24 +109,23 @@ export class ShariahContentService {
       updatedAt: new Date().toISOString(),
       updatedBy: editorName
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(published));
-    localStorage.setItem('how.shariah.draft', JSON.stringify(published));
-    localStorage.setItem(STATUS_KEY, 'published');
+    contentStore.set(STORAGE_KEY, JSON.stringify(published));
+    contentStore.set('how.shariah.draft', JSON.stringify(published));
+    contentStore.set(STATUS_KEY, JSON.stringify('published'));
     this.recordRevision(published, 'published', editorName, note);
-    if (this.mode !== 'DEMO') this.pushChanges(published, 'published', editorName, note);
     this.emit();
     return published;
   }
 
   discardDraft(): void {
-    localStorage.removeItem('how.shariah.draft');
+    contentStore.remove('how.shariah.draft');
     this.emit();
   }
 
   resetToSeed(): ShariahContent {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SHARIAH_CONTENT));
-    localStorage.setItem('how.shariah.draft', JSON.stringify(INITIAL_SHARIAH_CONTENT));
-    localStorage.setItem(STATUS_KEY, 'published');
+    contentStore.set(STORAGE_KEY, JSON.stringify(INITIAL_SHARIAH_CONTENT));
+    contentStore.set('how.shariah.draft', JSON.stringify(INITIAL_SHARIAH_CONTENT));
+    contentStore.set(STATUS_KEY, JSON.stringify('published'));
     this.emit();
     return INITIAL_SHARIAH_CONTENT;
   }
@@ -142,7 +143,7 @@ export class ShariahContentService {
       editedAt: new Date().toISOString(),
       note
     };
-    localStorage.setItem(REVISIONS_KEY, JSON.stringify([revision, ...revisions].slice(0, 50)));
+    contentStore.set(REVISIONS_KEY, JSON.stringify([revision, ...revisions].slice(0, 50)));
   }
 
   // Production backend hooks -------------------------------------------------
@@ -153,18 +154,6 @@ export class ShariahContentService {
     return stored || INITIAL_SHARIAH_CONTENT;
   }
 
-  private pushChanges(content: ShariahContent, status: ContentStatus, editorName: string, note: string): void {
-    // Production write-path. In this demo the backend is not live, so changes
-    // are logged to console to make the branch explicit and testable.
-    // eslint-disable-next-line no-console
-    console.info('[ShariahContent • PRODUCTION]', {
-      action: status === 'published' ? 'PUBLISH' : 'SAVE_DRAFT',
-      contentId: content.id,
-      editor: editorName,
-      note,
-      version: content.updatedAt
-    });
-  }
 }
 
 export const shariahContentService = new ShariahContentService();

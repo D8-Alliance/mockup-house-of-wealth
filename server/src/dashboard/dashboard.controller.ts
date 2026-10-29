@@ -19,4 +19,18 @@ export class DashboardController {
   network(@CurrentUser() actor: AuthenticatedUser) {
     return this.dashboard.network(actor);
   }
+
+  @Get('workflows')
+  @Roles('Super Admin', 'Country Admin')
+  @RequirePermission('dashboard', 'read')
+  workflows(@CurrentUser() actor: AuthenticatedUser) {
+    return this.dashboard.workflows(actor);
+  }
+
+  @Get('permissions')
+  @Roles('Super Admin', 'Country Admin')
+  @RequirePermission('dashboard', 'read')
+  permissions() {
+    return this.dashboard.permissions();
+  }
 }

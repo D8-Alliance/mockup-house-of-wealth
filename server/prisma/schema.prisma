@@ -2294,3 +2294,13 @@ model EstateBeneficiary {
 
   @@index([ownerUserId])
 }
+
+/// Public site content (About, Member States, News, Contact, Shariah Governance), edited by Super Admin.
+/// One row per content key, e.g. "how.page.about.published"; drafts and revision history are keys too.
+model SiteContentEntry {
+  key       String   @id
+  value     Json
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

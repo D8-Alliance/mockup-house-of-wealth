@@ -1,5 +1,6 @@
 import { PageContent, PageContentRevision, ContentStatus } from './pageContentTypes';
 import { INITIAL_PAGE_CONTENT, PAGE_CONTENT_ID } from './pageContentSeed';
+import { contentStore } from './contentStore';
 
 const K = {
   published: (id: string) => `how.page.${id}.published`,
@@ -33,11 +34,13 @@ export class PageContentService {
 
   setMode(mode: Mode): void {
     this.mode = mode;
+    contentStore.setMode(mode);
   }
 
   subscribe(fn: () => void): () => void {
+    const fromStore = contentStore.subscribe(fn);
     this.listeners.add(fn);
-    return () => this.listeners.delete(fn);
+    return () => { fromStore(); this.listeners.delete(fn); };
   }
 
   private emit() {
@@ -46,7 +49,7 @@ export class PageContentService {
 
   private load<T>(key: string, fallback: T): T {
     try {
-      const raw = localStorage.getItem(key);
+      const raw = contentStore.get(key);
       return raw ? (JSON.parse(raw) as T) : fallback;
     } catch {
       return fallback;
@@ -72,7 +75,7 @@ export class PageContentService {
   }
 
   hasDraft(pageId: string): boolean {
-    return localStorage.getItem(K.draft(PAGE_CONTENT_ID[pageId] || pageId)) !== null;
+    return contentStore.get(K.draft(PAGE_CONTENT_ID[pageId] || pageId)) !== null;
   }
 
   getRevisions(pageId: string): PageContentRevision[] {
@@ -82,10 +85,9 @@ export class PageContentService {
   saveDraft(pageId: string, content: PageContent, editorName: string, note: string): PageContent {
     const id = PAGE_CONTENT_ID[pageId] || pageId;
     const draft: PageContent = { ...clone(content), updatedAt: new Date().toISOString(), updatedBy: editorName };
-    localStorage.setItem(K.draft(id), JSON.stringify(draft));
-    localStorage.setItem(K.status(pageId), 'draft');
+    contentStore.set(K.draft(id), JSON.stringify(draft));
+    contentStore.set(K.status(pageId), JSON.stringify('draft'));
     this.record(pageId, draft, 'draft', editorName, note);
-    if (this.mode !== 'DEMO') this.pushChanges(pageId, draft, 'draft', editorName, note);
     this.emit();
     return draft;
   }
@@ -93,20 +95,19 @@ export class PageContentService {
   publish(pageId: string, content: PageContent, editorName: string, note: string): PageContent {
     const id = PAGE_CONTENT_ID[pageId] || pageId;
     const published: PageContent = { ...clone(content), updatedAt: new Date().toISOString(), updatedBy: editorName };
-    localStorage.setItem(K.published(id), JSON.stringify(published));
-    localStorage.setItem(K.draft(id), JSON.stringify(published));
-    localStorage.setItem(K.status(pageId), 'published');
+    contentStore.set(K.published(id), JSON.stringify(published));
+    contentStore.set(K.draft(id), JSON.stringify(published));
+    contentStore.set(K.status(pageId), JSON.stringify('published'));
     this.record(pageId, published, 'published', editorName, note);
-    if (this.mode !== 'DEMO') this.pushChanges(pageId, published, 'published', editorName, note);
     this.emit();
     return published;
   }
 
   resetToSeed(pageId: string): PageContent {
     const id = PAGE_CONTENT_ID[pageId] || pageId;
-    localStorage.setItem(K.published(id), JSON.stringify(INITIAL_PAGE_CONTENT[pageId]));
-    localStorage.setItem(K.draft(id), JSON.stringify(INITIAL_PAGE_CONTENT[pageId]));
-    localStorage.setItem(K.status(pageId), 'published');
+    contentStore.set(K.published(id), JSON.stringify(INITIAL_PAGE_CONTENT[pageId]));
+    contentStore.set(K.draft(id), JSON.stringify(INITIAL_PAGE_CONTENT[pageId]));
+    contentStore.set(K.status(pageId), JSON.stringify('published'));
     this.emit();
     return INITIAL_PAGE_CONTENT[pageId];
   }
@@ -125,20 +126,9 @@ export class PageContentService {
       note
     };
     const id = PAGE_CONTENT_ID[pageId] || pageId;
-    localStorage.setItem(K.revisions(id), JSON.stringify([rev, ...revisions].slice(0, 50)));
+    contentStore.set(K.revisions(id), JSON.stringify([rev, ...revisions].slice(0, 50)));
   }
 
-  private pushChanges(pageId: string, content: PageContent, status: ContentStatus, editorName: string, note: string): void {
-    // Production write-path. In this demo the backend is not live, so changes
-    // are logged to make the branch explicit and testable.
-    // eslint-disable-next-line no-console
-    console.info('[PageContent • PRODUCTION]', {
-      pageId,
-      action: status === 'published' ? 'PUBLISH' : 'SAVE_DRAFT',
-      editor: editorName,
-      note
-    });
-  }
 }
 
 export const pageContentService = new PageContentService();

@@ -18,21 +18,32 @@ import {
 import { AdminAIAnalyticsSummary, AIUsageLogEntry } from './aiMonetisationTypes';
 import { aiMonetisationService } from './aiMonetisationService';
 import { apiClient } from '../../services/apiClient';
+import { useRBAC } from '../../rbac/RBACContext';
 
 export const AdminAIAnalyticsPanel: React.FC = () => {
-  const [summary, setSummary] = useState<AdminAIAnalyticsSummary>(
-    aiMonetisationService.getAdminAnalyticsSummary()
+  const { authMode } = useRBAC();
+  // The demo starts from sample figures; elsewhere only the server's figures are shown.
+  const live = authMode !== 'DEMO';
+  const [summary, setSummary] = useState<AdminAIAnalyticsSummary | null>(
+    live ? null : aiMonetisationService.getAdminAnalyticsSummary()
   );
   const [allLogs, setAllLogs] = useState<AIUsageLogEntry[]>(
-    aiMonetisationService.getAllPlatformUsageLogs()
+    live ? [] : aiMonetisationService.getAllPlatformUsageLogs()
   );
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
     apiClient.getAdminCreditAnalytics().then(({ summary: liveSummary, transactions }) => {
       setSummary(liveSummary);
       setAllLogs(transactions.filter((item) => item.type === 'CONSUMPTION').map((item) => ({ id: item.id, userId: item.userId || '', userName: 'Platform User', userTier: 'LIVE', operationKey: (item.operationKey || 'SIMPLE_QUERY') as AIUsageLogEntry['operationKey'], operationName: item.operationKey || 'AI Operation', category: 'AI', targetEntity: item.targetEntity || undefined, creditCost: Math.abs(item.credits), timestamp: item.createdAt, status: 'SUCCESS', balanceBefore: item.balanceBefore, balanceAfter: item.balanceAfter, tokensConsumedEstimate: Math.abs(item.credits) * 480 })));
-    }).catch(() => undefined);
+    }).catch((cause) => setLoadError(cause instanceof Error ? cause.message : 'The AI usage figures could not be loaded.'));
   }, []);
+
+  if (!summary) {
+    return loadError
+      ? <p role="alert" className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-xs font-bold text-rose-700 dark:text-rose-300">{loadError}</p>
+      : <p className="text-xs text-slate-500">Loading AI usage...</p>;
+  }
 
   return (
     <div className="space-y-6 animate-fadeIn font-sans text-xs">

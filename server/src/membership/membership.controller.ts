@@ -95,6 +95,14 @@ export class MembershipController {
     return this.membershipService.cancelToyyibPayPayment(actor, id);
   }
 
+  /** Platform income from the payment records; zakat collected for payers is excluded. */
+  @Get('admin/revenue')
+  @Roles('Super Admin', 'Country Admin')
+  @RequirePermission('dashboard', 'read')
+  adminRevenue(@CurrentUser() actor: AuthenticatedUser) {
+    return this.membershipService.adminRevenue(actor);
+  }
+
   @Get('admin/credits/analytics')
   @Roles('Super Admin', 'AI Administrator', 'Organization Admin', 'Country Admin')
   adminCreditAnalytics(@CurrentUser() actor: AuthenticatedUser) {

@@ -4,6 +4,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PolicyService } from '../policy/policy.service';
 import { PROJECT_REVIEWER_ROLES, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { networkOverview } from './dashboard.network';
+import { workflowPipelines } from './dashboard.workflows';
 
 @Injectable()
 export class DashboardService {
@@ -44,5 +45,15 @@ export class DashboardService {
   /** The country network as the database has it, for Super Admin (every country) and Country Admin (their own). */
   network(actor: AuthenticatedUser) {
     return networkOverview(this.prisma, actor);
+  }
+
+  /** How many records stand at each status of each workflow. */
+  workflows(actor: AuthenticatedUser) {
+    return workflowPipelines(this.prisma, actor);
+  }
+
+  /** Every role's permissions exactly as the server enforces them. */
+  permissions() {
+    return this.policy.matrix();
   }
 }

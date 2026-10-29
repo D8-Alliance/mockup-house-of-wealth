@@ -32,6 +32,7 @@ import { AssetPartnershipsModule } from './asset-partnerships/asset-partnerships
 import { FinancialLedgerModule } from './financial/financial-ledger.module';
 import { DistributionModule } from './distribution/distribution.module';
 import { EstateModule } from './estate/estate.module';
+import { SiteContentModule } from './site-content/site-content.module';
 import { InvestmentsModule } from './investments/investments.module';
 import { NotificationModule } from './notifications/notification.module';
 import { JobsModule } from './jobs/jobs.module';
@@ -69,6 +70,7 @@ import { JobsModule } from './jobs/jobs.module';
     FinancialLedgerModule,
     DistributionModule,
     EstateModule,
+    SiteContentModule,
     InvestmentsModule,
     NotificationModule,
     JobsModule,

@@ -6,6 +6,7 @@ import { pageContentService } from './pageContentService';
 import { PageContentEditor } from './PageContentEditor';
 import { useRBAC } from '../../rbac/RBACContext';
 import { isAdminRole } from './AdminShariahContentManager';
+import { contentStore } from './contentStore';
 
 const SCHEMA_LIST = Object.values(PAGE_CONTENT_SCHEMAS);
 
@@ -20,6 +21,7 @@ export const AdminPageContentManager: React.FC = () => {
 
   useEffect(() => {
     pageContentService.setMode(authMode);
+    if (isAdminRole(currentRole, authMode)) void contentStore.load(true);
     const next: Record<string, ContentStatus> = {};
     SCHEMA_LIST.forEach((s) => (next[s.pageId] = pageContentService.getStatus(s.pageId)));
     setStatuses(next);
@@ -30,9 +32,9 @@ export const AdminPageContentManager: React.FC = () => {
       force((n) => n + 1);
     });
     return unsub;
-  }, [authMode]);
+  }, [authMode, currentRole]);
 
-  if (!isAdminRole(currentRole)) {
+  if (!isAdminRole(currentRole, authMode)) {
     return (
       <div className="rounded-2xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/5 p-8 text-center">
         <div className="w-14 h-14 mx-auto rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center mb-4">
@@ -40,7 +42,7 @@ export const AdminPageContentManager: React.FC = () => {
         </div>
         <h2 className="font-black text-lg mb-1">Action Forbidden</h2>
         <p className="text-sm text-slate-500 max-w-md mx-auto">
-          Only an administrator (Super Admin, Country Admin, Organization Admin, or System Administrator)
+          {authMode === 'DEMO' ? 'Only an administrator (Super Admin, Country Admin, Organization Admin, or System Administrator)' : 'Only Super Admin'}
           may edit these page contents. Your current role "{currentRole}" does not have edit access.
         </p>
       </div>

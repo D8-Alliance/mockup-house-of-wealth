@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { platformRevenue } from './platform-revenue';
 import { PaymentTransaction, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -646,6 +647,11 @@ export class MembershipService {
     }
     await this.audit.record({ userId: payment.userId, action: 'payment.toyyibpay.settled', resourceType: 'PaymentTransaction', resourceId: payment.id, organisationId: payment.organisationId, countryNodeId: payment.countryNodeId, metadata: { productType: payment.productType, productId: payment.productId } }, tx);
     await tx.paymentTransaction.update({ where: { id: payment.id }, data: { metadata: { ...metadata, fulfilled: true, fulfilledAt: new Date().toISOString() } } });
+  }
+
+  /** Platform income for the Admin Center (see platform-revenue.ts). */
+  adminRevenue(actor: AuthenticatedUser) {
+    return platformRevenue(this.prisma, actor);
   }
 
   async getAdminCreditAnalytics(actor: AuthenticatedUser) {

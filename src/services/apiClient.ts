@@ -301,6 +301,11 @@ export const apiClient = {
   getOrganisationDirectory: () => request<OrganisationDirectoryRow[]>('/organisations'),
   getContractTemplates: () => request<ContractTemplateRow[]>('/contract-intelligence/templates'),
   getHealth: () => request<{ status: string; service: string; time: string }>('/health'),
+  getWorkflowPipelines: () => request<WorkflowPipeline[]>('/dashboard/workflows'),
+  getServerPermissions: () => request<Array<{ role: string; permissions: Record<string, string[]> }>>('/dashboard/permissions'),
+  getPlatformRevenue: () => request<PlatformRevenue>('/membership/admin/revenue'),
+  getSiteContent: (editor: boolean) => request<Record<string, unknown>>(editor ? '/site-content/editor' : '/site-content'),
+  saveSiteContent: (entries: Record<string, unknown>) => request<Record<string, unknown>>('/site-content', { method: 'PUT', body: JSON.stringify({ entries }) }),
   updateUserStatus: (userId: string, status: string) => request<BackendUser>(`/users/${userId}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
@@ -1476,6 +1481,23 @@ export interface ContractTemplateRow {
   approvalStatus: string;
   createdDate: string;
   clauses: Array<{ id: string }>;
+}
+
+export interface WorkflowPipeline {
+  key: string;
+  label: string;
+  stages: Array<{ status: string; count: number }>;
+}
+
+/** Platform income from paid payment records (zakat excluded), in MYR. */
+export interface PlatformRevenue {
+  currency: 'MYR';
+  totalMYR: number;
+  byProduct: Array<{ productType: string; amountMYR: number; count: number }>;
+  byMonth: Array<{ month: string; amountMYR: number }>;
+  latest: Array<{ id: string; productType: string; productId: string; amountMYR: number; currency: string; provider: string; status: string; createdAt: string; paidAt?: string | null; organisationId: string; countryNodeId: string }>;
+  activeMemberships: Array<{ tier: string; count: number }>;
+  campaigns: Array<{ id: string; packageName: string; projectName: string; status: string; paymentStatus: string; paymentMethod: string; priceMYR: number; creditsCost: number; startDate: string; endDate?: string | null; views: number; clicks: number; investorLeads: number }>;
 }
 
 export interface BackendPool {

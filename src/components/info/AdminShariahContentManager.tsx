@@ -4,11 +4,16 @@ import { ContentStatus } from '../../shariah/coreValuesTypes';
 import { shariahContentService } from '../../shariah/shariahContentService';
 import { ShariahContentEditor } from './ShariahContentEditor';
 import { useRBAC } from '../../rbac/RBACContext';
+import { contentStore } from './contentStore';
 
 const ADMIN_ROLES = ['Super Admin', 'Country Admin', 'Organization Admin', 'System Administrator'];
 
-export function isAdminRole(role: string): boolean {
-  return ADMIN_ROLES.includes(role);
+/**
+ * Who may edit the public site. Outside the demo the content is one site for every country, saved on the server,
+ * which lets only Super Admin write it; the demo lets every admin role try the editor.
+ */
+export function isAdminRole(role: string, mode: string = 'DEMO'): boolean {
+  return mode === 'DEMO' ? ADMIN_ROLES.includes(role) : role === 'Super Admin';
 }
 
 export const AdminShariahContentManager: React.FC = () => {
@@ -19,16 +24,17 @@ export const AdminShariahContentManager: React.FC = () => {
 
   useEffect(() => {
     shariahContentService.setMode(authMode);
+    if (isAdminRole(currentRole, authMode)) void contentStore.load(true);
     const unsub = shariahContentService.subscribe(() => {
       setStatus(shariahContentService.getStatus());
       force((n) => n + 1);
     });
     return unsub;
-  }, [authMode]);
+  }, [authMode, currentRole]);
 
   const published = shariahContentService.getPublishedContent();
 
-  if (!isAdminRole(currentRole)) {
+  if (!isAdminRole(currentRole, authMode)) {
     return (
       <div className="rounded-2xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/5 p-8 text-center">
         <div className="w-14 h-14 mx-auto rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center mb-4">
@@ -36,7 +42,7 @@ export const AdminShariahContentManager: React.FC = () => {
         </div>
         <h2 className="font-black text-lg mb-1">Action Forbidden</h2>
         <p className="text-sm text-slate-500 max-w-md mx-auto">
-          Only an administrator (Super Admin, Country Admin, Organization Admin, or System Administrator)
+          {authMode === 'DEMO' ? 'Only an administrator (Super Admin, Country Admin, Organization Admin, or System Administrator)' : 'Only Super Admin'}
           may edit the Shariah Governance content. Your current role "{currentRole}" does not have edit access.
         </p>
       </div>
