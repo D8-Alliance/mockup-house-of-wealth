@@ -261,7 +261,7 @@ export class ProjectsService {
     const project = await this.getForReview(projectId, user);
     return this.prisma.projectDocument.findMany({
       where: { projectId: project.projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId },
-      select: { id: true, projectId: true, fileName: true, mimeType: true, fileSize: true, extractionStatus: true, extractionError: true, extractedText: true, uploadedBy: true, createdAt: true, updatedAt: true },
+      select: { id: true, projectId: true, fileName: true, mimeType: true, fileSize: true, extractionStatus: true, extractionError: true, extractedText: true, uploadedBy: true, createdAt: true, updatedAt: true, evidenceRequirements: { select: { evidenceType: true } } },
       orderBy: { createdAt: 'desc' },
     });
   }
@@ -345,6 +345,26 @@ export class ProjectsService {
     const updated = await this.prisma.projectEvidenceRequirement.update({ where: { id: requirement.id }, data: { status: 'VERIFIED', verificationStatus: 'VERIFIED', verificationResult: { ...previousResult, humanVerifiedBy: user.userId, humanVerifiedAt: new Date().toISOString(), validationResult: 'Verified by an authorised human reviewer.' } }, include: { uploadedDocument: { select: { id: true, fileName: true, mimeType: true, extractionStatus: true, createdAt: true } } } });
     await this.audit.recordActor(user, { action: 'project.evidence.human_verified', resourceType: 'ProjectEvidenceRequirement', resourceId: requirement.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId: project.projectId, evidenceType, documentId: requirement.uploadedDocumentId, reviewerId: user.userId, reviewerRole: user.role } });
     return updated;
+  }
+
+  /**
+   * Removes a Data Room file, e.g. a duplicate upload. A file that is a project's evidence stays: it was verified
+   * as that evidence and the review rests on it. Nothing is removed once the project is locked, and the audit
+   * record keeps the file's name and SHA-256.
+   */
+  async deleteDocument(projectId: string, documentId: string, user: AuthenticatedUser) {
+    const project = await this.get(projectId, user);
+    assertProjectUnlocked(project, 'Removing a document');
+    const document = await this.prisma.projectDocument.findFirst({ where: { id: documentId, projectId }, select: { id: true, fileName: true, sha256: true, evidenceRequirements: { select: { evidenceType: true } } } });
+    if (!document) throw new NotFoundException('Document not found on this project.');
+    if (document.evidenceRequirements.length) {
+      throw new ConflictException(`${document.fileName} is the project's ${document.evidenceRequirements.map((item) => item.evidenceType.toLowerCase().replace(/_/g, ' ')).join(' and ')} evidence, so it is kept. Evidence is replaced from the Evidence step.`);
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.projectDocument.delete({ where: { id: document.id } });
+      await this.audit.recordActor(user, { action: 'project.document.delete', resourceType: 'ProjectDocument', resourceId: document.id, organisationId: project.organisationId, countryNodeId: project.countryNodeId, metadata: { projectId, fileName: document.fileName, sha256: document.sha256 } }, tx);
+    });
+    return { id: document.id };
   }
 
   async uploadDocument(projectId: string, file: Express.Multer.File | undefined, user: AuthenticatedUser) {

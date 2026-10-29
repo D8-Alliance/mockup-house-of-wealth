@@ -275,6 +275,7 @@ export const apiClient = {
     return request<BackendProjectDocument>(`/projects/${encodeURIComponent(projectId)}/documents`, { method: 'POST', body: formData });
   },
   getDocumentVault: () => request<VaultDocumentRow[]>('/projects/document-vault'),
+  deleteProjectDocument: (projectId: string, documentId: string) => request<{ id: string }>(`/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
   downloadProjectDocument: async (projectId: string, documentId: string) => {
     const token = authService.getAuthState().session?.token;
     const response = await apiFetch(`${API_BASE_URL}/projects/${encodeURIComponent(projectId)}/documents/${encodeURIComponent(documentId)}/download`, {
@@ -1766,6 +1767,8 @@ export interface BackendProjectDocument {
   uploadedBy: string;
   createdAt: string;
   updatedAt: string;
+  /** Evidence slots this file fills; such a file is kept when Data Room duplicates are removed. */
+  evidenceRequirements?: Array<{ evidenceType: string }>;
 }
 
 export interface BackendEvidenceRequirement {

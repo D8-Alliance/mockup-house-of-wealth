@@ -250,6 +250,15 @@ export class ProjectsController {
     return this.projectsService.uploadDocument(id, file, user);
   }
 
+  @Delete(':id/documents/:documentId')
+  @UseGuards(FeatureModuleGuard)
+  @RequireFeatureModule('DOCUMENT_VAULT')
+  @Roles('Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager')
+  @RequirePermission('assets', 'create')
+  deleteDocument(@Param('id') id: string, @Param('documentId') documentId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.projectsService.deleteDocument(id, documentId, user);
+  }
+
   @Post(':id/evidence/:evidenceType/upload')
   @UseGuards(FeatureModuleGuard)
   @RequireFeatureModule('DOCUMENT_VAULT')
