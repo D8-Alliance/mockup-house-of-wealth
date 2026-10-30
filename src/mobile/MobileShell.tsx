@@ -5,7 +5,7 @@ import { canInvest } from '../rbac/menuVisibility';
 import { MobileHome } from './screens/MobileHome';
 import { MobilePools } from './screens/MobilePools';
 import { MobilePortfolio } from './screens/MobilePortfolio';
-import { MobileAccount } from './screens/MobileAccount';
+import { MobileProfile } from './screens/MobileProfile';
 import { MobileKyc } from './screens/MobileKyc';
 import { MobileUsers } from './screens/MobileUsers';
 import { USER_ADMIN_ROLES } from './mobileRoles';
@@ -17,7 +17,7 @@ const TABS: Array<{ id: MobileTab; label: string; icon: React.ReactNode; investo
   { id: 'pools', label: 'Pools', icon: <Layers className="w-5 h-5" /> },
   { id: 'portfolio', label: 'Portfolio', icon: <Wallet className="w-5 h-5" />, investorsOnly: true },
   { id: 'users', label: 'Users', icon: <Users className="w-5 h-5" />, adminsOnly: true },
-  { id: 'account', label: 'Account', icon: <UserRound className="w-5 h-5" /> },
+  { id: 'account', label: 'Profile', icon: <UserRound className="w-5 h-5" /> },
 ];
 
 /** Phone layout: a slim header, one screen at a time, and the tabs at the bottom within thumb reach. */
@@ -45,7 +45,7 @@ export const MobileShell: React.FC = () => {
         {!kycOpen && tab === 'pools' && <MobilePools onOpenPortfolio={() => openTab('portfolio')} onOpenKyc={() => setKycOpen(true)} />}
         {!kycOpen && tab === 'portfolio' && <MobilePortfolio />}
         {!kycOpen && tab === 'users' && <MobileUsers />}
-        {!kycOpen && tab === 'account' && <MobileAccount />}
+        {!kycOpen && tab === 'account' && <MobileProfile onOpenKyc={() => setKycOpen(true)} />}
       </main>
 
       <nav aria-label="Main" className="fixed bottom-0 inset-x-0 z-20 grid border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur pb-[env(safe-area-inset-bottom)]" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
