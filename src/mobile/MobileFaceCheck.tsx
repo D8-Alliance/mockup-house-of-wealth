@@ -8,8 +8,8 @@ const STEP_TEXT: Record<LivenessStep, { title: string; hint: string }> = {
   TURN_LEFT: { title: 'Turn your head LEFT', hint: 'Slowly, then hold for a moment.' },
   TURN_RIGHT: { title: 'Turn your head RIGHT', hint: 'Slowly, then hold for a moment.' },
   LOOK_UP: { title: 'Tilt your head UP', hint: 'Keep the phone at eye level and lift your chin.' },
-  ID_CARD: { title: 'Show the FRONT of your ID card', hint: 'Fill the frame with the card, flat, in good light, no glare.' },
-  FACE_WITH_ID: { title: 'Hold your ID card next to your face', hint: 'Your face and the photo on the card must both be visible.' },
+  ID_CARD: { title: 'Show the FRONT of your ID card', hint: 'Hold it flat and close, filling the frame, so the card number is sharp. Avoid glare.' },
+  FACE_WITH_ID: { title: 'Hold your ID card next to your face', hint: 'Hold the phone a little further away. Card beside your cheek, its photo facing the camera.' },
 };
 
 const isCardStep = (step: LivenessStep | undefined) => step === 'ID_CARD';
@@ -18,11 +18,20 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 /** The face guide in the camera picture's 0-100 box, as on the website (the server wants a face 22-65% wide). */
 function faceOval(aspect: number, withCard: boolean): { cx: number; rx: number; ry: number } {
   const shape = 0.75;
-  let ry = 38;
+  // Beside the card the face is smaller and to one side: the server looks for the card's photo left or right of it.
+  let ry = withCard ? 20 : 38;
   let rx = (ry * shape) / aspect;
-  const maxRx = withCard ? 22 : 30;
+  const maxRx = withCard ? 18 : 30;
   if (rx > maxRx) { rx = maxRx; ry = (rx * aspect) / shape; }
-  return { cx: withCard ? 38 : 50, rx, ry };
+  return { cx: withCard ? 28 : 50, rx, ry };
+}
+
+/** An ID card is 85.6 x 54 mm; its guide keeps that shape on a portrait phone as on a landscape webcam. */
+const CARD_SHAPE = 85.6 / 54;
+function cardGuide(aspect: number, withFace: boolean): { x: number; y: number; width: number; height: number } {
+  const width = withFace ? 42 : 88;
+  const height = Math.min(withFace ? 40 : 70, (width * aspect) / CARD_SHAPE);
+  return { x: withFace ? 52 : (100 - width) / 2, y: 50 - height / 2, width, height };
 }
 
 interface MobileFaceCheckProps {
@@ -166,6 +175,9 @@ export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, on
 
   const step = session?.steps[session.currentStep];
   const oval = faceOval(aspect, step === 'FACE_WITH_ID');
+  const card = cardGuide(aspect, step === 'FACE_WITH_ID');
+  // A selfie preview is mirrored, which reverses the writing on a card held up alone; frames are sent un-mirrored either way.
+  const mirrored = step !== 'ID_CARD';
   const text = step ? STEP_TEXT[step] : null;
   const guideColour = accepted ? '#10b981' : '#fbbf24';
   const cameraOn = phase === 'starting' || phase === 'running';
@@ -195,25 +207,25 @@ export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, on
       {/* Middle: the camera picture, as large as fits, with the guide and the live feedback over it. */}
       <div ref={areaRef} className="relative flex-1 min-h-0 flex items-center justify-center">
         <div className={cameraOn ? 'relative overflow-hidden rounded-2xl' : 'hidden'} style={{ width: box.width, height: box.height }}>
-          <video ref={videoRef} muted playsInline className="absolute inset-0 w-full h-full object-cover -scale-x-100" />
+          <video ref={videoRef} muted playsInline className={`absolute inset-0 w-full h-full object-cover ${mirrored ? '-scale-x-100' : ''}`} />
           {phase === 'running' && step && (
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
               <defs>
                 <mask id="mobile-face-guide">
                   <rect width="100" height="100" fill="white" />
                   {!isCardStep(step) && <ellipse cx={oval.cx} cy="50" rx={oval.rx} ry={oval.ry} fill="black" />}
-                  {(isCardStep(step) || step === 'FACE_WITH_ID') && <rect x={step === 'FACE_WITH_ID' ? 62 : 8} y={step === 'FACE_WITH_ID' ? 40 : 30} width={step === 'FACE_WITH_ID' ? 30 : 84} height={step === 'FACE_WITH_ID' ? 30 : 40} rx="3" fill="black" />}
+                  {(isCardStep(step) || step === 'FACE_WITH_ID') && <rect x={card.x} y={card.y} width={card.width} height={card.height} rx="2" fill="black" />}
                 </mask>
               </defs>
               <rect width="100" height="100" fill="rgba(0,0,0,0.55)" mask="url(#mobile-face-guide)" />
               {!isCardStep(step) && <ellipse cx={oval.cx} cy="50" rx={oval.rx} ry={oval.ry} fill="none" stroke={guideColour} strokeWidth="0.9" />}
-              {(isCardStep(step) || step === 'FACE_WITH_ID') && <rect x={step === 'FACE_WITH_ID' ? 62 : 8} y={step === 'FACE_WITH_ID' ? 40 : 30} width={step === 'FACE_WITH_ID' ? 30 : 84} height={step === 'FACE_WITH_ID' ? 30 : 40} rx="3" fill="none" stroke={guideColour} strokeWidth="0.9" strokeDasharray="2 1" />}
+              {(isCardStep(step) || step === 'FACE_WITH_ID') && <rect x={card.x} y={card.y} width={card.width} height={card.height} rx="2" fill="none" stroke={guideColour} strokeWidth="0.9" strokeDasharray="2 1" />}
             </svg>
           )}
           {phase === 'starting' && <div className="absolute inset-0 flex items-center justify-center text-sm gap-2"><RefreshCw className="w-5 h-5 animate-spin" />Starting camera...</div>}
           {phase === 'running' && (message || progress !== null) && (
-            <div className="absolute inset-x-3 bottom-3 space-y-2">
-              {message && <p role="status" className={`rounded-2xl px-4 py-3 text-center text-base font-black shadow-lg ${accepted ? 'bg-emerald-600' : 'bg-amber-400 text-slate-950'}`}>{message}</p>}
+            <div className="absolute inset-x-3 top-3 space-y-2">
+              {message && <p role="status" className={`rounded-2xl px-4 py-2.5 text-center text-sm font-black shadow-lg ${accepted ? 'bg-emerald-600' : 'bg-amber-400 text-slate-950'}`}>{message}</p>}
               {progress !== null && (
                 <div className="mx-auto w-2/3 h-2 rounded-full bg-white/30 overflow-hidden" role="progressbar" aria-label="Movement progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
                   <div className="h-full rounded-full bg-white transition-all duration-300" style={{ width: `${Math.round(progress * 100)}%` }} />
