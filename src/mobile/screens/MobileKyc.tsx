@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, Camera, CheckCircle2, FileUp, Hourglass, ScanFace, ShieldCheck } from 'lucide-react';
 import { apiClient, apiErrorMessage, KycApplication, KycDocumentType, KycDraftInput, KycIdDocumentType, LivenessSession } from '../../services/apiClient';
 import { KYC_DOCUMENT_LABELS, KYC_ID_DOCUMENT_LABELS, KYC_STATUS_LABELS, noExpiryReason, requiredKycDocuments } from '../../kyc/kycLabels';
-import { KycLivenessCapture } from '../../kyc/KycLivenessCapture';
+import { MobileFaceCheck } from '../MobileFaceCheck';
 import { useRBAC } from '../../rbac/RBACContext';
 import { shrinkPhoto } from '../shrinkPhoto';
 
@@ -218,7 +218,7 @@ export const MobileKyc: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             </div>
           )}
           {capturing && (
-            <KycLivenessCapture
+            <MobileFaceCheck
               onFinished={(session) => { setLiveness(session); setCapturing(false); void apiClient.getMyKyc().then(setApplication).catch(() => undefined); }}
               onCancel={() => { setCapturing(false); void apiClient.getMyLiveness().then(setLiveness).catch(() => undefined); }}
             />
