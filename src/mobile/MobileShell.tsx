@@ -1,22 +1,26 @@
 import React, { useState } from 'react';
-import { Home, Layers, UserRound } from 'lucide-react';
+import { Home, Layers, UserRound, Wallet } from 'lucide-react';
 import { useRBAC } from '../rbac/RBACContext';
+import { canInvest } from '../rbac/menuVisibility';
 import { MobileHome } from './screens/MobileHome';
 import { MobilePools } from './screens/MobilePools';
+import { MobilePortfolio } from './screens/MobilePortfolio';
 import { MobileAccount } from './screens/MobileAccount';
 
-export type MobileTab = 'home' | 'pools' | 'account';
+export type MobileTab = 'home' | 'pools' | 'portfolio' | 'account';
 
-const TABS: Array<{ id: MobileTab; label: string; icon: React.ReactNode }> = [
+const TABS: Array<{ id: MobileTab; label: string; icon: React.ReactNode; investorsOnly?: boolean }> = [
   { id: 'home', label: 'Home', icon: <Home className="w-5 h-5" /> },
   { id: 'pools', label: 'Pools', icon: <Layers className="w-5 h-5" /> },
+  { id: 'portfolio', label: 'Portfolio', icon: <Wallet className="w-5 h-5" />, investorsOnly: true },
   { id: 'account', label: 'Account', icon: <UserRound className="w-5 h-5" /> },
 ];
 
 /** Phone layout: a slim header, one screen at a time, and the tabs at the bottom within thumb reach. */
 export const MobileShell: React.FC = () => {
-  const { activeUser } = useRBAC();
+  const { activeUser, currentRole } = useRBAC();
   const [tab, setTab] = useState<MobileTab>('home');
+  const tabs = TABS.filter(item => !item.investorsOnly || canInvest(currentRole));
 
   return (
     <div className="min-h-dvh flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
@@ -30,12 +34,13 @@ export const MobileShell: React.FC = () => {
 
       <main className="flex-1 px-4 pt-4 pb-24">
         {tab === 'home' && <MobileHome onOpen={setTab} />}
-        {tab === 'pools' && <MobilePools />}
+        {tab === 'pools' && <MobilePools onOpenPortfolio={() => setTab('portfolio')} />}
+        {tab === 'portfolio' && <MobilePortfolio />}
         {tab === 'account' && <MobileAccount />}
       </main>
 
-      <nav aria-label="Main" className="fixed bottom-0 inset-x-0 z-20 grid grid-cols-3 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur pb-[env(safe-area-inset-bottom)]">
-        {TABS.map(item => (
+      <nav aria-label="Main" className="fixed bottom-0 inset-x-0 z-20 grid border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur pb-[env(safe-area-inset-bottom)]" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+        {tabs.map(item => (
           <button
             key={item.id}
             type="button"

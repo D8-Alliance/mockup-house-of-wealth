@@ -1,13 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Layers, RefreshCw } from 'lucide-react';
+import { ChevronRight, Layers, RefreshCw } from 'lucide-react';
 import { apiClient, BackendPool } from '../../services/apiClient';
 import { formatProjectMoney } from '../../components/sponsor/sponsorMoney';
+import { useRBAC } from '../../rbac/RBACContext';
+import { canInvest } from '../../rbac/menuVisibility';
+import { MobilePoolDetail } from './MobilePoolDetail';
 
 /**
  * Pools open for investment, as the server lists them for this person (an investor sees the open pools of their
- * country). Ordering from the phone comes in the next step; the figures here are the database's.
+ * country). An investor taps a pool to read its akad terms and invest.
  */
-export const MobilePools: React.FC = () => {
+export const MobilePools: React.FC<{ onOpenPortfolio: () => void }> = ({ onOpenPortfolio }) => {
+  const { currentRole } = useRBAC();
+  const investor = canInvest(currentRole);
+  const [openPool, setOpenPool] = useState<string | null>(null);
   const [pools, setPools] = useState<BackendPool[] | null>(null);
   const [error, setError] = useState('');
 
@@ -19,6 +25,10 @@ export const MobilePools: React.FC = () => {
       .catch((cause) => { setPools([]); setError(cause instanceof Error ? cause.message : 'The pools could not be loaded.'); });
   }, []);
   useEffect(load, [load]);
+
+  if (openPool) {
+    return <MobilePoolDetail poolId={openPool} onBack={() => { setOpenPool(null); load(); }} onOpenPortfolio={onOpenPortfolio} />;
+  }
 
   return (
     <div className="space-y-4">
@@ -53,6 +63,11 @@ export const MobilePools: React.FC = () => {
               <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} /></div>
             </div>
             <p className="text-[11px] text-slate-400">The indicative return is not a promise: profit is shared under the pool's akad terms.</p>
+            {investor && (
+              <button type="button" onClick={() => setOpenPool(pool.poolId)} className="w-full flex items-center justify-center gap-1 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-black">
+                Akad terms and invest<ChevronRight className="w-4 h-4" />
+              </button>
+            )}
           </article>
         );
       })}

@@ -62,6 +62,16 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void }> = ({ onO
         </span>
         <ChevronRight className="w-5 h-5 text-slate-400" />
       </button>
+
+      {investor && (
+        <button type="button" onClick={() => onOpen('portfolio')} className="w-full flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 text-left">
+          <span>
+            <span className="block text-sm font-black">My portfolio</span>
+            <span className="block text-xs text-slate-500">What you have invested, profit earned, and your orders</span>
+          </span>
+          <ChevronRight className="w-5 h-5 text-slate-400" />
+        </button>
+      )}
     </div>
   );
 };
