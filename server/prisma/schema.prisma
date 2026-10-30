@@ -1585,6 +1585,8 @@ model NotificationOutbox {
   resourceType    String?
   resourceId      String?
   channels        String    @default("IN_APP")
+  /// Channels already sent or skipped, so a retry only repeats the ones that failed.
+  deliveredChannels String  @default("")
   status          String    @default("PENDING")
   attempts        Int       @default(0)
   nextAttemptAt   DateTime  @default(now())

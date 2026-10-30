@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { formatAmount, NotificationService } from '../notifications/notification.service';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -15,7 +16,7 @@ const OPERATORS = new Set(['Super Admin', 'Settlement Officer']);
 
 @Injectable()
 export class DistributionService {
-  constructor(private readonly prisma: PrismaService, private readonly ledger: FinancialLedgerService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly ledger: FinancialLedgerService, private readonly audit: AuditService, @Optional() private readonly notifications?: NotificationService) {}
 
   async create(actor: AuthenticatedUser, input: CreateDistributionDto) {
     assertTenantScope(actor, input, 'Distribution');
@@ -183,7 +184,7 @@ export class DistributionService {
   async settlePayout(actor: AuthenticatedUser, payoutId: string) {
     const payout = await this.getPayout(actor, payoutId);
     if (payout.status !== 'SUBMITTED') throw new BadRequestException('Only submitted payouts can be settled.');
-    return this.prisma.$transaction(async (tx) => {
+    const settled = await this.prisma.$transaction(async (tx) => {
       // Conditional on SUBMITTED so a provider webhook handled at the same moment cannot also change it.
       const claimed = await tx.payoutInstruction.updateMany({ where: { id: payoutId, status: 'SUBMITTED' }, data: { status: 'SETTLED', settledAt: new Date() } });
       if (!claimed.count) throw new BadRequestException('Payout changed concurrently.');
@@ -193,18 +194,30 @@ export class DistributionService {
       await this.audit.recordActor(actor, { action: 'payout.settle', resourceType: 'PayoutInstruction', resourceId: payoutId, organisationId: distribution.organisationId, countryNodeId: distribution.countryNodeId, metadata: { distributionId: distribution.id, distributionStatus: distribution.status } }, tx);
       return distribution;
     });
+    await this.notifications?.notifyUsers([payout.allocation.beneficiaryUserId], {
+      type: 'DISTRIBUTION', title: 'Profit paid to your bank account',
+      message: `${formatAmount(payout.allocation.amount, payout.allocation.currency)} from ${payout.allocation.distribution.periodName} was paid to your verified bank account.`,
+      resourceType: 'PayoutInstruction', resourceId: payoutId, dedupeKey: `payout-settled:${payoutId}`,
+    });
+    return settled;
   }
 
   async failPayout(actor: AuthenticatedUser, payoutId: string, reason: string) {
     const payout = await this.getPayout(actor, payoutId);
     if (!reason.trim()) throw new BadRequestException('Payout failure reason is required.');
     if (!['QUEUED', 'SUBMITTED'].includes(payout.status)) throw new BadRequestException('Only queued or submitted payouts can fail.');
-    return this.prisma.$transaction(async (tx) => {
+    const failed = await this.prisma.$transaction(async (tx) => {
       if (!(await this.markFailedInTransaction(tx, actor, payout, reason))) throw new BadRequestException('Payout changed concurrently.');
       const distribution = await tx.distribution.update({ where: { id: payout.allocation.distributionId }, data: { status: 'FAILED', version: { increment: 1 } } });
       await this.audit.recordActor(actor, { action: 'payout.fail', resourceType: 'PayoutInstruction', resourceId: payoutId, organisationId: distribution.organisationId, countryNodeId: distribution.countryNodeId, metadata: { reason } }, tx);
       return distribution;
     });
+    await this.notifications?.notifyUsers([payout.allocation.beneficiaryUserId], {
+      type: 'DISTRIBUTION', title: 'Profit payout did not go through',
+      message: `The payout of ${formatAmount(payout.allocation.amount, payout.allocation.currency)} from ${payout.allocation.distribution.periodName} failed: ${reason.trim()}. Check your payout bank account in Profile; settlement can send it again once it is corrected.`,
+      resourceType: 'PayoutInstruction', resourceId: payoutId, dedupeKey: `payout-failed:${payoutId}:${Date.now()}`,
+    });
+    return failed;
   }
 
   /**

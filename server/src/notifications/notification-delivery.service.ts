@@ -3,15 +3,45 @@ import { createTransport, Transporter } from 'nodemailer';
 import { FcmClient, loadServiceAccount } from './fcm-client';
 import { emailProvider, smtpOptions } from './email-config';
 
+type DeliveryInput = { channels: string; title: string; message: string; recipientEmail?: string; recipientPhone?: string; pushToken?: string };
+
+/** What happened on one channel: SKIPPED means it cannot be sent here (not set up, no address), so retrying will not help. */
+export interface ChannelResult { channel: string; outcome: 'SENT' | 'SKIPPED' | 'FAILED'; reason?: string }
+
+const outsideChannels = (channels: string) => [...new Set(channels.split(',').map((item) => item.trim().toUpperCase()).filter((item) => item && item !== 'IN_APP'))];
+
 @Injectable()
 export class NotificationDeliveryService {
-  async deliver(input: { channels: string; title: string; message: string; recipientEmail?: string; recipientPhone?: string; pushToken?: string }) {
-    for (const channel of input.channels.split(',').map((item) => item.trim().toUpperCase()).filter((item) => item && item !== 'IN_APP')) {
-      if (channel === 'EMAIL') await this.email(input);
-      else if (channel === 'SMS') await this.sms(input);
-      else if (channel === 'PUSH') await this.push(input);
-      else throw new Error(`Unsupported notification channel: ${channel}`);
+  /** Sends on every channel and throws on the first one that cannot send (used where the message must arrive, e.g. signing codes). */
+  async deliver(input: DeliveryInput) {
+    for (const channel of outsideChannels(input.channels)) await this.send(channel, input);
+  }
+
+  /**
+   * Sends on each channel separately, so one channel failing does not stop or repeat the others.
+   * A channel that is not set up on this server, or has no address for the recipient, is skipped.
+   */
+  async deliverEach(input: DeliveryInput): Promise<ChannelResult[]> {
+    const results: ChannelResult[] = [];
+    for (const channel of outsideChannels(input.channels)) {
+      try {
+        const sent = await this.send(channel, input);
+        results.push(sent ? { channel, outcome: 'SENT' } : { channel, outcome: 'SKIPPED', reason: 'no device registered' });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        results.push({ channel, outcome: error instanceof ServiceUnavailableException ? 'SKIPPED' : 'FAILED', reason });
+      }
     }
+    return results;
+  }
+
+  /** False when there was nothing to send to (a push without a registered device). */
+  private async send(channel: string, input: DeliveryInput): Promise<boolean> {
+    if (channel === 'EMAIL') await this.email(input);
+    else if (channel === 'SMS') await this.sms(input);
+    else if (channel === 'PUSH') return this.push(input);
+    else throw new Error(`Unsupported notification channel: ${channel}`);
+    return true;
   }
 
   private async email(input: { title: string; message: string; recipientEmail?: string }) {
@@ -43,11 +73,12 @@ export class NotificationDeliveryService {
     if (!response.ok) throw new Error(`SMS provider returned ${response.status}`);
   }
 
-  private async push(input: { title: string; message: string; pushToken?: string }) {
+  private async push(input: { title: string; message: string; pushToken?: string }): Promise<boolean> {
     const credentialFile = process.env.FCM_SERVICE_ACCOUNT_FILE || process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    if (!input.pushToken) return;
+    if (!input.pushToken) return false;
     if (process.env.NOTIFICATION_PUSH_PROVIDER !== 'fcm' || !credentialFile || !input.pushToken) throw new ServiceUnavailableException('Firebase push notification is not configured.');
     await this.fcm(credentialFile).send({ token: input.pushToken, title: input.title, body: input.message });
+    return true;
   }
 
   // One client per credential file, so the OAuth access token is reused between sends.

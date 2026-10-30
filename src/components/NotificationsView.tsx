@@ -11,7 +11,6 @@ import {
   Clock
 } from 'lucide-react';
 import { apiClient } from '../services/apiClient';
-import { enableFirebasePush } from '../services/firebaseMessaging';
 
 interface NotificationItem {
   id: string;
@@ -24,28 +23,13 @@ interface NotificationItem {
 
 export const NotificationsView: React.FC = () => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'unsupported' | 'denied' | 'error'>('idle');
 
   useEffect(() => {
-    void apiClient.getNotifications().then((rows) => setNotifications(rows.map((row) => ({ id: row.id, title: row.title, message: row.message, timestamp: new Date(row.createdAt).toLocaleString(), type: row.type.includes('SECURITY') ? 'security' : row.type.includes('SHARIAH') ? 'compliance' : row.type.includes('PAYOUT') ? 'profit' : 'pool', read: Boolean(row.readAt) })))).catch(() => undefined);
+    void apiClient.getNotifications().then((rows) => setNotifications(rows.map((row) => ({ id: row.id, title: row.title, message: row.message, timestamp: new Date(row.createdAt).toLocaleString(), type: row.type.includes('SECURITY') ? 'security' : row.type.includes('SHARIAH') ? 'compliance' : row.type.includes('PAYOUT') || row.type.includes('DISTRIBUTION') || row.type.includes('INVESTMENT') ? 'profit' : row.type.includes('KYC') ? 'compliance' : 'pool', read: Boolean(row.readAt) })))).catch(() => undefined);
   }, []);
 
   const markAllRead = () => {
     void apiClient.markAllNotificationsRead().then(() => setNotifications((current) => current.map(n => ({ ...n, read: true })))).catch(() => undefined);
-  };
-
-  const enablePush = async () => {
-    try {
-      const token = await enableFirebasePush();
-      if (!token) {
-        setPushStatus(typeof Notification !== 'undefined' && Notification.permission === 'denied' ? 'denied' : 'unsupported');
-        return;
-      }
-      await apiClient.updateMyProfile({ pushToken: token });
-      setPushStatus('enabled');
-    } catch {
-      setPushStatus('error');
-    }
   };
 
   return (
@@ -56,9 +40,6 @@ export const NotificationsView: React.FC = () => {
           <p className="text-sm text-slate-500">Real-time alerts for profit payouts, pool lifecycles, and Shariah audit clearance.</p>
         </div>
          <div className="flex items-center gap-2">
-           <button onClick={enablePush} className="px-3.5 py-2 text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 rounded-xl hover:bg-blue-100 cursor-pointer">
-             {pushStatus === 'enabled' ? 'Push Enabled' : 'Enable Push'}
-           </button>
            <button onClick={markAllRead} className="px-3.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl hover:bg-emerald-100 cursor-pointer">
              Mark All as Read
            </button>

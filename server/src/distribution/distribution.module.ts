@@ -2,13 +2,14 @@ import { Module } from '@nestjs/common';
 import { AuditModule } from '../audit/audit.module';
 import { FinancialLedgerModule } from '../financial/financial-ledger.module';
 import { FeatureModuleModule } from '../modules/feature-module.module';
+import { NotificationModule } from '../notifications/notification.module';
 import { DistributionController } from './distribution.controller';
 import { PayoutAccountsController } from './payout-accounts.controller';
 import { DistributionService } from './distribution.service';
 import { PayoutDestinationService } from './payout-destination.service';
 
 @Module({
-  imports: [AuditModule, FinancialLedgerModule, FeatureModuleModule],
+  imports: [AuditModule, FinancialLedgerModule, FeatureModuleModule, NotificationModule],
   controllers: [DistributionController, PayoutAccountsController],
   providers: [DistributionService, PayoutDestinationService],
   exports: [DistributionService],

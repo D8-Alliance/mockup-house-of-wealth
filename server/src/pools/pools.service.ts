@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -20,6 +21,7 @@ export class PoolsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly policy: PolicyService,
+    @Optional() private readonly notifications?: NotificationService,
   ) {}
 
   async list(user: AuthenticatedUser) {
@@ -129,16 +131,21 @@ export class PoolsService {
 
   /** Opens an APPROVED pool for investor subscriptions. */
   async open(id: string, user: AuthenticatedUser) {
-    const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: id } });
+    const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: id }, include: { project: { select: { projectSponsorId: true } } } });
     if (!pool) throw new NotFoundException('Pool not found');
     assertTenantScope(user, pool, 'Pool');
     if (pool.status !== 'APPROVED') throw new BadRequestException('Pool cannot be opened until all governance sign-offs are complete.');
-    return this.prisma.$transaction(async (tx) => {
+    const opened = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.wealthPool.updateMany({ where: { poolId: id, status: 'APPROVED' }, data: { status: 'OPEN' } });
       if (!claimed.count) throw new BadRequestException('Pool status changed concurrently.');
       await this.audit.recordActor(user, { action: 'pool.status_change', resourceType: 'WealthPool', resourceId: id, organisationId: pool.organisationId, countryNodeId: pool.countryNodeId, metadata: { fromStatus: 'APPROVED', toStatus: 'OPEN', note: null } }, tx);
       return tx.wealthPool.findUniqueOrThrow({ where: { poolId: id } });
     });
+    await this.notifications?.notifyUsers([pool.project.projectSponsorId], {
+      type: 'POOL', title: 'Pool open to investors', message: `${pool.poolName} passed its four sign-offs and is now open. Investors in your country can subscribe.`,
+      resourceType: 'WealthPool', resourceId: id, dedupeKey: `pool-opened:${id}`,
+    });
+    return opened;
   }
 
   async create(dto: CreatePoolDto, user: AuthenticatedUser) {
@@ -190,6 +197,14 @@ export class PoolsService {
       return { ...created, akadTerms: terms };
     });
 
+    // The draft waits for governance: tell the people who can sign it off (not the person who created it).
+    // Pool Managers sign only their own organisation's pools; Country Admins any pool of their country.
+    const signOffNeeded = {
+      type: 'POOL', title: 'Pool waiting for sign-off', message: `${pool.poolName} for ${project.projectName} needs its Shariah, compliance, risk and authorised sign-offs before it can open.`,
+      resourceType: 'WealthPool', resourceId: pool.poolId, dedupeKey: `pool-signoff-needed:${pool.poolId}`,
+    };
+    await this.notifications?.notifyRoles(['Pool_Manager'], { countryNodeId: dto.countryNodeId, organisationId: dto.organisationId }, signOffNeeded, user.userId);
+    await this.notifications?.notifyRoles(['Country_Admin'], { countryNodeId: dto.countryNodeId }, signOffNeeded, user.userId);
     return pool;
   }
 }

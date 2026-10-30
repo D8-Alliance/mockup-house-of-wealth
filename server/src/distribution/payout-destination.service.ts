@@ -1,4 +1,5 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
+import { NotificationService } from '../notifications/notification.service';
 import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -20,7 +21,7 @@ export function maskReference(reference: string): string {
 
 @Injectable()
 export class PayoutDestinationService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, @Optional() private readonly notifications?: NotificationService) {}
 
   async create(actor: AuthenticatedUser, input: CreatePayoutDestinationDto) {
     const reference = input.reference.trim();
@@ -97,6 +98,11 @@ export class PayoutDestinationService {
     if (destination.ownerUserId === actor.userId) throw new ForbiddenException('This is your own payout account, so another settlement operator must verify it.');
     const updated = await this.prisma.payoutDestination.update({ where: { id }, data: { status: 'VERIFIED', verifiedBy: actor.userId, verifiedAt: new Date(), cooldownUntil: new Date() } });
     await this.audit.recordActor(actor, { action: 'payout.destination.verify', resourceType: 'PayoutDestination', resourceId: id, organisationId: destination.organisationId, countryNodeId: destination.countryNodeId, metadata: { ownerUserId: destination.ownerUserId, destinationHash: destination.destinationHash } });
+    await this.notifications?.notifyUsers([destination.ownerUserId], {
+      type: 'PAYOUT_ACCOUNT', title: 'Bank account verified',
+      message: `Your ${destination.provider} account ${destination.maskedReference ?? ''} is verified. Payouts can now be paid into it.`,
+      resourceType: 'PayoutDestination', resourceId: id, dedupeKey: `payout-account-verified:${id}`,
+    });
     return this.publicDestination(updated);
   }
 

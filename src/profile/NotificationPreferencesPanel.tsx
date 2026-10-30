@@ -9,10 +9,9 @@ interface NotificationPreferencesPanelProps {
   onSave: (change: ProfilePreferences) => Promise<void>;
 }
 
+// The platform notifies in the app and by email only; push and SMS are not offered.
 const CHANNELS: { key: Channel; label: string; text: string }[] = [
-  { key: 'email', label: 'Email', text: 'Profit distributions, contract signatures, approvals and reminders, sent to your sign-in email.' },
-  { key: 'push', label: 'Push notifications', text: 'The same alerts on the D-8 mobile app, once you sign in there.' },
-  { key: 'sms', label: 'SMS', text: 'The same alerts by SMS to the phone number on your Personal Info tab.' },
+  { key: 'email', label: 'Email', text: 'Investments, profit payouts, approvals and verification results, also sent to your sign-in email.' },
 ];
 
 /** Saved on the server; the notification sender skips any channel switched off here. */
@@ -37,7 +36,7 @@ export const NotificationPreferencesPanel: React.FC<NotificationPreferencesPanel
           <span>Notification Preferences</span>
         </h3>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Notifications always appear in the app. Choose which other channels may also reach you. A channel only sends once the platform operator has set it up.
+          Notifications always appear in the app. Choose whether they also reach you by email.
         </p>
       </div>
 

@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { formatAmount, NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -27,6 +28,7 @@ export class FundingService {
     private readonly audit: AuditService,
     private readonly policy: PolicyService,
     private readonly ledger: FinancialLedgerService,
+    @Optional() private readonly notifications?: NotificationService,
   ) {}
 
   async request(projectId: string, milestoneId: string, user: AuthenticatedUser): Promise<{ requestId: string; status: string }> {
@@ -66,6 +68,11 @@ export class FundingService {
       return created;
     });
 
+    await this.notifications?.notifyRoles(['Finance_Officer', 'Country_Admin'], { countryNodeId: project.countryNodeId }, {
+      type: 'FUNDING', title: 'Tranche release to approve',
+      message: `${project.projectName} asks for ${formatAmount(milestone.disbursementAmount, pool.currency)} for "${milestone.title}".`,
+      resourceType: 'FundingRequest', resourceId: request.fundingRequestId, dedupeKey: `funding-requested:${request.fundingRequestId}`,
+    }, user.userId);
     return { requestId: request.fundingRequestId, status: request.status };
   }
 
@@ -102,6 +109,12 @@ export class FundingService {
       return result;
     });
 
+    // Release is a second person's step: the Country Admins of that country (never the approver).
+    await this.notifications?.notifyRoles(['Country_Admin'], { countryNodeId: request.countryNodeId }, {
+      type: 'FUNDING', title: 'Tranche approved, ready to release',
+      message: `${formatAmount(request.requestedAmount, request.currency)} for "${request.purpose}" was approved and waits for release.`,
+      resourceType: 'FundingRequest', resourceId: fundingRequestId, dedupeKey: `funding-approved:${fundingRequestId}`,
+    }, user.userId);
     return { requestId: fundingRequestId, status: updated.status };
   }
 
@@ -121,6 +134,11 @@ export class FundingService {
       const claimed = await tx.fundingRequest.updateMany({ where: { fundingRequestId, status: request.status }, data: { status: 'REJECTED', decisionNote: reason } });
       if (!claimed.count) throw new BadRequestException('Funding request changed state. Reload.');
       await this.audit.recordActor(user, { action: 'funding.reject', resourceType: 'FundingRequest', resourceId: fundingRequestId, organisationId: request.organisationId, countryNodeId: request.countryNodeId, metadata: { reason } }, tx);
+    });
+    await this.notifications?.notifyUsers([request.requestedBy], {
+      type: 'FUNDING', title: 'Tranche release rejected',
+      message: `The release of ${formatAmount(request.requestedAmount, request.currency)} for "${request.purpose}" was rejected: ${reason}. Fix it and ask again.`,
+      resourceType: 'FundingRequest', resourceId: fundingRequestId, dedupeKey: `funding-rejected:${fundingRequestId}`,
     });
     return { requestId: fundingRequestId, status: 'REJECTED' };
   }
@@ -168,6 +186,12 @@ export class FundingService {
       return tx.fundingRequest.findUniqueOrThrow({ where: { fundingRequestId } });
     });
 
+    const project = await this.prisma.project.findUnique({ where: { projectId: request.projectId }, select: { projectSponsorId: true } });
+    await this.notifications?.notifyUsers([request.requestedBy, ...(project ? [project.projectSponsorId] : [])], {
+      type: 'FUNDING', title: 'Tranche released',
+      message: `${formatAmount(amount, currency)} for "${request.purpose}" was released to the project.`,
+      resourceType: 'FundingRequest', resourceId: fundingRequestId, dedupeKey: `funding-disbursed:${fundingRequestId}`,
+    });
     return { requestId: fundingRequestId, status: updated.status, proRata: shares };
   }
 

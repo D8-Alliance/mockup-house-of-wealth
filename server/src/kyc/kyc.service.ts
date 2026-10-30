@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { NotificationService } from '../notifications/notification.service';
 import { createHash, randomUUID } from 'node:crypto';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -30,6 +31,7 @@ export class KycService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly checks: KycChecksService,
+    @Optional() private readonly notifications?: NotificationService,
   ) {}
 
   private readonly logger = new Logger('KycService');
@@ -204,6 +206,13 @@ export class KycService {
       throw error;
     }
     await this.audit.recordActor(actor, { action: `kyc.application.${input.decision.toLowerCase()}`, resourceType: 'KycApplication', resourceId: id, organisationId: application.organisationId, countryNodeId: application.countryNodeId, metadata: { applicationNumber: application.applicationNumber, decision: input.decision, kycLevel, reviewerRole: actor.role, manualReview: true, checkRecommendation: application.checkRecommendation, ...(gate && { failedChecks: gate.failedChecks, warningsAcknowledged: gate.warningsAcknowledged, overrideReason: gate.overrideReason }) } });
+    const reason = input.comment.trim();
+    const decided = {
+      APPROVED: { title: 'Identity verified (KYC)', message: 'Your identity verification was approved. You can now invest in open pools.' },
+      REJECTED: { title: 'Identity verification rejected', message: `Your identity verification was rejected. Reviewer's note: ${reason}` },
+      RESUBMISSION_REQUIRED: { title: 'Identity verification: please correct and resubmit', message: `The reviewer asked for changes before approving: ${reason}` },
+    }[input.decision];
+    await this.notifications?.notifyUsers([application.userId], { type: 'KYC', ...decided, resourceType: 'KycApplication', resourceId: id, dedupeKey: `kyc-decision:${id}:${reviewedAt.getTime()}` });
     // The decision is already audited; skip the separate "view" entry.
     return this.loadForReview(actor, id);
   }

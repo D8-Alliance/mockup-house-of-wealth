@@ -1,4 +1,5 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { formatAmount, NotificationService } from '../notifications/notification.service';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -19,7 +20,7 @@ const DELIVERY_PARTNER_ROLES: ReadonlySet<string> = new Set(['Project Sponsor', 
 
 @Injectable()
 export class InvestmentsService {
-  constructor(private readonly prisma: PrismaService, private readonly ledger: FinancialLedgerService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly ledger: FinancialLedgerService, private readonly audit: AuditService, @Optional() private readonly notifications?: NotificationService) {}
 
   async createOrder(actor: AuthenticatedUser, input: CreateInvestmentOrderDto) {
     if (!INVESTOR_ROLES.has(actor.role)) throw new ForbiddenException('Only investor accounts can place investment orders.');
@@ -131,11 +132,12 @@ export class InvestmentsService {
     if (order.status !== 'PENDING') throw new BadRequestException(`Cannot settle an order in state ${order.status}.`);
     const reference = paymentReference?.trim() ?? '';
     if (reference.length < 4) throw new BadRequestException("Enter the bank reference of the investor's transfer (at least 4 characters).");
-    const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: order.poolId }, include: { project: { select: { fundingRequired: true } } } });
+    const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: order.poolId }, include: { project: { select: { fundingRequired: true, projectSponsorId: true } } } });
     if (!pool || pool.status !== 'OPEN') throw new BadRequestException('Only OPEN pools can receive settlement.');
     // Finance confirms for any organisation of its country; the money sits in the pool organisation's books.
     const settlementActor = COUNTRY_SETTLEMENT_ROLES.has(actor.role) ? postingOnBehalfOf(actor, order) : actor;
-    return this.prisma.$transaction(async (tx) => {
+    let becameFull = false;
+    const settled = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.investmentOrder.updateMany({ where: { id, status: 'PENDING' }, data: { status: 'SETTLED', settledAt: new Date(), paymentReference: reference, settledBy: actor.userId } });
       if (!claimed.count) throw new BadRequestException('Investment order was already settled or changed state.');
       const poolAccount = await this.ledger.ensureAccountInTransaction(tx, settlementActor, { accountCode: `POOL-${order.poolId}-CASH-${order.currency}`, accountType: 'ASSET', ownerType: 'POOL', ownerId: order.poolId, organisationId: order.organisationId, countryNodeId: order.countryNodeId, currency: order.currency });
@@ -143,12 +145,24 @@ export class InvestmentsService {
       const contribution = await this.ledger.recordInvestmentContributionInTransaction(tx, settlementActor, { orderId: order.id, projectId: order.projectId, poolId: order.poolId, investorUserId: order.investorUserId, organisationId: order.organisationId, countryNodeId: order.countryNodeId, amount: Number(order.amount), currency: order.currency, posting: { transactionType: 'INVESTMENT_CONTRIBUTION', referenceType: 'InvestmentOrder', referenceId: order.id, currency: order.currency, description: `Investment contribution for ${order.poolId}`, idempotencyKey: `investment-order:${order.id}`, entries: [{ accountId: poolAccount.id, direction: 'DEBIT', amount: Number(order.amount), description: 'Pool cash received' }, { accountId: investorAccount.id, direction: 'CREDIT', amount: Number(order.amount), description: 'Investor contribution' }] } });
       const total = await tx.investmentContribution.aggregate({ _sum: { amount: true }, where: { poolId: order.poolId, status: 'POSTED' } });
       if (Number(total._sum.amount || 0) >= Number(pool.project.fundingRequired)) {
-        await tx.wealthPool.updateMany({ where: { poolId: order.poolId, status: 'OPEN' }, data: { status: 'FULL' } });
+        becameFull = (await tx.wealthPool.updateMany({ where: { poolId: order.poolId, status: 'OPEN' }, data: { status: 'FULL' } })).count > 0;
         await advanceProjectStatus(tx, order, RAISING_PROJECT_STATUSES, 'FUNDED', actor.userId, `Pool ${pool.poolName} raised the funding required.`);
       }
       await this.audit.recordActor(actor, { action: 'investment.order.settle', resourceType: 'InvestmentOrder', resourceId: order.id, organisationId: order.organisationId, countryNodeId: order.countryNodeId, metadata: { contributionId: contribution.id, amount: Number(order.amount), paymentReference: reference } }, tx);
       return tx.investmentOrder.findUniqueOrThrow({ where: { id: order.id }, include: { contribution: true } });
     });
+    await this.notifications?.notifyUsers([order.investorUserId], {
+      type: 'INVESTMENT', title: 'Investment confirmed',
+      message: `Finance confirmed your transfer of ${formatAmount(order.amount, order.currency)} to ${pool.poolName} (order ${order.orderNumber}). It now counts in the pool.`,
+      resourceType: 'InvestmentOrder', resourceId: order.id, dedupeKey: `investment-settled:${order.id}`,
+    });
+    if (becameFull) {
+      await this.notifications?.notifyUsers([pool.project.projectSponsorId], {
+        type: 'POOL', title: 'Pool fully funded', message: `${pool.poolName} has raised its target. You can now request the first disbursement tranche.`,
+        resourceType: 'WealthPool', resourceId: pool.poolId, dedupeKey: `pool-full:${pool.poolId}`,
+      });
+    }
+    return settled;
   }
 
   async cancel(actor: AuthenticatedUser, id: string, reason?: string) {
@@ -160,6 +174,14 @@ export class InvestmentsService {
       await this.audit.recordActor(actor, { action: 'investment.order.cancel', resourceType: 'InvestmentOrder', resourceId: id, organisationId: order.organisationId, countryNodeId: order.countryNodeId, metadata: { reason: reason || null } }, tx);
       return tx.investmentOrder.findUniqueOrThrow({ where: { id } });
     });
+    // Staff cancelling an investor's order tells the investor; an investor cancelling their own does not need telling.
+    if (order.investorUserId !== actor.userId) {
+      await this.notifications?.notifyUsers([order.investorUserId], {
+        type: 'INVESTMENT', title: 'Investment order cancelled',
+        message: `Your order ${order.orderNumber} for ${formatAmount(order.amount, order.currency)} was cancelled${reason ? `: ${reason}` : '.'}`,
+        resourceType: 'InvestmentOrder', resourceId: id, dedupeKey: `investment-cancelled:${id}`,
+      });
+    }
     return cancelled;
   }
 }
