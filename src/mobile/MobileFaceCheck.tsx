@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Camera, CheckCircle2, CreditCard, RefreshCw, ScanFace, X } from 'lucide-react';
 import { apiClient, apiErrorMessage, LivenessSession, LivenessStep } from '../services/apiClient';
+import { useT } from './i18n';
 
 /** Short, large instructions for a phone held at arm's length. */
 const STEP_TEXT: Record<LivenessStep, { title: string; hint: string }> = {
@@ -46,6 +47,7 @@ interface MobileFaceCheckProps {
  * frames are sent un-mirrored so left and right are measured correctly.
  */
 export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, onCancel }) => {
+  const { t } = useT();
   const [phase, setPhase] = useState<'consent' | 'starting' | 'running' | 'passed' | 'failed'>('consent');
   const [consent, setConsent] = useState(false);
   const [session, setSession] = useState<LivenessSession | null>(null);
@@ -99,7 +101,7 @@ export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, on
     canvas.width = Math.round(video.videoWidth * scale);
     canvas.height = Math.round(video.videoHeight * scale);
     canvas.getContext('2d')!.drawImage(video, 0, 0, canvas.width, canvas.height);
-    return new Promise((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Could not capture a camera frame.'))), 'image/jpeg', 0.85));
+    return new Promise((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error(t('Could not capture a camera frame.')))), 'image/jpeg', 0.85));
   };
 
   const run = async (initial: LivenessSession) => {
@@ -124,7 +126,7 @@ export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, on
         await sleep(result.accepted ? 1000 : 350);
       } catch (cause) {
         if (!runningRef.current) return;
-        setError(apiErrorMessage(cause, 'Face verification stopped. Please try again.'));
+        setError(apiErrorMessage(cause, t('Face verification stopped. Please try again.')));
         setPhase('failed');
         stopCamera();
         return;
@@ -136,7 +138,7 @@ export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, on
       setPhase('passed');
       onFinished(current);
     } else {
-      setError(current.result?.failureReason || 'Face verification did not finish. Please try again.');
+      setError(t(current.result?.failureReason || 'Face verification did not finish. Please try again.'));
       setPhase('failed');
     }
   };
@@ -147,7 +149,7 @@ export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, on
     setMessage('');
     setAccepted(false);
     try {
-      if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser cannot use the camera. Use a recent Chrome or Safari over https.');
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error(t('This browser cannot use the camera. Use a recent Chrome or Safari over https.'));
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
       streamRef.current = stream;
       const video = videoRef.current!;
@@ -161,9 +163,9 @@ export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, on
     } catch (cause) {
       stopCamera();
       const name = cause instanceof DOMException ? cause.name : '';
-      setError(name === 'NotAllowedError' ? 'Camera permission was denied. Allow camera access for this site and try again.'
-        : name === 'NotFoundError' ? 'No camera was found on this device.'
-          : apiErrorMessage(cause, 'Face verification could not start.'));
+      setError(name === 'NotAllowedError' ? t('Camera permission was denied. Allow camera access for this site and try again.')
+        : name === 'NotFoundError' ? t('No camera was found on this device.')
+          : apiErrorMessage(cause, t('Face verification could not start.')));
       setPhase('failed');
     }
   };
@@ -183,7 +185,7 @@ export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, on
   const cameraOn = phase === 'starting' || phase === 'running';
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black text-white" role="dialog" aria-label="Face verification">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black text-white" role="dialog" aria-label={t('Face verification')}>
       {/* Top: steps, time left, close; then the instruction in large type. */}
       <div className="px-4 pt-[max(env(safe-area-inset-top),12px)] pb-3 space-y-2 bg-gradient-to-b from-black to-black/70">
         <div className="flex items-center justify-between gap-3">
@@ -192,16 +194,16 @@ export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, on
           </div>
           <div className="flex items-center gap-3">
             {phase === 'running' && <span className="text-xs font-bold text-white/70">{secondsLeft}s</span>}
-            <button type="button" onClick={cancel} aria-label="Close face verification" className="p-2 rounded-full bg-white/10"><X className="w-5 h-5" /></button>
+            <button type="button" onClick={cancel} aria-label={t('Close face verification')} className="p-2 rounded-full bg-white/10"><X className="w-5 h-5" /></button>
           </div>
         </div>
         {phase === 'running' && text && (
           <div>
-            <p className="text-xl font-black flex items-center gap-2">{isCardStep(step) || step === 'FACE_WITH_ID' ? <CreditCard className="w-6 h-6 shrink-0" /> : <ScanFace className="w-6 h-6 shrink-0" />}{text.title}</p>
-            <p className="text-sm text-white/70">{text.hint}</p>
+            <p className="text-xl font-black flex items-center gap-2">{isCardStep(step) || step === 'FACE_WITH_ID' ? <CreditCard className="w-6 h-6 shrink-0" /> : <ScanFace className="w-6 h-6 shrink-0" />}{t(text.title)}</p>
+            <p className="text-sm text-white/70">{t(text.hint)}</p>
           </div>
         )}
-        {phase !== 'running' && <p className="text-xl font-black flex items-center gap-2"><ScanFace className="w-6 h-6" />Face verification</p>}
+        {phase !== 'running' && <p className="text-xl font-black flex items-center gap-2"><ScanFace className="w-6 h-6" />{t('Face verification')}</p>}
       </div>
 
       {/* Middle: the camera picture, as large as fits, with the guide and the live feedback over it. */}
@@ -222,12 +224,12 @@ export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, on
               {(isCardStep(step) || step === 'FACE_WITH_ID') && <rect x={card.x} y={card.y} width={card.width} height={card.height} rx="2" fill="none" stroke={guideColour} strokeWidth="0.9" strokeDasharray="2 1" />}
             </svg>
           )}
-          {phase === 'starting' && <div className="absolute inset-0 flex items-center justify-center text-sm gap-2"><RefreshCw className="w-5 h-5 animate-spin" />Starting camera...</div>}
+          {phase === 'starting' && <div className="absolute inset-0 flex items-center justify-center text-sm gap-2"><RefreshCw className="w-5 h-5 animate-spin" />{t('Starting camera...')}</div>}
           {phase === 'running' && (message || progress !== null) && (
             <div className="absolute inset-x-3 top-3 space-y-2">
-              {message && <p role="status" className={`rounded-2xl px-4 py-2.5 text-center text-sm font-black shadow-lg ${accepted ? 'bg-emerald-600' : 'bg-amber-400 text-slate-950'}`}>{message}</p>}
+              {message && <p role="status" className={`rounded-2xl px-4 py-2.5 text-center text-sm font-black shadow-lg ${accepted ? 'bg-emerald-600' : 'bg-amber-400 text-slate-950'}`}>{t(message)}</p>}
               {progress !== null && (
-                <div className="mx-auto w-2/3 h-2 rounded-full bg-white/30 overflow-hidden" role="progressbar" aria-label="Movement progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+                <div className="mx-auto w-2/3 h-2 rounded-full bg-white/30 overflow-hidden" role="progressbar" aria-label={t('Movement progress')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
                   <div className="h-full rounded-full bg-white transition-all duration-300" style={{ width: `${Math.round(progress * 100)}%` }} />
                 </div>
               )}
@@ -238,32 +240,32 @@ export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, on
         {phase === 'consent' && (
           <div className="w-full max-w-md px-5 space-y-4 text-sm">
             <ul className="list-disc pl-5 space-y-2 text-white/85">
-              <li>The camera confirms you are a real person and match the photo on your ID card.</li>
-              <li>You will follow a few head movements, then show your ID card.</li>
-              <li>Keep the phone at eye level, in a bright place, with your ID card ready.</li>
-              <li>The images are kept with your KYC application and seen only by authorised KYC officers.</li>
+              <li>{t('The camera confirms you are a real person and match the photo on your ID card.')}</li>
+              <li>{t('You will follow a few head movements, then show your ID card.')}</li>
+              <li>{t('Keep the phone at eye level, in a bright place, with your ID card ready.')}</li>
+              <li>{t('The images are kept with your KYC application and seen only by authorised KYC officers.')}</li>
             </ul>
             <label className="flex items-start gap-3">
               <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} className="mt-0.5 w-5 h-5 shrink-0" />
-              <span>I agree to the use of my camera and the storage of these images for identity verification.</span>
+              <span>{t('I agree to the use of my camera and the storage of these images for identity verification.')}</span>
             </label>
-            <button type="button" disabled={!consent} onClick={() => void start()} className="w-full py-3.5 rounded-2xl bg-purple-600 disabled:opacity-50 font-black flex items-center justify-center gap-2"><Camera className="w-5 h-5" />Start camera</button>
+            <button type="button" disabled={!consent} onClick={() => void start()} className="w-full py-3.5 rounded-2xl bg-purple-600 disabled:opacity-50 font-black flex items-center justify-center gap-2"><Camera className="w-5 h-5" />{t('Start camera')}</button>
           </div>
         )}
 
         {phase === 'passed' && (
           <div className="px-6 text-center space-y-3">
             <CheckCircle2 className="w-14 h-14 mx-auto text-emerald-400" />
-            <p className="text-lg font-black">Face verification completed</p>
-            <button type="button" onClick={onCancel} className="w-full py-3.5 rounded-2xl bg-emerald-600 font-black">Continue</button>
+            <p className="text-lg font-black">{t('Face verification completed')}</p>
+            <button type="button" onClick={onCancel} className="w-full py-3.5 rounded-2xl bg-emerald-600 font-black">{t('Continue')}</button>
           </div>
         )}
 
         {phase === 'failed' && (
           <div className="w-full max-w-md px-5 space-y-3">
             <p className="rounded-2xl bg-rose-500/20 border border-rose-400/40 p-4 text-sm font-semibold">{error}</p>
-            <button type="button" onClick={() => void start()} className="w-full py-3.5 rounded-2xl bg-purple-600 font-black flex items-center justify-center gap-2"><RefreshCw className="w-5 h-5" />Try again</button>
-            <button type="button" onClick={cancel} className="w-full py-3 rounded-2xl bg-white/10 font-bold">Close</button>
+            <button type="button" onClick={() => void start()} className="w-full py-3.5 rounded-2xl bg-purple-600 font-black flex items-center justify-center gap-2"><RefreshCw className="w-5 h-5" />{t('Try again')}</button>
+            <button type="button" onClick={cancel} className="w-full py-3 rounded-2xl bg-white/10 font-bold">{t('Close')}</button>
           </div>
         )}
       </div>

@@ -5,6 +5,7 @@ import { authService } from '../auth/services/authService';
 import { DEMO_PERSONAS } from '../auth/services/demoPersonas';
 import { UserProfile } from '../types';
 import { MobileShell } from './MobileShell';
+import { LanguageProvider, LanguageToggle, useT } from './i18n';
 
 const GUEST: UserProfile = {
   id: 'GUEST-001',
@@ -36,9 +37,11 @@ const GUEST: UserProfile = {
 export default function MobileApp() {
   const [user, setUser] = useState<UserProfile>(GUEST);
   return (
-    <RBACProvider currentUser={user} onUserRoleChange={setUser}>
-      <MobileGate />
-    </RBACProvider>
+    <LanguageProvider>
+      <RBACProvider currentUser={user} onUserRoleChange={setUser}>
+        <MobileGate />
+      </RBACProvider>
+    </LanguageProvider>
   );
 }
 
@@ -50,6 +53,7 @@ function MobileGate() {
 
 function MobileSignIn({ error }: { error: string | null }) {
   const { authMode, loginUser } = useRBAC();
+  const { t } = useT();
   const [starting, setStarting] = useState(false);
   const [demoError, setDemoError] = useState('');
   const signIn = () => {
@@ -63,19 +67,20 @@ function MobileSignIn({ error }: { error: string | null }) {
     const persona = DEMO_PERSONAS['Retail Investor'];
     const result = authService.login({ email: persona.email, password: '', selectedRole: 'Retail Investor', rememberMe: false });
     if (result.success && result.session) loginUser(result.session.user.activeRole, result.session.user.email);
-    else { setDemoError(result.error || 'Sign-in failed.'); setStarting(false); }
+    else { setDemoError(result.error || t('Sign-in failed.')); setStarting(false); }
   };
   const shownError = error || demoError;
   return (
-    <main className="min-h-dvh flex flex-col items-center justify-center gap-6 px-6 bg-gradient-to-b from-emerald-950 via-emerald-900 to-slate-950 text-white text-center">
+    <main className="relative min-h-dvh flex flex-col items-center justify-center gap-6 px-6 bg-gradient-to-b from-emerald-950 via-emerald-900 to-slate-950 text-white text-center">
+      <div className="absolute top-4 right-4"><LanguageToggle /></div>
       <div className="w-24 h-24 rounded-full bg-white/95 border-2 border-amber-400/60 flex items-center justify-center shadow-xl">
         <img src="/wealth-pooling-logo.svg" alt="" className="w-16 h-16" />
       </div>
       <div className="space-y-1">
         <h1 className="text-2xl font-black">Wealth Pooling D-8</h1>
-        <p className="text-sm text-amber-200 font-semibold">Islamic Circular Economy Platform</p>
+        <p className="text-sm text-amber-200 font-semibold">{t('Islamic Circular Economy Platform')}</p>
       </div>
-      <p className="text-sm text-emerald-50/80 max-w-xs">Invest in Shariah-compliant wealth pools and follow your investments from your phone.</p>
+      <p className="text-sm text-emerald-50/80 max-w-xs">{t('Invest in Shariah-compliant wealth pools and follow your investments from your phone.')}</p>
       {shownError && <p role="alert" className="max-w-xs rounded-xl bg-rose-500/15 border border-rose-400/40 p-3 text-xs font-semibold text-rose-100">{shownError}</p>}
       <button
         type="button"
@@ -83,7 +88,7 @@ function MobileSignIn({ error }: { error: string | null }) {
         disabled={starting}
         className="w-full max-w-xs py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-white font-black text-sm shadow-lg"
       >
-        {starting ? 'Opening sign-in...' : 'Sign in'}
+        {starting ? t('Opening sign-in...') : t('Sign in')}
       </button>
     </main>
   );

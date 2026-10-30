@@ -30,6 +30,7 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 22 | Pendaftaran dan pengurusan pengguna | Notis privasi rasmi; Fasa 2 (RoleGrantRequest, skrin Users); Fasa 3 (daftar sendiri) | Butiran syarikat dan semakan peguam |
 | 23 | Skrin yang masih data contoh | Lihat senarai penuh dalam item 23 | Boleh dimulakan mengikut keutamaan |
 | 24 | Perkara teknikal kecil | Saiz bundle frontend, kebersihan data local | Boleh dimulakan |
+| 25 | Mini-app D8 Ideas (fasa 1) | Isi akaun kutipan setiap negara, SSO dan push D8 Ideas, ujian dalam super app, SMTP Keycloak | Butiran akaun amanah bank; spesifikasi D8 Ideas |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -452,7 +453,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 | Document Vault untuk Legal, Auditor, KYC/KYB Officer, Asset Owner/Manager, Data Administrator | Contoh berlabel "Sample data" | Peranan ini tiada `marketplace:read`; perlukan vault mengikut peranan (contohnya dokumen aset untuk Asset Owner) |
 | My Contracts (senarai pelabur di bawah panel perjanjian) | `INITIAL_CONTRACTS`; hanya pelabur | Item 18 |
 | Audit & Ledger (tab) | Lejar dompet dari server | Jejak audit sebenar kini di Admin Center › Audit Logs |
-| Posisi pelaburan pelabur (unit, keuntungan) | Belum ada | Pesanan dan settlement sudah ada; posisi dan agihan keuntungan belum |
+| Posisi pelaburan pelabur (unit, keuntungan) | Siap di mini-app (posisi dan sejarah agihan) | Web belum menggunakan `/investments/distributions` |
 
 ## 24. Perkara teknikal kecil
 
@@ -460,3 +461,20 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 
 1. **Saiz bundle frontend:** satu fail JavaScript kira-kira 1.9 MB (430 KB selepas gzip). Pecahkan dengan `import()` dinamik untuk skrin besar (AI Wealth Engine, Admin Center) supaya muat pertama lebih pantas, terutamanya di telefon.
 2. **Data ujian local:** aset ujian `ASSET-MYS-JZW65Y19` dan rekod AiRun ujian dalam database local; bersihkan jika perlu (data demo Plesk dirakam daripadanya).
+
+## 25. Mini-app D8 Ideas (fasa 1)
+
+- **Status:** Siap 2026-10-30: log masuk, KYC dengan kamera dan pengesahan wajah, pool dan pesanan, portfolio, papan pemuka pelabur, profil, penerima manfaat, pengguna (Country Admin), arahan bayaran, sejarah agihan keuntungan, notifikasi dalam aplikasi, penyata (PDF), zakat, dan bahasa BM/EN.
+
+**Keputusan yang direkodkan (2026-10-30):**
+- **Akaun kutipan pelabur:** satu akaun amanah (escrow) platform bagi setiap negara, bukan akaun bagi setiap pool. Wang pelabur tidak pernah terus ke penaja; Kewangan melepaskannya kepada projek mengikut tranche. Super Admin mengisinya di Admin Center › Country Nodes (`PUT /collection-accounts/:countryNodeId`). Selagi kosong, pelabur diberitahu supaya tidak memindahkan wang.
+- **Bahasa mini-app:** BM dan EN, dengan butang tukar di header dan Profil. Pilihan disimpan dalam akaun (`preferences.language`).
+- **Rangka pusaka (Islam atau Sivil):** disimpan dalam akaun (`preferences.estateFramework`), sama di web dan mini-app.
+
+**Belum siap:**
+1. Isi akaun amanah sebenar bagi setiap negara (bank, nama akaun, nombor, SWIFT) sebelum pelabur sebenar membuat pesanan.
+2. SSO dan push melalui D8 Ideas: menunggu spesifikasi mereka.
+3. Uji dalam sandbox super app, terutamanya kebenaran kamera dalam WebView.
+4. Keycloak: `/m/*` dalam Valid redirect URIs, dan SMTP (Realm settings › Email) untuk "Forgot password".
+5. Teks notifikasi daripada server dan notis privasi masih dalam bahasa Inggeris (tajuk notifikasi sudah diterjemah dalam mini-app).
+6. Laman web: pengesahan pesanan pelabur di web belum memaparkan akaun kutipan.

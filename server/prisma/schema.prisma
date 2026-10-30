@@ -165,6 +165,26 @@ model CountryNode {
   ledgerTransactions   LedgerTransaction[]
   zakatAuthorities     ZakatAuthority[]
   assets               Asset[]
+  collectionAccount    CollectionAccount?
+}
+
+/// The platform's trust (escrow) account in a country, which investors transfer their investment to.
+/// One per country, kept by Super Admin: investor money goes to the platform's trust account, never
+/// straight to a sponsor, and Finance releases it to projects by tranche.
+model CollectionAccount {
+  countryNodeId String   @id
+  bankName      String
+  accountName   String
+  accountNumber String
+  swiftCode     String?
+  currency      String
+  /// Extra guidance shown to investors, e.g. "Use DuitNow or IBG; cash deposits are not accepted."
+  instructions  String?
+  updatedBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  countryNode CountryNode @relation(fields: [countryNodeId], references: [code], onDelete: Cascade)
 }
 
 model Organisation {
@@ -566,17 +586,17 @@ model ProjectApproval {
 }
 
 model WealthPool {
-  poolId                   String   @id @default(cuid())
+  poolId                   String    @id @default(cuid())
   poolName                 String
   currency                 String
   investmentStructure      String
-  indicativeExpectedReturn Decimal  @db.Decimal(5, 2)
-  status                   String   @default("OPEN")
+  indicativeExpectedReturn Decimal   @db.Decimal(5, 2)
+  status                   String    @default("OPEN")
   projectId                String
   organisationId           String
   countryNodeId            String
-  createdAt                DateTime @default(now())
-  updatedAt                DateTime @updatedAt
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
   // Governance sign-offs a DRAFT pool needs before it becomes APPROVED and can open; null until signed.
   shariahApprovedBy        String?
   shariahApprovedAt        DateTime?

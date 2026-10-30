@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronRight, Plus, RefreshCw, Search, ShieldCheck, Trash2, 
 import { apiClient, BackendUser, OrganisationDirectoryRow } from '../../services/apiClient';
 import { useRBAC } from '../../rbac/RBACContext';
 import { useRoleAvailability } from '../../rbac/roleAvailability';
+import { useT } from '../i18n';
 
 /**
  * Roles a Country Admin may grant. The server refuses Super Admin, Country Admin and the system administrator
@@ -32,6 +33,7 @@ const label = (code: string) => code.charAt(0) + code.slice(1).toLowerCase();
  * every change again and records it in the audit log.
  */
 export const MobileUsers: React.FC = () => {
+  const { t } = useT();
   const [users, setUsers] = useState<BackendUser[] | null>(null);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
@@ -42,8 +44,8 @@ export const MobileUsers: React.FC = () => {
 
   const load = useCallback(() => {
     setError('');
-    apiClient.getUsers().then(setUsers).catch((cause) => { setUsers((current) => current ?? []); setError(cause instanceof Error ? cause.message : 'The users could not be loaded.'); });
-  }, []);
+    apiClient.getUsers().then(setUsers).catch((cause) => { setUsers((current) => current ?? []); setError(cause instanceof Error ? cause.message : t('The users could not be loaded.')); });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(load, [load]);
 
   const needle = query.trim().toLowerCase();
@@ -62,30 +64,30 @@ export const MobileUsers: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-black">Users{users ? ` (${users.length - (showDemo ? 0 : demoCount)})` : ''}</h1>
-        <button type="button" onClick={load} aria-label="Refresh" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700"><RefreshCw className="w-4 h-4" /></button>
+        <h1 className="text-lg font-black">{t('Users')}{users ? ` (${users.length - (showDemo ? 0 : demoCount)})` : ''}</h1>
+        <button type="button" onClick={load} aria-label={t('Refresh')} className="p-2 rounded-xl border border-slate-200 dark:border-slate-700"><RefreshCw className="w-4 h-4" /></button>
       </div>
       <div className="relative">
         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Name, email or role" className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 pl-9 pr-3 py-3 text-base" />
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t('Name, email or role')} className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 pl-9 pr-3 py-3 text-base" />
       </div>
       <div className="flex gap-2">
         {(['ALL', 'ACTIVE', 'SUSPENDED'] as const).map(value => (
           <button key={value} type="button" onClick={() => setStatusFilter(value)} className={`px-3 py-1.5 rounded-full text-xs font-bold border ${statusFilter === value ? 'bg-emerald-600 text-white border-emerald-600' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'}`}>
-            {value === 'ALL' ? 'All' : value === 'ACTIVE' ? 'Active' : 'Not active'}
+            {value === 'ALL' ? t('All') : value === 'ACTIVE' ? t('Active') : t('Not active')}
           </button>
         ))}
       </div>
       {demoCount > 0 && (
         <label className="flex items-center gap-2 text-xs text-slate-500">
           <input type="checkbox" checked={showDemo} onChange={(event) => setShowDemo(event.target.checked)} className="w-4 h-4" />
-          Show {demoCount} demo account{demoCount === 1 ? '' : 's'}
+          {t('Show {count} demo account(s)', { count: demoCount })}
         </label>
       )}
 
       {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
-      {!users && <p className="text-sm text-slate-500">Loading users...</p>}
-      {users && shown.length === 0 && !error && <p className="text-sm text-slate-500">{needle ? 'Nobody matches the search.' : 'No user here.'}</p>}
+      {!users && <p className="text-sm text-slate-500">{t('Loading users...')}</p>}
+      {users && shown.length === 0 && !error && <p className="text-sm text-slate-500">{needle ? t('Nobody matches the search.') : t('No user here.')}</p>}
 
       {shown.map(user => {
         const status = statusOf(user);
@@ -94,10 +96,10 @@ export const MobileUsers: React.FC = () => {
             <span className="w-10 h-10 shrink-0 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 flex items-center justify-center text-xs font-black uppercase">{user.name.split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join('')}</span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-black truncate">{user.name}</span>
-              <span className="block text-xs text-slate-500 truncate">{user.assignedRoles.map(role => role.role).join(', ') || 'No active role'}</span>
+              <span className="block text-xs text-slate-500 truncate">{user.assignedRoles.map(role => t(role.role)).join(', ') || t('No active role')}</span>
             </span>
-            {user.demoAccount && <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-slate-500/10 text-slate-500">Demo</span>}
-            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${STATUS_STYLE[status] ?? STATUS_STYLE.DEACTIVATED}`}>{label(status)}</span>
+            {user.demoAccount && <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-slate-500/10 text-slate-500">{t('Demo')}</span>}
+            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${STATUS_STYLE[status] ?? STATUS_STYLE.DEACTIVATED}`}>{t(label(status))}</span>
             <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
           </button>
         );
@@ -114,6 +116,7 @@ interface MobileUserDetailProps {
 }
 
 const MobileUserDetail: React.FC<MobileUserDetailProps> = ({ user, onBack, onChanged, onReload }) => {
+  const { t, locale } = useT();
   const { currentRole, currentUserId, currentCountryNode } = useRBAC();
   const { filterEnabled } = useRoleAvailability();
   const [busy, setBusy] = useState('');
@@ -149,36 +152,36 @@ const MobileUserDetail: React.FC<MobileUserDetailProps> = ({ user, onBack, onCha
       setNotice(done);
       onReload();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'That did not go through.');
+      setError(cause instanceof Error ? cause.message : t('That did not go through.'));
     } finally {
       setBusy('');
     }
   };
 
   const revoke = (role: BackendUser['assignedRoles'][number]) => {
-    if (!window.confirm(`Remove the role ${role.role} from ${user.name}${role.organisationName ? ` in ${role.organisationName}` : ''}?`)) return;
-    void act(`revoke-${role.role}-${role.organisationId}`, () => apiClient.revokeRole(user.id, role.role, role.organisationId, role.countryNodeId), `${role.role} removed.`);
+    if (!window.confirm(t('Remove the role {role} from {name}?', { role: t(role.role), name: role.organisationName ? `${user.name} (${role.organisationName})` : user.name }))) return;
+    void act(`revoke-${role.role}-${role.organisationId}`, () => apiClient.revokeRole(user.id, role.role, role.organisationId, role.countryNodeId), t('{role} removed.', { role: t(role.role) }));
   };
 
   const grant = () => {
     if (!newRole || !organisationId) return;
-    void act('grant', () => apiClient.assignRole(user.id, newRole, organisationId, country), `${newRole} granted.`).then(() => { setAdding(false); setNewRole(''); });
+    void act('grant', () => apiClient.assignRole(user.id, newRole, organisationId, country), t('{role} granted.', { role: t(newRole) })).then(() => { setAdding(false); setNewRole(''); });
   };
 
   const setStatus = (next: 'ACTIVE' | 'SUSPENDED') => {
-    if (!window.confirm(next === 'SUSPENDED' ? `Suspend ${user.name}? They will not be able to use the platform until reactivated.` : `Reactivate ${user.name}?`)) return;
+    if (!window.confirm(next === 'SUSPENDED' ? t('Suspend {name}? They will not be able to use the platform until reactivated.', { name: user.name }) : t('Reactivate {name}?', { name: user.name }))) return;
     setBusy('status');
     setError('');
     setNotice('');
     apiClient.updateUserStatus(user.id, next)
-      .then((updated) => { onChanged(updated); setNotice(next === 'SUSPENDED' ? 'Account suspended.' : 'Account reactivated.'); })
-      .catch((cause) => setError(cause instanceof Error ? cause.message : 'The status did not change.'))
+      .then((updated) => { onChanged(updated); setNotice(next === 'SUSPENDED' ? t('Account suspended.') : t('Account reactivated.')); })
+      .catch((cause) => setError(cause instanceof Error ? cause.message : t('The status did not change.')))
       .finally(() => setBusy(''));
   };
 
   return (
     <div className="space-y-4">
-      <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-emerald-700 dark:text-emerald-400"><ArrowLeft className="w-4 h-4" />Users</button>
+      <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-emerald-700 dark:text-emerald-400"><ArrowLeft className="w-4 h-4" />{t('Users')}</button>
 
       <section className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 space-y-2">
         <div className="flex items-start gap-3">
@@ -189,30 +192,30 @@ const MobileUserDetail: React.FC<MobileUserDetailProps> = ({ user, onBack, onCha
           </div>
         </div>
         <dl className="grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-2.5"><dt className="text-slate-500">Status</dt><dd className="font-bold">{label(status)}</dd></div>
-          <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-2.5"><dt className="text-slate-500">MFA</dt><dd className="font-bold">{profile.mfaEnabled ? 'Enabled' : String(profile.mfaStatus || 'Not signed in yet')}</dd></div>
-          <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-2.5 col-span-2"><dt className="text-slate-500">Last sign-in</dt><dd className="font-bold">{profile.lastLogin ? new Date(String(profile.lastLogin)).toLocaleString('en-MY') : 'Not recorded yet'}</dd></div>
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-2.5"><dt className="text-slate-500">{t('Status')}</dt><dd className="font-bold">{t(label(status))}</dd></div>
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-2.5"><dt className="text-slate-500">{t('MFA')}</dt><dd className="font-bold">{profile.mfaEnabled ? t('Enabled') : t(String(profile.mfaStatus || 'Not signed in yet'))}</dd></div>
+          <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-2.5 col-span-2"><dt className="text-slate-500">{t('Last sign-in')}</dt><dd className="font-bold">{profile.lastLogin ? new Date(String(profile.lastLogin)).toLocaleString(locale) : t('Not recorded yet')}</dd></div>
         </dl>
       </section>
 
       {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
       {notice && <p role="status" className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-3 text-xs font-bold text-emerald-700 dark:text-emerald-300">{notice}</p>}
-      {self && <p className="text-xs text-slate-500">This is your own account. Another administrator changes your roles and status.</p>}
+      {self && <p className="text-xs text-slate-500">{t('This is your own account. Another administrator changes your roles and status.')}</p>}
 
       <section className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 space-y-3">
-        <h2 className="text-sm font-black flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" />Roles</h2>
-        {user.assignedRoles.length === 0 && <p className="text-xs text-slate-500">No active role.</p>}
+        <h2 className="text-sm font-black flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-emerald-600" />{t('Roles')}</h2>
+        {user.assignedRoles.length === 0 && <p className="text-xs text-slate-500">{t('No active role.')}</p>}
         {user.assignedRoles.map(role => {
           const locked = self || (!superAdmin && SUPER_ADMIN_ONLY.includes(role.role)) || role.role === 'Super Admin';
           const key = `revoke-${role.role}-${role.organisationId}`;
           return (
             <div key={`${role.role}-${role.organisationId}`} className="flex items-center justify-between gap-2 rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
               <div className="min-w-0">
-                <p className="text-sm font-bold">{role.role}</p>
+                <p className="text-sm font-bold">{t(role.role)}</p>
                 <p className="text-[11px] text-slate-500 truncate">{role.organisationName ?? role.organisationId} · {role.countryNodeId}</p>
               </div>
               {!locked && (
-                <button type="button" disabled={!!busy} onClick={() => revoke(role)} aria-label={`Remove ${role.role}`} className="p-2 rounded-lg text-rose-600 hover:bg-rose-500/10 disabled:opacity-50">
+                <button type="button" disabled={!!busy} onClick={() => revoke(role)} aria-label={t('Remove {role}', { role: t(role.role) })} className="p-2 rounded-lg text-rose-600 hover:bg-rose-500/10 disabled:opacity-50">
                   {busy === key ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                 </button>
               )}
@@ -221,11 +224,11 @@ const MobileUserDetail: React.FC<MobileUserDetailProps> = ({ user, onBack, onCha
         })}
 
         {!self && !adding && (
-          <button type="button" onClick={() => setAdding(true)} className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-emerald-600 text-emerald-700 dark:text-emerald-400 text-sm font-black"><Plus className="w-4 h-4" />Add a role</button>
+          <button type="button" onClick={() => setAdding(true)} className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-emerald-600 text-emerald-700 dark:text-emerald-400 text-sm font-black"><Plus className="w-4 h-4" />{t('Add a role')}</button>
         )}
         {!self && adding && (
           <div className="space-y-2 rounded-xl border border-slate-200 dark:border-slate-700 p-3">
-            <label className="block text-xs font-bold text-slate-500">Organisation
+            <label className="block text-xs font-bold text-slate-500">{t('Organisation')}
               <select value={organisationId} onChange={(event) => setOrganisationId(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-3 text-base">
                 {[...new Map([
                   ...user.assignedRoles.map(role => [role.organisationId, role.organisationName ?? role.organisationId] as const),
@@ -233,15 +236,15 @@ const MobileUserDetail: React.FC<MobileUserDetailProps> = ({ user, onBack, onCha
                 ]).entries()].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
               </select>
             </label>
-            <label className="block text-xs font-bold text-slate-500">Role
+            <label className="block text-xs font-bold text-slate-500">{t('Role')}
               <select value={newRole} onChange={(event) => setNewRole(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-3 text-base">
-                <option value="">Choose a role</option>
-                {grantable.map(role => <option key={role} value={role}>{role}</option>)}
+                <option value="">{t('Choose a role')}</option>
+                {grantable.map(role => <option key={role} value={role}>{t(role)}</option>)}
               </select>
             </label>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => { setAdding(false); setNewRole(''); }} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-bold">Cancel</button>
-              <button type="button" disabled={!newRole || !organisationId || !!busy} onClick={grant} className="py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-black disabled:opacity-50">{busy === 'grant' ? 'Granting...' : 'Grant'}</button>
+              <button type="button" onClick={() => { setAdding(false); setNewRole(''); }} className="py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-bold">{t('Cancel')}</button>
+              <button type="button" disabled={!newRole || !organisationId || !!busy} onClick={grant} className="py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-black disabled:opacity-50">{busy === 'grant' ? t('Granting...') : t('Grant')}</button>
             </div>
           </div>
         )}
@@ -249,10 +252,10 @@ const MobileUserDetail: React.FC<MobileUserDetailProps> = ({ user, onBack, onCha
 
       {!self && (
         status === 'ACTIVE'
-          ? <button type="button" disabled={!!busy} onClick={() => setStatus('SUSPENDED')} className="w-full py-3 rounded-2xl border border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 text-sm font-black disabled:opacity-50">{busy === 'status' ? 'Suspending...' : 'Suspend account'}</button>
-          : <button type="button" disabled={!!busy} onClick={() => setStatus('ACTIVE')} className="w-full py-3 rounded-2xl bg-emerald-600 text-white text-sm font-black disabled:opacity-50">{busy === 'status' ? 'Reactivating...' : 'Reactivate account'}</button>
+          ? <button type="button" disabled={!!busy} onClick={() => setStatus('SUSPENDED')} className="w-full py-3 rounded-2xl border border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300 text-sm font-black disabled:opacity-50">{busy === 'status' ? t('Suspending...') : t('Suspend account')}</button>
+          : <button type="button" disabled={!!busy} onClick={() => setStatus('ACTIVE')} className="w-full py-3 rounded-2xl bg-emerald-600 text-white text-sm font-black disabled:opacity-50">{busy === 'status' ? t('Reactivating...') : t('Reactivate account')}</button>
       )}
-      <p className="text-[11px] text-slate-500">Every change is recorded in the audit log with your name.</p>
+      <p className="text-[11px] text-slate-500">{t('Every change is recorded in the audit log with your name.')}</p>
     </div>
   );
 };

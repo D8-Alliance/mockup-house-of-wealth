@@ -5,12 +5,14 @@ import { formatProjectMoney } from '../../components/sponsor/sponsorMoney';
 import { useRBAC } from '../../rbac/RBACContext';
 import { canInvest } from '../../rbac/menuVisibility';
 import { MobilePoolDetail } from './MobilePoolDetail';
+import { useT } from '../i18n';
 
 /**
  * Pools open for investment, as the server lists them for this person (an investor sees the open pools of their
  * country). An investor taps a pool to read its akad terms and invest.
  */
 export const MobilePools: React.FC<{ onOpenPortfolio: () => void; onOpenKyc: () => void }> = ({ onOpenPortfolio, onOpenKyc }) => {
+  const { t } = useT();
   const { currentRole } = useRBAC();
   const investor = canInvest(currentRole);
   const [openPool, setOpenPool] = useState<string | null>(null);
@@ -22,8 +24,8 @@ export const MobilePools: React.FC<{ onOpenPortfolio: () => void; onOpenKyc: () 
     setPools(null);
     apiClient.getPools()
       .then(items => setPools(items.filter(pool => pool.status === 'OPEN')))
-      .catch((cause) => { setPools([]); setError(cause instanceof Error ? cause.message : 'The pools could not be loaded.'); });
-  }, []);
+      .catch((cause) => { setPools([]); setError(cause instanceof Error ? cause.message : t('The pools could not be loaded.')); });
+  }, [t]);
   useEffect(load, [load]);
 
   if (openPool) {
@@ -33,13 +35,13 @@ export const MobilePools: React.FC<{ onOpenPortfolio: () => void; onOpenKyc: () 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-black">Open pools</h1>
-        <button type="button" onClick={load} aria-label="Refresh" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700"><RefreshCw className="w-4 h-4" /></button>
+        <h1 className="text-lg font-black">{t('Open pools')}</h1>
+        <button type="button" onClick={load} aria-label={t('Refresh')} className="p-2 rounded-xl border border-slate-200 dark:border-slate-700"><RefreshCw className="w-4 h-4" /></button>
       </div>
 
       {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
-      {!pools && <p className="text-sm text-slate-500">Loading pools...</p>}
-      {pools && pools.length === 0 && !error && <p className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 text-center text-sm text-slate-500">No pool is open for investment right now.</p>}
+      {!pools && <p className="text-sm text-slate-500">{t('Loading pools...')}</p>}
+      {pools && pools.length === 0 && !error && <p className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 text-center text-sm text-slate-500">{t('No pool is open for investment right now.')}</p>}
 
       {pools?.map(pool => {
         const target = pool.targetAmount ?? 0;
@@ -52,20 +54,20 @@ export const MobilePools: React.FC<{ onOpenPortfolio: () => void; onOpenKyc: () 
               {pool.projectName && <p className="text-xs text-slate-500">{pool.projectName}</p>}
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-2.5"><span className="block text-slate-500">Structure</span><span className="font-bold">{pool.investmentStructure}</span></div>
-              <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-2.5"><span className="block text-slate-500">Indicative return</span><span className="font-bold">{Number(pool.indicativeExpectedReturn).toFixed(2)}% a year</span></div>
+              <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-2.5"><span className="block text-slate-500">{t('Structure')}</span><span className="font-bold">{pool.investmentStructure}</span></div>
+              <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-2.5"><span className="block text-slate-500">{t('Indicative return')}</span><span className="font-bold">{t('{pct}% a year', { pct: Number(pool.indicativeExpectedReturn).toFixed(2) })}</span></div>
             </div>
             <div>
               <div className="flex justify-between text-[11px] font-bold text-slate-500 mb-1">
-                <span>{formatProjectMoney(raised, pool.currency)} raised</span>
-                <span>{target > 0 ? `${pct}% of ${formatProjectMoney(target, pool.currency)}` : 'No target set'}</span>
+                <span>{t('{amount} raised', { amount: formatProjectMoney(raised, pool.currency) })}</span>
+                <span>{target > 0 ? t('{pct}% of {amount}', { pct, amount: formatProjectMoney(target, pool.currency) }) : t('No target set')}</span>
               </div>
               <div className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} /></div>
             </div>
-            <p className="text-[11px] text-slate-400">The indicative return is not a promise: profit is shared under the pool's akad terms.</p>
+            <p className="text-[11px] text-slate-400">{t("The indicative return is not a promise: profit is shared under the pool's akad terms.")}</p>
             {investor && (
               <button type="button" onClick={() => setOpenPool(pool.poolId)} className="w-full flex items-center justify-center gap-1 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-black">
-                Akad terms and invest<ChevronRight className="w-4 h-4" />
+                {t('Akad terms and invest')}<ChevronRight className="w-4 h-4" />
               </button>
             )}
           </article>

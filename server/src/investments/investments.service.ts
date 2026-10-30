@@ -11,6 +11,30 @@ import { CreateInvestmentOrderDto } from './investments.dto';
 import { assertCanViewPool, INVESTOR_ROLES } from '../pools/pool-access';
 import { buildPositions, EARNED_DISTRIBUTION_STATUSES, InvestorPosition } from './positions';
 
+export interface PaymentInstructions {
+  orderId: string;
+  orderNumber: string;
+  status: string;
+  amount: number;
+  currency: string;
+  /** What the investor writes as the transfer reference, so Finance can match the transfer to the order. */
+  reference: string;
+  /** The platform's trust account in the pool's country; null until Super Admin sets it. */
+  account: { bankName: string; accountName: string; accountNumber: string; swiftCode: string | null; instructions: string | null } | null;
+}
+
+export interface InvestorDistribution {
+  id: string;
+  poolId: string | null;
+  poolName: string;
+  periodName: string;
+  amount: number;
+  currency: string;
+  earnedAt: string;
+  paid: boolean;
+  paidAt: string | null;
+}
+
 const SETTLEMENT_ROLES = new Set(['Super Admin', 'Settlement Officer', 'Portfolio Manager', 'Finance Officer']);
 /** Settlement staff who confirm transfers for every organisation of their country, not only their own. */
 const COUNTRY_SETTLEMENT_ROLES = new Set(['Finance Officer']);
@@ -57,7 +81,60 @@ export class InvestmentsService {
       await this.audit.recordActor(actor, { action: 'investment.order.create', resourceType: 'InvestmentOrder', resourceId: created.id, organisationId: created.organisationId, countryNodeId: created.countryNodeId, metadata: { poolId: created.poolId, amount: input.amount, currency: created.currency, akadTermsId: terms.id, akadTermsVersion: terms.version, akadType: terms.akadType, akadTermsHash: terms.termsHash } }, tx);
       return created;
     });
+    const account = this.notifications ? await this.prisma.collectionAccount.findUnique({ where: { countryNodeId: order.countryNodeId } }).catch(() => null) : null;
+    const where = account ? ` to ${account.bankName} ${account.accountNumber} (${account.accountName})` : '';
+    await this.notifications?.notifyUsers([order.investorUserId], {
+      type: 'INVESTMENT', title: 'Order received: transfer to complete it',
+      message: `Transfer ${formatAmount(order.amount, order.currency)} for ${pool.poolName}${where} with reference ${order.orderNumber}. It counts in your portfolio once Finance confirms the money arrived.`,
+      resourceType: 'InvestmentOrder', resourceId: order.id, dedupeKey: `investment-order-created:${order.id}`,
+    });
     return order;
+  }
+
+  /**
+   * Where and how the investor pays for their order: the platform's trust account in the pool's country
+   * and the order number as the transfer reference, so Finance can match the transfer to the order.
+   */
+  async paymentInstructions(actor: AuthenticatedUser, id: string): Promise<PaymentInstructions> {
+    const order = await this.prisma.investmentOrder.findUnique({ where: { id }, select: { id: true, orderNumber: true, status: true, amount: true, currency: true, countryNodeId: true, investorUserId: true } });
+    if (!order || order.investorUserId !== actor.userId) throw new NotFoundException('Investment order not found.');
+    const account = await this.prisma.collectionAccount.findUnique({ where: { countryNodeId: order.countryNodeId } });
+    return {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      amount: Number(order.amount),
+      currency: order.currency,
+      reference: order.orderNumber,
+      account: account ? { bankName: account.bankName, accountName: account.accountName, accountNumber: account.accountNumber, swiftCode: account.swiftCode, instructions: account.instructions } : null,
+    };
+  }
+
+  /** The investor's profit from each distribution period, newest first, and whether its bank payout has settled. */
+  async myDistributions(actor: AuthenticatedUser): Promise<InvestorDistribution[]> {
+    if (!INVESTOR_ROLES.has(actor.role)) throw new ForbiddenException('Profit history is for investor accounts.');
+    const allocations = await this.prisma.distributionAllocation.findMany({
+      where: { beneficiaryUserId: actor.userId, distribution: { status: { in: EARNED_DISTRIBUTION_STATUSES } } },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      select: { id: true, amount: true, currency: true, createdAt: true, distribution: { select: { periodName: true, poolId: true, projectId: true } }, payoutInstruction: { select: { status: true, settledAt: true } } },
+    });
+    const poolIds = [...new Set(allocations.map((item) => item.distribution.poolId).filter((poolId): poolId is string => Boolean(poolId)))];
+    const names = new Map((await this.prisma.wealthPool.findMany({ where: { poolId: { in: poolIds } }, select: { poolId: true, poolName: true } })).map((pool) => [pool.poolId, pool.poolName]));
+    return allocations.map((item) => {
+      const paid = item.payoutInstruction?.status === 'SETTLED';
+      return {
+        id: item.id,
+        poolId: item.distribution.poolId,
+        poolName: names.get(item.distribution.poolId ?? '') ?? item.distribution.projectId,
+        periodName: item.distribution.periodName,
+        amount: Number(item.amount),
+        currency: item.currency,
+        earnedAt: item.createdAt.toISOString(),
+        paid,
+        paidAt: paid ? item.payoutInstruction?.settledAt?.toISOString() ?? null : null,
+      };
+    });
   }
 
   listOrders(actor: AuthenticatedUser) {

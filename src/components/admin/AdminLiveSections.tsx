@@ -3,6 +3,7 @@ import { Activity, Building2, FileText, Globe } from 'lucide-react';
 import { apiClient, ContractTemplateRow, NetworkOverview, OrganisationDirectoryRow } from '../../services/apiClient';
 import { useRBAC } from '../../rbac/RBACContext';
 import { LedgerIntegrityPanel } from './LedgerIntegrityPanel';
+import { CollectionAccountsPanel } from './CollectionAccountsPanel';
 
 /** Loads once on mount; the error is shown in place of the table. */
 function useServerData<T>(load: () => Promise<T>) {
@@ -95,6 +96,7 @@ export const LiveCountryNodes: React.FC = () => {
           </table>
         </div>
       )}
+      <CollectionAccountsPanel />
     </Card>
   );
 };

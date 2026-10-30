@@ -28,6 +28,14 @@ export class InvestmentsController {
   @Get('positions')
   positions(@CurrentUser() actor: AuthenticatedUser) { return this.investments.positions(actor); }
 
+  /** The investor's profit from each distribution period; investor accounts only. */
+  @Get('distributions')
+  distributions(@CurrentUser() actor: AuthenticatedUser) { return this.investments.myDistributions(actor); }
+
+  /** Where the investor transfers the money for their own order, and the reference to use. */
+  @Get('orders/:id/payment-instructions')
+  paymentInstructions(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.investments.paymentInstructions(actor, id); }
+
   @Get('orders/:id')
   get(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.investments.getOrder(actor, id); }
 

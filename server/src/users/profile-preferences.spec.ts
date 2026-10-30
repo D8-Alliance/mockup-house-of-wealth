@@ -15,6 +15,7 @@ describe('profile preferences', () => {
 
   it('starts from nothing when no preferences were saved', () => {
     expect(mergePreferences(undefined, { preferredContracts: [] })).toEqual({ preferredContracts: [] });
+    expect(mergePreferences({ currency: 'MYR' }, { estateFramework: 'Civil', language: 'ms' })).toEqual({ currency: 'MYR', estateFramework: 'Civil', language: 'ms' });
   });
 
   it('refuses unknown currencies, contracts and channel values', () => {

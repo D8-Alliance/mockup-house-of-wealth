@@ -20,6 +20,8 @@ export interface ProfilePreferences {
   currency?: string;
   preferredContracts?: string[];
   notifications?: { email?: boolean; push?: boolean; sms?: boolean };
+  estateFramework?: string;
+  language?: string;
 }
 
 /** Saving one setting keeps the others; notification channels merge one by one. */
@@ -28,7 +30,7 @@ export function mergePreferences(saved: unknown, change: ProfilePreferences): Pr
   const defined = <T extends object>(value: T) => Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>;
   return {
     ...current,
-    ...defined({ currency: change.currency, preferredContracts: change.preferredContracts }),
+    ...defined({ currency: change.currency, preferredContracts: change.preferredContracts, estateFramework: change.estateFramework, language: change.language }),
     ...(change.notifications ? { notifications: { ...current.notifications, ...defined({ ...change.notifications }) } } : {}),
   };
 }

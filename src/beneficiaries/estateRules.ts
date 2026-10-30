@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BeneficiaryItem } from '../types';
+import { apiClient } from '../services/apiClient';
 
 /**
  * How an individual's estate passes on. The platform does not record religion, so the account
@@ -55,7 +56,18 @@ export function estateRuleError(item: Pick<BeneficiaryItem, 'relation' | 'distri
 
 const STORAGE_KEY = 'how-estate-framework';
 
-/** The owner's chosen framework, remembered in this browser (beneficiaries are not yet stored on the server). */
+const remember = (framework: EstateFramework) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, framework);
+  } catch {
+    // Storage unavailable: the account copy still holds it.
+  }
+};
+
+/**
+ * The owner's chosen framework. It is kept with the account (profile preferences), so it is the same on the
+ * website and the mini-app and on another device; this browser's copy only shows it before the account answers.
+ */
 export function useEstateFramework(): [EstateFramework, (framework: EstateFramework) => void] {
   const [framework, setFramework] = useState<EstateFramework>(() => {
     try {
@@ -64,13 +76,30 @@ export function useEstateFramework(): [EstateFramework, (framework: EstateFramew
       return 'Islamic';
     }
   });
+  useEffect(() => {
+    let current = true;
+    apiClient.getCurrentUser().then((me) => {
+      const saved = (me.profile?.preferences as { estateFramework?: unknown } | undefined)?.estateFramework;
+      if (!current) return;
+      if (saved === 'Islamic' || saved === 'Civil') {
+        setFramework(saved);
+        remember(saved);
+      } else {
+        // Chosen before it was kept with the account: move this browser's choice to the account once.
+        try {
+          const local = localStorage.getItem(STORAGE_KEY);
+          if (local === 'Islamic' || local === 'Civil') apiClient.updateMyProfile({ preferences: { estateFramework: local } }).catch(() => undefined);
+        } catch {
+          // Nothing to move.
+        }
+      }
+    }).catch(() => undefined);
+    return () => { current = false; };
+  }, []);
   const update = (next: EstateFramework) => {
     setFramework(next);
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Storage unavailable: the choice lasts for this visit only.
-    }
+    remember(next);
+    apiClient.updateMyProfile({ preferences: { estateFramework: next } }).catch(() => undefined);
   };
   return [framework, update];
 }

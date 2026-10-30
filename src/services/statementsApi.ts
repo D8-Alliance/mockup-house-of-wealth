@@ -25,7 +25,32 @@ async function download(path: string, query: { from?: string; to?: string; year?
   URL.revokeObjectURL(blobUrl);
 }
 
+/** A statement as the server builds it (server/src/statements/statements.service.ts). */
+export interface StatementView {
+  title: string;
+  reference: string;
+  period: { from: string; to: string; timezone: string };
+  summary: Array<[string, string]>;
+  sections: Array<{ title: string; columns: string[]; rows: string[][]; note?: string }>;
+  notes: string[];
+}
+
+async function read(path: string, query: { from?: string; to?: string; year?: string }): Promise<StatementView> {
+  const params = new URLSearchParams({ format: 'json' });
+  if (query.from) params.set('from', query.from);
+  if (query.to) params.set('to', query.to);
+  if (query.year) params.set('year', query.year);
+  const token = authService.getAuthState().session?.token;
+  const response = await apiFetch(`${API_BASE_URL}${path}?${params}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  const body = await response.json().catch(() => null) as ({ message?: string | string[] } & StatementView) | null;
+  if (!response.ok || !body) throw new Error((Array.isArray(body?.message) ? body?.message.join(' ') : body?.message) || 'The statement could not be generated.');
+  return body;
+}
+
 export const statementsApi = {
+  /** The statement's figures, to show on screen before downloading. */
+  getInvestorStatement: (query: { from?: string; to?: string }) => read('/statements/investor', query),
+  getInvestorTaxStatement: (query: { year: string }) => read('/statements/investor/tax', query),
   downloadInvestorStatement: (query: { from?: string; to?: string; format: StatementFormat }) => download('/statements/investor', query),
   /** Income paid out in a calendar year, grouped by type, for the investor's tax return. */
   downloadInvestorTaxStatement: (query: { year: string; format: StatementFormat }) => download('/statements/investor/tax', query),

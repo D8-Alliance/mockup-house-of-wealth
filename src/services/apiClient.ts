@@ -169,6 +169,13 @@ export const apiClient = {
   getInvestmentOrders: () => request<BackendInvestmentOrder[]>('/investments/orders'),
   /** The signed-in investor's holding in each pool (server/src/investments/positions.ts). */
   getInvestmentPositions: () => request<InvestorPosition[]>('/investments/positions'),
+  /** Where the investor transfers the money for their order: the country's trust account and the reference. */
+  getPaymentInstructions: (orderId: string) => request<PaymentInstructions>(`/investments/orders/${encodeURIComponent(orderId)}/payment-instructions`),
+  /** The investor's profit from each distribution period, and whether it has been paid out. */
+  getMyDistributions: () => request<InvestorDistribution[]>('/investments/distributions'),
+  /** The platform's trust account per country (Super Admin all; Country Admin and finance staff their own). */
+  getCollectionAccounts: () => request<CollectionAccountView[]>('/collection-accounts'),
+  saveCollectionAccount: (countryNodeId: string, input: { bankName: string; accountName: string; accountNumber: string; swiftCode?: string; instructions?: string }) => request<CollectionAccountView>(`/collection-accounts/${encodeURIComponent(countryNodeId)}`, { method: 'PUT', body: JSON.stringify(input) }),
   createInvestmentOrder: (input: { poolId: string; amount: number; currency: string; idempotencyKey: string; akadTermsId: string; acceptAkad: true }) => request<BackendInvestmentOrder>('/investments/orders', { method: 'POST', body: JSON.stringify(input) }),
   getSettlementQueue: () => request<SettlementQueueOrder[]>('/investments/settlement-queue'),
   settleInvestmentOrder: (id: string, paymentReference: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/settle`, { method: 'POST', body: JSON.stringify({ paymentReference }) }),
@@ -1189,6 +1196,41 @@ export interface ProfilePreferences {
   currency?: string;
   preferredContracts?: string[];
   notifications?: { email?: boolean; push?: boolean; sms?: boolean };
+  /** Islamic (faraid, wasiyyah, hibah) or Civil (a will): how the owner's estate instructions are read. */
+  estateFramework?: 'Islamic' | 'Civil';
+  /** The mini-app's language. */
+  language?: 'en' | 'ms';
+}
+
+/** How to pay for an investment order (server/src/investments/investments.service.ts). */
+export interface PaymentInstructions {
+  orderId: string;
+  orderNumber: string;
+  status: string;
+  amount: number;
+  currency: string;
+  reference: string;
+  /** Null until Super Admin sets the country's trust account. */
+  account: { bankName: string; accountName: string; accountNumber: string; swiftCode: string | null; instructions: string | null } | null;
+}
+
+export interface InvestorDistribution {
+  id: string;
+  poolId: string | null;
+  poolName: string;
+  periodName: string;
+  amount: number;
+  currency: string;
+  earnedAt: string;
+  paid: boolean;
+  paidAt: string | null;
+}
+
+export interface CollectionAccountView {
+  countryNodeId: string;
+  countryName: string;
+  currency: string;
+  account: { bankName: string; accountName: string; accountNumber: string; swiftCode: string | null; instructions: string | null; updatedAt: string } | null;
 }
 
 /** A bank account for receiving money. The full number is encrypted on the server; only the masked form comes back. */
