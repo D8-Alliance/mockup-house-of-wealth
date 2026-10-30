@@ -5,11 +5,13 @@ import { canInvest } from '../../rbac/menuVisibility';
 import { apiClient, KycApplication } from '../../services/apiClient';
 import { KYC_STATUS_LABELS } from '../../kyc/kycLabels';
 import type { MobileTab } from '../MobileShell';
+import { USER_ADMIN_ROLES } from '../mobileRoles';
 
 /** Home: who is signed in, whether they may invest yet (KYC), and the way to the pools. */
 export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc: () => void }> = ({ onOpen, onOpenKyc }) => {
   const { activeUser, currentRole } = useRBAC();
   const investor = canInvest(currentRole);
+  const userAdmin = USER_ADMIN_ROLES.includes(currentRole);
   const [kyc, setKyc] = useState<KycApplication | null | undefined>(undefined);
   const [kycError, setKycError] = useState('');
 
@@ -28,7 +30,17 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc:
         <p className="text-xs text-amber-200 font-semibold mt-1">{currentRole}</p>
       </section>
 
-      {!investor && (
+      {userAdmin && (
+        <button type="button" onClick={() => onOpen('users')} className="w-full flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 text-left">
+          <span>
+            <span className="block text-sm font-black">Users</span>
+            <span className="block text-xs text-slate-500">{currentRole === 'Super Admin' ? 'Everyone on the platform' : 'The people of your country'}: roles, sign-in and account status</span>
+          </span>
+          <ChevronRight className="w-5 h-5 text-slate-400" />
+        </button>
+      )}
+
+      {!investor && !userAdmin && (
         <section className="rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-500/10 p-4 text-sm space-y-2">
           <p className="font-bold flex items-center gap-2"><Monitor className="w-4 h-4" />The mini-app is for investors for now</p>
           <p className="text-xs text-slate-600 dark:text-slate-300">Your role, {currentRole}, works on the Wealth Pooling website. Asset owner screens come to the mini-app next.</p>

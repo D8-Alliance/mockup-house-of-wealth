@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Home, Layers, UserRound, Wallet } from 'lucide-react';
+import { Home, Layers, UserRound, Users, Wallet } from 'lucide-react';
 import { useRBAC } from '../rbac/RBACContext';
 import { canInvest } from '../rbac/menuVisibility';
 import { MobileHome } from './screens/MobileHome';
@@ -7,13 +7,16 @@ import { MobilePools } from './screens/MobilePools';
 import { MobilePortfolio } from './screens/MobilePortfolio';
 import { MobileAccount } from './screens/MobileAccount';
 import { MobileKyc } from './screens/MobileKyc';
+import { MobileUsers } from './screens/MobileUsers';
+import { USER_ADMIN_ROLES } from './mobileRoles';
 
-export type MobileTab = 'home' | 'pools' | 'portfolio' | 'account';
+export type MobileTab = 'home' | 'pools' | 'portfolio' | 'users' | 'account';
 
-const TABS: Array<{ id: MobileTab; label: string; icon: React.ReactNode; investorsOnly?: boolean }> = [
+const TABS: Array<{ id: MobileTab; label: string; icon: React.ReactNode; investorsOnly?: boolean; adminsOnly?: boolean }> = [
   { id: 'home', label: 'Home', icon: <Home className="w-5 h-5" /> },
   { id: 'pools', label: 'Pools', icon: <Layers className="w-5 h-5" /> },
   { id: 'portfolio', label: 'Portfolio', icon: <Wallet className="w-5 h-5" />, investorsOnly: true },
+  { id: 'users', label: 'Users', icon: <Users className="w-5 h-5" />, adminsOnly: true },
   { id: 'account', label: 'Account', icon: <UserRound className="w-5 h-5" /> },
 ];
 
@@ -24,7 +27,7 @@ export const MobileShell: React.FC = () => {
   // KYC opens over the tabs and returns to Home when done.
   const [kycOpen, setKycOpen] = useState(false);
   const openTab = (next: MobileTab) => { setKycOpen(false); setTab(next); };
-  const tabs = TABS.filter(item => !item.investorsOnly || canInvest(currentRole));
+  const tabs = TABS.filter(item => (!item.investorsOnly || canInvest(currentRole)) && (!item.adminsOnly || USER_ADMIN_ROLES.includes(currentRole)));
 
   return (
     <div className="min-h-dvh flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
@@ -41,6 +44,7 @@ export const MobileShell: React.FC = () => {
         {!kycOpen && tab === 'home' && <MobileHome onOpen={openTab} onOpenKyc={() => setKycOpen(true)} />}
         {!kycOpen && tab === 'pools' && <MobilePools onOpenPortfolio={() => openTab('portfolio')} onOpenKyc={() => setKycOpen(true)} />}
         {!kycOpen && tab === 'portfolio' && <MobilePortfolio />}
+        {!kycOpen && tab === 'users' && <MobileUsers />}
         {!kycOpen && tab === 'account' && <MobileAccount />}
       </main>
 
