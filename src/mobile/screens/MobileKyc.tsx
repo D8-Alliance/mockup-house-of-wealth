@@ -3,7 +3,7 @@ import { AlertCircle, ArrowLeft, Camera, CheckCircle2, FileUp, Hourglass, ScanFa
 import { apiClient, apiErrorMessage, KycApplication, KycDocumentType, KycDraftInput, KycIdDocumentType, LivenessSession } from '../../services/apiClient';
 import { KYC_DOCUMENT_LABELS, KYC_ID_DOCUMENT_LABELS, KYC_STATUS_LABELS, noExpiryReason, requiredKycDocuments } from '../../kyc/kycLabels';
 import { KycLivenessCapture } from '../../kyc/KycLivenessCapture';
-import { authService } from '../../auth/services/authService';
+import { useRBAC } from '../../rbac/RBACContext';
 import { shrinkPhoto } from '../shrinkPhoto';
 
 type Step = 1 | 2 | 3 | 4;
@@ -38,6 +38,8 @@ const draftPayload = (form: Required<KycDraftInput>): KycDraftInput => ({ ...for
  * then submit. The same KYC application as on the website; a KYC officer of the investor's country decides.
  */
 export const MobileKyc: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+  // The person's country as the server knows it (from their role), not the sign-in token, which may not carry it.
+  const { currentCountryNode } = useRBAC();
   const [application, setApplication] = useState<KycApplication | null | undefined>(undefined);
   const [form, setForm] = useState(() => toForm(null));
   const [step, setStep] = useState<Step>(1);
@@ -55,7 +57,7 @@ export const MobileKyc: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const editable = application !== undefined && (!application || status === 'DRAFT' || status === 'RESUBMISSION_REQUIRED');
   const required = requiredKycDocuments(form.idDocumentType);
   const uploaded = new Map((application?.documents ?? []).map((document) => [document.documentType, document]));
-  const countryNodeId = application?.countryNodeId ?? authService.getAuthState().session?.user.countryNodeId;
+  const countryNodeId = application?.countryNodeId || currentCountryNode;
   const expiryNotNeeded = noExpiryReason(countryNodeId, form.idDocumentType, form.dateOfBirth || undefined);
   const detailsComplete = form.fullName.trim() && form.dateOfBirth && form.nationality.trim() && form.idDocumentNumber.trim() && form.residentialAddress.trim() && (expiryNotNeeded || form.idDocumentExpiry);
 
