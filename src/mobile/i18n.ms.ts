@@ -265,6 +265,9 @@ export const MS: Record<string, string> = {
   'Investment income (al-mustaghallat)': 'Pendapatan pelaburan (al-mustaghallat)',
   'Investment capital': 'Modal pelaburan',
   'Business assets (urud al-tijarah)': 'Aset perniagaan (urud al-tijarah)',
+  'Platform profit distributions received in the last year': 'Agihan keuntungan platform diterima dalam setahun lalu',
+  'Platform investment capital held for a full haul': 'Modal pelaburan platform dipegang cukup haul',
+  'Platform investment capital invested within the last year': 'Modal pelaburan platform dilaburkan dalam setahun lalu',
 
   // Profile
   'The picture was not saved.': 'Gambar tidak disimpan.',
