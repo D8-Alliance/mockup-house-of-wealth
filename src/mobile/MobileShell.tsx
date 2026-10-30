@@ -6,6 +6,7 @@ import { MobileHome } from './screens/MobileHome';
 import { MobilePools } from './screens/MobilePools';
 import { MobilePortfolio } from './screens/MobilePortfolio';
 import { MobileAccount } from './screens/MobileAccount';
+import { MobileKyc } from './screens/MobileKyc';
 
 export type MobileTab = 'home' | 'pools' | 'portfolio' | 'account';
 
@@ -20,6 +21,9 @@ const TABS: Array<{ id: MobileTab; label: string; icon: React.ReactNode; investo
 export const MobileShell: React.FC = () => {
   const { activeUser, currentRole } = useRBAC();
   const [tab, setTab] = useState<MobileTab>('home');
+  // KYC opens over the tabs and returns to Home when done.
+  const [kycOpen, setKycOpen] = useState(false);
+  const openTab = (next: MobileTab) => { setKycOpen(false); setTab(next); };
   const tabs = TABS.filter(item => !item.investorsOnly || canInvest(currentRole));
 
   return (
@@ -33,10 +37,11 @@ export const MobileShell: React.FC = () => {
       </header>
 
       <main className="flex-1 px-4 pt-4 pb-24">
-        {tab === 'home' && <MobileHome onOpen={setTab} />}
-        {tab === 'pools' && <MobilePools onOpenPortfolio={() => setTab('portfolio')} />}
-        {tab === 'portfolio' && <MobilePortfolio />}
-        {tab === 'account' && <MobileAccount />}
+        {kycOpen && <MobileKyc onBack={() => openTab('home')} />}
+        {!kycOpen && tab === 'home' && <MobileHome onOpen={openTab} onOpenKyc={() => setKycOpen(true)} />}
+        {!kycOpen && tab === 'pools' && <MobilePools onOpenPortfolio={() => openTab('portfolio')} onOpenKyc={() => setKycOpen(true)} />}
+        {!kycOpen && tab === 'portfolio' && <MobilePortfolio />}
+        {!kycOpen && tab === 'account' && <MobileAccount />}
       </main>
 
       <nav aria-label="Main" className="fixed bottom-0 inset-x-0 z-20 grid border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur pb-[env(safe-area-inset-bottom)]" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
@@ -44,9 +49,9 @@ export const MobileShell: React.FC = () => {
           <button
             key={item.id}
             type="button"
-            onClick={() => setTab(item.id)}
-            aria-current={tab === item.id ? 'page' : undefined}
-            className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-bold ${tab === item.id ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500'}`}
+            onClick={() => openTab(item.id)}
+            aria-current={!kycOpen && tab === item.id ? 'page' : undefined}
+            className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-bold ${!kycOpen && tab === item.id ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500'}`}
           >
             {item.icon}
             {item.label}

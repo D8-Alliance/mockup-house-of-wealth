@@ -10,7 +10,7 @@ import { MobilePoolDetail } from './MobilePoolDetail';
  * Pools open for investment, as the server lists them for this person (an investor sees the open pools of their
  * country). An investor taps a pool to read its akad terms and invest.
  */
-export const MobilePools: React.FC<{ onOpenPortfolio: () => void }> = ({ onOpenPortfolio }) => {
+export const MobilePools: React.FC<{ onOpenPortfolio: () => void; onOpenKyc: () => void }> = ({ onOpenPortfolio, onOpenKyc }) => {
   const { currentRole } = useRBAC();
   const investor = canInvest(currentRole);
   const [openPool, setOpenPool] = useState<string | null>(null);
@@ -27,7 +27,7 @@ export const MobilePools: React.FC<{ onOpenPortfolio: () => void }> = ({ onOpenP
   useEffect(load, [load]);
 
   if (openPool) {
-    return <MobilePoolDetail poolId={openPool} onBack={() => { setOpenPool(null); load(); }} onOpenPortfolio={onOpenPortfolio} />;
+    return <MobilePoolDetail poolId={openPool} onBack={() => { setOpenPool(null); load(); }} onOpenPortfolio={onOpenPortfolio} onOpenKyc={onOpenKyc} />;
   }
 
   return (

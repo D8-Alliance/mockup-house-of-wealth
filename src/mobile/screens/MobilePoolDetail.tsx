@@ -10,6 +10,7 @@ interface MobilePoolDetailProps {
   poolId: string;
   onBack: () => void;
   onOpenPortfolio: () => void;
+  onOpenKyc: () => void;
 }
 
 /**
@@ -17,7 +18,7 @@ interface MobilePoolDetailProps {
  * everything again (KYC approved, pool open, the accepted terms are the current ones); an order counts once
  * Finance matches the transfer to the bank.
  */
-export const MobilePoolDetail: React.FC<MobilePoolDetailProps> = ({ poolId, onBack, onOpenPortfolio }) => {
+export const MobilePoolDetail: React.FC<MobilePoolDetailProps> = ({ poolId, onBack, onOpenPortfolio, onOpenKyc }) => {
   const [pool, setPool] = useState<BackendPoolDetail | null>(null);
   const [kyc, setKyc] = useState<KycApplication | null | undefined>(undefined);
   const [loadError, setLoadError] = useState('');
@@ -107,7 +108,8 @@ export const MobilePoolDetail: React.FC<MobilePoolDetailProps> = ({ poolId, onBa
           {kyc !== undefined && !verified && (
             <section className="rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-500/10 p-4 text-xs space-y-1">
               <p className="font-black flex items-center gap-2 text-sm"><ShieldAlert className="w-4 h-4 text-amber-600" />Verify your identity before investing</p>
-              <p className="text-slate-600 dark:text-slate-300">Orders are accepted once a KYC officer approves your identity verification{kyc ? ` (now: ${KYC_STATUS_LABELS[kyc.status]})` : ''}. KYC comes to the mini-app next; until then complete it on the website.</p>
+              <p className="text-slate-600 dark:text-slate-300">Orders are accepted once a KYC officer approves your identity verification{kyc ? ` (now: ${KYC_STATUS_LABELS[kyc.status]})` : ''}. </p>
+              {kyc?.status !== 'SUBMITTED' && <button type="button" onClick={onOpenKyc} className="mt-2 w-full py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-black">Verify my identity</button>}
             </section>
           )}
 

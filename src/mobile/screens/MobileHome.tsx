@@ -7,7 +7,7 @@ import { KYC_STATUS_LABELS } from '../../kyc/kycLabels';
 import type { MobileTab } from '../MobileShell';
 
 /** Home: who is signed in, whether they may invest yet (KYC), and the way to the pools. */
-export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void }> = ({ onOpen }) => {
+export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc: () => void }> = ({ onOpen, onOpenKyc }) => {
   const { activeUser, currentRole } = useRBAC();
   const investor = canInvest(currentRole);
   const [kyc, setKyc] = useState<KycApplication | null | undefined>(undefined);
@@ -47,10 +47,13 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void }> = ({ onO
               <div>
                 <p className="text-sm font-black">{kyc ? KYC_STATUS_LABELS[kyc.status] : 'Not started'}</p>
                 <p className="text-xs text-slate-500">
-                  {verified ? 'You can invest in open pools.' : 'You can browse pools now. Investing needs verified KYC, which comes to the mini-app next; until then complete it on the website.'}
+                  {verified ? 'You can invest in open pools.' : kyc?.status === 'SUBMITTED' ? 'A KYC officer is reviewing your application.' : 'Investing needs verified identity. It takes a few minutes with your phone camera.'}
                 </p>
               </div>
             </div>
+          )}
+          {kyc !== undefined && !verified && kyc?.status !== 'SUBMITTED' && (
+            <button type="button" onClick={onOpenKyc} className="w-full py-3 rounded-2xl bg-emerald-600 text-white text-sm font-black">{kyc?.status === 'RESUBMISSION_REQUIRED' ? 'Make the corrections' : kyc ? 'Continue verification' : 'Verify my identity'}</button>
           )}
         </section>
       )}
