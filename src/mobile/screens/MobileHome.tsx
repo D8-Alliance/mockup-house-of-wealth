@@ -5,6 +5,7 @@ import { canInvest } from '../../rbac/menuVisibility';
 import { apiClient, KycApplication } from '../../services/apiClient';
 import { KYC_STATUS_LABELS } from '../../kyc/kycLabels';
 import type { MobileTab } from '../MobileShell';
+import { MobileInvestorDashboard } from './MobileInvestorDashboard';
 import { USER_ADMIN_ROLES } from '../mobileRoles';
 
 /** Home: who is signed in, whether they may invest yet (KYC), and the way to the pools. */
@@ -48,7 +49,7 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc:
         </section>
       )}
 
-      {investor && (
+      {investor && !verified && (
         <section className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 space-y-2">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">Identity verification (KYC)</p>
           {kyc === undefined && <p className="text-sm text-slate-500">Checking...</p>}
@@ -70,6 +71,8 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc:
         </section>
       )}
 
+      {investor && <MobileInvestorDashboard onOpen={onOpen} />}
+
       <button type="button" onClick={() => onOpen('pools')} className="w-full flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 text-left">
         <span>
           <span className="block text-sm font-black">Wealth pools</span>
@@ -78,15 +81,6 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc:
         <ChevronRight className="w-5 h-5 text-slate-400" />
       </button>
 
-      {investor && (
-        <button type="button" onClick={() => onOpen('portfolio')} className="w-full flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 text-left">
-          <span>
-            <span className="block text-sm font-black">My portfolio</span>
-            <span className="block text-xs text-slate-500">What you have invested, profit earned, and your orders</span>
-          </span>
-          <ChevronRight className="w-5 h-5 text-slate-400" />
-        </button>
-      )}
     </div>
   );
 };
