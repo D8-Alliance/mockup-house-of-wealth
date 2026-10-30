@@ -1,5 +1,6 @@
 import { AuthState, AuthSession, AuthUser, LoginCredentials, RegisterCredentials } from '../types/authTypes';
 import { UserRole } from '../../rbac/types';
+import { signInReturnUri } from '../../mobile/mobilePath';
 
 const issuer = import.meta.env.VITE_OIDC_ISSUER as string | undefined;
 const clientId = import.meta.env.VITE_OIDC_CLIENT_ID as string | undefined;
@@ -44,7 +45,8 @@ function requiredConfig(): { issuer: string; clientId: string; redirectUri: stri
   if (!issuer || !clientId || !redirectUri) {
     throw new Error('OIDC frontend configuration is incomplete');
   }
-  return { issuer: issuer.replace(/\/$/, ''), clientId, redirectUri };
+  // The mini-app (/m) returns to itself after sign-in and sign-out; the web app to the configured address.
+  return { issuer: issuer.replace(/\/$/, ''), clientId, redirectUri: signInReturnUri(redirectUri) };
 }
 
 type TokenResponse = { access_token?: string; expires_in?: number; refresh_token?: string; refresh_expires_in?: number; id_token?: string };

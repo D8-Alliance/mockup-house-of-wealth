@@ -353,6 +353,8 @@ export class UsersService {
       profile: user.profile,
       userType: user.userType,
       homeCountryNodeId: user.homeCountryNodeId,
+      // Seeded demo personas sign in with the mock provider; real people come from Keycloak.
+      demoAccount: user.idpProvider === 'mock',
       assignedRoles: user.roleAssignments.map((assignment: { role: PrismaUserRole; organisationId: string; countryNodeId: string; organisation?: { name: string } }) => ({
         role: this.fromPrismaRole(assignment.role),
         organisationId: assignment.organisationId,
