@@ -36,6 +36,8 @@ export const MobileUsers: React.FC = () => {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'SUSPENDED'>('ALL');
+  // Seeded demo personas are left out unless asked for, so the list is the real people.
+  const [showDemo, setShowDemo] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -45,7 +47,9 @@ export const MobileUsers: React.FC = () => {
   useEffect(load, [load]);
 
   const needle = query.trim().toLowerCase();
+  const demoCount = (users ?? []).filter(user => user.demoAccount).length;
   const shown = (users ?? []).filter(user => {
+    if (user.demoAccount && !showDemo) return false;
     const status = statusOf(user);
     if (statusFilter === 'ACTIVE' && status !== 'ACTIVE') return false;
     if (statusFilter === 'SUSPENDED' && status === 'ACTIVE') return false;
@@ -58,7 +62,7 @@ export const MobileUsers: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-black">Users{users ? ` (${users.length})` : ''}</h1>
+        <h1 className="text-lg font-black">Users{users ? ` (${users.length - (showDemo ? 0 : demoCount)})` : ''}</h1>
         <button type="button" onClick={load} aria-label="Refresh" className="p-2 rounded-xl border border-slate-200 dark:border-slate-700"><RefreshCw className="w-4 h-4" /></button>
       </div>
       <div className="relative">
@@ -72,6 +76,12 @@ export const MobileUsers: React.FC = () => {
           </button>
         ))}
       </div>
+      {demoCount > 0 && (
+        <label className="flex items-center gap-2 text-xs text-slate-500">
+          <input type="checkbox" checked={showDemo} onChange={(event) => setShowDemo(event.target.checked)} className="w-4 h-4" />
+          Show {demoCount} demo account{demoCount === 1 ? '' : 's'}
+        </label>
+      )}
 
       {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
       {!users && <p className="text-sm text-slate-500">Loading users...</p>}
@@ -86,6 +96,7 @@ export const MobileUsers: React.FC = () => {
               <span className="block text-sm font-black truncate">{user.name}</span>
               <span className="block text-xs text-slate-500 truncate">{user.assignedRoles.map(role => role.role).join(', ') || 'No active role'}</span>
             </span>
+            {user.demoAccount && <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-slate-500/10 text-slate-500">Demo</span>}
             <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${STATUS_STYLE[status] ?? STATUS_STYLE.DEACTIVATED}`}>{label(status)}</span>
             <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
           </button>

@@ -184,3 +184,17 @@ describe('UsersService role assignment', () => {
     });
   });
 });
+
+describe('UsersService directory', () => {
+  it('marks seeded demo personas so screens can leave them out', async () => {
+    const prisma = {
+      user: { findMany: jest.fn(async () => [
+        { id: 'U1', email: 'real@example.my', name: 'Real Person', isActive: true, idpProvider: 'keycloak', roleAssignments: [] },
+        { id: 'U2', email: 'admin.demo@wealthpooling.my', name: 'Demo Admin', isActive: true, idpProvider: 'mock', roleAssignments: [] },
+      ]) },
+    };
+    const service = new UsersService(prisma as unknown as PrismaService, auditMock as unknown as AuditService, policy, roleAvailabilityStub as unknown as RoleAvailabilityService);
+    const users = await service.listUsers(actor('Country Admin'));
+    expect(users.map((user) => [user.id, user.demoAccount])).toEqual([['U1', false], ['U2', true]]);
+  });
+});

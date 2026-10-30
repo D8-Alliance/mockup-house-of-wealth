@@ -1233,6 +1233,8 @@ export interface BackendUser {
   userType?: string;
   /** The country the account was registered in; it never changes. */
   homeCountryNodeId?: string | null;
+  /** A seeded demo persona (mock sign-in), not a real person from Keycloak. */
+  demoAccount?: boolean;
   assignedRoles: { role: string; organisationId: string; organisationName?: string; countryNodeId: string }[];
   createdAt: string;
   updatedAt: string;
