@@ -375,9 +375,10 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
       )}
 
       {mode === 'counter' && (
-        <form className={`${card} space-y-3`} onSubmit={(event) => { event.preventDefault(); act(() => apiClient.respondLease(lease.id, { action: 'COUNTER', monthlyRent: Number(counter.monthlyRent), depositAmount: Number(counter.depositAmount), startDate: counter.startDate, termMonths: Number(counter.termMonths), note: note || undefined })); }}>
+        <form className={`${card} space-y-3`} onSubmit={(event) => { event.preventDefault(); act(() => apiClient.respondLease(lease.id, { action: 'COUNTER', monthlyRent: Number(counter.monthlyRent), ...(Number(counter.depositAmount) !== lease.depositAmount ? { depositAmount: Number(counter.depositAmount) } : {}), startDate: counter.startDate, termMonths: Number(counter.termMonths), note: note || undefined })); }}>
           <label className="block text-xs font-bold text-slate-500">{t('Rent a month (RM)')}<input required type="number" min={1} step="0.01" value={counter.monthlyRent} onChange={(event) => setCounter(current => ({ ...current, monthlyRent: event.target.value }))} className={input} /></label>
           <label className="block text-xs font-bold text-slate-500">{t('Deposit (RM)')}<input required type="number" min={0} step="0.01" value={counter.depositAmount} onChange={(event) => setCounter(current => ({ ...current, depositAmount: event.target.value }))} className={input} /></label>
+          <p className="text-[11px] text-slate-500">{t('Leave the deposit as it is to work it out again from the new rent.')}</p>
           <div className="grid grid-cols-2 gap-2">
             <label className="block text-xs font-bold text-slate-500">{t('Start date')}<input required type="date" min={today()} value={counter.startDate} onChange={(event) => setCounter(current => ({ ...current, startDate: event.target.value }))} className={input} /></label>
             <label className="block text-xs font-bold text-slate-500">{t('Months')}<input required type="number" min={1} max={360} value={counter.termMonths} onChange={(event) => setCounter(current => ({ ...current, termMonths: event.target.value }))} className={input} /></label>
