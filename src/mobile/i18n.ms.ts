@@ -670,4 +670,5 @@ export const MS: Record<string, string> = {
   "Lease rejected by Shariah": "Sewaan ditolak oleh Shariah",
   "Legal review: changes requested": "Semakan Legal: pembetulan diminta",
   "Shariah review: changes requested": "Semakan Shariah: pembetulan diminta",
+  "Leave the deposit as it is to work it out again from the new rent.": "Biarkan deposit seperti asal untuk dikira semula daripada sewa baharu.",
 };
