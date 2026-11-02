@@ -6,7 +6,6 @@ import { apiClient, apiErrorMessage, BackendUser, KycApplication } from '../../s
 import { KYC_DOCUMENT_LABELS, KYC_ID_DOCUMENT_LABELS, KYC_LEVEL_LABELS, KYC_STATUS_LABELS } from '../../kyc/kycLabels';
 import { accountConsoleUrl } from '../../auth/services/oidcAuthProvider';
 import { avatarFromPhoto } from '../avatarImage';
-import { ESTATE_ROLES } from '../mobileRoles';
 import { LanguageToggle, useT } from '../i18n';
 
 const card = 'rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 space-y-3';
@@ -19,7 +18,7 @@ const maskNumber = (value: string) => (value.length <= 6 ? value : `${value.slic
  * The signed-in person's own page: their profile (name and email come from the sign-in account; the phone number
  * is edited here), their KYC as submitted with its documents, the sign-in security pages, and signing out.
  */
-export const MobileProfile: React.FC<{ onOpenKyc: () => void; onOpenBeneficiaries: () => void; onAvatarChange: (url: string) => void }> = ({ onOpenKyc, onOpenBeneficiaries, onAvatarChange }) => {
+export const MobileProfile: React.FC<{ onOpenKyc: () => void; onAvatarChange: (url: string) => void }> = ({ onOpenKyc, onAvatarChange }) => {
   const { currentRole, logoutUser, authMode } = useRBAC();
   const { t, locale } = useT();
   const investor = canInvest(currentRole);
@@ -160,16 +159,6 @@ export const MobileProfile: React.FC<{ onOpenKyc: () => void; onOpenBeneficiarie
             </button>
           )}
         </section>
-      )}
-
-      {ESTATE_ROLES.includes(currentRole) && (
-        <button type="button" onClick={onOpenBeneficiaries} className="w-full flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 text-left">
-          <span>
-            <span className="block text-sm font-black">{t('Beneficiaries')}</span>
-            <span className="block text-xs text-slate-500">{t('Who receives your investments: hibah, wasiyyah, faraid or a will')}</span>
-          </span>
-          <ChevronRight className="w-5 h-5 text-slate-400" />
-        </button>
       )}
 
       {security.length > 0 && (

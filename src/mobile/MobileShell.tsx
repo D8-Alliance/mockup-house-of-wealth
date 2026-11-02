@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../services/apiClient';
-import { Bell, Home, Layers, UserRound, Users, Wallet } from 'lucide-react';
+import { Bell, HeartHandshake, Home, Layers, UserRound, Users, Wallet } from 'lucide-react';
 import { useRBAC } from '../rbac/RBACContext';
 import { canInvest } from '../rbac/menuVisibility';
 import { MobileHome } from './screens/MobileHome';
@@ -13,14 +13,16 @@ import { MobileBeneficiaries } from './screens/MobileBeneficiaries';
 import { MobileNotifications } from './screens/MobileNotifications';
 import { MobileStatements } from './screens/MobileStatements';
 import { MobileZakat } from './screens/MobileZakat';
-import { USER_ADMIN_ROLES } from './mobileRoles';
+import { ESTATE_ROLES, USER_ADMIN_ROLES } from './mobileRoles';
 import { LanguageToggle, useT } from './i18n';
 
-export type MobileTab = 'home' | 'pools' | 'portfolio' | 'users' | 'account';
-type Overlay = 'kyc' | 'beneficiaries' | 'notifications' | 'statements' | 'zakat';
+export type MobileTab = 'home' | 'beneficiaries' | 'pools' | 'portfolio' | 'users' | 'account';
+type Overlay = 'kyc' | 'notifications' | 'statements' | 'zakat';
 
-const TABS: Array<{ id: MobileTab; label: string; icon: React.ReactNode; investorsOnly?: boolean; adminsOnly?: boolean }> = [
+const TABS: Array<{ id: MobileTab; label: string; icon: React.ReactNode; investorsOnly?: boolean; adminsOnly?: boolean; estateOnly?: boolean }> = [
   { id: 'home', label: 'Home', icon: <Home className="w-5 h-5" /> },
+  // Second, within thumb reach: estate instructions are part of what an investor keeps up to date.
+  { id: 'beneficiaries', label: 'Beneficiaries', icon: <HeartHandshake className="w-5 h-5" />, estateOnly: true },
   { id: 'pools', label: 'Pools', icon: <Layers className="w-5 h-5" /> },
   { id: 'portfolio', label: 'Portfolio', icon: <Wallet className="w-5 h-5" />, investorsOnly: true },
   { id: 'users', label: 'Users', icon: <Users className="w-5 h-5" />, adminsOnly: true },
@@ -54,12 +56,12 @@ export const MobileShell: React.FC = () => {
 
   const initials = activeUser.name.split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join('');
   const [tab, setTab] = useState<MobileTab>('home');
-  // KYC, beneficiaries, notifications, statements and zakat open over the tabs; a tab press closes them.
+  // KYC, notifications, statements and zakat open over the tabs; a tab press closes them.
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const overlayOpen = overlay !== null;
   const openKyc = () => setOverlay('kyc');
   const openTab = (next: MobileTab) => { setOverlay(null); setTab(next); };
-  const tabs = TABS.filter(item => (!item.investorsOnly || canInvest(currentRole)) && (!item.adminsOnly || USER_ADMIN_ROLES.includes(currentRole)));
+  const tabs = TABS.filter(item => (!item.investorsOnly || canInvest(currentRole)) && (!item.adminsOnly || USER_ADMIN_ROLES.includes(currentRole)) && (!item.estateOnly || ESTATE_ROLES.includes(currentRole)));
 
   return (
     <div className="min-h-dvh flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
@@ -81,15 +83,15 @@ export const MobileShell: React.FC = () => {
 
       <main className="flex-1 px-4 pt-4 pb-24">
         {overlay === 'kyc' && <MobileKyc onBack={() => openTab('home')} />}
-        {overlay === 'beneficiaries' && <MobileBeneficiaries onBack={() => openTab('account')} />}
         {overlay === 'notifications' && <MobileNotifications onBack={() => setOverlay(null)} onUnreadChange={setUnread} />}
         {overlay === 'statements' && <MobileStatements onBack={() => openTab('portfolio')} />}
         {overlay === 'zakat' && <MobileZakat onBack={() => openTab('portfolio')} />}
         {!overlayOpen && tab === 'home' && <MobileHome onOpen={openTab} onOpenKyc={openKyc} />}
+        {!overlayOpen && tab === 'beneficiaries' && <MobileBeneficiaries />}
         {!overlayOpen && tab === 'pools' && <MobilePools onOpenPortfolio={() => openTab('portfolio')} onOpenKyc={openKyc} />}
         {!overlayOpen && tab === 'portfolio' && <MobilePortfolio onOpenStatements={() => setOverlay('statements')} onOpenZakat={() => setOverlay('zakat')} />}
         {!overlayOpen && tab === 'users' && <MobileUsers />}
-        {!overlayOpen && tab === 'account' && <MobileProfile onOpenKyc={openKyc} onOpenBeneficiaries={() => setOverlay('beneficiaries')} onAvatarChange={setAvatar} />}
+        {!overlayOpen && tab === 'account' && <MobileProfile onOpenKyc={openKyc} onAvatarChange={setAvatar} />}
       </main>
 
       <nav aria-label={t('Main')} className="fixed bottom-0 inset-x-0 z-20 grid border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur pb-[env(safe-area-inset-bottom)]" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
@@ -99,7 +101,7 @@ export const MobileShell: React.FC = () => {
             type="button"
             onClick={() => openTab(item.id)}
             aria-current={!overlayOpen && tab === item.id ? 'page' : undefined}
-            className={`flex flex-col items-center gap-0.5 py-2.5 text-[11px] font-bold ${!overlayOpen && tab === item.id ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500'}`}
+            className={`flex flex-col items-center gap-0.5 px-0.5 py-2.5 text-center text-[11px] leading-tight font-bold ${!overlayOpen && tab === item.id ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500'}`}
           >
             {item.icon}
             {t(item.label)}

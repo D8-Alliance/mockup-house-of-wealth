@@ -315,7 +315,7 @@ export const MS: Record<string, string> = {
   'Shares under your will': 'Bahagian di bawah wasiat anda',
   "These are your instructions to the estate officer. The final distribution follows the Syariah court's faraid certificate, or the grant of probate or letters of administration.": 'Ini arahan anda kepada pegawai pusaka. Pembahagian akhir mengikut sijil faraid Mahkamah Syariah, atau geran probet atau surat kuasa mentadbir.',
   'No beneficiary yet.': 'Belum ada penerima manfaat.',
-  'Primary': 'Utama',
+  'Primary': 'Utamakan',
   'By faraid': 'Mengikut faraid',
   'ID': 'ID',
   'Hibah: {status}': 'Hibah: {status}',

@@ -29,7 +29,7 @@ function blank(framework: EstateFramework): BeneficiaryItem {
  * choose, with the same rules as the website (wasiyyah at most one-third and never to a faraid heir; a hibah
  * needs the offer, the recipient's email and identity number). Saved on the server; identity numbers come back masked.
  */
-export const MobileBeneficiaries: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+export const MobileBeneficiaries: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const { t } = useT();
   const [framework, setFramework] = useEstateFramework();
   const [items, setItems] = useState<BeneficiaryItem[] | null>(null);
@@ -64,7 +64,7 @@ export const MobileBeneficiaries: React.FC<{ onBack: () => void }> = ({ onBack }
 
   return (
     <div className="space-y-4">
-      <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-emerald-700 dark:text-emerald-400"><ArrowLeft className="w-4 h-4" />{t('Profile')}</button>
+      {onBack && <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-emerald-700 dark:text-emerald-400"><ArrowLeft className="w-4 h-4" />{t('Profile')}</button>}
       <h1 className="text-lg font-black flex items-center gap-2"><Users className="w-5 h-5 text-emerald-600" />{t('Beneficiaries')}</h1>
 
       <section className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 space-y-3">
