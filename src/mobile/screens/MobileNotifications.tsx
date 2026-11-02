@@ -8,7 +8,7 @@ import { useT } from '../i18n';
  * platform sends. Opening one marks it read. Push through the super app delivers the same notifications later.
  */
 export const MobileNotifications: React.FC<{ onBack: () => void; onUnreadChange: (count: number) => void }> = ({ onBack, onUnreadChange }) => {
-  const { t, locale } = useT();
+  const { t, locale, serverText } = useT();
   const [items, setItems] = useState<BackendNotification[] | null>(null);
   const [open, setOpen] = useState('');
   const [error, setError] = useState('');
@@ -68,8 +68,8 @@ export const MobileNotifications: React.FC<{ onBack: () => void; onUnreadChange:
               <button type="button" onClick={() => read(item)} aria-expanded={open === item.id} className={`w-full text-left p-4 flex gap-3 ${item.readAt ? '' : 'bg-emerald-50/70 dark:bg-emerald-500/5'}`}>
                 <span aria-hidden className={`mt-1.5 w-2 h-2 shrink-0 rounded-full ${item.readAt ? 'bg-transparent' : 'bg-emerald-500'}`} />
                 <span className="min-w-0 flex-1">
-                  <span className={`block text-sm ${item.readAt ? 'font-bold' : 'font-black'}`}>{t(item.title)}{!item.readAt && <span className="sr-only"> ({t('unread')})</span>}</span>
-                  <span className={`block text-xs text-slate-600 dark:text-slate-300 ${open === item.id ? '' : 'line-clamp-2'}`}>{item.message}</span>
+                  <span className={`block text-sm ${item.readAt ? 'font-bold' : 'font-black'}`}>{serverText(item.title)}{!item.readAt && <span className="sr-only"> ({t('unread')})</span>}</span>
+                  <span className={`block text-xs text-slate-600 dark:text-slate-300 ${open === item.id ? '' : 'line-clamp-2'}`}>{serverText(item.message)}</span>
                   <span className="block text-[11px] text-slate-400 mt-1">{when(item.createdAt)}</span>
                 </span>
               </button>

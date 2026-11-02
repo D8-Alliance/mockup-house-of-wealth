@@ -47,8 +47,9 @@ export default function MobileApp() {
 
 function MobileGate() {
   const { isAuthenticated, signInError } = useRBAC();
+  const { language } = useT();
   if (!isAuthenticated) return <MobileSignIn error={signInError} />;
-  return <PrivacyConsentGate><MobileShell /></PrivacyConsentGate>;
+  return <PrivacyConsentGate language={language}><MobileShell /></PrivacyConsentGate>;
 }
 
 function MobileSignIn({ error }: { error: string | null }) {

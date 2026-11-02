@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { apiClient } from '../services/apiClient';
 import { MS } from './i18n.ms';
+import { translateServerText } from './i18n.messages';
 
 export type Language = 'en' | 'ms';
 
@@ -31,6 +32,8 @@ interface LanguageContextValue {
   /** Changes the language; once signed in it is also saved with the account, so it follows the user to another phone. */
   setLanguage: (language: Language, options?: { saveToAccount?: boolean }) => void;
   t: (text: string, vars?: Record<string, string | number>) => string;
+  /** Text the server wrote in English (a notification's title or message), in the reader's language. */
+  serverText: (text: string) => string;
   /** For dates and numbers: ms-MY or en-MY. */
   locale: string;
 }
@@ -39,6 +42,7 @@ const LanguageContext = createContext<LanguageContextValue>({
   language: 'en',
   setLanguage: () => undefined,
   t: (text, vars) => translate('en', text, vars),
+  serverText: (text) => text,
   locale: 'en-MY',
 });
 
@@ -53,6 +57,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     language,
     setLanguage,
     t: (text, vars) => translate(language, text, vars),
+    serverText: (text) => (language === 'ms' ? MS[text] ?? translateServerText(text) : text),
     locale: language === 'ms' ? 'ms-MY' : 'en-MY',
   }), [language, setLanguage]);
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

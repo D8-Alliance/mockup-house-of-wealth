@@ -252,7 +252,7 @@ Bingkai kamera dan dokumen KYC masih disimpan tanpa had masa. **Perlu keputusan:
 2. SSO dan push melalui D8 Ideas: menunggu spesifikasi mereka.
 3. Uji dalam sandbox super app, terutamanya kebenaran kamera dalam WebView.
 4. Keycloak: `/m/*` dalam Valid redirect URIs, dan SMTP (Realm settings › Email) untuk "Forgot password".
-5. Teks notifikasi daripada server dan notis privasi masih dalam bahasa Inggeris (tajuk notifikasi sudah diterjemah dalam mini-app).
+5. Notifikasi dalam BM: tajuk dan mesej notifikasi utama (pelaburan, KYC, keuntungan, akaun bank, keahlian, KYB, tarikh tamat aset, sewaan, perkongsian aset) diterjemah dalam mini-app melalui `src/mobile/i18n.messages.ts`. Notis privasi mengikut bahasa mini-app. Mesej server baharu perlu ditambah ke jadual itu, jika tidak ia dipaparkan dalam bahasa Inggeris. Emel dan push masih dalam bahasa Inggeris.
 
 ## 22. Sewaan terus (Ijarah) tanpa projek
 

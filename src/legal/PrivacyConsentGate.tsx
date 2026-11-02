@@ -9,10 +9,12 @@ import { PRIVACY_NOTICE, PRIVACY_NOTICE_VERSION } from './privacyNotice';
  * The acceptance is recorded on the server with time and IP. If the server cannot be reached,
  * the app is not blocked; the notice is asked for again at the next sign-in.
  */
-export const PrivacyConsentGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+/** `language` opens the notice in the app's language (the mini-app's choice); the reader can still switch. */
+export const PrivacyConsentGate: React.FC<{ children: React.ReactNode; language?: 'ms' | 'en' }> = ({ children, language }) => {
   const { logoutUser } = useRBAC();
   const [needed, setNeeded] = useState(false);
-  const [lang, setLang] = useState<'ms' | 'en'>('ms');
+  const [lang, setLang] = useState<'ms' | 'en'>(language ?? 'ms');
+  useEffect(() => { if (language) setLang(language); }, [language]);
   const [agreed, setAgreed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
