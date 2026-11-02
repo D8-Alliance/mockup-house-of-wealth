@@ -2078,6 +2078,7 @@ model Asset {
   countryNode  CountryNode       @relation(fields: [countryNodeId], references: [code])
   documents    AssetDocument[]
   engagements  AssetEngagement[]
+  leasableUnits LeasableUnit[]
 
   @@index([organisationId, countryNodeId])
   @@index([countryNodeId, status])
@@ -2182,6 +2183,114 @@ model AssetEngagement {
   @@index([assetId, status])
   @@index([projectId])
   @@index([countryNodeId, status])
+}
+
+/**
+ * A part of a verified asset its owner leases out directly, without a project: floor 7 of a tower,
+ * a shop lot, a warehouse bay, or the whole asset. Companies in the same country ask to rent it.
+ */
+model LeasableUnit {
+  /// UNIT-<country>-XXXXXXXX
+  id             String    @id
+  assetId        String
+  organisationId String
+  countryNodeId  String
+  /// e.g. "Floor 7", "Lot G-03", "Whole building"
+  label          String
+  description    String    @default("")
+  floorArea      Decimal?  @db.Decimal(12, 2)
+  /// SQFT or SQM
+  floorAreaUnit  String    @default("SQFT")
+  /// The owner's asking rent (ujrah) per month.
+  monthlyRent    Decimal   @db.Decimal(18, 2)
+  currency       String
+  /// Security deposit in months of rent, e.g. 2.
+  depositMonths  Decimal   @default(2) @db.Decimal(4, 1)
+  minTermMonths  Int       @default(12)
+  availableFrom  DateTime?
+  /// What the space may be used for, e.g. "Office".
+  permittedUse   String    @default("")
+  /// LISTED (companies can ask to rent it) or WITHDRAWN
+  status         String    @default("LISTED")
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  asset  Asset        @relation(fields: [assetId], references: [id])
+  leases AssetLease[]
+
+  @@index([countryNodeId, status])
+  @@index([assetId])
+}
+
+/**
+ * A direct Ijarah lease of a unit to a company (the tenant). Negotiated like a partnership: the side
+ * whose turn it is accepts, declines or counters; Legal and Shariah then approve, and the monthly rent
+ * schedule is set. Rent is paid by the tenant straight to the owner; the platform records it.
+ */
+model AssetLease {
+  /// LEASE-<country>-XXXXXXXX
+  id                   String    @id
+  unitId               String
+  assetId              String
+  countryNodeId        String
+  ownerOrganisationId  String
+  tenantOrganisationId String
+  /// PROPOSED, ACCEPTED, APPROVED, DECLINED, WITHDRAWN, REJECTED or ENDED
+  status               String    @default("PROPOSED")
+  /// Whose move it is: OWNER, TENANT, REVIEW or NONE
+  awaiting             String
+  monthlyRent          Decimal   @db.Decimal(18, 2)
+  currency             String
+  depositAmount        Decimal   @db.Decimal(18, 2)
+  startDate            DateTime
+  endDate              DateTime
+  /// What the tenant will use the space for, and its business, for the Shariah screening.
+  intendedUse          String
+  tenantActivity       String
+  /// Every proposal, counter-offer and decision, oldest first.
+  history              Json
+  legalApprovedBy      String?
+  legalApprovedAt      DateTime?
+  shariahApprovedBy    String?
+  shariahApprovedAt    DateTime?
+  /// Set when the lease ends before its end date.
+  endedAt              DateTime?
+  createdBy            String
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  unit     LeasableUnit       @relation(fields: [unitId], references: [id])
+  payments LeaseRentPayment[]
+
+  @@index([unitId, status])
+  @@index([countryNodeId, status])
+  @@index([ownerOrganisationId])
+  @@index([tenantOrganisationId])
+}
+
+/** One month's rent of an approved lease: due, then recorded as paid by the owner. */
+model LeaseRentPayment {
+  id         String    @id @default(cuid())
+  leaseId    String
+  /// YYYY-MM, numbered from the lease start: the first period starts on the start date.
+  period     String
+  dueDate    DateTime
+  amount     Decimal   @db.Decimal(18, 2)
+  currency   String
+  /// DUE or PAID; overdue is a DUE row past its due date.
+  status     String    @default("DUE")
+  paidAt     DateTime?
+  /// The tenant's transfer reference as the owner saw it in their bank.
+  reference  String?
+  recordedBy String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  lease AssetLease @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+
+  @@unique([leaseId, period])
+  @@index([status, dueDate])
 }
 
 /// A document an organisation gives for its business verification (KYB), e.g. its SSM company profile.

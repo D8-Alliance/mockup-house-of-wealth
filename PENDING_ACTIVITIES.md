@@ -31,6 +31,7 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 23 | Skrin yang masih data contoh | Lihat senarai penuh dalam item 23 | Boleh dimulakan mengikut keutamaan |
 | 24 | Perkara teknikal kecil | Saiz bundle frontend, kebersihan data local | Boleh dimulakan |
 | 25 | Mini-app D8 Ideas (fasa 1) | Isi akaun kutipan setiap negara, SSO dan push D8 Ideas, ujian dalam super app, SMTP Keycloak | Butiran akaun amanah bank; spesifikasi D8 Ideas |
+| 26 | Sewaan terus (Ijarah) tanpa projek | Perjanjian Ijarah daripada modul kontrak, skrin web, peringatan sewa, keputusan pungutan sewa, komisen dan cukai | Keputusan pemilik projek; nasihat peguam dan cukai |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -478,3 +479,39 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 4. Keycloak: `/m/*` dalam Valid redirect URIs, dan SMTP (Realm settings › Email) untuk "Forgot password".
 5. Teks notifikasi daripada server dan notis privasi masih dalam bahasa Inggeris (tajuk notifikasi sudah diterjemah dalam mini-app).
 6. Laman web: pengesahan pesanan pelabur di web belum memaparkan akaun kutipan.
+
+## 26. Sewaan terus (Ijarah) tanpa projek
+
+- **Status:** Fasa 1 siap 2026-11-02, dalam mini-app (tab Sewaan) dan API `/leasing`. Contoh: Al Hidayah Group menyewakan Tingkat 7 Menara Hidayah terus kepada sebuah syarikat.
+- **Kawasan:** `server/src/leasing/`, model `LeasableUnit`, `AssetLease`, `LeaseRentPayment` (migration `20261102090000_direct_leases`), `src/mobile/screens/MobileLeasing.tsx`
+
+**Sudah ada:**
+- **Pemilik aset:** menyenaraikan unit daripada aset yang disahkan. Setiap unit ada keluasan, sewa diminta, deposit (bulan sewa), tempoh minimum, tarikh tersedia dan kegunaan dibenarkan. Pemilik boleh berhenti atau menyenarai semula.
+- **Syarikat penyewa:** peranan Organization Admin, Corporate Investor, Project Sponsor atau Project Manager. KYB wajib APPROVED. Penyewa melihat unit di negaranya dan memohon dengan tarikh mula, bulan, sewa tawaran, kegunaan dan perniagaan. Ia juga mengisytiharkan kegunaan itu patuh Syariah.
+- **Rundingan:**
+  - Pihak yang gilirannya boleh terima, tolak atau cadang terma lain (sewa, deposit, tarikh, bulan).
+  - Penerimaan perlu pengesahan bagi pihak organisasi.
+  - Unit tidak boleh dipegang dua sewaan bagi tempoh yang bertindih.
+- **Kelulusan:**
+  - Legal dan Shariah, oleh orang berbeza, dan bukan daripada organisasi pemilik atau penyewa.
+  - Sistem menanda aktiviti yang mungkin haram (arak, judi, riba, babi, hiburan, tembakau). Penyemak Shariah mesti memberi sebab jika meluluskan sewaan yang ditanda.
+- **Selepas lulus:**
+  - Jadual sewa bulanan dijana (bayar di awal bulan).
+  - Pemilik merekod bayaran yang diterima berserta rujukan bank.
+  - Bulan lewat dipaparkan sebagai tertunggak.
+  - Pemilik boleh menamatkan sewaan lebih awal; bulan yang belum tiba dibuang.
+- **Notifikasi dan audit:** setiap langkah mencetuskan notifikasi dalam aplikasi dan direkod dalam log audit.
+
+**Keputusan sementara (perlu disahkan):** sewa dibayar oleh penyewa **terus ke akaun bank pemilik**. Platform hanya merekod dan tidak memegang wang, jadi tiada isu wang pihak ketiga. Tiada komisen dikenakan buat masa ini.
+
+**Belum siap:**
+1. Perjanjian Ijarah dijana daripada modul kontrak dan e-tandatangan (sekarang hanya mesej "tandatangani perjanjian"). Perlu `leaseId` pada `Contract` dan templat Ijarah sewaan.
+2. Skrin web (Asset Registry dan semakan Legal/Shariah). Buat masa ini semuanya dalam mini-app.
+3. Peringatan sewa automatik (sebelum tarikh perlu bayar dan semasa tertunggak), peringatan tamat sewaan, dan pembaharuan.
+4. Pemulangan deposit semasa tamat, dengan potongan dan sebab.
+5. Keputusan pemilik projek:
+   - sama ada platform memungut sewa (melalui akaun amanah) atau rekod sahaja;
+   - komisen atau yuran langganan (semak Akta 242, ejen harta tanah);
+   - duti setem perjanjian sewa;
+   - cukai perkhidmatan ke atas sewa komersial.
+6. Fasa kemudian: pool pelaburan daripada hasil sewa (pelabur membiayai pengubahsuaian, berkongsi hasil sewa).

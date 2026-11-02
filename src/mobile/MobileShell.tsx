@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../services/apiClient';
-import { Bell, HeartHandshake, Home, Layers, UserRound, Users, Wallet } from 'lucide-react';
+import { Bell, Building2, HeartHandshake, Home, Layers, UserRound, Users, Wallet } from 'lucide-react';
 import { useRBAC } from '../rbac/RBACContext';
 import { canInvest } from '../rbac/menuVisibility';
 import { MobileHome } from './screens/MobileHome';
@@ -13,18 +13,20 @@ import { MobileBeneficiaries } from './screens/MobileBeneficiaries';
 import { MobileNotifications } from './screens/MobileNotifications';
 import { MobileStatements } from './screens/MobileStatements';
 import { MobileZakat } from './screens/MobileZakat';
-import { ESTATE_ROLES, USER_ADMIN_ROLES } from './mobileRoles';
+import { MobileLeasing } from './screens/MobileLeasing';
+import { ESTATE_ROLES, LEASING_ROLES, USER_ADMIN_ROLES } from './mobileRoles';
 import { LanguageToggle, useT } from './i18n';
 
-export type MobileTab = 'home' | 'beneficiaries' | 'pools' | 'portfolio' | 'users' | 'account';
+export type MobileTab = 'home' | 'beneficiaries' | 'pools' | 'portfolio' | 'leasing' | 'users' | 'account';
 type Overlay = 'kyc' | 'notifications' | 'statements' | 'zakat';
 
-const TABS: Array<{ id: MobileTab; label: string; icon: React.ReactNode; investorsOnly?: boolean; adminsOnly?: boolean; estateOnly?: boolean }> = [
+const TABS: Array<{ id: MobileTab; label: string; icon: React.ReactNode; investorsOnly?: boolean; adminsOnly?: boolean; estateOnly?: boolean; leasingOnly?: boolean }> = [
   { id: 'home', label: 'Home', icon: <Home className="w-5 h-5" /> },
   // Second, within thumb reach: estate instructions are part of what an investor keeps up to date.
   { id: 'beneficiaries', label: 'Beneficiaries', icon: <HeartHandshake className="w-5 h-5" />, estateOnly: true },
   { id: 'pools', label: 'Pools', icon: <Layers className="w-5 h-5" /> },
   { id: 'portfolio', label: 'Portfolio', icon: <Wallet className="w-5 h-5" />, investorsOnly: true },
+  { id: 'leasing', label: 'Leasing', icon: <Building2 className="w-5 h-5" />, leasingOnly: true },
   { id: 'users', label: 'Users', icon: <Users className="w-5 h-5" />, adminsOnly: true },
   { id: 'account', label: 'Profile', icon: <UserRound className="w-5 h-5" /> },
 ];
@@ -61,7 +63,7 @@ export const MobileShell: React.FC = () => {
   const overlayOpen = overlay !== null;
   const openKyc = () => setOverlay('kyc');
   const openTab = (next: MobileTab) => { setOverlay(null); setTab(next); };
-  const tabs = TABS.filter(item => (!item.investorsOnly || canInvest(currentRole)) && (!item.adminsOnly || USER_ADMIN_ROLES.includes(currentRole)) && (!item.estateOnly || ESTATE_ROLES.includes(currentRole)));
+  const tabs = TABS.filter(item => (!item.investorsOnly || canInvest(currentRole)) && (!item.adminsOnly || USER_ADMIN_ROLES.includes(currentRole)) && (!item.estateOnly || ESTATE_ROLES.includes(currentRole)) && (!item.leasingOnly || LEASING_ROLES.includes(currentRole)));
 
   return (
     <div className="min-h-dvh flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white">
@@ -90,6 +92,7 @@ export const MobileShell: React.FC = () => {
         {!overlayOpen && tab === 'beneficiaries' && <MobileBeneficiaries />}
         {!overlayOpen && tab === 'pools' && <MobilePools onOpenPortfolio={() => openTab('portfolio')} onOpenKyc={openKyc} />}
         {!overlayOpen && tab === 'portfolio' && <MobilePortfolio onOpenStatements={() => setOverlay('statements')} onOpenZakat={() => setOverlay('zakat')} />}
+        {!overlayOpen && tab === 'leasing' && <MobileLeasing />}
         {!overlayOpen && tab === 'users' && <MobileUsers />}
         {!overlayOpen && tab === 'account' && <MobileProfile onOpenKyc={openKyc} onAvatarChange={setAvatar} />}
       </main>
