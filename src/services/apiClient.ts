@@ -42,19 +42,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return (text ? JSON.parse(text) : null) as T;
 }
 
-export interface ZakatCalculation {
-  id: string;
-  currency: string;
-  investedCapital: number;
-  liquidCash: number;
-  debtsOwed: number;
-  nisabThreshold: number;
-  zakatRate: number;
-  netWealth: number;
-  zakatDue: number;
-  createdAt: string;
-}
-
 export interface BackendFinancialAccount {
   id: string;
   accountCode: string;
@@ -91,8 +78,13 @@ export interface BackendInvestmentOrder {
   settledAt?: string | null;
   cancelledAt?: string | null;
   paymentReference?: string | null;
+  /** The investor's organisation is in the same corporate group as the organisation running the project. */
+  relatedParty?: boolean;
   /** The pool's name, sent with the investor's own orders (a full pool is no longer listed to them). */
   pool?: { poolName: string };
+  /** When the investor accepted the akad terms, and the terms themselves (sent with an investor's own orders). */
+  akadAcceptedAt?: string | null;
+  akadTerms?: { id: string; version: number; akadType: string; investorProfitSharePct: number | string; termsText: string; termsHash: string } | null;
 }
 
 /** A beneficiary as the server keeps it; the identity number comes back masked only. */
@@ -144,6 +136,8 @@ export interface BackendPoolAkadTerms {
 /** A pool with what it has raised so far, and its current akad terms. */
 export interface BackendPoolDetail extends BackendPool {
   raisedAmount: number;
+  /** Confirmed money from entities of the project organisation's own corporate group. */
+  relatedPartyAmount?: number;
   targetAmount: number;
   akadTerms: BackendPoolAkadTerms | null;
 }
@@ -364,12 +358,6 @@ export const apiClient = {
     request(`/users/${userId}/roles/${encodeURIComponent(role)}/orgs/${organisationId}/countries/${countryNodeId}`, {
       method: 'DELETE',
     }),
-  calculateZakat: (input: { investedCapital: number; liquidCash: number; debtsOwed: number; currency?: string }) =>
-    request<ZakatCalculation>('/zakat/calculations', {
-      method: 'POST',
-      body: JSON.stringify(input),
-    }),
-  createZakatPayment: (calculationId: string) => request<{ paymentUrl: string; paymentId: string; status: string }>(`/zakat/calculations/${encodeURIComponent(calculationId)}/payment`, { method: 'POST' }),
   upgradeMembership: (input: { planId: string; billingInterval: 'monthly' | 'annual'; paymentMethod: string; creditsToApply?: number }) =>
     request('/membership/me/upgrade', {
       method: 'POST',
@@ -377,6 +365,29 @@ export const apiClient = {
     }),
   getMembershipStatus: () => request<BackendMembershipStatus>('/membership/me'),
   getPaymentOptions: () => request<{ simulatedPaymentsAllowed: boolean }>('/membership/payment-options'),
+  getGovernanceDashboard: <T,>(kind: 'compliance' | 'audit' | 'finance' | 'security') => request<T>(`/governance/dashboards/${kind}`),
+  getGovernanceReports: () => request<Array<{ key: string; label: string; description: string }>>('/governance/reports'),
+  downloadGovernanceReport: async (key: string) => {
+    const token = authService.getAuthState().session?.token;
+    const response = await apiFetch(`${API_BASE_URL}/governance/reports/${encodeURIComponent(key)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+    if (!response.ok) throw new Error(await response.text() || `Report export failed with status ${response.status}`);
+    const blobUrl = URL.createObjectURL(await response.blob());
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || `${key}.csv`;
+    link.click();
+    URL.revokeObjectURL(blobUrl);
+  },
+  getRisks: () => request<RiskItem[]>('/governance/risks'),
+  saveRisk: (input: RiskInput, id?: string) => request<RiskItem>(id ? `/governance/risks/${encodeURIComponent(id)}` : '/governance/risks', { method: id ? 'PUT' : 'POST', body: JSON.stringify(input) }),
+  getIncidents: () => request<IncidentRecord[]>('/governance/incidents'),
+  createIncident: (input: { countryNodeId?: string; title: string; category: string; severity: string; description: string; occurredAt: string }) => request<IncidentRecord>('/governance/incidents', { method: 'POST', body: JSON.stringify(input) }),
+  updateIncident: (id: string, input: { status: string; note: string }) => request<IncidentRecord>(`/governance/incidents/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  getFatwas: () => request<FatwaRecord[]>('/governance/fatwas'),
+  saveFatwa: (input: FatwaInput, id?: string) => request<FatwaRecord>(id ? `/governance/fatwas/${encodeURIComponent(id)}` : '/governance/fatwas', { method: id ? 'PUT' : 'POST', body: JSON.stringify(input) }),
+  getApprovalMatrix: () => request<Array<{ process: string; step: string; roles: string[]; rules: string[] }>>('/governance/approval-matrix'),
+  getFeeSchedule: () => request<FeeSchedule>('/governance/fees'),
+  getCountryRules: () => request<CountryRules>('/governance/country-rules'),
   getAuditEvents: (query: AuditEventQuery) => request<AuditEventPage>(`/admin/audit/events?${auditQueryString(query)}`),
   exportAuditEvents: async (query: AuditEventQuery) => {
     const token = authService.getAuthState().session?.token;
@@ -553,7 +564,7 @@ export const apiClient = {
     return request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/documents/${documentType}`, { method: 'POST', body });
   },
   getMyOrganisationKyb: () => request<OrganisationKyb>('/organisations/me/kyb'),
-  saveOrganisationDetails: (input: { registrationNumber: string; registeredAddress: string }) => request<OrganisationKyb>('/organisations/me/kyb', { method: 'PUT', body: JSON.stringify(input) }),
+  saveOrganisationDetails: (input: { registrationNumber: string; registeredAddress: string; entityType?: OrganisationEntityType; groupName?: string }) => request<OrganisationKyb>('/organisations/me/kyb', { method: 'PUT', body: JSON.stringify(input) }),
   uploadOrganisationKybDocument: (documentType: OrganisationKybDocumentType, file: File) => { const body = new FormData(); body.append('file', file, file.name); return request<OrganisationKyb>(`/organisations/me/kyb/documents/${documentType}`, { method: 'POST', body }); },
   removeOrganisationKybDocument: (documentId: string) => request<OrganisationKyb>(`/organisations/me/kyb/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
   submitOrganisationKyb: () => request<OrganisationKyb>('/organisations/me/kyb/submit', { method: 'POST' }),
@@ -2042,12 +2053,35 @@ export type AgreementPartyAction = 'CONSENT' | 'SIGN';
 export type OrganisationKybStatus = 'NOT_SUBMITTED' | 'SUBMITTED' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED';
 export type OrganisationKybDocumentType = 'SSM_PROFILE' | 'DIRECTORS' | 'SHAREHOLDERS' | 'BOARD_RESOLUTION' | 'OTHER';
 /** An organisation's registration details and business verification (KYB). */
+/** Admin Center governance records (server/src/governance). */
+export interface RiskInput { countryNodeId?: string; title: string; category: string; likelihood: number; impact: number; ownerName: string; mitigation?: string; status?: string; reviewDue?: string }
+export interface RiskItem extends Required<Omit<RiskInput, 'countryNodeId' | 'reviewDue'>> { id: string; countryNodeId: string; reviewDue: string | null; score: number; createdAt: string; updatedAt: string }
+export interface IncidentRecord { id: string; countryNodeId: string; title: string; category: string; severity: string; description: string; occurredAt: string; status: string; resolution: string | null; resolvedAt: string | null; history: Array<{ at: string; byName: string; status: string; note: string }>; createdAt: string }
+export interface FatwaInput { countryNodeId?: string; reference: string; title: string; issuedBy: string; issuedOn: string; topic: string; summary: string; sourceUrl?: string; status?: string }
+export interface FatwaRecord extends Omit<FatwaInput, 'countryNodeId' | 'sourceUrl'> { id: string; countryNodeId: string | null; sourceUrl: string | null; status: string; createdAt: string }
+export interface FeeSchedule {
+  plans: Array<{ id: string; name: string; monthlyPriceMYR: number; annualPriceMYR: number; aiCreditsMonthly: number; userSeats: number }>;
+  creditPackages: Array<{ id: string; credits: number; bonusCredits: number; priceMYR: number }>;
+  aiOperations: Array<{ operationKey: string; operationName: string; creditsRequired: number }>;
+  promotionPackages: Array<{ id: string; title: string; durationDays: number; priceMYR: number; creditsCost: number }>;
+  paymentGatewayFeeMYR: number;
+  creditValueMYR: number;
+}
+export interface CountryRules {
+  countries: Array<{ code: string; name: string; currency: string; regulatoryProfile: string; status: string; minSponsorContributionPct: number; kycLimits: Array<{ level: string; limit: number | null }>; collectionBank: string | null }>;
+  requiredKybDocuments: string[];
+  limitsError: string | null;
+}
+
+export type OrganisationEntityType ='GLC' | 'COMPANY' | 'INSTITUTION' | 'INDIVIDUAL';
 export interface OrganisationKyb {
   id: string;
   name: string;
   countryNodeId: string;
   registrationNumber: string | null;
   registeredAddress: string | null;
+  entityType: OrganisationEntityType | null;
+  groupName: string | null;
   kybStatus: OrganisationKybStatus;
   kybSubmittedAt: string | null;
   kybReviewedAt: string | null;

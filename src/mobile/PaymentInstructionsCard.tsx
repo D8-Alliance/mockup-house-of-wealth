@@ -28,7 +28,7 @@ const CopyRow: React.FC<{ label: string; value: string; mono?: boolean }> = ({ l
  * Where the investor transfers the money for an order: the platform's trust account in their country, and the
  * order number as the reference so Finance can match the transfer. Money never goes to a sponsor directly.
  */
-export const PaymentInstructionsCard: React.FC<{ orderId: string }> = ({ orderId }) => {
+export const PaymentInstructionsCard: React.FC<{ orderId: string; notSetUpText?: string }> = ({ orderId, notSetUpText }) => {
   const { t } = useT();
   const [info, setInfo] = useState<PaymentInstructions | null>(null);
   const [error, setError] = useState('');
@@ -60,7 +60,7 @@ export const PaymentInstructionsCard: React.FC<{ orderId: string }> = ({ orderId
       ) : (
         <>
           <CopyRow label={t('Payment reference (required)')} value={info.reference} mono />
-          <p className="rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 p-3 text-xs text-amber-800 dark:text-amber-200">{t("The platform's bank account for your country is not set up yet, so do not transfer money now. Open this order again later in Portfolio to see the account, or cancel it there.")}</p>
+          <p className="rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 p-3 text-xs text-amber-800 dark:text-amber-200">{notSetUpText ?? t("The platform's bank account for your country is not set up yet, so do not transfer money now. Open this order again later in Portfolio to see the account, or cancel it there.")}</p>
         </>
       )}
     </div>

@@ -60,10 +60,12 @@ export const FundingReviewQueue: React.FC<FundingReviewQueueProps> = ({ role }) 
       {orders.map((order) => (
         <div key={order.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span><Banknote className="inline w-3.5 h-3.5 mr-1 text-slate-500" /><strong>{order.pool.project.projectName}</strong> · {order.investorName ?? 'Investor'} · {formatProjectMoney(Number(order.amount), order.currency)}</span>
+            <span><Banknote className="inline w-3.5 h-3.5 mr-1 text-slate-500" /><strong>{order.pool.project.projectName}</strong> · {order.investorName ?? 'Investor'} · {formatProjectMoney(Number(order.amount), order.currency)}
+              {order.relatedParty && <span title="The investor's organisation is in the same corporate group as the organisation running the project." className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-amber-500/10 text-amber-700 dark:text-amber-300">Related party</span>}
+            </span>
             <span className="font-bold text-blue-700 dark:text-blue-300">Payment to confirm</span>
           </div>
-          <p className="text-slate-500">Order {order.orderNumber} · {order.pool.poolName} · placed {order.createdAt.slice(0, 10)}. Confirm only once the transfer is in the pool's bank account.</p>
+          <p className="text-slate-500">Order {order.orderNumber} · {order.pool.poolName} · placed {order.createdAt.slice(0, 10)}. Confirm only once the transfer is in the platform's trust account for this country.</p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <input value={references[order.id] ?? ''} onChange={(event) => setReferences({ ...references, [order.id]: event.target.value })} placeholder="Bank reference of the transfer" className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2" />
             <button type="button" disabled={busy === order.id || (references[order.id] ?? '').trim().length < 4} onClick={() => void act(order.id, () => apiClient.settleInvestmentOrder(order.id, references[order.id].trim()))} className="rounded-lg bg-emerald-600 px-3 py-2 font-black text-white disabled:opacity-50 cursor-pointer">{busy === order.id ? 'Saving…' : 'Confirm payment received'}</button>

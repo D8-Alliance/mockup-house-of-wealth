@@ -16,6 +16,7 @@ import * as XLSX from 'xlsx';
 import { AiProvider } from './ai.provider';
 import { AiDecisionDto, ChatDto, ContractAdvisorDto, ContractDraftDto, ContractRetrievalDto, DueDiligenceDto, RagDocumentDto, RagReviewDto, RagSearchDto, RagSupersedeDto, RagUploadMetadataDto, ShariahAnalyzeDto, ShariahValidationDto } from './ai.dto';
 import { scopeOf } from './ai.types';
+import { FEASIBILITY_REVIEWER_ROLES, FeasibilityReviewStage } from './project-feasibility.dto';
 import { GroundedAnswer, groundAnswer, labelSources, noSourcesAnswer } from './ai-citations';
 import { chunkPages, chunkText, cleanPages, expandQuery, extractPdfPages, MIN_KEYWORD_SCORE, queryVariants, RagChunkInput, scoreChunk } from './rag-text';
 import { RAG_EMBEDDING_DIMENSIONS, RagEmbeddingService } from './rag-embedding.service';
@@ -26,6 +27,19 @@ import { AGREEMENT_GAP_SYSTEM_PROMPT, OFFER_ADVISOR_SYSTEM_PROMPT, OFFER_COMPARI
 import { AssetPartnershipsService } from '../asset-partnerships/asset-partnerships.service';
 
 export interface RagSearchResult { id: string; documentId: string; content: string; title: string; sourceType: string; scope: string; pageStart?: number | null; pageEnd?: number | null; paragraphRefs?: string[]; effectiveFrom?: string | null; retrieval?: 'keyword' | 'vector' | 'hybrid'; score?: number }
+
+/**
+ * The review stage (other than this one, and other than the sponsor's DRAFT hand-over) that this person
+ * already decided in the analysis's history, or null. Re-deciding the same stage after changes is allowed.
+ */
+export function otherStageDecidedBy(history: unknown[], userId: string, stage: string): string | null {
+  for (const entry of history) {
+    if (!entry || typeof entry !== 'object') continue;
+    const { reviewerId, stage: decided } = entry as { reviewerId?: unknown; stage?: unknown };
+    if (reviewerId === userId && typeof decided === 'string' && decided !== stage && decided !== 'DRAFT') return decided;
+  }
+  return null;
+}
 
 @Injectable()
 export class AiService {
@@ -555,17 +569,12 @@ export class AiService {
     if (!input.comment?.trim()) throw new BadRequestException('A review comment is required.');
 
     const nextStage: Record<string, string> = { DRAFT: 'FINANCE_REVIEW', FINANCE_REVIEW: 'RISK_REVIEW', RISK_REVIEW: 'COMPLIANCE_REVIEW', COMPLIANCE_REVIEW: 'SHARIAH_REVIEW', SHARIAH_REVIEW: 'INVESTMENT_COMMITTEE_REVIEW', INVESTMENT_COMMITTEE_REVIEW: 'FINAL_DECISION' };
-    const reviewerRoles: Record<string, string[]> = {
-      DRAFT: ['Project Sponsor', 'Project Manager', 'Country Admin', 'Organization Admin'],
-      FINANCE_REVIEW: ['Finance Officer', 'Country Admin'],
-      RISK_REVIEW: ['Risk Officer', 'Country Admin'],
-      COMPLIANCE_REVIEW: ['Compliance Officer', 'Country Admin'],
-      SHARIAH_REVIEW: ['Shariah Reviewer', 'Shariah Advisor', 'Country Admin'],
-      INVESTMENT_COMMITTEE_REVIEW: ['Shariah Committee'],
-      FINAL_DECISION: ['Shariah Committee'],
-    };
     // The sponsor's own organisation never decides a review stage of its own project (segregation of duties).
-    if (!reviewerRoles[run.reviewStage]?.includes(actor.role)) throw new ForbiddenException('Your role cannot perform this feasibility review stage.');
+    if (!FEASIBILITY_REVIEWER_ROLES[run.reviewStage as FeasibilityReviewStage]?.includes(actor.role)) throw new ForbiddenException('Your role cannot perform this feasibility review stage.');
+    // DRAFT is the sponsor sending the analysis to review; every later stage is decided from outside the project's organisation.
+    if (run.reviewStage !== 'DRAFT' && actor.organisationId === project.organisationId) {
+      throw new ForbiddenException('You belong to the organisation running this project, so a reviewer from another organisation must decide this stage.');
+    }
     // Reviewers only see submitted projects, so the analysis goes to Finance once the project itself is submitted.
     if (run.reviewStage === 'DRAFT' && project.status === 'DRAFT') throw new ConflictException('Submit the project for review first (project roadmap: Project submitted for review); Finance cannot see a draft project.');
     const isFinalCommitteeReview = run.reviewStage === 'FINAL_DECISION';
@@ -589,6 +598,9 @@ export class AiService {
       const fresh = await tx.aiRun.findUniqueOrThrow({ where: { id: run.id }, select: { reviewStage: true, reviewHistory: true } });
       if (fresh.reviewStage !== run.reviewStage) throw new ConflictException('This review stage was just decided by someone else. Reload and try again.');
       const history = Array.isArray(fresh.reviewHistory) ? fresh.reviewHistory : [];
+      // One person decides at most one stage of an analysis, so a stand-in (e.g. the Country Admin) cannot pass several alone.
+      const decidedElsewhere = otherStageDecidedBy(history, actor.userId, run.reviewStage);
+      if (decidedElsewhere) throw new ForbiddenException(`You already decided the ${decidedElsewhere.replace(/_/g, ' ').toLowerCase()} stage of this analysis; another person must decide this one.`);
       const updatedRun = await tx.aiRun.update({ where: { id: run.id }, data: { reviewStage: targetStage, reviewHistory: [...history, reviewEntry] } });
       // One active decision per stage: a new decision replaces an earlier one (e.g. after REQUEST_CHANGES).
       await tx.projectApproval.updateMany({ where: { revisionId: revision.id, stage: run.reviewStage, status: { not: 'SUPERSEDED' } }, data: { status: 'SUPERSEDED', supersededAt: new Date() } });

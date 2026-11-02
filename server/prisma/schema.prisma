@@ -196,6 +196,10 @@ model Organisation {
   /// SSM (or national registry) number, e.g. "201901012345 (1234567-A)"; on agreements' cover pages.
   registrationNumber String?
   registeredAddress  String?
+  /// GLC, COMPANY, INSTITUTION or INDIVIDUAL, as declared in KYB.
+  entityType         String?
+  /// The corporate group this entity belongs to (e.g. "FELDA Group"), for related-party disclosure only; it never shares access.
+  groupName          String?
   /// Business verification: NOT_SUBMITTED, SUBMITTED, CHANGES_REQUESTED, APPROVED or REJECTED.
   kybStatus          String      @default("NOT_SUBMITTED")
   kybSubmittedAt     DateTime?
@@ -1136,6 +1140,8 @@ model InvestmentOrder {
   /// The bank reference Finance matched the investor's transfer to, and who confirmed it.
   paymentReference String?
   settledBy        String?
+  /// The investor's organisation is in the same corporate group as the organisation running the project.
+  relatedParty     Boolean   @default(false)
 
   pool         WealthPool              @relation(fields: [poolId], references: [poolId], onDelete: Restrict)
   akadTerms    PoolAkadTerms?          @relation(fields: [akadTermsId], references: [id], onDelete: Restrict)
@@ -2443,4 +2449,74 @@ model SiteContentEntry {
   updatedBy String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+/// The country's risk register, kept by Risk and Compliance (Admin Center › Risk Register).
+model RiskItem {
+  id            String    @id @default(cuid())
+  countryNodeId String
+  title         String
+  /// OPERATIONAL, FINANCIAL, SHARIAH, LEGAL, TECHNOLOGY, REPUTATIONAL or OTHER.
+  category      String
+  /// 1 (rare) to 5 (almost certain), and 1 (minor) to 5 (severe); the score is their product.
+  likelihood    Int
+  impact        Int
+  ownerName     String
+  mitigation    String    @default("")
+  /// OPEN, MITIGATING or CLOSED.
+  status        String    @default("OPEN")
+  reviewDue     DateTime?
+  createdBy     String
+  updatedBy     String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([countryNodeId, status])
+}
+
+/// An operational, security, Shariah or compliance incident and how it was handled.
+model Incident {
+  id            String    @id @default(cuid())
+  countryNodeId String
+  title         String
+  /// SECURITY, OPERATIONAL, SHARIAH, COMPLIANCE, DATA_PROTECTION or OTHER.
+  category      String
+  /// LOW, MEDIUM, HIGH or CRITICAL.
+  severity      String
+  description   String
+  occurredAt    DateTime
+  /// OPEN, INVESTIGATING, RESOLVED or CLOSED.
+  status        String    @default("OPEN")
+  resolution    String?
+  resolvedAt    DateTime?
+  reportedBy    String
+  /// Status changes, oldest first: { at, by, byName, status, note }.
+  history       Json      @default("[]")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([countryNodeId, status])
+}
+
+/// A Shariah resolution (fatwa) the platform relies on, recorded by the Shariah function.
+model FatwaResolution {
+  id            String   @id @default(cuid())
+  /// Null when it applies in every country.
+  countryNodeId String?
+  reference     String
+  title         String
+  /// Who issued it, e.g. the platform's Shariah Committee, SAC of Bank Negara Malaysia, AAOIFI.
+  issuedBy      String
+  issuedOn      DateTime
+  /// The akad or topic it covers, e.g. MUDARABAH, IJARAH, ZAKAT, GENERAL.
+  topic         String
+  summary       String
+  sourceUrl     String?
+  /// ACTIVE or SUPERSEDED.
+  status        String   @default("ACTIVE")
+  recordedBy    String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([countryNodeId, status])
 }

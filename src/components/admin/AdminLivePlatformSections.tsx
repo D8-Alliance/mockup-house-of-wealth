@@ -3,7 +3,7 @@ import { GitPullRequest, KeyRound, Megaphone, TrendingUp } from 'lucide-react';
 import { apiClient, PlatformRevenue, WorkflowPipeline } from '../../services/apiClient';
 
 /** Loads once on mount; the error is shown in place of the content. */
-function useServerData<T>(load: () => Promise<T>) {
+export function useServerData<T>(load: () => Promise<T>) {
   const [data, setData] = React.useState<T | null>(null);
   const [error, setError] = React.useState('');
   React.useEffect(() => {
@@ -13,7 +13,7 @@ function useServerData<T>(load: () => Promise<T>) {
   return { data, error };
 }
 
-const Card: React.FC<{ icon: React.ReactNode; title: string; lead: string; children: React.ReactNode }> = ({ icon, title, lead, children }) => (
+export const Card: React.FC<{ icon: React.ReactNode; title: string; lead: string; children: React.ReactNode }> = ({ icon, title, lead, children }) => (
   <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 space-y-4">
     <div>
       <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">{icon}{title}</h3>
@@ -23,16 +23,16 @@ const Card: React.FC<{ icon: React.ReactNode; title: string; lead: string; child
   </div>
 );
 
-const Status: React.FC<{ error: string; loading: boolean }> = ({ error, loading }) => (
+export const Status: React.FC<{ error: string; loading: boolean }> = ({ error, loading }) => (
   <>
     {error && <p role="alert" className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
     {!error && loading && <p className="text-xs text-slate-500">Loading...</p>}
   </>
 );
 
-const TH = 'px-3 py-2.5 font-black';
-const TD = 'px-3 py-2.5';
-const label = (code: string) => code.toLowerCase().split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+export const TH = 'px-3 py-2.5 font-black';
+export const TD = 'px-3 py-2.5';
+export const label = (code: string) => code.toLowerCase().split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 const rm = (value: number) => `RM ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 /** Where records stand in each workflow; the stages and who acts at each are fixed in the server code. */

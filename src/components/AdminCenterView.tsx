@@ -40,6 +40,8 @@ import { LivePermissionMatrix, LivePromotions, LiveRevenue, LiveWorkflowPipeline
 import { FundingReviewQueue } from './sponsor/FundingReviewQueue';
 import { PayoutVerificationPanel } from './admin/PayoutVerificationPanel';
 import { OrganisationVerificationPanel, OrganisationVerificationTab } from './admin/OrganisationVerificationPanel';
+import { LiveApprovalMatrix, LiveAuditDashboard, LiveComplianceDashboard, LiveCountryRules, LiveFeeSchedule, LiveFinanceDashboard, LiveRegulatoryReports, LiveSecurityDashboard, ScreeningNotAvailable } from './admin/AdminGovernanceLive';
+import { LiveFatwaRepository, LiveIncidents, LiveRiskRegister } from './admin/AdminGovernanceRecords';
 
 /** Organisation KYB and PDP applications share one screen; older links (e.g. from My reviews) open their tab. */
 const ORGANISATION_VERIFICATION: Record<string, OrganisationVerificationTab> = { org_verification: 'kyb', compliance_kyb: 'kyb', pdp_applications: 'pdp' };
@@ -74,19 +76,25 @@ const LIVE_SECTIONS: Record<string, React.FC> = {
   sys_workflow: LiveWorkflowPipelines,
   fin_revenue: LiveRevenue,
   fin_marketplace_monetisation: LivePromotions,
+  dash_compliance: LiveComplianceDashboard,
+  dash_audit: LiveAuditDashboard,
+  dash_finance: LiveFinanceDashboard,
+  dash_security: LiveSecurityDashboard,
+  sys_reports: LiveRegulatoryReports,
+  risk_register: LiveRiskRegister,
+  risk_incidents: LiveIncidents,
+  shariah_fatwa: LiveFatwaRepository,
+  sys_approvalmatrix: LiveApprovalMatrix,
+  fin_fees: LiveFeeSchedule,
+  pdp_country_config: LiveCountryRules,
+  // No screening provider yet: these say so instead of showing examples (PENDING_ACTIVITIES item 2).
+  compliance_aml: () => <ScreeningNotAvailable section="compliance_aml" />,
+  compliance_pep: () => <ScreeningNotAvailable section="compliance_pep" />,
+  compliance_sanctions: () => <ScreeningNotAvailable section="compliance_sanctions" />,
 };
 
-/**
- * Sections with no source of real records yet, so outside the demo they are not offered at all rather than
- * showing invented figures. AML, PEP and sanctions screening need an external screening provider; the risk
- * register, incidents, fee schedule and fatwa repository need their own records. The approval matrix and PDP
- * country rules are settings the server does not read (approvals happen in the review queues). See PENDING_ACTIVITIES item 23.
- */
-const DEMO_ONLY_SECTIONS = [
-  'dash_compliance', 'dash_audit', 'dash_finance', 'dash_security', 'sys_reports',
-  'compliance_aml', 'compliance_pep', 'compliance_sanctions', 'risk_register', 'risk_incidents',
-  'fin_fees', 'shariah_fatwa', 'sys_approvalmatrix', 'pdp_country_config',
-];
+/** Sections that only exist in the demo; every section now has a live version. */
+const DEMO_ONLY_SECTIONS: string[] = [];
 
 interface AdminCenterViewProps {
   onNavigate?: (tab: NavTab) => void;
@@ -296,7 +304,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
 
           {activeSection === 'fin_payout_verification' && <PayoutVerificationPanel />}
 
-          {activeSection === 'pdp_country_config' && <PDPCountryConfigAdminPanel />}
+          {!LiveSection && activeSection === 'pdp_country_config' && <PDPCountryConfigAdminPanel />}
 
           {!LiveSection && activeSection === 'fin_revenue' && <RevenueManagementHub />}
 

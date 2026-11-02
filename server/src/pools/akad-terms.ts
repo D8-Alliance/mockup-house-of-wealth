@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
  * agreed before anyone invests and is fixed in versioned, append-only terms;
  * each investment order records which version the investor accepted (ijab and
  * qabul). Loss handling per akad is described here and enforced later (see
- * PENDING_ACTIVITIES.md, item 11, phase D).
+ * PENDING_ACTIVITIES.md, item 10, phase D).
  */
 
 export const POOL_AKAD_TYPES = ['MUDARABAH', 'MUSHARAKAH', 'WAKALAH', 'IJARAH'] as const;

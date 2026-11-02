@@ -8,10 +8,12 @@ jest.mock('../membership/membership.service', () => ({ MembershipService: class 
 jest.mock('./contract-clause-retriever.service', () => ({ ContractClauseRetriever: class {} }));
 jest.mock('./rag-embedding.service', () => ({ RAG_EMBEDDING_DIMENSIONS: 768, RagEmbeddingService: class {} }));
 
-const committee: AuthenticatedUser = { userId: 'USR-SC', idpSubjectId: 'USR-SC', email: 'sc@example.test', name: 'Committee', role: 'Shariah Committee', countryNodeId: 'CN-MYS', organisationId: 'ORG-A', assignedRoles: ['Shariah Committee'] };
+// The project belongs to ORG-A; reviewers come from the platform's own organisation.
+const committee: AuthenticatedUser = { userId: 'USR-SC', idpSubjectId: 'USR-SC', email: 'sc@example.test', name: 'Committee', role: 'Shariah Committee', countryNodeId: 'CN-MYS', organisationId: 'ORG-PLATFORM', assignedRoles: ['Shariah Committee'] };
 const finance: AuthenticatedUser = { ...committee, userId: 'USR-FIN', idpSubjectId: 'USR-FIN', role: 'Finance Officer', assignedRoles: ['Finance Officer'] };
-const sponsor: AuthenticatedUser = { ...committee, userId: 'USR-SP', idpSubjectId: 'USR-SP', role: 'Project Sponsor', assignedRoles: ['Project Sponsor'] };
-const orgAdmin: AuthenticatedUser = { ...committee, userId: 'USR-OA', idpSubjectId: 'USR-OA', role: 'Organization Admin', assignedRoles: ['Organization Admin'] };
+const countryAdmin: AuthenticatedUser = { ...committee, userId: 'USR-CA', idpSubjectId: 'USR-CA', role: 'Country Admin', assignedRoles: ['Country Admin'] };
+const sponsor: AuthenticatedUser = { ...committee, userId: 'USR-SP', idpSubjectId: 'USR-SP', role: 'Project Sponsor', assignedRoles: ['Project Sponsor'], organisationId: 'ORG-A' };
+const orgAdmin: AuthenticatedUser = { ...committee, userId: 'USR-OA', idpSubjectId: 'USR-OA', role: 'Organization Admin', assignedRoles: ['Organization Admin'], organisationId: 'ORG-A' };
 
 /** One project with one feasibility run at `stage`; approvals and history live in `state`. */
 function setup(stage: string, options: { activeFinal?: boolean; latestRevisionId?: string; projectStatus?: string } = {}) {
@@ -41,7 +43,7 @@ function setup(stage: string, options: { activeFinal?: boolean; latestRevisionId
   };
   const prisma = {
     project: { findUnique: jest.fn(async () => ({ projectId: 'P1', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', status: options.projectStatus ?? 'DUE_DILIGENCE' })) },
-    aiRun: { findFirst: jest.fn(async () => ({ ...run, reviewStage: stage })) },
+    aiRun: { findFirst: jest.fn(async () => ({ ...run, reviewStage: state.stage })) },
     $transaction: jest.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
   };
   const service = new AiService(prisma as never, { recordActor: jest.fn() } as never, {} as never, {} as never, {} as never, {} as never);
@@ -93,6 +95,21 @@ describe('AiService.reviewProjectFeasibility', () => {
     const { service, tx } = setup(stage);
     await expect(service.reviewProjectFeasibility(orgAdmin, 'P1', 'RUN-1', { reviewStage: stage, decision: 'ACCEPTED', comment: 'Own project' })).rejects.toThrow(/cannot perform this feasibility review stage/);
     expect(tx.projectApproval.create).not.toHaveBeenCalled();
+  });
+
+  it('does not let a reviewer from the project\'s own organisation decide a stage', async () => {
+    const { service, tx } = setup('FINANCE_REVIEW');
+    const ownFinance = { ...finance, organisationId: 'ORG-A' };
+    await expect(service.reviewProjectFeasibility(ownFinance, 'P1', 'RUN-1', { reviewStage: 'RISK_REVIEW', decision: 'ACCEPTED', comment: 'Own project' })).rejects.toThrow(/organisation running this project/);
+    expect(tx.projectApproval.create).not.toHaveBeenCalled();
+  });
+
+  it('lets one person decide only one stage of an analysis', async () => {
+    const { service, state, tx } = setup('FINANCE_REVIEW');
+    await service.reviewProjectFeasibility(countryAdmin, 'P1', 'RUN-1', { reviewStage: 'RISK_REVIEW', decision: 'ACCEPTED', comment: 'Finance checked' });
+    expect(state.stage).toBe('RISK_REVIEW');
+    await expect(service.reviewProjectFeasibility(countryAdmin, 'P1', 'RUN-1', { reviewStage: 'COMPLIANCE_REVIEW', decision: 'ACCEPTED', comment: 'Risk too' })).rejects.toThrow(/already decided the finance review stage/);
+    expect(tx.projectApproval.create).toHaveBeenCalledTimes(1);
   });
 
   it('rejects a review of a superseded revision', async () => {

@@ -52,6 +52,8 @@ import { BuyAICreditsModal } from '../ai/monetisation/BuyAICreditsModal';
 import { aiMonetisationService } from '../ai/monetisation/aiMonetisationService';
 import { apiClient, BackendCreditSummary } from '../services/apiClient';
 import { AI_TAB_ROLES, canUseAiTab, hiddenAiTabs, SAMPLE_TABS } from '../ai/aiTabAccess';
+import { LiveEarlyWarning, LivePoolMatcher, LivePoolSizing, LivePortfolioHealth, LiveStressScenarios } from '../ai/features/live/LiveAnalysisTools';
+import { canInvest } from '../rbac/menuVisibility';
 
 type BackendCreditSummaryView = Omit<BackendCreditSummary, 'userId'> & { userId?: string };
 
@@ -79,9 +81,10 @@ interface AIWealthEngineViewProps {
 }
 
 export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNavigateToMembership }) => {
-  const { activeUser, isAuthenticated, authMode } = useRBAC();
-  // Tools that still run on sample data are offered in the demo only.
-  const sampleHidden = authMode !== 'DEMO';
+  const { activeUser, isAuthenticated, authMode, currentRole } = useRBAC();
+  // Outside the demo the pool and portfolio tools read the database (LiveAnalysisTools); the demo keeps its examples.
+  const live = authMode !== 'DEMO';
+  const investorRole = canInvest(currentRole);
   // Another screen may ask to open a section, e.g. the dashboard's Draft Agreement button.
   const [activeTab, setActiveTab] = useState<AIEngineTab>(() => (takeAiEngineSection() as AIEngineTab | null) ?? 'overview');
   const [chatOpen, setChatOpen] = useState(false);
@@ -135,8 +138,8 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
     if (!canViewProjectFeasibility && activeTab === 'project-analyzer') setActiveTab('overview');
     if (!canViewCitationAudit && activeTab === 'citation-audit') setActiveTab('overview');
     if (!canUseAiTab(activeTab, activeUser.role) || hiddenAiTabs(activeUser.role).includes(activeTab)) setActiveTab('overview');
-    if (sampleHidden && SAMPLE_TABS.includes(activeTab)) setActiveTab('overview');
-  }, [activeTab, activeUser.role, canViewAiAdministration, canViewProjectFeasibility, canViewCitationAudit, sampleHidden]);
+    if (live && (investorRole ? activeTab === 'pool-optimizer' : activeTab === 'portfolio-analysis' || activeTab === 'scenarios')) setActiveTab('overview');
+  }, [activeTab, activeUser.role, canViewAiAdministration, canViewProjectFeasibility, canViewCitationAudit, live, investorRole]);
 
   if (aiModuleDisabled) {
     return (
@@ -158,7 +161,9 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
   const assetSide = ['Asset Owner', 'Asset Manager'].includes(activeUser.role);
   // Tabs the server would refuse for this role are hidden too (aiTabAccess.ts mirrors its role lists).
   const hiddenForRole: AIEngineTab[] = [
-    ...(assetSide || sampleHidden ? SAMPLE_TABS as AIEngineTab[] : []),
+    ...(assetSide ? SAMPLE_TABS as AIEngineTab[] : []),
+    // Live: holdings tools are for investors, pool sizing for the project side and staff.
+    ...(live ? (investorRole ? ['pool-optimizer'] : ['portfolio-analysis', 'scenarios']) as AIEngineTab[] : []),
     ...(Object.keys(AI_TAB_ROLES) as AIEngineTab[]).filter((tab) => !canUseAiTab(tab, activeUser.role)),
     ...(hiddenAiTabs(activeUser.role) as AIEngineTab[]),
   ];
@@ -183,8 +188,8 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
      { id: 'rag-knowledge-base', label: 'AI Knowledge Base', icon: <FileText className="w-4 h-4 text-purple-400" />, badge: 'RAG' },
      ...(canViewCitationAudit ? [{ id: 'citation-audit' as AIEngineTab, label: 'Citation Audit', icon: <ShieldCheck className="w-4 h-4 text-purple-400" />, badge: 'Audit' }] : []),
   ] as { id: AIEngineTab; label: string; icon: React.ReactNode; badge?: string }[]).filter((tab) => !hiddenForRole.includes(tab.id))
-    // Tools still on sample data say so.
-    .map((tab) => (SAMPLE_TABS.includes(tab.id) ? { ...tab, badge: 'Sample' } : tab));
+    // In the demo these tools run on sample data and say so.
+    .map((tab) => (!live && SAMPLE_TABS.includes(tab.id) ? { ...tab, badge: 'Sample' } : tab));
 
   const primaryTabIds: AIEngineTab[] = ['overview', 'project-analyzer', 'contract-advisor', 'agreement-generation'];
   const primaryTabs = tabs.filter(tab => primaryTabIds.includes(tab.id));
@@ -394,27 +399,32 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
         {activeTab === 'agreement-generation' && <IslamicAgreementWizard />}
         {activeTab === 'shariah-assistant' && <AIShariahAssistant user={activeUser} />}
         {activeTab === 'shariah-board' && canViewShariahBoard && <ShariahReviewInbox role={activeUser.role} />}
-        {activeTab === 'investment-matcher' && (
+        {live && activeTab === 'investment-matcher' && <LivePoolMatcher />}
+        {live && activeTab === 'portfolio-analysis' && <LivePortfolioHealth />}
+        {live && activeTab === 'risk-analyzer' && <LiveEarlyWarning />}
+        {live && activeTab === 'scenarios' && <LiveStressScenarios />}
+        {live && activeTab === 'pool-optimizer' && <LivePoolSizing />}
+        {!live && activeTab === 'investment-matcher' && (
           <div className="space-y-6">
             <AIInvestmentAdvisor user={activeUser} />
             <AIInvestorDiscovery />
           </div>
         )}
-        {activeTab === 'portfolio-analysis' && <AIPortfolioAnalysis />}
+        {!live && activeTab === 'portfolio-analysis' && <AIPortfolioAnalysis />}
         {activeTab === 'due-diligence' && (
           <div className="space-y-6">
             <AIDueDiligenceAssistant user={activeUser} />
             <AIDocumentAnalyzer />
           </div>
         )}
-        {activeTab === 'risk-analyzer' && (
+        {!live && activeTab === 'risk-analyzer' && (
           <div className="space-y-6">
             <AIRiskAnalyzer user={activeUser} />
             <AIRiskEarlyWarning />
           </div>
         )}
-        {activeTab === 'scenarios' && <AIFinancialScenarioEngine />}
-        {activeTab === 'pool-optimizer' && <AIPoolOptimizer />}
+        {!live && activeTab === 'scenarios' && <AIFinancialScenarioEngine />}
+        {!live && activeTab === 'pool-optimizer' && <AIPoolOptimizer />}
         {activeTab === 'governance-admin' && canViewAiAdministration && <AIGovernanceAdminPanel />}
         {activeTab === 'admin-ai-analytics' && canViewAiAdministration && <AdminAIAnalyticsPanel />}
         {activeTab === 'rag-knowledge-base' && <AIRagKnowledgeBase userRole={activeUser.role} />}

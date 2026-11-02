@@ -17,6 +17,7 @@ function setup(terms: { id: string; version: number; termsHash: string; akadType
   };
   const prisma = {
     kycApplication: { findFirst: jest.fn(async () => ({ id: 'KYC-1' })) },
+    organisation: { findMany: jest.fn(async (): Promise<Array<{ id: string; groupName: string | null }>> => []) },
     // The pool is run by the delivery partner's organisation, not the investor's.
     wealthPool: { findUnique: jest.fn(async () => ({ poolId: 'POOL-1', projectId: 'P1', status: 'OPEN', currency: 'MYR', organisationId: 'ORG-PDP', countryNodeId: 'CN-MYS', project: { projectId: 'P1', fundingRequired: 100000 } })) },
     investmentOrder: { findUnique: jest.fn(async () => null) },

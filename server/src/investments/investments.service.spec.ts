@@ -57,6 +57,7 @@ describe('InvestmentsService.createOrder: who may invest', () => {
     wealthPool: { findUnique: jest.fn(async (): Promise<Record<string, unknown>> => pool) },
     investmentOrder: { findUnique: jest.fn(async () => null), findMany: jest.fn(async () => []) },
     kycApplication: { findFirst: jest.fn(async (): Promise<{ id: string } | null> => ({ id: 'KYC-1' })) },
+    organisation: { findMany: jest.fn(async (): Promise<Array<{ id: string; groupName: string | null }>> => []) },
     $transaction: jest.fn(async () => { throw new Error('reached the order transaction'); }),
   };
   const service = new InvestmentsService(prisma as unknown as PrismaService, {} as FinancialLedgerService, {} as AuditService);
@@ -88,6 +89,7 @@ describe('InvestmentsService.createOrder: separate entities, KYC and own orders'
     wealthPool: { findUnique: jest.fn(async (): Promise<Record<string, unknown>> => openPool) },
     investmentOrder: { findUnique: jest.fn(async () => null), findMany: jest.fn(async () => []) },
     kycApplication: { findFirst: jest.fn(async (): Promise<{ id: string } | null> => ({ id: 'KYC-1' })) },
+    organisation: { findMany: jest.fn(async (): Promise<Array<{ id: string; groupName: string | null }>> => []) },
     $transaction: jest.fn(async () => { throw new Error('reached the order transaction'); }),
   };
   const service = new InvestmentsService(prisma as unknown as PrismaService, {} as FinancialLedgerService, {} as AuditService);
@@ -118,5 +120,80 @@ describe('InvestmentsService.createOrder: separate entities, KYC and own orders'
   it('lists only their own orders to an investor', async () => {
     await service.listOrders(investor());
     expect(prisma.investmentOrder.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { investorUserId: 'USR-INVESTOR' } }));
+  });
+});
+
+describe('InvestmentsService.createOrder: investment limits by KYC level', () => {
+  const input = { poolId: 'POOL-1', amount: 6000, currency: 'MYR', idempotencyKey: 'KEY-3', akadTermsId: 'TERMS-1', acceptAkad: true };
+  const openPool = { poolId: 'POOL-1', projectId: 'P1', poolName: 'Solar Pool', status: 'OPEN', currency: 'MYR', organisationId: 'ORG-PDP', countryNodeId: 'CN-MYS', project: { projectId: 'P1', fundingRequired: 100000, projectSponsorId: 'USR-SPONSOR' } };
+  const investor = { ...actor('Retail Investor', 'USR-INVESTOR'), organisationId: 'ORG-INVESTOR' } as AuthenticatedUser;
+
+  function setup(alreadyInvested: number, groups: Array<{ id: string; groupName: string | null }> = []) {
+    const tx = {
+      $queryRaw: jest.fn(async () => []),
+      poolAkadTerms: { findFirst: jest.fn(async () => ({ id: 'TERMS-1', version: 1, termsHash: 'h', akadType: 'MUDARABAH' })) },
+      investmentOrder: {
+        aggregate: jest.fn(async () => ({ _sum: { amount: alreadyInvested } })),
+        create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: 'ORD-NEW', ...data })),
+      },
+    };
+    const prisma = {
+      wealthPool: { findUnique: jest.fn(async () => openPool) },
+      investmentOrder: { findUnique: jest.fn(async () => null) },
+      kycApplication: { findFirst: jest.fn(async () => ({ id: 'KYC-1', kycLevel: 'LEVEL_1' })) },
+      organisation: { findMany: jest.fn(async () => groups) },
+      $transaction: jest.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
+    };
+    const service = new InvestmentsService(prisma as unknown as PrismaService, {} as FinancialLedgerService, { recordActor: jest.fn() } as unknown as AuditService);
+    return { service, tx };
+  }
+
+  afterEach(() => { delete process.env.KYC_INVESTMENT_LIMITS; });
+
+  it('places the order when no cap is configured', async () => {
+    const { service, tx } = setup(50000);
+    await expect(service.createOrder(investor, input)).resolves.toMatchObject({ id: 'ORD-NEW' });
+    expect(tx.investmentOrder.aggregate).not.toHaveBeenCalled();
+  });
+
+  it('refuses an order that takes the investor over their level\'s cap, and allows one within it', async () => {
+    process.env.KYC_INVESTMENT_LIMITS = '{"LEVEL_1":{"MYR":10000}}';
+    const over = setup(5000);
+    await expect(over.service.createOrder(investor, input)).rejects.toThrow(/KYC level allows up to RM 10,000/);
+    expect(over.tx.investmentOrder.create).not.toHaveBeenCalled();
+    const within = setup(4000);
+    await expect(within.service.createOrder(investor, input)).resolves.toMatchObject({ id: 'ORD-NEW' });
+  });
+});
+
+describe('InvestmentsService.createOrder: related parties', () => {
+  const input = { poolId: 'POOL-1', amount: 1000, currency: 'MYR', idempotencyKey: 'KEY-4', akadTermsId: 'TERMS-1', acceptAkad: true };
+  const openPool = { poolId: 'POOL-1', projectId: 'P1', poolName: 'Plantation Pool', status: 'OPEN', currency: 'MYR', organisationId: 'ORG-PLANTATION', countryNodeId: 'CN-MYS', project: { projectId: 'P1', fundingRequired: 100000, projectSponsorId: 'USR-SPONSOR' } };
+  const investor = { ...actor('Institutional Investor', 'USR-VENTURES'), organisationId: 'ORG-VENTURES' } as AuthenticatedUser;
+
+  function place(groups: Array<{ id: string; groupName: string | null }>) {
+    const tx = {
+      $queryRaw: jest.fn(async () => []),
+      poolAkadTerms: { findFirst: jest.fn(async () => ({ id: 'TERMS-1', version: 1, termsHash: 'h', akadType: 'MUDARABAH' })) },
+      investmentOrder: { create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({ id: 'ORD-NEW', ...data })) },
+    };
+    const prisma = {
+      wealthPool: { findUnique: jest.fn(async () => openPool) },
+      investmentOrder: { findUnique: jest.fn(async () => null) },
+      kycApplication: { findFirst: jest.fn(async () => ({ id: 'KYC-1', kycLevel: 'LEVEL_2' })) },
+      organisation: { findMany: jest.fn(async () => groups) },
+      $transaction: jest.fn((fn: (client: typeof tx) => unknown) => fn(tx)),
+    };
+    const service = new InvestmentsService(prisma as unknown as PrismaService, {} as FinancialLedgerService, { recordActor: jest.fn() } as unknown as AuditService);
+    return service.createOrder(investor, input);
+  }
+
+  it('flags an order from an entity of the same group as the project organisation', async () => {
+    await expect(place([{ id: 'ORG-VENTURES', groupName: 'FELDA Group' }, { id: 'ORG-PLANTATION', groupName: 'Felda' }])).resolves.toMatchObject({ relatedParty: true });
+  });
+
+  it('does not flag an order from another group or without a group', async () => {
+    await expect(place([{ id: 'ORG-VENTURES', groupName: 'Sime Darby' }, { id: 'ORG-PLANTATION', groupName: 'FELDA' }])).resolves.toMatchObject({ relatedParty: false });
+    await expect(place([])).resolves.toMatchObject({ relatedParty: false });
   });
 });

@@ -1,4 +1,6 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
+import { kycInvestmentLimit, KycLimitsMisconfigured } from './kyc-limits';
+import { isRelatedParty } from '../organisation-kyb/organisation-group';
 import { formatAmount, NotificationService } from '../notifications/notification.service';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -35,7 +37,7 @@ export interface InvestorDistribution {
   paidAt: string | null;
 }
 
-const SETTLEMENT_ROLES = new Set(['Super Admin', 'Settlement Officer', 'Portfolio Manager', 'Finance Officer']);
+export const SETTLEMENT_ROLES = new Set(['Super Admin', 'Settlement Officer', 'Portfolio Manager', 'Finance Officer']);
 /** Settlement staff who confirm transfers for every organisation of their country, not only their own. */
 const COUNTRY_SETTLEMENT_ROLES = new Set(['Finance Officer']);
 
@@ -60,15 +62,27 @@ export class InvestmentsService {
       throw new ForbiddenException('You are a delivery partner for this project, so you cannot invest in its pool.');
     }
     // Know your customer: only investors whose identity verification is approved may invest.
-    const kyc = await this.prisma.kycApplication.findFirst({ where: { userId: actor.userId, status: 'APPROVED' }, select: { id: true } });
+    const kyc = await this.prisma.kycApplication.findFirst({ where: { userId: actor.userId, status: 'APPROVED' }, select: { id: true, kycLevel: true } });
     if (!kyc) throw new ForbiddenException('Complete identity verification (KYC) before investing. Your KYC must be approved first.');
     if (pool.status !== 'OPEN') throw new BadRequestException('Only OPEN pools accept investment orders.');
     if (pool.currency.toUpperCase() !== input.currency.toUpperCase()) throw new BadRequestException('Investment currency does not match the pool currency.');
+    const currency = input.currency.toUpperCase();
+    let cap: number | null;
+    try {
+      cap = kycInvestmentLimit(kyc.kycLevel, currency);
+    } catch (error) {
+      if (error instanceof KycLimitsMisconfigured) throw new ServiceUnavailableException('Investment limits are misconfigured; contact the platform operator.');
+      throw error;
+    }
     const existing = await this.prisma.investmentOrder.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
     if (existing) {
       if (existing.investorUserId !== actor.userId) throw new ForbiddenException('Investment order belongs to another investor.');
       return existing;
     }
+    // Related party: an entity of the same corporate group as the organisation running the project
+    // may invest, but the order is flagged for Compliance and Shariah and disclosed to other investors.
+    const groups = await this.prisma.organisation.findMany({ where: { id: { in: [actor.organisationId, pool.organisationId] } }, select: { id: true, groupName: true } });
+    const relatedParty = isRelatedParty(groups.find((org) => org.id === actor.organisationId) ?? null, groups.find((org) => org.id === pool.organisationId) ?? null);
     const order = await this.prisma.$transaction(async (tx) => {
       // Ijab and qabul: the order must accept the pool's current akad terms, read inside the
       // transaction so a terms change cannot slip between reading and accepting.
@@ -77,8 +91,18 @@ export class InvestmentsService {
       const terms = await tx.poolAkadTerms.findFirst({ where: { poolId: pool.poolId }, orderBy: { version: 'desc' } });
       if (!terms) throw new BadRequestException('This pool has no akad terms yet, so it cannot accept investments.');
       if (terms.id !== input.akadTermsId) throw new ConflictException('The akad terms for this pool have changed. Review and accept the latest version.');
-      const created = await tx.investmentOrder.create({ data: { akadTermsId: terms.id, akadTermsHash: terms.termsHash, akadAcceptedAt: new Date(), orderNumber: `HOW-INV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, poolId: pool.poolId, projectId: pool.projectId, investorUserId: actor.userId, organisationId: pool.organisationId, countryNodeId: pool.countryNodeId, amount: new Prisma.Decimal(input.amount), currency: input.currency.toUpperCase(), status: 'PENDING', idempotencyKey: input.idempotencyKey } });
-      await this.audit.recordActor(actor, { action: 'investment.order.create', resourceType: 'InvestmentOrder', resourceId: created.id, organisationId: created.organisationId, countryNodeId: created.countryNodeId, metadata: { poolId: created.poolId, amount: input.amount, currency: created.currency, akadTermsId: terms.id, akadTermsVersion: terms.version, akadType: terms.akadType, akadTermsHash: terms.termsHash } }, tx);
+      if (cap !== null) {
+        // One investor's orders are checked one at a time, so two orders placed together cannot both slip under the cap.
+        // Selecting 1 instead of the lock function's void result, which Prisma cannot read back.
+        await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext(${actor.userId}))`;
+        const used = await tx.investmentOrder.aggregate({ _sum: { amount: true }, where: { investorUserId: actor.userId, currency, status: { in: ['PENDING', 'SETTLED'] } } });
+        const usedAmount = Number(used._sum.amount ?? 0);
+        if (usedAmount + input.amount > cap + 0.005) {
+          throw new ForbiddenException(`Your KYC level allows up to ${formatAmount(cap, currency)} invested; you already have ${formatAmount(usedAmount, currency)}. Ask for a higher KYC level to invest more.`);
+        }
+      }
+      const created = await tx.investmentOrder.create({ data: { akadTermsId: terms.id, akadTermsHash: terms.termsHash, akadAcceptedAt: new Date(), orderNumber: `HOW-INV-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, poolId: pool.poolId, projectId: pool.projectId, investorUserId: actor.userId, organisationId: pool.organisationId, countryNodeId: pool.countryNodeId, amount: new Prisma.Decimal(input.amount), currency: input.currency.toUpperCase(), status: 'PENDING', idempotencyKey: input.idempotencyKey, relatedParty } });
+      await this.audit.recordActor(actor, { action: 'investment.order.create', resourceType: 'InvestmentOrder', resourceId: created.id, organisationId: created.organisationId, countryNodeId: created.countryNodeId, metadata: { poolId: created.poolId, amount: input.amount, currency: created.currency, akadTermsId: terms.id, akadTermsVersion: terms.version, akadType: terms.akadType, akadTermsHash: terms.termsHash, relatedParty } }, tx);
       return created;
     });
     const account = this.notifications ? await this.prisma.collectionAccount.findUnique({ where: { countryNodeId: order.countryNodeId } }).catch(() => null) : null;
@@ -139,8 +163,12 @@ export class InvestmentsService {
 
   listOrders(actor: AuthenticatedUser) {
     // An investor sees only their own orders (they sit in the pool's organisation, not the investor's).
-    const where = INVESTOR_ROLES.has(actor.role) ? { investorUserId: actor.userId } : tenantScopeFilter(actor);
-    return this.prisma.investmentOrder.findMany({ where, orderBy: { createdAt: 'desc' }, include: { contribution: true, pool: { select: { poolName: true } } }, take: 100 });
+    const investor = INVESTOR_ROLES.has(actor.role);
+    const where = investor ? { investorUserId: actor.userId } : tenantScopeFilter(actor);
+    // An investor also gets the akad terms they accepted with each order (ijab and qabul): a pool that has
+    // filled up is no longer listed to them, but the agreement they made stays readable.
+    const akadTerms = investor ? { select: { id: true, version: true, akadType: true, investorProfitSharePct: true, termsText: true, termsHash: true } } : false;
+    return this.prisma.investmentOrder.findMany({ where, orderBy: { createdAt: 'desc' }, include: { contribution: true, pool: { select: { poolName: true } }, akadTerms }, take: 100 });
   }
 
   /** The signed-in investor's holding in each pool: capital, pool share and profit (see positions.ts). */

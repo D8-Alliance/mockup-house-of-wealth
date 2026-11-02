@@ -20,7 +20,7 @@ export const REQUIRED_KYB_DOCUMENTS = ['SSM_PROFILE'];
 interface HistoryEntry { at: string; by: string; byName: string; role: string; action: string; note?: string }
 
 const DOCUMENT_SELECT = { id: true, documentType: true, fileName: true, mimeType: true, fileSize: true, sha256: true, integrity: true, uploadedBy: true, createdAt: true } as const;
-const ORGANISATION_SELECT = { id: true, name: true, countryNodeId: true, registrationNumber: true, registeredAddress: true, kybStatus: true, kybSubmittedAt: true, kybReviewedBy: true, kybReviewedAt: true, kybNote: true, kybHistory: true, kybDocuments: { select: DOCUMENT_SELECT, orderBy: { createdAt: 'asc' as const } } } as const;
+const ORGANISATION_SELECT = { id: true, name: true, countryNodeId: true, registrationNumber: true, registeredAddress: true, entityType: true, groupName: true, kybStatus: true, kybSubmittedAt: true, kybReviewedBy: true, kybReviewedAt: true, kybNote: true, kybHistory: true, kybDocuments: { select: DOCUMENT_SELECT, orderBy: { createdAt: 'asc' as const } } } as const;
 
 /**
  * Business verification (KYB) of an organisation: its registration number, registered address and SSM
@@ -39,8 +39,9 @@ export class OrganisationKybService {
     this.assertSubmitter(actor);
     const organisation = await this.load(actor.organisationId);
     this.assertEditable(organisation.kybStatus);
-    await this.prisma.organisation.update({ where: { id: organisation.id }, data: { registrationNumber: input.registrationNumber.trim(), registeredAddress: input.registeredAddress.trim() } });
-    await this.record(actor, 'organisation.kyb.details_saved', organisation.id, { registrationNumber: input.registrationNumber.trim() });
+    const groupName = input.groupName?.trim() || null;
+    await this.prisma.organisation.update({ where: { id: organisation.id }, data: { registrationNumber: input.registrationNumber.trim(), registeredAddress: input.registeredAddress.trim(), entityType: input.entityType ?? null, groupName } });
+    await this.record(actor, 'organisation.kyb.details_saved', organisation.id, { registrationNumber: input.registrationNumber.trim(), entityType: input.entityType ?? null, groupName });
     return this.mine(actor);
   }
 
@@ -76,6 +77,7 @@ export class OrganisationKybService {
     const missing = [
       ...(organisation.registrationNumber ? [] : ['the registration number']),
       ...(organisation.registeredAddress ? [] : ['the registered address']),
+      ...(organisation.entityType ? [] : ['the entity type']),
       ...REQUIRED_KYB_DOCUMENTS.filter((type) => !organisation.kybDocuments.some((document) => document.documentType === type)).map(() => 'the SSM company profile'),
     ];
     if (missing.length) throw new BadRequestException(`Add ${missing.join(', ')} before submitting.`);
@@ -97,7 +99,7 @@ export class OrganisationKybService {
     const [organisations, members] = await Promise.all([
       this.prisma.organisation.findMany({
         where: scope, orderBy: { name: 'asc' }, take: 500,
-        select: { id: true, name: true, countryNodeId: true, status: true, kybStatus: true, registrationNumber: true, createdAt: true, _count: { select: { projects: true, pools: true } } },
+        select: { id: true, name: true, countryNodeId: true, status: true, kybStatus: true, registrationNumber: true, entityType: true, groupName: true, createdAt: true, _count: { select: { projects: true, pools: true } } },
       }),
       this.prisma.userRoleAssignment.findMany({ where: { ...scope, isActive: true }, select: { organisationId: true, userId: true }, distinct: ['organisationId', 'userId'] }),
     ]);
@@ -158,6 +160,7 @@ export class OrganisationKybService {
     const missing = [
       ...(organisation.registrationNumber ? [] : ['registrationNumber']),
       ...(organisation.registeredAddress ? [] : ['registeredAddress']),
+      ...(organisation.entityType ? [] : ['entityType']),
       ...REQUIRED_KYB_DOCUMENTS.filter((type) => !organisation.kybDocuments.some((document) => document.documentType === type)),
     ];
     return {

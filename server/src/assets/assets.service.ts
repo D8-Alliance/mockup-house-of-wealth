@@ -1,4 +1,6 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { NotificationService } from '../notifications/notification.service';
+import { assetExpiriesDue } from './asset-expiry';
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
@@ -49,7 +51,36 @@ export class AssetsService {
   /** Reads PDF text, or OCR on photos (English and Malay), in this server; shared with the KYC checks. */
   private readonly reader = new DocumentTextReader();
 
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, @Optional() private readonly notifications?: NotificationService) {}
+
+  /**
+   * Daily: reminds the owner and the organisation's Asset Managers of road tax, insurance, PUSPAKOM,
+   * JKKP certificates and leases about to expire, or expired (see asset-expiry.ts). Only registered
+   * assets (submitted or verified). Returns how many reminders were due.
+   */
+  async remindExpiring(now = new Date()): Promise<number> {
+    if (!this.notifications) return 0;
+    const assets = await this.prisma.asset.findMany({ where: { status: { in: ['SUBMITTED', 'VERIFIED'] } }, select: { id: true, name: true, ownerUserId: true, organisationId: true, countryNodeId: true, details: true } });
+    let due = 0;
+    for (const asset of assets) {
+      for (const expiry of assetExpiriesDue(asset.details, now)) {
+        const when = new Date(`${expiry.date}T00:00:00Z`).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+        const message = {
+          type: 'ASSET_EXPIRY',
+          title: expiry.threshold === 0 ? `${expiry.label} expired` : `${expiry.label} expires in ${expiry.daysLeft} days`,
+          message: expiry.threshold === 0
+            ? `${asset.name}: the ${expiry.label.toLowerCase()} expired on ${when}. Renew it and upload the new document on the asset page.`
+            : `${asset.name}: the ${expiry.label.toLowerCase()} expires on ${when}. Renew it and upload the new document on the asset page before then.`,
+          resourceType: 'Asset', resourceId: asset.id,
+          dedupeKey: `asset-expiry:${asset.id}:${expiry.field}:${expiry.date}:${expiry.threshold}`,
+        };
+        await this.notifications.notifyUsers([asset.ownerUserId], message);
+        await this.notifications.notifyRoles(['Asset_Manager'], { countryNodeId: asset.countryNodeId, organisationId: asset.organisationId }, message, asset.ownerUserId);
+        due += 1;
+      }
+    }
+    return due;
+  }
 
   /** Owners see their organisation's assets; reviewers see their country's (Super Admin: every country). */
   async list(actor: AuthenticatedUser, status?: string) {

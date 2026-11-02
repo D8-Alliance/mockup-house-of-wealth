@@ -21,6 +21,7 @@ import { ZakatCalculatorCard } from './financials/ZakatCalculatorCard';
 import { StatementsPanel } from './financials/StatementsPanel';
 import { TaxStatementPanel } from './financials/TaxStatementPanel';
 import { useRBAC } from '../rbac/RBACContext';
+import { canInvest } from '../rbac/menuVisibility';
 import { apiClient, BackendInvestmentOrder } from '../services/apiClient';
 
 interface FinancialTransaction {
@@ -41,8 +42,9 @@ const words = (code: string) => code.toLowerCase().split('_').map((word) => word
 export const FinancialsView: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'transactions' | 'statements' | 'profit' | 'zakat' | 'settlement'>('transactions');
   const [searchTerm, setSearchTerm] = useState('');
-  const { authMode } = useRBAC();
+  const { authMode, currentRole } = useRBAC();
   const live = authMode !== 'DEMO';
+  const investor = canInvest(currentRole);
   // Outside the demo: the double-entry ledger and the investor orders, from the server.
   const [ledgerRows, setLedgerRows] = useState<FinancialTransaction[] | null>(null);
   const [orders, setOrders] = useState<BackendInvestmentOrder[] | null>(null);
@@ -50,6 +52,38 @@ export const FinancialsView: React.FC = () => {
   React.useEffect(() => {
     if (!live) return;
     setLoadError('');
+    if (investor) {
+      // An investor's transactions are their own orders and profit; the platform ledger is for staff.
+      void Promise.all([apiClient.getInvestmentOrders(), apiClient.getMyDistributions()])
+        .then(([mine, profit]) => {
+          setOrders(mine);
+          const rows = [
+            ...mine.map((order) => ({
+              id: order.orderNumber,
+              type: order.status === 'CANCELLED' ? 'Investment (cancelled)' : 'Investment',
+              amount: Number(order.amount),
+              currency: order.currency,
+              at: order.settledAt ?? order.createdAt,
+              counterparty: order.pool?.poolName ?? order.poolId,
+              status: order.status === 'SETTLED' ? 'Settled' : order.status === 'PENDING' ? 'Waiting for transfer' : 'Cancelled',
+              referenceHash: order.paymentReference ? `Bank ref ${order.paymentReference}` : `Order ${order.orderNumber}`,
+            })),
+            ...profit.map((row) => ({
+              id: row.id,
+              type: 'Profit',
+              amount: row.amount,
+              currency: row.currency,
+              at: row.paidAt ?? row.earnedAt,
+              counterparty: `${row.poolName} · ${row.periodName}`,
+              status: row.paid ? 'Paid' : 'Earned, payout pending',
+              referenceHash: `Distribution ${row.id}`,
+            })),
+          ];
+          setLedgerRows(rows.sort((a, b) => b.at.localeCompare(a.at)).map(({ at, ...row }) => ({ ...row, date: new Date(at).toLocaleString() })));
+        })
+        .catch((cause) => { setLedgerRows([]); setLoadError(cause instanceof Error ? cause.message : 'Your transactions could not be loaded.'); });
+      return;
+    }
     void apiClient.getFinancialLedger()
       .then((items) => setLedgerRows(items.map((item) => ({
         id: item.transactionNumber,
@@ -64,7 +98,7 @@ export const FinancialsView: React.FC = () => {
       }))))
       .catch((cause) => { setLedgerRows([]); setLoadError(cause instanceof Error ? cause.message : 'The ledger could not be loaded.'); });
     void apiClient.getInvestmentOrders().then(setOrders).catch(() => setOrders([]));
-  }, [live]);
+  }, [live, investor]);
 
 
   // Transactions list
@@ -149,7 +183,7 @@ export const FinancialsView: React.FC = () => {
             activeTab === 'transactions' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
           }`}
         >
-          Transactions Ledger
+          {investor && live ? 'My transactions' : 'Transactions Ledger'}
         </button>
         <button
           onClick={() => setActiveTab('zakat')}
@@ -238,7 +272,7 @@ export const FinancialsView: React.FC = () => {
                 ))}
               </tbody>
             </table>
-            {filteredTx.length === 0 && <p className="p-4 text-xs text-slate-500">{live && !ledgerRows ? 'Loading the ledger...' : 'No ledger transaction yet.'}</p>}
+            {filteredTx.length === 0 && <p className="p-4 text-xs text-slate-500">{live && !ledgerRows ? 'Loading...' : investor && live ? 'No investment or profit yet.' : 'No ledger transaction yet.'}</p>}
           </div>
         </div>
       )}

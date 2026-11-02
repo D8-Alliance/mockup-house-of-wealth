@@ -30,6 +30,7 @@ const CONTRACTS = [
   { type: 'Wakalah', desc: 'Agency: an agent invests for a set fee' },
   { type: 'Sukuk', desc: 'Islamic certificates backed by assets' },
 ];
+export const PREFERRED_CONTRACT_COUNT = CONTRACTS.length;
 
 const BANKS = ['Maybank Islamic', 'CIMB Islamic', 'Bank Islam Malaysia', 'Bank Muamalat', 'RHB Islamic', 'Public Islamic Bank', 'AmBank Islamic', 'Hong Leong Islamic', 'Affin Islamic', 'Alliance Islamic', 'Bank Rakyat', 'Agrobank'];
 
@@ -85,6 +86,7 @@ export const FinancialPreferencesPanel: React.FC<FinancialPreferencesPanelProps>
 
       <div className="space-y-3">
         <h4 className={LABEL}>Islamic contracts you are interested in</h4>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-1">Open pools under these contracts are listed first in Investments.</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {CONTRACTS.map((item) => (
             <label key={item.type} className="p-3.5 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-start gap-2.5 cursor-pointer">
