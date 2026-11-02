@@ -31,7 +31,7 @@ describe('workflow pipelines', () => {
   it('keeps a Country Admin to their country, PDP applications by country code', async () => {
     const prisma = prismaMock();
     await workflowPipelines(prisma as never, actor('Country Admin'));
-    expect(prisma.project.groupBy).toHaveBeenCalledWith(expect.objectContaining({ where: { countryNodeId: 'CN-MYS' } }));
+    expect(prisma.project.groupBy).toHaveBeenCalledWith(expect.objectContaining({ where: { countryNodeId: 'CN-MYS', archivedAt: null } }));
     expect(prisma.pdpApplication.groupBy).toHaveBeenCalledWith(expect.objectContaining({ where: { countryCode: 'MYS' } }));
   });
 });
