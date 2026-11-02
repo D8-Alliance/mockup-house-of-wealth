@@ -3,7 +3,7 @@ import { formatAmount, NotificationService } from '../notifications/notification
 import { Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
-import { FinancialLedgerService } from '../financial/financial-ledger.service';
+import { FinancialLedgerService, investorCashAccount } from '../financial/financial-ledger.service';
 import { PrismaService } from '../prisma.service';
 import { assertTenantScope, postingOnBehalfOf, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { advanceProjectStatus, RAISING_PROJECT_STATUSES } from '../projects/project-status';
@@ -218,7 +218,7 @@ export class InvestmentsService {
       const claimed = await tx.investmentOrder.updateMany({ where: { id, status: 'PENDING' }, data: { status: 'SETTLED', settledAt: new Date(), paymentReference: reference, settledBy: actor.userId } });
       if (!claimed.count) throw new BadRequestException('Investment order was already settled or changed state.');
       const poolAccount = await this.ledger.ensureAccountInTransaction(tx, settlementActor, { accountCode: `POOL-${order.poolId}-CASH-${order.currency}`, accountType: 'ASSET', ownerType: 'POOL', ownerId: order.poolId, organisationId: order.organisationId, countryNodeId: order.countryNodeId, currency: order.currency });
-      const investorAccount = await this.ledger.ensureAccountInTransaction(tx, settlementActor, { accountCode: `USER-${order.investorUserId}-CASH-${order.currency}`, accountType: 'ASSET', ownerType: 'USER', ownerId: order.investorUserId, organisationId: order.organisationId, countryNodeId: order.countryNodeId, currency: order.currency });
+      const investorAccount = await this.ledger.ensureAccountInTransaction(tx, settlementActor, await investorCashAccount(tx, order.investorUserId, order.organisationId, order.countryNodeId, order.currency));
       const contribution = await this.ledger.recordInvestmentContributionInTransaction(tx, settlementActor, { orderId: order.id, projectId: order.projectId, poolId: order.poolId, investorUserId: order.investorUserId, organisationId: order.organisationId, countryNodeId: order.countryNodeId, amount: Number(order.amount), currency: order.currency, posting: { transactionType: 'INVESTMENT_CONTRIBUTION', referenceType: 'InvestmentOrder', referenceId: order.id, currency: order.currency, description: `Investment contribution for ${order.poolId}`, idempotencyKey: `investment-order:${order.id}`, entries: [{ accountId: poolAccount.id, direction: 'DEBIT', amount: Number(order.amount), description: 'Pool cash received' }, { accountId: investorAccount.id, direction: 'CREDIT', amount: Number(order.amount), description: 'Investor contribution' }] } });
       const total = await tx.investmentContribution.aggregate({ _sum: { amount: true }, where: { poolId: order.poolId, status: 'POSTED' } });
       if (Number(total._sum.amount || 0) >= Number(pool.project.fundingRequired)) {

@@ -5,7 +5,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { INVESTOR_ROLES } from '../pools/pool-access';
 import { PrismaService } from '../prisma.service';
-import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
+import { assertSettlementScope, settlementScopeFilter } from './distribution.service';
 import { CreatePayoutDestinationDto } from './payout-destination.dto';
 
 /** Roles that receive money: investors (profit), PDPs (funding) and asset owners (lease or sale proceeds). */
@@ -46,7 +46,7 @@ export class PayoutDestinationService {
 
   /** Settlement operators see every account in scope, with the owner's and verifier's names for their review screen. */
   async list(actor: AuthenticatedUser) {
-    const rows = await this.prisma.payoutDestination.findMany({ where: { ...tenantScopeFilter(actor), ...(actor.role === 'Super Admin' || actor.role === 'Settlement Officer' ? {} : { ownerUserId: actor.userId }) }, orderBy: { createdAt: 'desc' }, select: PUBLIC_FIELDS });
+    const rows = await this.prisma.payoutDestination.findMany({ where: { ...settlementScopeFilter(actor), ...(actor.role === 'Super Admin' || actor.role === 'Settlement Officer' ? {} : { ownerUserId: actor.userId }) }, orderBy: { createdAt: 'desc' }, select: PUBLIC_FIELDS });
     const userIds = [...new Set(rows.flatMap((row) => (row.verifiedBy ? [row.ownerUserId, row.verifiedBy] : [row.ownerUserId])))];
     const users = userIds.length ? await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } }) : [];
     const names = new Map(users.map((user) => [user.id, user.name]));
@@ -92,7 +92,7 @@ export class PayoutDestinationService {
     if (!['Super Admin', 'Settlement Officer'].includes(actor.role)) throw new ForbiddenException('Only settlement operators can verify payout destinations.');
     const destination = await this.prisma.payoutDestination.findUnique({ where: { id } });
     if (!destination) throw new NotFoundException('Payout destination not found.');
-    assertTenantScope(actor, destination, 'Payout destination');
+    assertSettlementScope(actor, destination, 'Payout destination');
     if (destination.status === 'REMOVED') throw new BadRequestException('The owner removed this payout account.');
     // Segregation of duties: an operator must not verify the bank account they will be paid into.
     if (destination.ownerUserId === actor.userId) throw new ForbiddenException('This is your own payout account, so another settlement operator must verify it.');

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsNumber, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from 'class-validator';
+import { IsArray, IsDateString, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
 
 export class DistributionAllocationDto {
   @IsString() beneficiaryUserId!: string;
@@ -47,4 +47,21 @@ export class RecordPeriodResultDto {
   @IsString() @MaxLength(120) periodName!: string;
   @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) grossRevenue!: number;
   @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) eligibleCosts!: number;
+}
+
+/** A period's figures for the server to work out the shares, before anything is saved. */
+export class DistributionPreviewDto {
+  @IsString() poolId!: string;
+  @IsString() @MaxLength(120) periodName!: string;
+  @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) grossRevenue!: number;
+  @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) eligibleCosts!: number;
+}
+
+/** Project income received into the trust account for a pool, as on the bank statement. */
+export class PoolIncomeDto {
+  @IsString() poolId!: string;
+  @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) @Max(1e12) amount!: number;
+  @IsString() @MinLength(3) @MaxLength(120) reference!: string;
+  @IsOptional() @IsDateString() receivedAt?: string;
+  @IsOptional() @IsString() @MaxLength(300) note?: string;
 }

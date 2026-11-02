@@ -25,6 +25,18 @@ export function toyyibPayCashAccount(organisationId: string, countryNodeId: stri
   return { accountCode: `SYSTEM-TOYYIBPAY-CASH-${organisationId}-${countryNodeId}-${currency}`, accountType: 'ASSET', ownerType: 'SYSTEM', ownerId: 'TOYYIBPAY', organisationId, countryNodeId, currency };
 }
 
+/**
+ * An investor's cash account in one organisation's books. Account codes are unique across tenants, so the
+ * first account keeps the short code USER-<id>-CASH-<currency> and one in another organisation's books (a
+ * pool under another sponsor) gets USER-<id>-<organisation>-CASH-<currency>.
+ */
+export async function investorCashAccount(client: Prisma.TransactionClient | PrismaService, userId: string, organisationId: string, countryNodeId: string, currency: string) {
+  const short = `USER-${userId}-CASH-${currency}`;
+  const existing = await client.financialAccount.findUnique({ where: { accountCode: short }, select: { organisationId: true, countryNodeId: true } });
+  const accountCode = !existing || (existing.organisationId === organisationId && existing.countryNodeId === countryNodeId) ? short : `USER-${userId}-${organisationId}-CASH-${currency}`;
+  return { accountCode, accountType: 'ASSET', ownerType: 'USER', ownerId: userId, organisationId, countryNodeId, currency };
+}
+
 @Injectable()
 export class FinancialLedgerService {
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
