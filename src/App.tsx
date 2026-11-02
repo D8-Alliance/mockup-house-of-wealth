@@ -48,7 +48,7 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
   const [ledger, setLedger] = useState<LedgerTransaction[]>([]);
   const [financialAccounts, setFinancialAccounts] = useState<BackendFinancialAccount[]>([]);
   const [beneficiaries, setBeneficiaries] = useState<BeneficiaryItem[]>(INITIAL_BENEFICIARIES);
-  // Beneficiaries are not stored on the server yet (PENDING_ACTIVITIES item 19): the sample people are for the demo only,
+  // The sample people are for the demo only (the beneficiaries screen loads a signed-in user's own from the server),
   // and a signed-in user starts with an empty list of their own.
   useEffect(() => {
     setBeneficiaries(authMode === 'DEMO' ? INITIAL_BENEFICIARIES : []);

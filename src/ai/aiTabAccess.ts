@@ -20,7 +20,7 @@ export const AI_TAB_ROLES = {
 export const REVIEWER_ONLY_ROLES = ['Legal Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee', 'Finance Officer', 'Risk Officer', 'Compliance Officer'];
 /** Drafting and analysis tools hidden from reviewers. */
 export const DRAFTING_TABS = ['project-analyzer', 'contract-advisor', 'agreement-generation'];
-/** Tools that still run on sample data (PENDING_ACTIVITIES item 23): hidden from reviewers, labelled Sample for others. */
+/** Pool and portfolio analysis tools: sample data in the demo, the database outside it (LiveAnalysisTools). Hidden from reviewers. */
 export const SAMPLE_TABS = ['investment-matcher', 'portfolio-analysis', 'risk-analyzer', 'scenarios', 'pool-optimizer'];
 
 /** Finance, Risk, Compliance, Shariah and the committee decide stages of a project's feasibility review there; Legal has no stage. */

@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { ENTITY_TYPES } from './organisation-group';
 
 /** SSM documents: company profile (e-Info), directors (Section 58 / Form 49), shareholders (Section 51 / Form 24). */
 export const KYB_DOCUMENT_TYPES = ['SSM_PROFILE', 'DIRECTORS', 'SHAREHOLDERS', 'BOARD_RESOLUTION', 'OTHER'] as const;
@@ -11,6 +12,9 @@ export class OrganisationDetailsDto {
   /** e.g. "201901012345 (1234567-A)". */
   @Transform(trim) @IsString() @MinLength(6) @MaxLength(60) registrationNumber!: string;
   @Transform(trim) @IsString() @MinLength(10) @MaxLength(400) registeredAddress!: string;
+  @IsOptional() @IsIn(ENTITY_TYPES) entityType?: (typeof ENTITY_TYPES)[number];
+  /** The corporate group, e.g. "FELDA Group"; empty when the entity is not part of one. */
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(120) groupName?: string;
 }
 
 export class OrganisationKybReviewDto {

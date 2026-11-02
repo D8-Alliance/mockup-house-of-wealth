@@ -8,7 +8,7 @@ import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { RejectFundingRequestDto, RequestTrancheDto } from './funding.dto';
 
 /** Tranche releases: the project side asks, Finance approves, the Country Admin releases the money. */
-const APPROVERS = ['Super Admin', 'Country Admin', 'Finance Officer'] as const;
+export const APPROVERS = ['Super Admin', 'Country Admin', 'Finance Officer'] as const;
 
 @Controller('funding')
 @UseGuards(FeatureModuleGuard)

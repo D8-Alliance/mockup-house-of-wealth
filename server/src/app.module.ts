@@ -34,6 +34,7 @@ import { DistributionModule } from './distribution/distribution.module';
 import { EstateModule } from './estate/estate.module';
 import { SiteContentModule } from './site-content/site-content.module';
 import { CollectionAccountModule } from './collection-accounts/collection-account.module';
+import { GovernanceModule } from './governance/governance.module';
 import { InvestmentsModule } from './investments/investments.module';
 import { NotificationModule } from './notifications/notification.module';
 import { JobsModule } from './jobs/jobs.module';
@@ -73,6 +74,7 @@ import { JobsModule } from './jobs/jobs.module';
     EstateModule,
     SiteContentModule,
     CollectionAccountModule,
+    GovernanceModule,
     InvestmentsModule,
     NotificationModule,
     JobsModule,

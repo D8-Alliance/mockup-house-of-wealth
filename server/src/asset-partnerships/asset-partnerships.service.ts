@@ -17,9 +17,9 @@ import { Akad, cleanTerms, CLOSED_PROJECT_STATUSES, EngagementTerms, HOLDING_ENG
 /** Roles that act for a delivery partner (PDP) and its projects. */
 export const PDP_ROLES: ReadonlySet<string> = new Set(['Project Sponsor', 'Project Manager', 'Organization Admin']);
 /** Legal approval: the terms and the right to deal with the asset. */
-const LEGAL_REVIEWERS: ReadonlySet<string> = new Set(['Legal Officer', 'Country Admin', 'Super Admin']);
+export const LEGAL_REVIEWERS: ReadonlySet<string> = new Set(['Legal Officer', 'Country Admin', 'Super Admin']);
 /** Shariah approval: the akad itself. */
-const SHARIAH_REVIEWERS: ReadonlySet<string> = new Set(['Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee', 'Super Admin']);
+export const SHARIAH_REVIEWERS: ReadonlySet<string> = new Set(['Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee', 'Super Admin']);
 const REVIEWERS: ReadonlySet<string> = new Set([...LEGAL_REVIEWERS, ...SHARIAH_REVIEWERS]);
 
 interface HistoryEntry {

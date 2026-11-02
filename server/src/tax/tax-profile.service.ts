@@ -31,7 +31,7 @@ export function maskTaxId(value: string | null | undefined) {
 
 /**
  * The user's own tax details, used to label statements. The platform does not compute or
- * withhold tax yet; rates depend on the pool's legal structure (PENDING_ACTIVITIES.md, item 11, phase C).
+ * withhold tax yet; rates depend on the pool's legal structure (PENDING_ACTIVITIES.md, item 10, phase C).
  */
 @Injectable()
 export class TaxProfileService {

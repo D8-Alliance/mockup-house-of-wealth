@@ -1,4 +1,6 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
+import { NotificationService } from '../notifications/notification.service';
+import { membershipReminderDue, REMINDER_DAYS_BEFORE } from './membership-reminders';
 import { platformRevenue } from './platform-revenue';
 import { PaymentTransaction, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
@@ -14,21 +16,21 @@ import { Receipt } from '../billing/receipt-pdf';
 import { RECEIPT_AKAD } from '../billing/receipt-akad';
 
 const AI_CAPABILITIES = ['SIMPLE_QUERY', 'PROJECT_SUMMARY', 'FULL_FEASIBILITY_ANALYSIS', 'INVESTMENT_ANALYSIS', 'RISK_ANALYSIS', 'CONTRACT_ANALYSIS', 'DUE_DILIGENCE', 'FULL_PROJECT_INTELLIGENCE'] as const;
-const PLANS = [
+export const PLANS = [
   { id: 'plan_free', tier: 'FREE', name: 'Wealth Pooling Free', monthlyPriceMYR: 0, annualPriceMYR: 0, monthlyPriceUSD: 0, annualPriceUSD: 0, aiCreditsMonthly: 20, aiCapabilities: AI_CAPABILITIES, userSeats: 1, reportAccess: false, apiAccess: false },
   { id: 'plan_plus', tier: 'PLUS', name: 'Wealth Pooling Plus', monthlyPriceMYR: 39, annualPriceMYR: 390, monthlyPriceUSD: 9, annualPriceUSD: 90, aiCreditsMonthly: 100, aiCapabilities: AI_CAPABILITIES, userSeats: 3, reportAccess: true, apiAccess: false },
   { id: 'plan_pro', tier: 'PROFESSIONAL', name: 'Wealth Pooling Professional', monthlyPriceMYR: 149, annualPriceMYR: 1490, monthlyPriceUSD: 35, annualPriceUSD: 350, aiCreditsMonthly: 400, aiCapabilities: AI_CAPABILITIES, userSeats: 10, reportAccess: true, apiAccess: true },
   { id: 'plan_enterprise', tier: 'ENTERPRISE', name: 'Wealth Pooling Enterprise', monthlyPriceMYR: 999, annualPriceMYR: 9990, monthlyPriceUSD: 240, annualPriceUSD: 2400, aiCreditsMonthly: 2500, aiCapabilities: AI_CAPABILITIES, userSeats: 50, reportAccess: true, apiAccess: true },
 ] as const;
 
-const CREDIT_PACKAGES = [
+export const CREDIT_PACKAGES = [
   { id: 'topup_50', credits: 50, bonusCredits: 0, priceMYR: 25 },
   { id: 'topup_250', credits: 250, bonusCredits: 25, priceMYR: 99 },
   { id: 'topup_1000', credits: 1000, bonusCredits: 150, priceMYR: 349 },
   { id: 'topup_3000', credits: 3000, bonusCredits: 600, priceMYR: 899 },
 ] as const;
 
-const FALLBACK_PRICING: Record<string, { featureType: string; operationName: string; creditsRequired: number }> = { SIMPLE_QUERY: { featureType: 'AI_QUERY', operationName: 'AI Query', creditsRequired: 1 }, PROJECT_SUMMARY: { featureType: 'PROJECT', operationName: 'Project Summary', creditsRequired: 5 }, FULL_FEASIBILITY_ANALYSIS: { featureType: 'PROJECT_FEASIBILITY', operationName: 'Full Feasibility Analysis', creditsRequired: 20 }, INVESTMENT_ANALYSIS: { featureType: 'INVESTMENT', operationName: 'Investment Analysis', creditsRequired: 30 }, RISK_ANALYSIS: { featureType: 'RISK', operationName: 'Risk Analysis', creditsRequired: 15 }, CONTRACT_ANALYSIS: { featureType: 'CONTRACT', operationName: 'Contract Analysis', creditsRequired: 20 }, DUE_DILIGENCE: { featureType: 'DUE_DILIGENCE', operationName: 'Due Diligence', creditsRequired: 30 }, FULL_PROJECT_INTELLIGENCE: { featureType: 'PROJECT_INTELLIGENCE', operationName: 'Full Project Intelligence', creditsRequired: 100 } };
+export const FALLBACK_PRICING: Record<string, { featureType: string; operationName: string; creditsRequired: number }> = { SIMPLE_QUERY: { featureType: 'AI_QUERY', operationName: 'AI Query', creditsRequired: 1 }, PROJECT_SUMMARY: { featureType: 'PROJECT', operationName: 'Project Summary', creditsRequired: 5 }, FULL_FEASIBILITY_ANALYSIS: { featureType: 'PROJECT_FEASIBILITY', operationName: 'Full Feasibility Analysis', creditsRequired: 20 }, INVESTMENT_ANALYSIS: { featureType: 'INVESTMENT', operationName: 'Investment Analysis', creditsRequired: 30 }, RISK_ANALYSIS: { featureType: 'RISK', operationName: 'Risk Analysis', creditsRequired: 15 }, CONTRACT_ANALYSIS: { featureType: 'CONTRACT', operationName: 'Contract Analysis', creditsRequired: 20 }, DUE_DILIGENCE: { featureType: 'DUE_DILIGENCE', operationName: 'Due Diligence', creditsRequired: 30 }, FULL_PROJECT_INTELLIGENCE: { featureType: 'PROJECT_INTELLIGENCE', operationName: 'Full Project Intelligence', creditsRequired: 100 } };
 
 // Payments that can still receive a refund. A partial refund leaves PARTIALLY_REFUNDED, so later refunds stay possible.
 const REFUNDABLE_STATUSES = ['PAID', 'PARTIALLY_REFUNDED'];
@@ -115,7 +117,37 @@ export class MembershipService {
     private readonly audit: AuditService,
     private readonly toyyibPay: ToyyibPayService,
     private readonly ledger: FinancialLedgerService,
+    @Optional() private readonly notifications?: NotificationService,
   ) {}
+
+  /**
+   * Daily: reminds members whose paid plan ends within the next week (see membership-reminders.ts).
+   * The dedupe key includes the period end, so the reminder goes once per period and a renewal
+   * arms it again. Returns how many members were due.
+   */
+  async remindExpiring(now = new Date()): Promise<number> {
+    if (!this.notifications) return 0;
+    const paidPlanIds = PLANS.filter((plan) => plan.monthlyPriceMYR > 0).map((plan) => plan.id);
+    const due = await this.prisma.membershipSubscription.findMany({
+      where: { planId: { in: paidPlanIds }, currentPeriodEnd: { gt: now, lte: addDays(now, REMINDER_DAYS_BEFORE) } },
+      select: { id: true, userId: true, planId: true, currentPeriodEnd: true },
+    });
+    let queued = 0;
+    for (const subscription of due) {
+      if (!membershipReminderDue(subscription.currentPeriodEnd, now)) continue;
+      const country = (await this.prisma.userRoleAssignment.findFirst({ where: { userId: subscription.userId, isActive: true }, orderBy: { createdAt: 'asc' }, select: { countryNodeId: true } }))?.countryNodeId;
+      const plan = planOf(subscription.planId).name;
+      const endsAt = formatLocalDateTime(subscription.currentPeriodEnd, country);
+      await this.notifications.notifyUsers([subscription.userId], {
+        type: 'MEMBERSHIP', title: 'Your membership ends in a week',
+        message: `Your ${plan} plan ends on ${endsAt}. Renew it in Membership to keep your plan and AI credits; after a ${GRACE_PERIOD_DAYS}-day grace period the account moves to the Free plan.`,
+        resourceType: 'MembershipSubscription', resourceId: subscription.id,
+        dedupeKey: `membership-week-before:${subscription.id}:${subscription.currentPeriodEnd.toISOString()}`,
+      });
+      queued += 1;
+    }
+    return queued;
+  }
 
   getPlans() {
     return PLANS;

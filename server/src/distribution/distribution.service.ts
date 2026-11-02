@@ -12,7 +12,7 @@ import { periodOutcome, PriorResult } from './period-result';
 /** Earlier period results of a pool that count towards loss offsetting. */
 const COUNTED_RESULT = { status: { notIn: ['REJECTED', 'CANCELLED'] } };
 
-const OPERATORS = new Set(['Super Admin', 'Settlement Officer']);
+export const OPERATORS = new Set(['Super Admin', 'Settlement Officer']);
 
 @Injectable()
 export class DistributionService {

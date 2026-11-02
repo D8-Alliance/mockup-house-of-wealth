@@ -7,12 +7,13 @@ import { ProjectRegistrationModal } from './ProjectRegistrationModal';
 import { ProjectDetailView } from './ProjectDetailView';
 import {
   Building2, Plus, Search, Filter, ArrowUpRight, ShieldCheck,
-  Clock, DollarSign, Layers, PieChart, FileSpreadsheet, Settings, Users, Sparkles, Megaphone,
+  Clock, DollarSign, Layers, PieChart, FileSpreadsheet, Users, Sparkles, Megaphone,
   CheckCircle2, AlertTriangle, FileText, CreditCard, ExternalLink, RefreshCw
 } from 'lucide-react';
 import { PDPSubscriptionCard } from '../revenue/PDPSubscriptionCard';
 import { PromoteProjectModal } from '../revenue/PromoteProjectModal';
 import { revenueService } from '../../revenue/revenueService';
+import { SponsorMembershipCard, SponsorReportsLive } from './SponsorLiveSections';
   import { PDPSubscription, PDPPlan, HoWCreditBalance } from '../../revenue/revenueTypes';
 import { PDPApplication } from '../../pdp/pdpTypes';
 import { PDPRegistrationModal } from '../../pdp/components/PDPRegistrationModal';
@@ -67,7 +68,7 @@ function projectTermsInput(project: SponsorProject) {
 
 interface ProjectSponsorViewProps {
   /** Switches the app to another screen, e.g. the AI Wealth Engine or Asset Partnerships. */
-  onNavigate?: (tab: 'ai-engine' | 'asset-partnerships' | 'contracts') => void;
+  onNavigate?: (tab: 'ai-engine' | 'asset-partnerships' | 'contracts' | 'membership') => void;
 }
 
 export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNavigate }) => {
@@ -114,7 +115,7 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
     };
   }, [sponsorOrgId, userId]);
 
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'subscription' | 'my-projects' | 'history' | 'campaigns' | 'pdp-dossier' | 'reports' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'subscription' | 'my-projects' | 'history' | 'campaigns' | 'pdp-dossier' | 'reports'>('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterOrgType, setFilterOrgType] = useState<string>('ALL');
 
@@ -360,9 +361,8 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
           { id: 'history', label: 'Past Project History', icon: <Clock className="w-4 h-4" /> },
           { id: 'pdp-dossier', label: 'PDP KYB Profile & UBOs', icon: <ShieldCheck className="w-4 h-4" /> },
           { id: 'campaigns', label: 'Funding Campaigns', icon: <DollarSign className="w-4 h-4" /> },
-          { id: 'reports', label: 'Reports & Audit Trail', icon: <PieChart className="w-4 h-4" /> },
-          { id: 'settings', label: 'PDP Settings', icon: <Settings className="w-4 h-4" /> }
-        ].filter(tab => demo || (tab.id !== 'reports' && tab.id !== 'settings')).map(tab => (
+          { id: 'reports', label: demo ? 'Reports & Audit Trail' : 'Reports', icon: <PieChart className="w-4 h-4" /> },
+        ].map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
@@ -379,6 +379,7 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
       </div>
 
       {/* PDP Subscription Status Card */}
+      {!demo && activeTab === 'dashboard' && <SponsorMembershipCard onOpenMembership={onNavigate ? () => onNavigate('membership') : undefined} />}
       {demo && activeTab === 'dashboard' && (
         <PDPSubscriptionCard
           currentTierId={pdpSub.planId}
@@ -565,6 +566,8 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
             );
           })}
         </div>
+      ) : activeTab === 'reports' && !demo ? (
+        <SponsorReportsLive projects={projects} />
       ) : activeTab === 'reports' ? (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex justify-between items-center">
@@ -600,11 +603,6 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
             </div>
           )}
           <OrganisationKybPanel />
-        </div>
-      ) : activeTab === 'settings' ? (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm text-xs text-slate-500">
-          <p className="font-semibold text-slate-800 dark:text-slate-200 mb-1">PDP settings</p>
-          <p>Not available yet. Your organisation's registration details and verification are under PDP KYB Profile &amp; UBOs.</p>
         </div>
       ) : null}
 

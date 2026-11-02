@@ -5,7 +5,7 @@
  * results count too (except rejected or cancelled ones), so profit is never over-distributed.
  *
  * Final reckoning (tanzid) at the end of the pool, and charging an unrecovered loss
- * against capital, are separate steps (PENDING_ACTIVITIES.md, item 11, phase D).
+ * against capital, are separate steps (PENDING_ACTIVITIES.md, item 10, phase D).
  */
 
 export interface PriorResult {

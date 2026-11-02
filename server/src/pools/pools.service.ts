@@ -40,11 +40,13 @@ export class PoolsService {
     const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: id }, include: { project: { select: { fundingRequired: true } } } });
     if (!pool) throw new NotFoundException('Pool not found');
     assertCanViewPool(user, pool);
-    const [raised, akadTerms] = await Promise.all([
+    const [raised, akadTerms, related] = await Promise.all([
       this.prisma.investmentContribution.aggregate({ _sum: { amount: true }, where: { poolId: id, status: 'POSTED' } }),
       this.currentTerms(this.prisma, id),
+      // Disclosed to every investor: confirmed money from entities of the project organisation's own group.
+      this.prisma.investmentOrder.aggregate({ _sum: { amount: true }, where: { poolId: id, status: 'SETTLED', relatedParty: true } }),
     ]);
-    return { ...pool, raisedAmount: Number(raised._sum.amount || 0), targetAmount: Number(pool.project.fundingRequired), akadTerms };
+    return { ...pool, raisedAmount: Number(raised._sum.amount || 0), relatedPartyAmount: Number(related._sum.amount || 0), targetAmount: Number(pool.project.fundingRequired), akadTerms };
   }
 
   async akadTerms(id: string, user: AuthenticatedUser) {

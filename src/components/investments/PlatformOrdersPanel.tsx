@@ -102,7 +102,9 @@ export const PlatformOrdersPanel: React.FC = () => {
                 {orders.map(order => (
                   <tr key={order.id}>
                     <td className="px-5 py-3 font-mono text-slate-500 whitespace-nowrap">{order.orderNumber}</td>
-                    <td className="px-5 py-3 font-bold text-slate-900 dark:text-white">{order.pool?.poolName ?? order.poolId}</td>
+                    <td className="px-5 py-3 font-bold text-slate-900 dark:text-white">{order.pool?.poolName ?? order.poolId}
+                      {order.relatedParty && <span title="The investor's organisation is in the same corporate group as the organisation running the project. Compliance and Shariah should review it." className="ml-2 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 whitespace-nowrap">Related party</span>}
+                    </td>
                     <td className="px-5 py-3 text-right font-mono whitespace-nowrap">{money(Number(order.amount), order.currency)}</td>
                     <td className="px-5 py-3 whitespace-nowrap">{new Date(order.createdAt).toLocaleDateString()}</td>
                     <td className="px-5 py-3 font-mono">{order.paymentReference ?? '—'}</td>

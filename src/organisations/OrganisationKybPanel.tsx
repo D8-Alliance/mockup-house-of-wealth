@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { BadgeCheck, Building2, ChevronDown, ChevronUp, Download, Trash2, Upload } from 'lucide-react';
-import { apiClient, apiErrorMessage, OrganisationKyb, OrganisationKybDocumentType } from '../services/apiClient';
+import { apiClient, apiErrorMessage, OrganisationEntityType, OrganisationKyb, OrganisationKybDocumentType } from '../services/apiClient';
 import { formatDateTimeWithZone } from '../utils/platformTime';
 import { KYB_DOCUMENT_LABELS, KYB_STATUS } from './organisationKybLabels';
+
+const ENTITY_TYPES: Record<OrganisationEntityType, string> = { GLC: 'Government-linked company (GLC)', COMPANY: 'Company', INSTITUTION: 'Institution', INDIVIDUAL: 'Individual / sole proprietor' };
 
 const INPUT = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm';
 
@@ -15,6 +17,8 @@ export const OrganisationKybPanel: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [registeredAddress, setRegisteredAddress] = useState('');
+  const [entityType, setEntityType] = useState<OrganisationEntityType | ''>('');
+  const [groupName, setGroupName] = useState('');
   const [documentType, setDocumentType] = useState<OrganisationKybDocumentType>('SSM_PROFILE');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,6 +27,8 @@ export const OrganisationKybPanel: React.FC = () => {
     setKyb(value);
     setRegistrationNumber(value.registrationNumber ?? '');
     setRegisteredAddress(value.registeredAddress ?? '');
+    setEntityType(value.entityType ?? '');
+    setGroupName(value.groupName ?? '');
   };
   useEffect(() => { apiClient.getMyOrganisationKyb().then((value) => { show(value); setOpen(value.kybStatus !== 'APPROVED'); }).catch(() => setKyb(null)); }, []);
   if (!kyb) return null;
@@ -33,7 +39,7 @@ export const OrganisationKybPanel: React.FC = () => {
     try { show(await action()); } catch (cause) { setError(apiErrorMessage(cause, 'Not saved.')); } finally { setBusy(false); }
   };
   const status = KYB_STATUS[kyb.kybStatus] ?? KYB_STATUS.NOT_SUBMITTED;
-  const detailsChanged = registrationNumber.trim() !== (kyb.registrationNumber ?? '') || registeredAddress.trim() !== (kyb.registeredAddress ?? '');
+  const detailsChanged = registrationNumber.trim() !== (kyb.registrationNumber ?? '') || registeredAddress.trim() !== (kyb.registeredAddress ?? '') || entityType !== (kyb.entityType ?? '') || groupName.trim() !== (kyb.groupName ?? '');
 
   return (
     <section className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 p-5 space-y-3 text-xs">
@@ -53,8 +59,18 @@ export const OrganisationKybPanel: React.FC = () => {
             <label className="font-bold text-slate-600 dark:text-slate-300">Registered address
               <textarea value={registeredAddress} onChange={(event) => setRegisteredAddress(event.target.value)} disabled={!kyb.canEdit} rows={2} placeholder="As in the SSM company profile" className={`${INPUT} mt-1 font-normal`} />
             </label>
+            <label className="font-bold text-slate-600 dark:text-slate-300">Entity type
+              <select value={entityType} onChange={(event) => setEntityType(event.target.value as OrganisationEntityType | '')} disabled={!kyb.canEdit} className={`${INPUT} mt-1 font-normal`}>
+                <option value="">Choose…</option>
+                {(Object.keys(ENTITY_TYPES) as OrganisationEntityType[]).map((type) => <option key={type} value={type}>{ENTITY_TYPES[type]}</option>)}
+              </select>
+            </label>
+            <label className="font-bold text-slate-600 dark:text-slate-300">Corporate group (if any)
+              <input value={groupName} onChange={(event) => setGroupName(event.target.value)} disabled={!kyb.canEdit} placeholder="e.g. FELDA Group; leave empty if none" className={`${INPUT} mt-1 font-normal`} />
+              <span className="block mt-1 font-normal text-slate-400">Used only to disclose investments between entities of the same group. It gives no access to the other entities.</span>
+            </label>
           </div>
-          {kyb.canEdit && detailsChanged && <button type="button" disabled={busy} onClick={() => void run(() => apiClient.saveOrganisationDetails({ registrationNumber, registeredAddress }))} className="px-4 py-2 rounded-xl border border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold cursor-pointer disabled:opacity-50">Save details</button>}
+          {kyb.canEdit && detailsChanged && <button type="button" disabled={busy} onClick={() => void run(() => apiClient.saveOrganisationDetails({ registrationNumber, registeredAddress, entityType: entityType || undefined, groupName: groupName.trim() }))} className="px-4 py-2 rounded-xl border border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold cursor-pointer disabled:opacity-50">Save details</button>}
 
           <div className="space-y-1.5">
             <p className="font-bold text-slate-600 dark:text-slate-300">Documents</p>
@@ -84,7 +100,7 @@ export const OrganisationKybPanel: React.FC = () => {
           {error && <p className="p-3 rounded-xl bg-rose-500/10 text-rose-600 font-bold">{error}</p>}
           {kyb.canEdit && (
             <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-700">
-              <span className="text-slate-500">{kyb.missing.length ? `Still needed: ${kyb.missing.map((item) => (item === 'registrationNumber' ? 'registration number' : item === 'registeredAddress' ? 'registered address' : KYB_DOCUMENT_LABELS[item as OrganisationKybDocumentType] ?? item)).join(', ')}` : 'Ready to submit.'}</span>
+              <span className="text-slate-500">{kyb.missing.length ? `Still needed: ${kyb.missing.map((item) => (item === 'registrationNumber' ? 'registration number' : item === 'registeredAddress' ? 'registered address' : item === 'entityType' ? 'entity type' : KYB_DOCUMENT_LABELS[item as OrganisationKybDocumentType] ?? item)).join(', ')}` : 'Ready to submit.'}</span>
               <button type="button" disabled={busy || kyb.missing.length > 0 || detailsChanged} onClick={() => void run(() => apiClient.submitOrganisationKyb())} className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer disabled:opacity-50">{kyb.kybStatus === 'NOT_SUBMITTED' ? 'Submit for verification' : 'Submit again'}</button>
             </div>
           )}

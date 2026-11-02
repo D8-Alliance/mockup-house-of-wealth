@@ -28,7 +28,7 @@ const SPONSOR_ROLES = ['Project Sponsor', 'Project Manager'];
 /** The only status changes a sponsor makes: submit the draft for review, or take it back to correct it. */
 const SPONSOR_STATUS_MOVES: Record<string, string[]> = { DRAFT: ['DUE_DILIGENCE'], DUE_DILIGENCE: ['DRAFT'] };
 
-const PROJECT_PROMOTION_PACKAGES = [
+export const PROJECT_PROMOTION_PACKAGES = [
   { id: 'pkg_free_listing', title: 'Free Project Listing', badgeType: 'Promoted', durationDays: 0, priceMYR: 0, creditsCost: 0 },
   { id: 'pkg_featured_7d', title: 'Featured Project (7 Days)', badgeType: 'Featured', durationDays: 7, priceMYR: 99, creditsCost: 50 },
   { id: 'pkg_featured_30d', title: 'Featured Project (30 Days)', badgeType: 'Featured', durationDays: 30, priceMYR: 299, creditsCost: 150 },

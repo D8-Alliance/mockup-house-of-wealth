@@ -1,38 +1,44 @@
 import type { AssetTypeCode } from '../services/apiClient';
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { NavTab, LanguageCode, UserProfile, AssetItem, ContractItem, MarketplaceItem, BeneficiaryItem, LedgerTransaction } from '../types';
 import { RoleGuard } from '../rbac/RoleGuard';
 import { RoleDashboardView } from './dashboards/RoleDashboardView';
-import { AssetRegisterView } from '../assets/AssetRegisterView';
-import { AssetPartnershipsView } from '../asset-partnerships/AssetPartnershipsView';
 import { MyContractsView } from './MyContractsView';
 import { AgreementReviewPanel } from '../ai/features/contract/AgreementReviewPanel';
-import { AssetDiscoveryView } from './AssetDiscoveryView';
-import { PoolingView } from './PoolingView';
 import { LedgerView } from './LedgerView';
-import { UserProfileSettingsView } from './UserProfileSettingsView';
 import { InvestmentsView } from './InvestmentsView';
 import { InvestorPoolsPanel } from './investments/InvestorPoolsPanel';
 import { InvestorPositionsPanel } from './investments/InvestorPositionsPanel';
+import { InvestorProfitHistoryPanel } from './investments/InvestorProfitHistoryPanel';
+import { InvestorAgreementsPanel } from './investments/InvestorAgreementsPanel';
 import { PlatformOrdersPanel } from './investments/PlatformOrdersPanel';
 import { LivePoolsPanel } from '../pooling/LivePoolsPanel';
 import { LiveDocumentVault } from './documents/LiveDocumentVault';
+import { RoleDocumentVault } from './documents/RoleDocumentVault';
+import { InvestorWalletNotice } from './investments/InvestorWalletNotice';
 import { WalletView } from './WalletView';
-import { FinancialsView } from './FinancialsView';
 import { DocumentsView } from './DocumentsView';
 import { NotificationsView } from './NotificationsView';
 import { TimelineView } from './TimelineView';
 import { AuditTrailView } from './AuditTrailView';
-import { AIWealthEngineView } from './AIWealthEngineView';
-import { AdminCenterView } from './AdminCenterView';
-import { ProjectSponsorView } from './sponsor/ProjectSponsorView';
-import { MembershipView } from './revenue/MembershipView';
 import { BeneficiariesView } from './BeneficiariesView';
 import { BillingTransactionsView } from './revenue/BillingTransactionsView';
 import { BackendFinancialAccount } from '../services/apiClient';
 import { SponsorAgreementsView } from './sponsor/SponsorAgreementsView';
 import { useRBAC } from '../rbac/RBACContext';
 import { canInvest, isDeliveryPartner } from '../rbac/menuVisibility';
+
+// The big screens load when their tab is first opened, so the first page loads faster.
+const AssetRegisterView = lazy(() => import('../assets/AssetRegisterView').then((m) => ({ default: m.AssetRegisterView })));
+const AssetPartnershipsView = lazy(() => import('../asset-partnerships/AssetPartnershipsView').then((m) => ({ default: m.AssetPartnershipsView })));
+const AssetDiscoveryView = lazy(() => import('./AssetDiscoveryView').then((m) => ({ default: m.AssetDiscoveryView })));
+const PoolingView = lazy(() => import('./PoolingView').then((m) => ({ default: m.PoolingView })));
+const UserProfileSettingsView = lazy(() => import('./UserProfileSettingsView').then((m) => ({ default: m.UserProfileSettingsView })));
+const FinancialsView = lazy(() => import('./FinancialsView').then((m) => ({ default: m.FinancialsView })));
+const AIWealthEngineView = lazy(() => import('./AIWealthEngineView').then((m) => ({ default: m.AIWealthEngineView })));
+const AdminCenterView = lazy(() => import('./AdminCenterView').then((m) => ({ default: m.AdminCenterView })));
+const ProjectSponsorView = lazy(() => import('./sponsor/ProjectSponsorView').then((m) => ({ default: m.ProjectSponsorView })));
+const MembershipView = lazy(() => import('./revenue/MembershipView').then((m) => ({ default: m.MembershipView })));
 
 interface MainTabViewsProps {
   currentTab: NavTab;
@@ -79,7 +85,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 }) => {
   const { currentRole, authMode, checkPermission } = useRBAC();
   return (
-    <>
+    <Suspense fallback={<p className="p-6 text-sm text-slate-500">Loading…</p>}>
       {currentTab === 'dashboard' && (
         <RoleGuard tab="dashboard">
           <RoleDashboardView
@@ -187,6 +193,8 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
           {canInvest(currentRole) ? (
             <div className="space-y-4">
               <InvestorPositionsPanel />
+              <InvestorProfitHistoryPanel />
+              <InvestorAgreementsPanel />
               <InvestorPoolsPanel />
             </div>
           ) : authMode !== 'DEMO' ? (
@@ -202,7 +210,9 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'wallet' && (
         <RoleGuard tab="wallet">
-          <WalletView accounts={financialAccounts} onRefresh={onFinancialRefresh} />
+          {authMode !== 'DEMO' && canInvest(currentRole)
+            ? <InvestorWalletNotice onOpenInvestments={() => setTab('investments')} onOpenFinancials={() => setTab('financials')} />
+            : <WalletView accounts={financialAccounts} onRefresh={onFinancialRefresh} />}
         </RoleGuard>
       )}
 
@@ -214,8 +224,8 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
 
       {currentTab === 'documents' && (
         <RoleGuard tab="documents">
-          {/* The live vault lists project documents, so it needs project read access (marketplace:read on the server). */}
-          {authMode !== 'DEMO' && checkPermission('marketplace', 'read') ? <LiveDocumentVault /> : <DocumentsView />}
+          {/* Project documents need project read access (marketplace:read on the server); other roles get their own documents. */}
+          {authMode === 'DEMO' ? <DocumentsView /> : checkPermission('marketplace', 'read') ? <LiveDocumentVault /> : <RoleDocumentVault role={currentRole} />}
         </RoleGuard>
       )}
 
@@ -236,6 +246,6 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
       )}
 
       {currentTab === 'billing-transactions' && <BillingTransactionsView />}
-    </>
+    </Suspense>
   );
 };
