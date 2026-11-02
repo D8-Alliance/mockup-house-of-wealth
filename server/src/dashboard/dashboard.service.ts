@@ -22,8 +22,8 @@ export class DashboardService {
     const countryScope = reviewer ? { countryNodeId: actor.countryNodeId } : scope;
     const country = await this.prisma.countryNode.findUnique({ where: { code: actor.countryNodeId }, select: { currency: true } });
     const [projects, pools, contracts, funding] = await Promise.all([
-      this.prisma.project.aggregate({ where: projectScope, _count: { _all: true }, _sum: { totalProjectCost: true, fundingRequired: true } }),
-      this.prisma.wealthPool.count({ where: countryScope }),
+      this.prisma.project.aggregate({ where: { ...projectScope, archivedAt: null }, _count: { _all: true }, _sum: { totalProjectCost: true, fundingRequired: true } }),
+      this.prisma.wealthPool.count({ where: { ...countryScope, project: { archivedAt: null } } }),
       this.prisma.contract.count({ where: countryScope }),
       this.prisma.fundingRequest.aggregate({ where: countryScope, _sum: { requestedAmount: true }, _count: { _all: true } }),
     ]);

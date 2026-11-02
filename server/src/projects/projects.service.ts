@@ -82,7 +82,7 @@ export class ProjectsService {
     }
 
     const projects = await this.prisma.project.findMany({
-      where,
+      where: { ...where, archivedAt: null },
       orderBy: { createdAt: 'desc' },
       take: 100,
       include: {

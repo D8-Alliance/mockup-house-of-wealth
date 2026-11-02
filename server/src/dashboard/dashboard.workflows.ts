@@ -21,7 +21,7 @@ export async function workflowPipelines(prisma: PrismaService, actor: Authentica
     return totals;
   };
   const [projects, agreements, funding, orders, kyc, kyb, pdp] = await Promise.all([
-    prisma.project.groupBy({ by: ['status'], where: country, _count: { _all: true } }),
+    prisma.project.groupBy({ by: ['status'], where: { ...country, archivedAt: null }, _count: { _all: true } }),
     prisma.contract.groupBy({ by: ['status'], where: country, _count: { _all: true } }),
     prisma.fundingRequest.groupBy({ by: ['status'], where: country, _count: { _all: true } }),
     prisma.investmentOrder.groupBy({ by: ['status'], where: country, _count: { _all: true } }),
