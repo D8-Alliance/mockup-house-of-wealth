@@ -17,20 +17,23 @@ import { RoleAvailabilityService } from '../roles/role-availability.service';
 import { PRIVACY_NOTICE_VERSION } from './privacy-notice';
 
 export interface ProfilePreferences {
-  currency?: string;
   preferredContracts?: string[];
   notifications?: { email?: boolean; push?: boolean; sms?: boolean };
   estateFramework?: string;
   language?: string;
 }
 
-/** Saving one setting keeps the others; notification channels merge one by one. */
+/**
+ * Saving one setting keeps the others; notification channels merge one by one. A preferred currency saved
+ * by older builds is dropped: amounts always show in each pool's own currency.
+ */
 export function mergePreferences(saved: unknown, change: ProfilePreferences): ProfilePreferences {
-  const current = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved as ProfilePreferences : {};
+  const stored = saved && typeof saved === 'object' && !Array.isArray(saved) ? saved as ProfilePreferences & { currency?: string } : {};
+  const { currency: _dropped, ...current } = stored;
   const defined = <T extends object>(value: T) => Object.fromEntries(Object.entries(value).filter(([, v]) => v !== undefined)) as Partial<T>;
   return {
     ...current,
-    ...defined({ currency: change.currency, preferredContracts: change.preferredContracts, estateFramework: change.estateFramework, language: change.language }),
+    ...defined({ preferredContracts: change.preferredContracts, estateFramework: change.estateFramework, language: change.language }),
     ...(change.notifications ? { notifications: { ...current.notifications, ...defined({ ...change.notifications }) } } : {}),
   };
 }

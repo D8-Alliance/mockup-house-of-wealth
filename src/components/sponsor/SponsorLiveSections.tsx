@@ -3,6 +3,7 @@ import { Crown, Download, FileSpreadsheet } from 'lucide-react';
 import { apiClient, BackendMembershipStatus } from '../../services/apiClient';
 import { statementsApi, StatementFormat } from '../../services/statementsApi';
 import { SponsorProject } from './SponsorTypes';
+import { SponsorPerformanceReports } from '../performance/PerformanceReports';
 
 /** The sponsor's project statements, per project (server/src/statements). */
 export const SponsorReportsLive: React.FC<{ projects: SponsorProject[] }> = ({ projects }) => {
@@ -40,10 +41,17 @@ export const SponsorReportsLive: React.FC<{ projects: SponsorProject[] }> = ({ p
           ))}
         </div>
       )}
-      <p className="text-slate-500">Periodic performance reports for investors (actual against projected results) are not built yet; see PENDING_ACTIVITIES.</p>
     </div>
   );
 };
+
+/** Statements plus the quarterly performance reports the PDP sends to the auditor. */
+export const SponsorReportsTab: React.FC<{ projects: SponsorProject[] }> = ({ projects }) => (
+  <div className="space-y-6">
+    <SponsorPerformanceReports projects={projects} />
+    <SponsorReportsLive projects={projects} />
+  </div>
+);
 
 /** The signed-in member's real plan, in place of the demo's PDP subscription tiers. */
 export const SponsorMembershipCard: React.FC<{ onOpenMembership?: () => void }> = ({ onOpenMembership }) => {
