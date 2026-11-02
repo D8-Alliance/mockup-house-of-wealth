@@ -26,12 +26,13 @@ Kerja yang sudah dikenal pasti tetapi ditangguhkan. Kemas kini status apabila ke
 | 18 | Prestasi projek PDP dan kontrak | Laporan KPI berkala; "My Contracts" masih data contoh | Keputusan senarai KPI |
 | 19 | Benefisiari dan pusaka | Estate Officer, aliran kematian, qabul hibah (simpanan backend siap 2026-10-28) | Keputusan proses; nasihat Shariah dan undang-undang |
 | 20 | Modul aset | Pendaftaran semua jenis dan perkongsian aset dengan projek PDP siap; baki: isi perjanjian daripada perkongsian, aliran tunai sewa/untung, peringatan tarikh luput, Fasa C (e-Tanah/JPJ/JKKP) | Boleh diteruskan |
-| 21 | Profile & Settings | Skrin pengesahan akaun bank (Settlement Officer); kontrak dan mata wang pilihan belum digunakan | Boleh dimulakan |
+| 21 | Profile & Settings | Kontrak dan mata wang pilihan belum digunakan | Boleh dimulakan |
 | 22 | Pendaftaran dan pengurusan pengguna | Notis privasi rasmi; Fasa 2 (RoleGrantRequest, skrin Users); Fasa 3 (daftar sendiri) | Butiran syarikat dan semakan peguam |
 | 23 | Skrin yang masih data contoh | Lihat senarai penuh dalam item 23 | Boleh dimulakan mengikut keutamaan |
 | 24 | Perkara teknikal kecil | Saiz bundle frontend, kebersihan data local | Boleh dimulakan |
 | 25 | Mini-app D8 Ideas (fasa 1) | Isi akaun kutipan setiap negara, SSO dan push D8 Ideas, ujian dalam super app, SMTP Keycloak | Butiran akaun amanah bank; spesifikasi D8 Ideas |
 | 26 | Sewaan terus (Ijarah) tanpa projek | Perjanjian Ijarah daripada modul kontrak, skrin web, peringatan sewa, keputusan pungutan sewa, komisen dan cukai | Keputusan pemilik projek; nasihat peguam dan cukai |
+| 27 | Agihan keuntungan (Settlement Officer) | Skrin web, fail bayaran pukal bank, peringatan hasil projek lewat | Boleh dimulakan |
 
 ## 1. Pengesanan dokumen bukti projek yang diubah (tamper detection)
 
@@ -413,7 +414,7 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
 - **Kawasan:** `src/profile/`, `server/src/distribution/payout-destination.service.ts`, `server/src/distribution/payout-accounts.controller.ts`
 
 **Baki:**
-1. **Skrin pengesahan akaun bank:** endpoint `POST /distributions/payout-destinations/:id/verify` sudah ada, tetapi belum ada skrin untuk Settlement Officer. Akaun baharu kekal "Awaiting verification" sehingga skrin ini dibina.
+1. **Skrin pengesahan akaun bank:** siap 2026-11-02 dalam mini-app (tab Agihan › Akaun). Versi web belum ada.
 2. **Pilihan kontrak Islam:** disimpan dalam profil tetapi belum digunakan untuk menapis atau menyusun pool di Asset Marketplace.
 3. **Mata wang pilihan:** disimpan tetapi paparan amaun belum ditukar mengikut pilihan ini.
 4. **Kunci API:** jika integrasi luar diperlukan, bina kunci API sebenar (dicipta di server, disimpan sebagai hash, boleh dibatalkan, dengan skop terhad).
@@ -515,3 +516,25 @@ Provider payout bank/DuitNow dijejak dalam item 8. Untuk production, pindahkan p
    - duti setem perjanjian sewa;
    - cukai perkhidmatan ke atas sewa komersial.
 6. Fasa kemudian: pool pelaburan daripada hasil sewa (pelabur membiayai pengubahsuaian, berkongsi hasil sewa).
+
+## 27. Agihan keuntungan (Settlement Officer)
+
+- **Status:** Siap 2026-11-02 dalam mini-app, tab **Agihan**, untuk Settlement Officer dan Super Admin.
+- **Kawasan:** `server/src/distribution/`, `src/mobile/screens/MobileSettlement.tsx`
+
+**Sudah ada:**
+- **Skop:** Settlement Officer bertindak bagi semua pool di negaranya. Pool milik organisasi penaja, dan pelabur berada dalam organisasi peribadi masing-masing.
+- **Rekod hasil projek** yang masuk ke akaun amanah (`POST /distributions/pool-income`), sekali bagi setiap rujukan bank. Keuntungan hanya dibayar daripada hasil yang direkod, tidak sekali-kali daripada modal pelabur.
+- **Pratonton oleh server** (`POST /distributions/preview`):
+  - keputusan bersih dan rugi terdahulu yang dipulihkan dahulu;
+  - bahagian pelabur mengikut akad;
+  - bahagian setiap pelabur mengikut modal;
+  - akaun bank utama yang disahkan, dengan tanda bagi pelabur yang belum ada akaun disahkan.
+- **Aliran agihan:** cipta dan hantar, kemudian pegawai lain meluluskan (pencipta tidak boleh meluluskan). Selepas itu proses bayaran, rekod rujukan bank bagi setiap pelabur, kemudian rekod "wang diterima", atau "gagal" dan cuba semula. Rugi atau keuntungan yang diserap direkod tanpa bayaran.
+- **Pengesahan akaun bank pelabur.**
+- **Akaun lejar pelabur:** pelabur yang ada pool di bawah dua organisasi kini mendapat akaun lejar berasingan bagi setiap organisasi, bukan lagi ralat.
+
+**Belum siap:**
+1. Skrin web untuk Kewangan, termasuk fail bayaran pukal bank (DuitNow Bulk atau IBG) dan penyesuaian penyata bank.
+2. Peringatan jika hasil projek tidak masuk mengikut jadual.
+3. Perkiraan akhir pool (tanzid) dan caj rugi yang belum pulih terhadap modal (item 11).

@@ -327,6 +327,21 @@ export const apiClient = {
   /** Settlement review: every payout account in the operator's scope, masked. */
   getPayoutAccountsForReview: () => request<PayoutAccountForReview[]>('/distributions/payout-destinations'),
   verifyPayoutAccount: (id: string) => request<PayoutAccountForReview>(`/distributions/payout-destinations/${encodeURIComponent(id)}/verify`, { method: 'POST' }),
+  // Settlement (Settlement Officer, Super Admin): project income, distributions and payouts.
+  getSettlementPools: () => request<SettlementPool[]>('/distributions/pools'),
+  getSettlementDistributions: () => request<SettlementDistribution[]>('/distributions'),
+  recordPoolIncome: (input: { poolId: string; amount: number; reference: string; receivedAt?: string; note?: string }) => request<{ poolId: string; incomeRecorded: number; profitPaidOut: number; available: number }>('/distributions/pool-income', { method: 'POST', body: JSON.stringify(input) }),
+  previewDistribution: (input: { poolId: string; periodName: string; grossRevenue: number; eligibleCosts: number }) => request<DistributionPreview>('/distributions/preview', { method: 'POST', body: JSON.stringify(input) }),
+  createDistribution: (input: { projectId: string; poolId: string; organisationId: string; countryNodeId: string; currency: string; periodName: string; grossRevenue: number; eligibleCosts: number; totalAmount: number; allocations: Array<{ beneficiaryUserId: string; destinationId: string; amount: number }> }) => request<SettlementDistribution>('/distributions', { method: 'POST', body: JSON.stringify(input) }),
+  recordPeriodResult: (input: { projectId: string; poolId: string; organisationId: string; countryNodeId: string; currency: string; periodName: string; grossRevenue: number; eligibleCosts: number }) => request<SettlementDistribution>('/distributions/period-results', { method: 'POST', body: JSON.stringify(input) }),
+  submitDistribution: (id: string) => request<SettlementDistribution>(`/distributions/${encodeURIComponent(id)}/submit`, { method: 'POST' }),
+  approveDistribution: (id: string, comment?: string) => request<SettlementDistribution>(`/distributions/${encodeURIComponent(id)}/approve`, { method: 'POST', body: JSON.stringify({ comment }) }),
+  rejectDistribution: (id: string, comment: string) => request<SettlementDistribution>(`/distributions/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ comment }) }),
+  processDistribution: (id: string) => request<SettlementDistribution>(`/distributions/${encodeURIComponent(id)}/process`, { method: 'POST' }),
+  submitPayout: (payoutId: string, providerReference: string) => request<unknown>(`/distributions/payouts/${encodeURIComponent(payoutId)}/submit`, { method: 'POST', body: JSON.stringify({ providerReference }) }),
+  settlePayout: (payoutId: string) => request<unknown>(`/distributions/payouts/${encodeURIComponent(payoutId)}/settle`, { method: 'POST' }),
+  failPayout: (payoutId: string, reason: string) => request<unknown>(`/distributions/payouts/${encodeURIComponent(payoutId)}/fail`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  retryPayout: (payoutId: string) => request<unknown>(`/distributions/payouts/${encodeURIComponent(payoutId)}/retry`, { method: 'POST' }),
   getUsers: () => request<BackendUser[]>('/users'),
   getOrganisationDirectory: () => request<OrganisationDirectoryRow[]>('/organisations'),
   getContractTemplates: () => request<ContractTemplateRow[]>('/contract-intelligence/templates'),
@@ -2163,4 +2178,74 @@ export interface AssetLeaseView {
   rent: { paid: number; overdue: number; due: number };
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SettlementPool {
+  poolId: string;
+  poolName: string;
+  projectId: string;
+  projectName: string;
+  organisationId: string;
+  countryNodeId: string;
+  currency: string;
+  status: string;
+  akad: string;
+  investorProfitSharePct: number | null;
+  capital: number;
+  investors: number;
+  /** Project income recorded into the trust account for the pool, profit paid out of it, and what is left. */
+  incomeRecorded: number;
+  profitPaidOut: number;
+  available: number;
+  lastPeriod: { periodName: string; kind: string; status: string } | null;
+}
+
+export interface DistributionPreview {
+  pool: { poolId: string; poolName: string; projectId: string; organisationId: string; countryNodeId: string; currency: string; status: string };
+  periodName: string;
+  grossRevenue: number;
+  eligibleCosts: number;
+  netResult: number;
+  unrecoveredLossBefore: number;
+  lossOffset: number;
+  distributableNet: number;
+  investorProfitSharePct: number;
+  investorProfit: number;
+  totalAmount: number;
+  kind: 'PROFIT' | 'LOSS' | 'ABSORBED';
+  investors: Array<{ userId: string; name: string; capital: number; sharePct: number; amount: number; destination: { id: string; provider: string; maskedReference: string } | null; issue: 'COOLING_OFF' | 'NOT_VERIFIED' | 'NO_ACCOUNT' | null }>;
+  funds: { incomeRecorded: number; profitPaidOut: number; available: number };
+  problems: string[];
+}
+
+export interface SettlementPayout {
+  id: string;
+  status: 'QUEUED' | 'SUBMITTED' | 'SETTLED' | 'FAILED' | 'REVERSED';
+  providerReference: string | null;
+  failureReason: string | null;
+  amount: number | string;
+}
+
+export interface SettlementDistribution {
+  id: string;
+  kind: 'PROFIT' | 'LOSS' | 'ABSORBED';
+  projectId: string;
+  poolId: string | null;
+  poolName: string | null;
+  organisationId: string;
+  countryNodeId: string;
+  status: string;
+  periodName: string;
+  currency: string;
+  totalAmount: number | string;
+  grossRevenue: number | string | null;
+  eligibleCosts: number | string | null;
+  netProfit: number | string | null;
+  lossOffset: number | string | null;
+  createdBy: string;
+  createdByName: string | null;
+  approvedByName: string | null;
+  canApprove: boolean;
+  createdAt: string;
+  allocations: Array<{ id: string; beneficiaryUserId: string; beneficiaryName: string | null; amount: number | string; status: string; destination: { provider: string; maskedReference: string; accountHolder: string | null } | null; payoutInstruction: SettlementPayout | null }>;
 }
