@@ -28,6 +28,7 @@ Kerja yang belum siap sahaja. Kerja yang sudah siap dibuang daripada senarai ini
 | 20 | Profile & Settings | Mata wang pilihan belum digunakan; kunci API | Keputusan: sumber kadar tukaran atau buang tetapan |
 | 21 | Pengurusan pengguna | Notis privasi rasmi; Fasa 2–4; penguatkuasaan PDPA di server | Butiran syarikat dan semakan peguam |
 | 22 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO/push D8 Ideas, ujian super app, Keycloak, terjemahan | Butiran bank; spesifikasi D8 Ideas |
+| 23 | Sewaan terus (Ijarah) tanpa projek | Perjanjian Ijarah daripada modul kontrak, skrin web, peringatan sewa, deposit, keputusan pungutan sewa, komisen dan cukai | Keputusan pemilik projek; nasihat peguam dan cukai |
 
 ## 1. Tamper detection dokumen bukti projek
 
@@ -255,6 +256,25 @@ Bingkai kamera dan dokumen KYC masih disimpan tanpa had masa. **Perlu keputusan:
 **Baki:**
 1. Isi akaun amanah sebenar setiap negara (bank, nama akaun, nombor, SWIFT) di Admin Center › Country Nodes sebelum pelabur sebenar membuat pesanan.
 2. SSO dan push melalui D8 Ideas: menunggu spesifikasi mereka.
-3. Uji dalam sandbox super app, terutamanya kamera dalam WebView.
-4. Keycloak: `/m/*` dalam Valid redirect URIs, dan SMTP Realm untuk "Forgot password".
-5. Teks notifikasi server dan notis privasi masih bahasa Inggeris.
+3. Uji dalam sandbox super app, terutamanya kebenaran kamera dalam WebView.
+4. Keycloak: `/m/*` dalam Valid redirect URIs, dan SMTP (Realm settings › Email) untuk "Forgot password".
+5. Teks notifikasi daripada server dan notis privasi masih dalam bahasa Inggeris (tajuk notifikasi sudah diterjemah dalam mini-app).
+
+## 23. Sewaan terus (Ijarah) tanpa projek
+
+- **Status:** Fasa 1 dalam mini-app (tab Sewaan) dan API `/leasing`: penyenaraian unit, permohonan dan rundingan, kelulusan Legal dan Shariah, jadual sewa dan rekod bayaran.
+- **Kawasan:** `server/src/leasing/`, model `LeasableUnit`, `AssetLease`, `LeaseRentPayment` (migration `20261102090000_direct_leases`), `src/mobile/screens/MobileLeasing.tsx`
+
+**Keputusan sementara (perlu disahkan):** sewa dibayar oleh penyewa **terus ke akaun bank pemilik**. Platform hanya merekod dan tidak memegang wang, jadi tiada isu wang pihak ketiga. Tiada komisen dikenakan buat masa ini.
+
+**Baki:**
+1. Perjanjian Ijarah dijana daripada modul kontrak dan e-tandatangan (sekarang hanya mesej "tandatangani perjanjian"). Perlu `leaseId` pada `Contract` dan templat Ijarah sewaan.
+2. Skrin web (Asset Registry dan semakan Legal/Shariah). Buat masa ini semuanya dalam mini-app.
+3. Peringatan sewa automatik (sebelum tarikh perlu bayar dan semasa tertunggak), peringatan tamat sewaan, dan pembaharuan.
+4. Pemulangan deposit semasa tamat, dengan potongan dan sebab.
+5. Keputusan pemilik projek:
+   - sama ada platform memungut sewa (melalui akaun amanah) atau rekod sahaja;
+   - komisen atau yuran langganan (semak Akta 242, ejen harta tanah);
+   - duti setem perjanjian sewa;
+   - cukai perkhidmatan ke atas sewa komersial.
+6. Fasa kemudian: pool pelaburan daripada hasil sewa (pelabur membiayai pengubahsuaian, berkongsi hasil sewa).

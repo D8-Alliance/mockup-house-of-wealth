@@ -170,6 +170,19 @@ export const apiClient = {
   /** The platform's trust account per country (Super Admin all; Country Admin and finance staff their own). */
   getCollectionAccounts: () => request<CollectionAccountView[]>('/collection-accounts'),
   saveCollectionAccount: (countryNodeId: string, input: { bankName: string; accountName: string; accountNumber: string; swiftCode?: string; instructions?: string }) => request<CollectionAccountView>(`/collection-accounts/${encodeURIComponent(countryNodeId)}`, { method: 'PUT', body: JSON.stringify(input) }),
+  // Direct leasing (Ijarah) of units of verified assets, without a project.
+  getMyLeasableUnits: () => request<{ assets: Array<{ id: string; name: string; assetType: string }>; units: MyLeasableUnit[] }>('/leasing/my-units'),
+  createLeasableUnit: (input: LeasableUnitInput) => request<LeasableUnitView>('/leasing/units', { method: 'POST', body: JSON.stringify(input) }),
+  updateLeasableUnit: (id: string, input: Partial<Omit<LeasableUnitInput, 'assetId' | 'currency'>> & { status?: 'LISTED' | 'WITHDRAWN' }) => request<LeasableUnitView>(`/leasing/units/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  getAvailableUnits: () => request<AvailableUnit[]>('/leasing/units'),
+  getLeases: () => request<AssetLeaseView[]>('/leasing/leases'),
+  getLease: (id: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}`),
+  requestLease: (input: { unitId: string; startDate: string; termMonths: number; monthlyRent?: number; intendedUse: string; tenantActivity: string; shariahDeclaration: boolean; message?: string }) => request<AssetLeaseView>('/leasing/leases', { method: 'POST', body: JSON.stringify(input) }),
+  respondLease: (id: string, input: { action: 'ACCEPT' | 'DECLINE' | 'COUNTER'; monthlyRent?: number; depositAmount?: number; startDate?: string; termMonths?: number; note?: string; confirmed?: boolean }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/respond`, { method: 'POST', body: JSON.stringify(input) }),
+  withdrawLease: (id: string, note?: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/withdraw`, { method: 'POST', body: JSON.stringify({ note }) }),
+  reviewLease: (id: string, input: { decision: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES'; note: string; track?: 'LEGAL' | 'SHARIAH' }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  recordLeaseRent: (id: string, period: string, input: { reference: string; paidAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/payments/${encodeURIComponent(period)}`, { method: 'POST', body: JSON.stringify(input) }),
+  endLease: (id: string, note: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/end`, { method: 'POST', body: JSON.stringify({ note }) }),
   createInvestmentOrder: (input: { poolId: string; amount: number; currency: string; idempotencyKey: string; akadTermsId: string; acceptAkad: true }) => request<BackendInvestmentOrder>('/investments/orders', { method: 'POST', body: JSON.stringify(input) }),
   getSettlementQueue: () => request<SettlementQueueOrder[]>('/investments/settlement-queue'),
   settleInvestmentOrder: (id: string, paymentReference: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/settle`, { method: 'POST', body: JSON.stringify({ paymentReference }) }),
@@ -2095,4 +2108,93 @@ export interface AgreementDetail extends Omit<AgreementSummary, 'complianceStatu
   complianceReport: { status?: string; checks?: Array<{ key: string; label: string; pass: boolean; severity: string }> } | null;
   versions: Array<{ id: string; version: number; content: { sections?: Array<{ number: string; title: string; paragraphs: string[] }>; approvedClauseIds?: string[]; shariahRuleIds?: string[] } }>;
   events: Array<{ id: string; eventType: string; fromStatus: string | null; toStatus: string | null; actorId: string; createdAt: string; metadata: { note?: string | null; role?: string; byName?: string; version?: number; versionHash?: string | null; checks?: { fail: string[]; warn: string[] }; aiAssisted?: { runId: string }; override?: { grounds: string[]; reason: string } } | null }>;
+}
+
+export interface LeasableUnitInput {
+  assetId: string;
+  label: string;
+  description?: string;
+  floorArea?: number;
+  floorAreaUnit?: 'SQFT' | 'SQM';
+  monthlyRent: number;
+  currency: string;
+  depositMonths?: number;
+  minTermMonths?: number;
+  availableFrom?: string;
+  permittedUse?: string;
+}
+
+export interface LeasableUnitView {
+  id: string;
+  assetId: string;
+  label: string;
+  description: string;
+  floorArea: number | null;
+  floorAreaUnit: 'SQFT' | 'SQM';
+  monthlyRent: number;
+  currency: string;
+  depositMonths: number;
+  minTermMonths: number;
+  availableFrom: string | null;
+  permittedUse: string;
+  status: 'LISTED' | 'WITHDRAWN';
+  asset: { name: string; assetType: string; region: string; location?: string; details?: Record<string, unknown> };
+  ownerOrganisationName: string;
+}
+
+export interface MyLeasableUnit extends LeasableUnitView {
+  /** The end of the approved lease that holds the unit today. */
+  occupiedUntil: string | null;
+  /** Requests waiting for the owner's answer. */
+  requests: number;
+}
+
+export interface AvailableUnit extends LeasableUnitView {
+  /** Periods other approved or accepted leases already hold. */
+  taken: Array<{ startDate: string; endDate: string }>;
+}
+
+export type LeaseStatus = 'PROPOSED' | 'ACCEPTED' | 'APPROVED' | 'DECLINED' | 'WITHDRAWN' | 'REJECTED' | 'ENDED';
+
+export interface LeaseRentRow {
+  period: string;
+  dueDate: string;
+  amount: number;
+  currency: string;
+  status: 'DUE' | 'PAID' | 'OVERDUE';
+  paidAt: string | null;
+  reference: string | null;
+}
+
+export interface AssetLeaseView {
+  id: string;
+  status: LeaseStatus;
+  awaiting: 'OWNER' | 'TENANT' | 'REVIEW' | 'NONE';
+  myParty: 'OWNER' | 'TENANT' | null;
+  canRespond: boolean;
+  canWithdraw: boolean;
+  canReview: boolean;
+  canRecordPayment: boolean;
+  canEnd: boolean;
+  unit: { id: string; label: string; floorArea: number | null; floorAreaUnit: string; permittedUse: string; minTermMonths: number };
+  asset: { id: string; name: string; assetType: string; region: string; location?: string };
+  ownerOrganisationName: string;
+  tenantOrganisationName: string | null;
+  monthlyRent: number;
+  depositAmount: number;
+  currency: string;
+  startDate: string;
+  endDate: string;
+  termMonths: number;
+  intendedUse: string;
+  tenantActivity: string;
+  shariahFlags?: string[];
+  legalApprovedAt: string | null;
+  shariahApprovedAt: string | null;
+  endedAt: string | null;
+  history: Array<{ at: string; byName: string; party: string; action: string; note?: string; statement?: string; terms?: { monthlyRent: number; depositAmount: number; startDate: string; endDate: string; termMonths: number } }>;
+  payments: LeaseRentRow[];
+  rent: { paid: number; overdue: number; due: number };
+  createdAt: string;
+  updatedAt: string;
 }

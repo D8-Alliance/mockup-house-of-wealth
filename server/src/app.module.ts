@@ -29,6 +29,7 @@ import { AssetsModule } from './assets/assets.module';
 import { OrganisationKybModule } from './organisation-kyb/organisation-kyb.module';
 import { CapitalTakafulModule } from './capital-takaful/capital-takaful.module';
 import { AssetPartnershipsModule } from './asset-partnerships/asset-partnerships.module';
+import { LeasingModule } from './leasing/leasing.module';
 import { FinancialLedgerModule } from './financial/financial-ledger.module';
 import { DistributionModule } from './distribution/distribution.module';
 import { EstateModule } from './estate/estate.module';
@@ -69,6 +70,7 @@ import { JobsModule } from './jobs/jobs.module';
     OrganisationKybModule,
     CapitalTakafulModule,
     AssetPartnershipsModule,
+    LeasingModule,
     FinancialLedgerModule,
     DistributionModule,
     EstateModule,
