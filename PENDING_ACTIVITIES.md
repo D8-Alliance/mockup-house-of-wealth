@@ -28,6 +28,7 @@ Kerja yang belum siap sahaja. Kerja yang sudah siap dibuang daripada senarai ini
 | 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO/push D8 Ideas, ujian super app, Keycloak, terjemahan | Butiran bank; spesifikasi D8 Ideas |
 | 21 | Sewaan terus (Ijarah) tanpa projek | Perjanjian Ijarah daripada modul kontrak, skrin web, peringatan sewa, deposit, keputusan pungutan sewa, komisen dan cukai | Keputusan pemilik projek; nasihat peguam dan cukai |
 | 22 | Agihan keuntungan (Settlement Officer) | Skrin web, fail bayaran pukal bank, peringatan hasil projek lewat | Boleh dimulakan |
+| 23 | Projek bermasalah: arkib dan gantung | Butang Arkib dan Gantung untuk Super Admin dan Country Admin, aliran pulangan modal | Boleh dimulakan bila diperlukan |
 
 ## 1. Tamper detection dokumen bukti projek
 
@@ -287,3 +288,16 @@ Bingkai kamera dan dokumen KYC masih disimpan tanpa had masa. **Perlu keputusan:
 1. Skrin web untuk Kewangan, termasuk fail bayaran pukal bank (DuitNow Bulk atau IBG) dan penyesuaian penyata bank.
 2. Peringatan jika hasil projek tidak masuk mengikut jadual.
 3. Perkiraan akhir pool (tanzid) dan caj rugi yang belum pulih terhadap modal (item 10).
+
+## 23. Projek bermasalah: arkib dan gantung
+
+- **Status:** Separa siap (2026-11-02). Projek boleh diarkibkan atau dipadam melalui skrip `server/scripts/delete-test-project.ts` sahaja. Skrip ini ditulis untuk membuang data ujian (Temerloh Biochar dan MD2 Pineapple).
+- **Cara skrip berfungsi:**
+  - Projek tanpa rekod *append-only* dipadam terus.
+  - Projek yang ada terma akad atau transaksi lejar diarkibkan (`Project.archivedAt`): pesanan PENDING dibatalkan, pool ditutup, dan projek hilang daripada senarai projek, pool, Agihan dan papan pemuka. Rekod dan log audit kekal.
+  - Pencetus *append-only* (lejar, terma akad, audit) tidak pernah dimatikan.
+
+**Belum siap:**
+1. Butang **Arkib** (dengan sebab) dan **Pulihkan** untuk Super Admin dan Country Admin di skrin projek.
+2. **Gantung** bagi projek sebenar yang ada pelabur: pool dihentikan, pelabur dimaklumkan, label "Digantung" untuk pelabur sedia ada, kemudian sambung semula atau pulangkan modal.
+3. Aliran pulangan modal kepada pelabur (lejar dan arahan bayaran).

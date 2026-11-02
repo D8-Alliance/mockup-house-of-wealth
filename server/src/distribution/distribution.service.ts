@@ -384,7 +384,7 @@ export class DistributionService {
    */
   async settlementPools(actor: AuthenticatedUser) {
     if (!OPERATORS.has(actor.role)) throw new ForbiddenException('Only settlement operators see the pools to settle.');
-    const pools = await this.prisma.wealthPool.findMany({ where: { ...settlementScopeFilter(actor), status: { in: DISTRIBUTABLE_POOL_STATUSES } }, orderBy: { poolName: 'asc' }, select: { poolId: true, poolName: true, projectId: true, organisationId: true, countryNodeId: true, currency: true, status: true, investmentStructure: true, project: { select: { projectName: true } } } });
+    const pools = await this.prisma.wealthPool.findMany({ where: { ...settlementScopeFilter(actor), status: { in: DISTRIBUTABLE_POOL_STATUSES }, project: { archivedAt: null } }, orderBy: { poolName: 'asc' }, select: { poolId: true, poolName: true, projectId: true, organisationId: true, countryNodeId: true, currency: true, status: true, investmentStructure: true, project: { select: { projectName: true } } } });
     return Promise.all(pools.map(async (pool) => {
       const [terms, contributions, funds, last] = await Promise.all([
         this.prisma.poolAkadTerms.findFirst({ where: { poolId: pool.poolId }, orderBy: { version: 'desc' }, select: { akadType: true, investorProfitSharePct: true } }),

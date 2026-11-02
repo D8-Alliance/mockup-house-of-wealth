@@ -36,8 +36,8 @@ export async function networkOverview(prisma: PrismaService, actor: Authenticate
     prisma.organisation.groupBy({ by: ['countryNodeId'], where: only, _count: { _all: true } }),
     // A person with several roles in one country counts once there.
     prisma.userRoleAssignment.findMany({ where: { ...only, isActive: true }, select: { userId: true, countryNodeId: true }, distinct: ['userId', 'countryNodeId'] }),
-    prisma.project.groupBy({ by: ['countryNodeId'], where: { ...only, status: { not: 'DRAFT' } }, _count: { _all: true }, _sum: { totalProjectCost: true } }),
-    prisma.wealthPool.groupBy({ by: ['countryNodeId'], where: only, _count: { _all: true } }),
+    prisma.project.groupBy({ by: ['countryNodeId'], where: { ...only, status: { not: 'DRAFT' }, archivedAt: null }, _count: { _all: true }, _sum: { totalProjectCost: true } }),
+    prisma.wealthPool.groupBy({ by: ['countryNodeId'], where: { ...only, project: { archivedAt: null } }, _count: { _all: true } }),
     prisma.investmentOrder.groupBy({ by: ['countryNodeId'], where: { ...only, status: 'SETTLED' }, _sum: { amount: true } }),
     prisma.userRoleAssignment.findMany({ where: { ...only, isActive: true }, select: { userId: true }, distinct: ['userId'] }).then((rows) => rows.length),
     prisma.investmentOrder.count({ where: { ...only, status: 'PENDING' } }),

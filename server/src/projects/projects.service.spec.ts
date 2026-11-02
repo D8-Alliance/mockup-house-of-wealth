@@ -53,7 +53,7 @@ describe('ProjectsService list tenant scoping (country admin sees only its own c
     await service.list(actor('Super Admin', 'CN-MYS'));
 
     expect(prismaMock.project.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: {} }),
+      expect.objectContaining({ where: { archivedAt: null } }),
     );
   });
 
@@ -61,7 +61,7 @@ describe('ProjectsService list tenant scoping (country admin sees only its own c
     await service.list(actor('Country Admin', 'CN-MYS'));
 
     expect(prismaMock.project.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { countryNodeId: 'CN-MYS' } }),
+      expect.objectContaining({ where: { countryNodeId: 'CN-MYS', archivedAt: null } }),
     );
   });
 
@@ -69,7 +69,7 @@ describe('ProjectsService list tenant scoping (country admin sees only its own c
     await service.list(actor('Country Admin', 'CN-IDN'));
 
     expect(prismaMock.project.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { countryNodeId: 'CN-IDN' } }),
+      expect.objectContaining({ where: { countryNodeId: 'CN-IDN', archivedAt: null } }),
     );
   });
 
@@ -77,7 +77,7 @@ describe('ProjectsService list tenant scoping (country admin sees only its own c
     await service.list(actor('Organization Admin', 'CN-MYS', 'ORG-A'));
 
     expect(prismaMock.project.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { countryNodeId: 'CN-MYS', organisationId: 'ORG-A' } }),
+      expect.objectContaining({ where: { countryNodeId: 'CN-MYS', organisationId: 'ORG-A', archivedAt: null } }),
     );
   });
 
@@ -85,7 +85,7 @@ describe('ProjectsService list tenant scoping (country admin sees only its own c
     await service.list({ ...actor('Project Sponsor', 'CN-TUR', 'ORG-TURK-LOG'), userId: 'USR-TUR-003' });
 
     expect(prismaMock.project.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { countryNodeId: 'CN-TUR', organisationId: 'ORG-TURK-LOG', projectSponsorId: 'USR-TUR-003' } }),
+      expect.objectContaining({ where: { countryNodeId: 'CN-TUR', organisationId: 'ORG-TURK-LOG', projectSponsorId: 'USR-TUR-003', archivedAt: null } }),
     );
   });
 

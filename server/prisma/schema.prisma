@@ -271,6 +271,11 @@ model Project {
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
   lifecycleVersion        Int      @default(1)
+  /// Set when the project is taken out of every list (test data, or a project withdrawn by an administrator).
+  /// Its records, ledger and audit trail stay; scripts/delete-test-project.ts archives what it cannot delete.
+  archivedAt              DateTime?
+  archivedBy              String?
+  archivedReason          String?
   /// The project carries out works on a site (clearing, construction): Contractor's All Risk and public liability cover are required.
   hasSiteWork             Boolean  @default(false)
   /// The project employs workers: PERKESO cover is required.

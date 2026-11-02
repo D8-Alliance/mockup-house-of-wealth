@@ -45,7 +45,7 @@ describe('network overview', () => {
     const prisma = prismaMock();
     await networkOverview(prisma as unknown as PrismaService, actor('Country Admin', 'CN-TUR'));
     expect(prisma.countryNode.findMany.mock.calls[0][0].where).toEqual({ code: 'CN-TUR' });
-    expect(prisma.project.groupBy.mock.calls[0][0].where).toEqual({ countryNodeId: 'CN-TUR', status: { not: 'DRAFT' } });
+    expect(prisma.project.groupBy.mock.calls[0][0].where).toEqual({ countryNodeId: 'CN-TUR', status: { not: 'DRAFT' }, archivedAt: null });
     expect(prisma.investmentOrder.count.mock.calls[0][0].where).toEqual({ countryNodeId: 'CN-TUR', status: 'PENDING' });
   });
 });
