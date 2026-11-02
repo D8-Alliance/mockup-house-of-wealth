@@ -10,6 +10,7 @@ interface FinancialPreferencesPanelProps {
   notify: (message: string) => void;
 }
 
+/** Currencies a payout bank account can receive. */
 const CURRENCIES = [
   { code: 'MYR', label: 'MYR (RM) – Malaysian Ringgit' },
   { code: 'IDR', label: 'IDR (Rp) – Indonesian Rupiah' },
@@ -38,19 +39,17 @@ const INPUT = 'w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-900 bo
 const LABEL = 'text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5';
 
 export const FinancialPreferencesPanel: React.FC<FinancialPreferencesPanelProps> = ({ preferences, onSave, showPayoutAccounts, notify }) => {
-  const [currency, setCurrency] = useState(preferences.currency ?? 'MYR');
   const [contracts, setContracts] = useState<string[]>(preferences.preferredContracts ?? CONTRACTS.map((c) => c.type));
   const [savingPrefs, setSavingPrefs] = useState(false);
 
   useEffect(() => {
-    setCurrency(preferences.currency ?? 'MYR');
     setContracts(preferences.preferredContracts ?? CONTRACTS.map((c) => c.type));
-  }, [preferences.currency, preferences.preferredContracts]);
+  }, [preferences.preferredContracts]);
 
   const savePreferences = async () => {
     setSavingPrefs(true);
     try {
-      await onSave({ currency, preferredContracts: contracts });
+      await onSave({ preferredContracts: contracts });
       notify('Preferences saved.');
     } finally {
       setSavingPrefs(false);
@@ -69,19 +68,11 @@ export const FinancialPreferencesPanel: React.FC<FinancialPreferencesPanelProps>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Saved to your profile.</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div>
-          <label htmlFor="pref-currency" className={LABEL}>Preferred currency</label>
-          <select id="pref-currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className={`${INPUT} font-bold cursor-pointer`}>
-            {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <span className={LABEL}>Zakat</span>
-          <p className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300">
-            Zakat on wealth is 2.5% once your holdings reach the nisab and a full lunar year (hawl) has passed. The rate is set by Shariah, so it is not a setting.
-          </p>
-        </div>
+      <div>
+        <span className={LABEL}>Zakat</span>
+        <p className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300">
+          Zakat on wealth is 2.5% once your holdings reach the nisab and a full lunar year (hawl) has passed. The rate is set by Shariah, so it is not a setting. Amounts always show in each pool's own currency.
+        </p>
       </div>
 
       <div className="space-y-3">

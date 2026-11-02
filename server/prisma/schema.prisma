@@ -2525,3 +2525,42 @@ model FatwaResolution {
 
   @@index([countryNodeId, status])
 }
+
+/// A project's quarterly performance report: the PDP fills it, an auditor verifies it, then the pool's investors see it.
+model ProjectPerformanceReport {
+  id                 String    @id @default(cuid())
+  projectId          String
+  organisationId     String
+  countryNodeId      String
+  year               Int
+  /// 1 to 4.
+  quarter            Int
+  currency           String
+  revenueActual      Decimal   @db.Decimal(18, 2)
+  revenueProjected   Decimal   @db.Decimal(18, 2)
+  costActual         Decimal   @db.Decimal(18, 2)
+  costProjected      Decimal   @db.Decimal(18, 2)
+  /// From the project's distributions approved in the quarter, filled by the server on submit.
+  profitDistributed  Decimal   @default(0) @db.Decimal(18, 2)
+  milestonesOnTimePct Int
+  budgetUsedPct      Int
+  shariahIncidents   Int       @default(0)
+  auditFindings      String    @default("")
+  /// Sector KPIs, up to five: [{ name, unit, actual, target }].
+  sectorKpis         Json      @default("[]")
+  commentary         String    @default("")
+  /// DRAFT, SUBMITTED, RETURNED or VERIFIED.
+  status             String    @default("DRAFT")
+  submittedBy        String?
+  submittedAt        DateTime?
+  verifiedBy         String?
+  verifiedAt         DateTime?
+  reviewNote         String?
+  /// Submissions and decisions, oldest first: { at, by, byName, action, note }.
+  history            Json      @default("[]")
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([projectId, year, quarter])
+  @@index([countryNodeId, status])
+}

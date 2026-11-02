@@ -4,6 +4,7 @@ import { apiClient } from '../../services/apiClient';
 import { ASSET_DOCUMENT_LABELS } from '../../assets/assetLabels';
 import { KYB_DOCUMENT_LABELS } from '../../organisations/organisationKybLabels';
 import { UserRole } from '../../rbac/types';
+import { AuditorPerformanceQueue } from '../performance/PerformanceReports';
 
 /** Who sees which documents: each list comes from the screen that already governs access to it. */
 const ASSET_ROLES: UserRole[] = ['Asset Owner', 'Asset Manager', 'Legal Officer'];
@@ -59,10 +60,11 @@ export const RoleDocumentVault: React.FC<{ role: UserRole }> = ({ role }) => {
       {!assets && !kyb && (
         <p className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-sm text-slate-600 dark:text-slate-300">
           {role === 'KYC Officer' ? 'Identity documents are opened only from the KYC review queue, one application at a time, so they are not listed here.'
-            : role === 'Auditor' ? 'Your role reviews records rather than files: the audit trail, with its hash-chain check, is in Admin Center › Audit Logs, and exports are in Regulatory Reports.'
+            : role === 'Auditor' ? 'You verify the projects\' quarterly performance reports below. Project files are opened by the project\'s reviewers, not listed here.'
             : 'Your role has no documents to open here.'}
         </p>
       )}
+      {role === 'Auditor' && <AuditorPerformanceQueue />}
       {error && <p role="alert" className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
       {(assets || kyb) && rows === null && <p className="text-xs text-slate-500">Loading…</p>}
       {(assets || kyb) && rows?.length === 0 && !error && <p className="text-xs text-slate-500">No documents yet.</p>}

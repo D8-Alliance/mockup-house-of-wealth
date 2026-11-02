@@ -13,7 +13,7 @@ import {
 import { PDPSubscriptionCard } from '../revenue/PDPSubscriptionCard';
 import { PromoteProjectModal } from '../revenue/PromoteProjectModal';
 import { revenueService } from '../../revenue/revenueService';
-import { SponsorMembershipCard, SponsorReportsLive } from './SponsorLiveSections';
+import { SponsorMembershipCard, SponsorReportsTab } from './SponsorLiveSections';
   import { PDPSubscription, PDPPlan, HoWCreditBalance } from '../../revenue/revenueTypes';
 import { PDPApplication } from '../../pdp/pdpTypes';
 import { PDPRegistrationModal } from '../../pdp/components/PDPRegistrationModal';
@@ -567,7 +567,7 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
           })}
         </div>
       ) : activeTab === 'reports' && !demo ? (
-        <SponsorReportsLive projects={projects} />
+        <SponsorReportsTab projects={projects} />
       ) : activeTab === 'reports' ? (
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
           <div className="flex justify-between items-center">

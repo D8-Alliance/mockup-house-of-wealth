@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsOptional, IsString, Matches, MaxLength, ValidateNested } from 'class-validator';
-import { PAYOUT_CURRENCIES } from '../distribution/payout-destination.dto';
 
 export const PREFERRED_CONTRACTS = ['Mudarabah', 'Musharakah', 'Ijarah', 'Murabahah', 'Wakalah', 'Sukuk'] as const;
 export const ESTATE_FRAMEWORKS = ['Islamic', 'Civil'] as const;
@@ -15,7 +14,6 @@ export class NotificationPreferencesDto {
 }
 
 export class ProfilePreferencesDto {
-  @IsOptional() @IsIn(PAYOUT_CURRENCIES) currency?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(PREFERRED_CONTRACTS.length) @IsIn(PREFERRED_CONTRACTS, { each: true }) preferredContracts?: string[];
   @IsOptional() @ValidateNested() @Type(() => NotificationPreferencesDto) notifications?: NotificationPreferencesDto;
   /** Whether the owner's estate instructions follow Islamic rules (faraid, wasiyyah, hibah) or a civil will. */

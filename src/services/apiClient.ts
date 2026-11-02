@@ -365,7 +365,13 @@ export const apiClient = {
     }),
   getMembershipStatus: () => request<BackendMembershipStatus>('/membership/me'),
   getPaymentOptions: () => request<{ simulatedPaymentsAllowed: boolean }>('/membership/payment-options'),
-  getGovernanceDashboard: <T,>(kind: 'compliance' | 'audit' | 'finance' | 'security') => request<T>(`/governance/dashboards/${kind}`),
+  getProjectPerformanceReports: (projectId: string) => request<PerformanceReport[]>(`/performance-reports/projects/${encodeURIComponent(projectId)}`),
+  savePerformanceReport: (projectId: string, year: number, quarter: number, input: PerformanceReportInput) => request<PerformanceReport>(`/performance-reports/projects/${encodeURIComponent(projectId)}/${year}/${quarter}`, { method: 'PUT', body: JSON.stringify(input) }),
+  submitPerformanceReport: (projectId: string, year: number, quarter: number) => request<PerformanceReport>(`/performance-reports/projects/${encodeURIComponent(projectId)}/${year}/${quarter}/submit`, { method: 'POST' }),
+  getPerformanceReportQueue: () => request<PerformanceReport[]>('/performance-reports/queue'),
+  reviewPerformanceReport: (id: string, input: { decision: 'VERIFY' | 'RETURN'; note: string }) => request<PerformanceReport>(`/performance-reports/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
+  getMyPerformanceReports: () => request<PerformanceReport[]>('/performance-reports/mine'),
+  getGovernanceDashboard:<T,>(kind: 'compliance' | 'audit' | 'finance' | 'security') => request<T>(`/governance/dashboards/${kind}`),
   getGovernanceReports: () => request<Array<{ key: string; label: string; description: string }>>('/governance/reports'),
   downloadGovernanceReport: async (key: string) => {
     const token = authService.getAuthState().session?.token;
@@ -1232,7 +1238,6 @@ interface ShariahConfidence {
 
 /** Saved in the user's profile on the server. Unset notification channels count as on. */
 export interface ProfilePreferences {
-  currency?: string;
   preferredContracts?: string[];
   notifications?: { email?: boolean; push?: boolean; sms?: boolean };
   /** Islamic (faraid, wasiyyah, hibah) or Civil (a will): how the owner's estate instructions are read. */
@@ -2053,6 +2058,20 @@ export type AgreementPartyAction = 'CONSENT' | 'SIGN';
 export type OrganisationKybStatus = 'NOT_SUBMITTED' | 'SUBMITTED' | 'CHANGES_REQUESTED' | 'APPROVED' | 'REJECTED';
 export type OrganisationKybDocumentType = 'SSM_PROFILE' | 'DIRECTORS' | 'SHAREHOLDERS' | 'BOARD_RESOLUTION' | 'OTHER';
 /** An organisation's registration details and business verification (KYB). */
+/** A project's quarterly performance report (server/src/performance-reports). */
+export interface PerformanceReportInput {
+  revenueActual: number; revenueProjected: number; costActual: number; costProjected: number;
+  milestonesOnTimePct: number; budgetUsedPct: number; shariahIncidents: number;
+  auditFindings?: string; commentary?: string;
+  sectorKpis?: Array<{ name: string; unit: string; actual: number; target: number }>;
+}
+export interface PerformanceReport extends Required<PerformanceReportInput> {
+  id: string; projectId: string; projectName?: string; year: number; quarter: number; currency: string;
+  profitDistributed: number; status: 'DRAFT' | 'SUBMITTED' | 'RETURNED' | 'VERIFIED';
+  submittedAt: string | null; verifiedAt: string | null; reviewNote: string | null;
+  history: Array<{ at: string; byName: string; action: string; note?: string }>;
+}
+
 /** Admin Center governance records (server/src/governance). */
 export interface RiskInput { countryNodeId?: string; title: string; category: string; likelihood: number; impact: number; ownerName: string; mitigation?: string; status?: string; reviewDue?: string }
 export interface RiskItem extends Required<Omit<RiskInput, 'countryNodeId' | 'reviewDue'>> { id: string; countryNodeId: string; reviewDue: string | null; score: number; createdAt: string; updatedAt: string }

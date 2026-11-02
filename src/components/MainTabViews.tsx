@@ -16,6 +16,7 @@ import { LivePoolsPanel } from '../pooling/LivePoolsPanel';
 import { LiveDocumentVault } from './documents/LiveDocumentVault';
 import { RoleDocumentVault } from './documents/RoleDocumentVault';
 import { InvestorWalletNotice } from './investments/InvestorWalletNotice';
+import { InvestorPerformanceReports } from './performance/PerformanceReports';
 import { WalletView } from './WalletView';
 import { DocumentsView } from './DocumentsView';
 import { NotificationsView } from './NotificationsView';
@@ -194,6 +195,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
             <div className="space-y-4">
               <InvestorPositionsPanel />
               <InvestorProfitHistoryPanel />
+              <InvestorPerformanceReports />
               <InvestorAgreementsPanel />
               <InvestorPoolsPanel />
             </div>
@@ -225,7 +227,8 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
       {currentTab === 'documents' && (
         <RoleGuard tab="documents">
           {/* Project documents need project read access (marketplace:read on the server); other roles get their own documents. */}
-          {authMode === 'DEMO' ? <DocumentsView /> : checkPermission('marketplace', 'read') ? <LiveDocumentVault /> : <RoleDocumentVault role={currentRole} />}
+          {/* The server gives auditors no project access; their Documents tab holds the performance reports to verify. */}
+          {authMode === 'DEMO' ? <DocumentsView /> : checkPermission('marketplace', 'read') && currentRole !== 'Auditor' ? <LiveDocumentVault /> : <RoleDocumentVault role={currentRole} />}
         </RoleGuard>
       )}
 
