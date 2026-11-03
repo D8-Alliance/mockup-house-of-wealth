@@ -37,6 +37,7 @@ import { SiteContentModule } from './site-content/site-content.module';
 import { CollectionAccountModule } from './collection-accounts/collection-account.module';
 import { GovernanceModule } from './governance/governance.module';
 import { PerformanceReportsModule } from './performance-reports/performance-reports.module';
+import { TenantAdminModule } from './tenant-admin/tenant-admin.module';
 import { InvestmentsModule } from './investments/investments.module';
 import { NotificationModule } from './notifications/notification.module';
 import { JobsModule } from './jobs/jobs.module';
@@ -79,6 +80,7 @@ import { JobsModule } from './jobs/jobs.module';
     CollectionAccountModule,
     GovernanceModule,
     PerformanceReportsModule,
+    TenantAdminModule,
     InvestmentsModule,
     NotificationModule,
     JobsModule,

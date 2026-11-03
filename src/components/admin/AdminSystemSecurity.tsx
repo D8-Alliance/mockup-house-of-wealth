@@ -15,6 +15,7 @@ import { UserDetailModal } from '../../users/UserDetailModal';
 import { InviteUserModal } from '../../users/InviteUserModal';
 import { RoleAssignmentModal } from '../../users/RoleAssignmentModal';
 import { UserOnboardingModal } from '../../users/UserOnboardingModal';
+import { UserScopeAssignmentModal } from '../../users/UserScopeAssignmentModal';
 import { AppUser } from '../../users/userTypes';
 
 import { RoleManagementPanel } from './RoleManagementPanel';
@@ -46,6 +47,7 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
   const [isInviteUserOpen, setIsInviteUserOpen] = useState(false);
   const [roleAssignmentTargetUser, setRoleAssignmentTargetUser] = useState<AppUser | null>(null);
   const [onboardingTargetUserId, setOnboardingTargetUserId] = useState<string | null>(null);
+  const [scopeTargetUser, setScopeTargetUser] = useState<AppUser | null>(null);
 
   const [refreshKey, setRefreshKey] = useState(0);
   const forceRefresh = () => setRefreshKey(prev => prev + 1);
@@ -112,8 +114,10 @@ export const AdminSystemSecurity: React.FC<AdminSystemSecurityProps> = ({
           <UserList
             onSelectUser={user => setSelectedUser(user)}
             onOpenRoleAssignmentModal={user => setRoleAssignmentTargetUser(user)}
+            onOpenScopeAssignmentModal={user => setScopeTargetUser(user)}
           />
           <UserDetailModal user={selectedUser} isOpen={!!selectedUser} onClose={() => setSelectedUser(null)} />
+          <UserScopeAssignmentModal user={scopeTargetUser} isOpen={!!scopeTargetUser} onClose={() => setScopeTargetUser(null)} onUpdated={forceRefresh} />
           {/* Keyed by person, so the role choices start from that person's roles each time it opens. */}
           <RoleAssignmentModal
             key={roleAssignmentTargetUser?.userId ?? 'none'}

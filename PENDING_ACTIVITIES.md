@@ -24,7 +24,7 @@ Kerja yang belum siap sahaja. Kerja yang sudah siap dibuang daripada senarai ini
 | 16 | Benefisiari dan pusaka | Estate Officer, aliran kematian, qabul hibah, persetujuan waris, wasi | Ditangguhkan (keputusan 2026-11-02); nasihat Shariah dan undang-undang |
 | 17 | Modul aset | Aliran tunai sewa/untung, baki tandatangan dan takaful, Fasa C agensi, skrin demo | Boleh diteruskan |
 | 18 | Kunci API | Kunci API untuk sistem luar | Ditangguhkan sehingga ada keperluan |
-| 19 | Pengurusan pengguna | Notis privasi rasmi; Fasa 2–4; penguatkuasaan PDPA di server | Butiran syarikat dan semakan peguam |
+| 19 | Pengurusan pengguna | Notis privasi rasmi; RoleGrantRequest dan sebab perubahan peranan; Fasa 3–4; penguatkuasaan PDPA di server | Butiran syarikat dan semakan peguam |
 | 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO/push D8 Ideas, ujian super app, Keycloak, terjemahan | Butiran bank; spesifikasi D8 Ideas |
 | 21 | Sewaan terus (Ijarah) tanpa projek | Skrin web, pembaharuan sewaan, keputusan pungutan sewa, komisen dan cukai | Keputusan pemilik projek; nasihat peguam dan cukai |
 | 22 | Agihan keuntungan (Settlement Officer) | Skrin web, fail bayaran pukal bank, peringatan hasil projek lewat | Boleh dimulakan |
@@ -233,7 +233,7 @@ Bingkai kamera dan dokumen KYC masih disimpan tanpa had masa. **Perlu keputusan:
 
 **Baki:**
 1. **Notis privasi:** deraf `MYS-2026-10-DRAFT-1` perlu peguam; isi nama syarikat, SSM, pegawai perlindungan data, lokasi data, tempoh simpanan; terbitkan versi baharu.
-2. **Fasa 2:** `RoleGrantRequest` (pemohon dan pelulus berbeza) untuk peranan admin, dan skrin Users (tambah/buang peranan dengan sebab, pindah organisasi, gantung akaun).
+2. **Fasa 2:** `RoleGrantRequest` (pemohon dan pelulus berbeza) untuk peranan admin, dan sebab wajib semasa menambah atau membuang peranan. (Gantung/aktifkan akaun, pindah organisasi, cipta dan gantung organisasi serta negara sudah ada di Admin Center.)
 3. **Fasa 3:** daftar sendiri melalui Keycloak; pengguna dicipta pada log masuk pertama.
 4. **Fasa 4:** model organisasi lengkap (item 15); penyulitan medan KYC.
 5. **Penguatkuasaan PDPA di server:** sekat API (kecuali log masuk dan notis) sehingga persetujuan direkod.

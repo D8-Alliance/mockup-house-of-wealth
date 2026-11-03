@@ -121,6 +121,12 @@ Untuk menunjuk sistem secara langsung tanpa mendedahkan backend, frontend boleh 
 - **Peranan aktif:** peranan dalam token hanya diterima jika pengguna memang memegangnya dalam database.
 - **Member ID** `USR-MYS-XXXXXXXX`; individu mendapat organisasi peribadi `ORG-MYS-IND-…`. Negara akaun ditetapkan semasa pendaftaran dan tidak boleh ditukar.
 - **Persetujuan PDPA:** notis privasi dwibahasa dan rekod `PrivacyConsent` (deraf masih perlu semakan peguam).
+- **Pentadbiran pengguna dan tenant** (Admin Center; Super Admin, dan Country Admin dalam negaranya; setiap tindakan diaudit dengan sebab):
+  - **User Directory:** tambah atau buang peranan, gantung atau aktifkan akaun (bukan akaun sendiri), dan **pindah** seseorang ke organisasi aktif lain dalam negara yang sama (`POST /users/:id/organisation`). Semua peranannya berpindah; tugasan lama dibatalkan, bukan dipadam. Country Admin tidak boleh memindahkan pentadbir, dan Super Admin tidak boleh dipindahkan.
+  - **Organisations:** cipta organisasi (`POST /organisations`; nama tidak boleh berulang dalam negara yang sama) dan gantung atau aktifkan semula (`PATCH /organisations/:id/status`). Tiada sesiapa boleh menggantung organisasi sendiri atau organisasi Super Admin; Country Admin tidak boleh menggantung organisasi yang mempunyai pentadbir.
+  - **Country Nodes** (Super Admin sahaja): cipta (`POST /country-nodes`) dan nyahaktifkan atau aktifkan semula (`PATCH /country-nodes/:code/status`), kecuali negara Super Admin.
+  - **Role Management:** senarai pengguna yang sama (peranan, organisasi, gantung) di bahagian atas, diikuti katalog 36 peranan: siapa memegang setiap peranan, kebenaran yang dikuatkuasakan server, dan sama ada peranan dimatikan dalam Role Availability. Peranan tetap dalam kod; cipta peranan sendiri, jemput pengguna dan tukar peranan hanya dalam mod DEMO.
+  - **Kesan gantung:** pengguna, organisasi atau negara yang digantung tidak boleh log masuk (`IdentityService`) dan tidak boleh diberi peranan baharu. Rekod kekal. Organisasi dan negara tidak boleh dipadam selepas ada rekod audit; gantung ialah cara menamatkannya.
 
 ### 4.3 Kebenaran (permission)
 - **Model:** setiap peranan mempunyai senarai **tindakan** (`create`, `read`, `update`, `delete`, `approve`, `disburse`, `audit`, `export`) bagi setiap **modul sumber** (`dashboard`, `assets`, `contracts`, `marketplace`, `pooling`, `ledger`, `profile`, `governance`, `approvals`, `users`, `audit_logs`, `reports`). Dinilai oleh `PolicyEngine` di server.

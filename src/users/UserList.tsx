@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Users, Search, Filter, UserPlus, Shield, CheckCircle2, AlertTriangle, Key, Lock, Eye, ChevronRight, UserCheck } from 'lucide-react';
 import { AppUser, UserAccountStatus } from './userTypes';
 import { useRBAC } from '../rbac/RBACContext';
-import { apiClient, BackendUser } from '../services/apiClient';
+import { apiClient, apiErrorMessage, BackendUser } from '../services/apiClient';
 
 function mapBackendUser(user: BackendUser): AppUser {
   const profile = user.profile || {};
@@ -42,13 +42,21 @@ interface UserListProps {
   /** Left out where people join by signing up, so there is no invite button. */
   onOpenInviteModal?: () => void;
   onOpenRoleAssignmentModal: (user: AppUser) => void;
+  /** Opens the organisation (scope) modal; without it there is no move button. */
+  onOpenScopeAssignmentModal?: (user: AppUser) => void;
+  /** Changing it reloads the list, e.g. after roles or the organisation changed. */
+  refreshKey?: number;
 }
 
 export const UserList: React.FC<UserListProps> = ({
   onSelectUser,
   onOpenInviteModal,
-  onOpenRoleAssignmentModal
+  onOpenRoleAssignmentModal,
+  onOpenScopeAssignmentModal,
+  refreshKey = 0,
 }) => {
+  const [actionError, setActionError] = useState('');
+  const [actionDone, setActionDone] = useState('');
   const { currentRole, currentCountryNode, currentOrgId } = useRBAC();
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -69,7 +77,7 @@ export const UserList: React.FC<UserListProps> = ({
       .catch(() => undefined);
   }, [global]);
 
-  useEffect(() => {
+  const reloadUsers = React.useCallback(() => {
     apiClient.getUsers()
       .then(users => {
         setAllUsers(users.map(mapBackendUser));
@@ -78,6 +86,7 @@ export const UserList: React.FC<UserListProps> = ({
       })
       .catch(error => setLoadState(error instanceof Error ? error.message : 'The user directory could not be loaded.'));
   }, []);
+  useEffect(reloadUsers, [reloadUsers, refreshKey]);
 
 
   // Tenant scoping check!
@@ -111,16 +120,24 @@ export const UserList: React.FC<UserListProps> = ({
   const countryLabel = (code: string) => countryNames.get(code) ? `${countryNames.get(code)} (${code})` : code;
 
   const handleStatusChange = async (userId: string, newStatus: UserAccountStatus) => {
+    setActionError('');
+    setActionDone('');
     try {
       const updated = await apiClient.updateUserStatus(userId, newStatus);
       setAllUsers(users => users.map(user => user.userId === userId ? mapBackendUser(updated) : user));
+      setActionDone(newStatus === 'ACTIVE' ? 'The account is active again.' : 'The account is suspended; the person cannot sign in.');
     } catch (error) {
-      console.error('User status update failed', error);
+      setActionError(apiErrorMessage(error, 'The status could not be changed.'));
     }
   };
 
+  // Moving a person to another organisation of their country (Super Admin and Country Admin).
+  const canMove = Boolean(onOpenScopeAssignmentModal) && (currentRole === 'Super Admin' || currentRole === 'Country Admin');
+
   return (
     <div className="space-y-6">
+      {actionError && <p role="alert" className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-xs font-bold text-rose-700 dark:text-rose-300">{actionError}</p>}
+      {actionDone && <p role="status" className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 text-xs font-bold text-emerald-700 dark:text-emerald-300">{actionDone}</p>}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
         <div>
@@ -308,6 +325,16 @@ export const UserList: React.FC<UserListProps> = ({
                           className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 font-bold text-[10px] cursor-pointer"
                         >
                           Activate
+                        </button>
+                      )}
+
+                      {canMove && u.assignedRoles.length > 0 && !u.assignedRoles.includes('Super Admin') && (
+                        <button
+                          onClick={() => onOpenScopeAssignmentModal?.(u)}
+                          className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 font-bold text-[10px] cursor-pointer"
+                          title="Move to another organisation in the same country"
+                        >
+                          Organisation
                         </button>
                       )}
                     </td>

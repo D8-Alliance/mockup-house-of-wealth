@@ -1,9 +1,9 @@
 import React from 'react';
-import { Activity, Building2, FileText, Globe } from 'lucide-react';
-import { apiClient, ContractTemplateRow, NetworkOverview, OrganisationDirectoryRow } from '../../services/apiClient';
+import { Activity, FileText } from 'lucide-react';
+import { apiClient, ContractTemplateRow } from '../../services/apiClient';
 import { useRBAC } from '../../rbac/RBACContext';
 import { LedgerIntegrityPanel } from './LedgerIntegrityPanel';
-import { CollectionAccountsPanel } from './CollectionAccountsPanel';
+
 
 /** Loads once on mount; the error is shown in place of the table. */
 function useServerData<T>(load: () => Promise<T>) {
@@ -37,69 +37,6 @@ const State: React.FC<{ error: string; loading: boolean; empty: boolean; emptyTe
 const TH = 'px-3 py-2.5 font-black';
 const TD = 'px-3 py-2.5';
 const label = (code: string) => code.toLowerCase().split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-
-export const LiveOrganisations: React.FC = () => {
-  const { data, error } = useServerData<OrganisationDirectoryRow[]>(apiClient.getOrganisationDirectory);
-  return (
-    <Card icon={<Building2 className="w-5 h-5 text-purple-600" />} title="Organisations" lead="Every organisation in your scope, its verification (KYB) and what it holds. Verification decisions are made in Organisation Verification.">
-      <State error={error} loading={!data} empty={!!data && data.length === 0} emptyText="No organisation is registered yet." />
-      {data && data.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-slate-50 dark:bg-slate-900/40 text-[10px] uppercase tracking-wider text-slate-400">
-              <tr className="text-left"><th className={TH}>Organisation</th><th className={TH}>Country</th><th className={TH}>KYB</th><th className={`${TH} text-right`}>People</th><th className={`${TH} text-right`}>Projects</th><th className={`${TH} text-right`}>Pools</th><th className={TH}>Status</th></tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-              {data.map(row => (
-                <tr key={row.id}>
-                  <td className={TD}><span className="font-bold text-slate-900 dark:text-white">{row.name}</span> <span className="font-mono text-slate-400">{row.id}</span>{row.registrationNumber && <span className="block text-[11px] text-slate-500">Reg. {row.registrationNumber}</span>}</td>
-                  <td className={`${TD} font-mono`}>{row.countryNodeId}</td>
-                  <td className={TD}>{label(row.kybStatus)}</td>
-                  <td className={`${TD} text-right font-mono`}>{row.users}</td>
-                  <td className={`${TD} text-right font-mono`}>{row.projects}</td>
-                  <td className={`${TD} text-right font-mono`}>{row.pools}</td>
-                  <td className={TD}>{label(row.status)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Card>
-  );
-};
-
-export const LiveCountryNodes: React.FC = () => {
-  const { data, error } = useServerData<NetworkOverview>(apiClient.getNetworkOverview);
-  return (
-    <Card icon={<Globe className="w-5 h-5 text-purple-600" />} title="Country Nodes" lead="The D-8 country nodes registered in the database, each with its own currency. A new node is added by a database migration, not from this screen.">
-      <State error={error} loading={!data} empty={!!data && data.countries.length === 0} emptyText="No country node is registered." />
-      {data && data.countries.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-slate-50 dark:bg-slate-900/40 text-[10px] uppercase tracking-wider text-slate-400">
-              <tr className="text-left"><th className={TH}>Country</th><th className={TH}>Currency</th><th className={`${TH} text-right`}>Organisations</th><th className={`${TH} text-right`}>People</th><th className={`${TH} text-right`}>Projects</th><th className={`${TH} text-right`}>Pools</th><th className={TH}>Status</th></tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-              {data.countries.map(row => (
-                <tr key={row.code}>
-                  <td className={TD}><span className="font-bold text-slate-900 dark:text-white">{row.name}</span> <span className="font-mono text-slate-400">{row.code}</span></td>
-                  <td className={`${TD} font-mono`}>{row.currency}</td>
-                  <td className={`${TD} text-right font-mono`}>{row.organisations}</td>
-                  <td className={`${TD} text-right font-mono`}>{row.users}</td>
-                  <td className={`${TD} text-right font-mono`}>{row.projects}</td>
-                  <td className={`${TD} text-right font-mono`}>{row.pools}</td>
-                  <td className={TD}>{label(row.status)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <CollectionAccountsPanel />
-    </Card>
-  );
-};
 
 export const LiveContractTemplates: React.FC = () => {
   const { data, error } = useServerData<ContractTemplateRow[]>(apiClient.getContractTemplates);

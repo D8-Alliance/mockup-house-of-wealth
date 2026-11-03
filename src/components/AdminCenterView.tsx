@@ -35,7 +35,8 @@ import {
 import { AdminModuleSection, NavTab } from '../types';
 import { NetworkDashboardWidgets } from './dashboards/NetworkDashboardWidgets';
 import { LiveAuditLog } from './admin/LiveAuditLog';
-import { LiveContractTemplates, LiveCountryNodes, LiveOrganisations, LiveSystemStatus } from './admin/AdminLiveSections';
+import { LiveContractTemplates, LiveSystemStatus } from './admin/AdminLiveSections';
+import { LiveCountryNodes, LiveOrganisations } from './admin/TenantAdminSections';
 import { LivePermissionMatrix, LivePromotions, LiveRevenue, LiveWorkflowPipelines } from './admin/AdminLivePlatformSections';
 import { FundingReviewQueue } from './sponsor/FundingReviewQueue';
 import { PayoutVerificationPanel } from './admin/PayoutVerificationPanel';

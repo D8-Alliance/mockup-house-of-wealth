@@ -349,6 +349,12 @@ export const apiClient = {
   getPlatformRevenue: () => request<PlatformRevenue>('/membership/admin/revenue'),
   getSiteContent: (editor: boolean) => request<Record<string, unknown>>(editor ? '/site-content/editor' : '/site-content'),
   saveSiteContent: (entries: Record<string, unknown>) => request<Record<string, unknown>>('/site-content', { method: 'PUT', body: JSON.stringify({ entries }) }),
+  getCountryNodeList: () => request<CountryNodeRow[]>('/country-nodes'),
+  createCountryNode: (input: { code: string; name: string; currency: string; timezone: string; regulatoryProfile: string }) => request<CountryNodeRow>('/country-nodes', { method: 'POST', body: JSON.stringify(input) }),
+  setCountryNodeStatus: (code: string, status: 'ACTIVE' | 'SUSPENDED', reason: string) => request<CountryNodeRow & { peopleAffected?: number }>(`/country-nodes/${encodeURIComponent(code)}/status`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }),
+  createOrganisation: (input: { name: string; countryNodeId?: string; entityType?: OrganisationEntityType; registrationNumber?: string }) => request<OrganisationDirectoryRow>('/organisations', { method: 'POST', body: JSON.stringify(input) }),
+  setOrganisationStatus: (id: string, status: 'ACTIVE' | 'SUSPENDED', reason: string) => request<{ id: string; status: string; peopleAffected?: number }>(`/organisations/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }),
+  moveUserToOrganisation: (userId: string, organisationId: string, reason: string) => request<{ userId: string; organisationId: string; organisationName: string; rolesMoved: number }>(`/users/${encodeURIComponent(userId)}/organisation`, { method: 'POST', body: JSON.stringify({ organisationId, reason }) }),
   updateUserStatus: (userId: string, status: string) => request<BackendUser>(`/users/${userId}/status`, {
     method: 'PATCH',
     body: JSON.stringify({ status }),
@@ -1568,6 +1574,9 @@ export interface AuditEventPage {
 
 const auditQueryString = (query: AuditEventQuery) => new URLSearchParams(Object.entries(query).filter(([, value]) => value !== undefined && value !== '').map(([key, value]) => [key, String(value)])).toString();
 
+/** A country node as tenant administration lists it (server/src/tenant-admin). */
+export interface CountryNodeRow { code: string; name: string; currency: string; timezone: string; regulatoryProfile: string; status: string }
+
 export interface OrganisationDirectoryRow {
   id: string;
   name: string;
@@ -1575,6 +1584,8 @@ export interface OrganisationDirectoryRow {
   status: string;
   kybStatus: string;
   registrationNumber?: string | null;
+  entityType?: string | null;
+  groupName?: string | null;
   createdAt: string;
   users: number;
   projects: number;
