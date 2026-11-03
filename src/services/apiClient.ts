@@ -102,6 +102,22 @@ export interface BackendBeneficiary {
   hibahIjabAt: string | null;
   hibahQabulStatus: 'AWAITING' | 'ACCEPTED' | 'DECLINED' | null;
   hibahQabulAt: string | null;
+  /** The qabul link: when it was last sent and until when it works; who answered, and whether as guardian. */
+  hibahQabulSentAt?: string | null;
+  hibahQabulExpiresAt?: string | null;
+  hibahQabulBy?: string | null;
+  hibahQabulAsGuardian?: boolean | null;
+}
+
+/** What the hibah recipient sees on the qabul link (no sign-in). */
+export interface HibahOffer {
+  donorName: string;
+  recipientName: string;
+  relation: string;
+  allocationPercent: number | null;
+  ijabAt: string | null;
+  status: 'AWAITING' | 'ACCEPTED' | 'DECLINED';
+  expiresAt: string | null;
 }
 
 export interface SaveBeneficiaryInput {
@@ -212,6 +228,10 @@ export const apiClient = {
   createBeneficiary: (input: SaveBeneficiaryInput) => request<BackendBeneficiary>('/estate/beneficiaries', { method: 'POST', body: JSON.stringify(input) }),
   updateBeneficiary: (id: string, input: SaveBeneficiaryInput) => request<BackendBeneficiary>(`/estate/beneficiaries/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) }),
   setPrimaryBeneficiary: (id: string) => request<BackendBeneficiary[]>(`/estate/beneficiaries/${encodeURIComponent(id)}/primary`, { method: 'POST' }),
+  /** A new one-time qabul link for a hibah recipient; emailed when email is set up, and returned once to share. */
+  requestHibahQabul: (id: string) => request<{ token: string; expiresAt: string; emailed: boolean }>(`/estate/beneficiaries/${encodeURIComponent(id)}/qabul-request`, { method: 'POST' }),
+  getHibahOffer: (token: string) => request<HibahOffer>(`/estate/hibah/${encodeURIComponent(token)}`),
+  answerHibah: (token: string, input: { decision: 'ACCEPT' | 'DECLINE'; fullName: string; identityLast4: string; asGuardian?: boolean }) => request<{ status: 'ACCEPTED' | 'DECLINED'; answeredAt: string }>(`/estate/hibah/${encodeURIComponent(token)}`, { method: 'POST', body: JSON.stringify(input) }),
   deleteBeneficiary: (id: string) => request<{ id: string }>(`/estate/beneficiaries/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getPools: () => request<BackendPool[]>('/pools'),
   getPool: (poolId: string) => request<BackendPoolDetail>(`/pools/${encodeURIComponent(poolId)}`),

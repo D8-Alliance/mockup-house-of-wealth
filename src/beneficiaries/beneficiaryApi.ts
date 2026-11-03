@@ -17,7 +17,7 @@ export function fromServer(row: BackendBeneficiary): BeneficiaryItem {
     identityNumberMasked: row.identityNumberMasked,
     payoutMethod: row.payoutMethod,
     isPrimary: row.isPrimary,
-    hibahAkad: row.hibahIjabAt ? { ijabDeclaredAt: row.hibahIjabAt, qabulStatus: QABUL[row.hibahQabulStatus ?? 'AWAITING'], qabulAt: row.hibahQabulAt ?? undefined } : undefined,
+    hibahAkad: row.hibahIjabAt ? { ijabDeclaredAt: row.hibahIjabAt, qabulStatus: QABUL[row.hibahQabulStatus ?? 'AWAITING'], qabulAt: row.hibahQabulAt ?? undefined, qabulSentAt: row.hibahQabulSentAt ?? undefined, qabulExpiresAt: row.hibahQabulExpiresAt ?? undefined, qabulBy: row.hibahQabulBy ?? undefined, qabulAsGuardian: row.hibahQabulAsGuardian ?? undefined } : undefined,
   };
 }
 

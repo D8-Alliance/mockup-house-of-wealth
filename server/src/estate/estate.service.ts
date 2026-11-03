@@ -1,14 +1,22 @@
-import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { createCipheriv, createHash, randomBytes } from 'node:crypto';
 import { EstateBeneficiary, Prisma } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
-import { SaveBeneficiaryDto } from './estate.dto';
+import { NotificationDeliveryService } from '../notifications/notification-delivery.service';
+import { NotificationService } from '../notifications/notification.service';
+import { HibahAnswerDto, SaveBeneficiaryDto } from './estate.dto';
 import { estateRuleError, EstateItem, hasOwnerSetShare, maskIdentity } from './estate-rules';
 
 /** What the owner sees: everything but the encrypted identity number. */
-export type BeneficiaryView = Omit<EstateBeneficiary, 'identityNumberEncrypted' | 'allocationPercent'> & { allocationPercent: number | null };
+export type BeneficiaryView = Omit<EstateBeneficiary, 'identityNumberEncrypted' | 'allocationPercent' | 'hibahQabulTokenHash' | 'hibahQabulEvidence'> & { allocationPercent: number | null };
+
+/** How long a qabul link stays valid, and how many wrong answers lock it. */
+const QABUL_LINK_DAYS = 30;
+const QABUL_MAX_ATTEMPTS = 5;
+const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
+const sameName = (a: string, b: string) => a.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() === b.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 const toItem = (row: Pick<EstateBeneficiary, 'relation' | 'distributionType' | 'allocationPercent'>): EstateItem => ({ relation: row.relation, distributionType: row.distributionType, allocationPercent: row.allocationPercent === null ? null : Number(row.allocationPercent) });
 
@@ -18,7 +26,7 @@ const toItem = (row: Pick<EstateBeneficiary, 'relation' | 'distributionType' | '
  */
 @Injectable()
 export class EstateService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, @Optional() private readonly notifications?: NotificationService, @Optional() private readonly delivery?: NotificationDeliveryService) {}
 
   async list(actor: AuthenticatedUser): Promise<BeneficiaryView[]> {
     const rows = await this.prisma.estateBeneficiary.findMany({ where: { ownerUserId: actor.userId }, orderBy: { createdAt: 'asc' } });
@@ -69,6 +77,77 @@ export class EstateService {
     return { id };
   }
 
+  // ---- Hibah qabul ----
+
+  /**
+   * The donor sends the hibah recipient a one-time link to accept or decline the hibah (qabul). Only its
+   * SHA-256 is kept; a new link replaces the old one. It is emailed when email is set up on this server; the
+   * donor can also share it (WhatsApp, SMS) from the app, which is shown the link once.
+   */
+  async requestQabul(actor: AuthenticatedUser, id: string): Promise<{ token: string; expiresAt: string; emailed: boolean }> {
+    const row = await this.own(actor, id);
+    if (row.distributionType !== 'Hibah Amanah' || !row.hibahIjabAt) throw new BadRequestException('Only a hibah offered to this beneficiary can be accepted.');
+    if (row.hibahQabulStatus !== 'AWAITING') throw new ConflictException(`The recipient has already ${row.hibahQabulStatus === 'ACCEPTED' ? 'accepted' : 'declined'} this hibah.`);
+    const token = randomBytes(24).toString('base64url');
+    const expiresAt = new Date(Date.now() + QABUL_LINK_DAYS * 24 * 60 * 60 * 1000);
+    await this.prisma.estateBeneficiary.update({ where: { id }, data: { hibahQabulTokenHash: tokenHash(token), hibahQabulSentAt: new Date(), hibahQabulExpiresAt: expiresAt, hibahQabulAttempts: 0 } });
+    const origin = (process.env.CORS_ORIGINS ?? '').split(',').map((item) => item.trim().replace(/\/$/, '')).find(Boolean);
+    let emailed = false;
+    if (origin && row.email && this.delivery) {
+      const results = await this.delivery.deliverEach({ channels: 'EMAIL', recipientEmail: row.email, title: `${actor.name} offers you a hibah`, message: `${actor.name} has made you a hibah (gift) of part of their investments on Wealth Pooling, to pass to you as set out in their estate instructions. To accept or decline it (qabul), open ${origin}/m/hibah/${token} before ${expiresAt.toISOString().slice(0, 10)}. You will need the last four characters of your ID number. If you did not expect this, ignore it.` }).catch(() => []);
+      emailed = results.some((result) => result.outcome === 'SENT');
+    }
+    await this.audit.recordActor(actor, { action: 'estate.hibah.qabul_requested', resourceType: 'EstateBeneficiary', resourceId: id, organisationId: row.organisationId, countryNodeId: row.countryNodeId, metadata: { expiresAt: expiresAt.toISOString(), emailed } });
+    return { token, expiresAt: expiresAt.toISOString(), emailed };
+  }
+
+  /** What the recipient sees on the link: who offers the hibah and what it is, nothing about their own identity. */
+  async hibahOffer(token: string) {
+    const row = await this.byToken(token);
+    const donor = await this.prisma.user.findUnique({ where: { id: row.ownerUserId }, select: { name: true } });
+    return {
+      donorName: donor?.name ?? 'The donor', recipientName: row.name, relation: row.relation,
+      allocationPercent: row.allocationPercent === null ? null : Number(row.allocationPercent),
+      ijabAt: row.hibahIjabAt?.toISOString() ?? null, status: row.hibahQabulStatus, expiresAt: row.hibahQabulExpiresAt?.toISOString() ?? null,
+    };
+  }
+
+  /**
+   * The recipient's answer. The last four characters of their ID and their name (or, for a minor, the
+   * guardian's name) must match what the donor recorded; five wrong tries lock the link. The answer is final,
+   * kept with when and from where it was given, and the donor is told.
+   */
+  async answerHibah(token: string, input: HibahAnswerDto, evidence: { ip?: string; userAgent?: string }) {
+    const row = await this.byToken(token);
+    if (row.hibahQabulStatus !== 'AWAITING') throw new ConflictException('This hibah has already been answered.');
+    if (row.hibahQabulAttempts >= QABUL_MAX_ATTEMPTS) throw new ForbiddenException('Too many tries. Ask the donor to send a new link.');
+    const last4 = (row.identityNumberMasked ?? '').replace(/[^A-Za-z0-9]/g, '').slice(-4).toLowerCase();
+    const nameOk = input.asGuardian ? input.fullName.trim().length >= 3 : sameName(input.fullName, row.name);
+    if (!last4 || last4 !== input.identityLast4.toLowerCase() || !nameOk) {
+      await this.prisma.estateBeneficiary.update({ where: { id: row.id }, data: { hibahQabulAttempts: { increment: 1 } } });
+      const left = QABUL_MAX_ATTEMPTS - row.hibahQabulAttempts - 1;
+      throw new BadRequestException(left > 0 ? `The details do not match what the donor recorded. ${left} tr${left === 1 ? 'y' : 'ies'} left.` : 'Too many tries. Ask the donor to send a new link.');
+    }
+    const status = input.decision === 'ACCEPT' ? 'ACCEPTED' : 'DECLINED';
+    const now = new Date();
+    const record = { at: now.toISOString(), ip: evidence.ip ?? null, userAgent: evidence.userAgent?.slice(0, 300) ?? null, note: input.note?.trim() || null };
+    const claimed = await this.prisma.estateBeneficiary.updateMany({ where: { id: row.id, hibahQabulStatus: 'AWAITING', hibahQabulTokenHash: row.hibahQabulTokenHash }, data: { hibahQabulStatus: status, hibahQabulAt: now, hibahQabulBy: input.fullName.trim(), hibahQabulAsGuardian: input.asGuardian === true, hibahQabulEvidence: record as Prisma.InputJsonValue, hibahQabulTokenHash: null } });
+    if (!claimed.count) throw new ConflictException('This hibah has already been answered.');
+    await this.audit.record({ userId: 'HIBAH-RECIPIENT', action: `estate.hibah.${status === 'ACCEPTED' ? 'qabul_accepted' : 'qabul_declined'}`, resourceType: 'EstateBeneficiary', resourceId: row.id, organisationId: row.organisationId, countryNodeId: row.countryNodeId, metadata: { answeredBy: input.fullName.trim(), asGuardian: input.asGuardian === true, ...record } });
+    await this.notifications?.notifyUsers([row.ownerUserId], {
+      type: 'ESTATE', title: status === 'ACCEPTED' ? 'Hibah accepted' : 'Hibah declined',
+      message: `${row.name} ${status === 'ACCEPTED' ? 'accepted' : 'declined'} your hibah (qabul)${input.asGuardian ? `, answered by their guardian ${input.fullName.trim()}` : ''}.`,
+      resourceType: 'EstateBeneficiary', resourceId: row.id, dedupeKey: `hibah-qabul:${row.id}:${status}`,
+    }).catch(() => undefined);
+    return { status, answeredAt: now.toISOString() };
+  }
+
+  private async byToken(token: string) {
+    const row = token.length >= 20 ? await this.prisma.estateBeneficiary.findUnique({ where: { hibahQabulTokenHash: tokenHash(token) } }) : null;
+    if (!row || !row.hibahQabulExpiresAt || row.hibahQabulExpiresAt < new Date()) throw new NotFoundException('This link is not valid or has expired. Ask the donor to send a new one.');
+    return row;
+  }
+
   // ---- helpers ----
 
   /** Only the owner's own beneficiaries exist for them; anyone else's is "not found". */
@@ -115,7 +194,7 @@ export class EstateService {
 }
 
 function view(row: EstateBeneficiary): BeneficiaryView {
-  const { identityNumberEncrypted: _hidden, allocationPercent, ...rest } = row;
+  const { identityNumberEncrypted: _hidden, hibahQabulTokenHash: _token, hibahQabulEvidence: _evidence, allocationPercent, ...rest } = row;
   return { ...rest, allocationPercent: allocationPercent === null ? null : Number(allocationPercent) };
 }
 

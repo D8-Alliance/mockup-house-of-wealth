@@ -61,6 +61,10 @@ export const MS_SERVER_TEXT: Array<[RegExp, string | ((match: RegExpExecArray) =
   [/^(Legal|Shariah) review: changes requested$/, 'Semakan $1: pembetulan diminta'],
   [/^(Legal|Shariah) approval given$/, 'Kelulusan $1 diberi'],
 
+  // Hibah qabul
+  [/^(.+?) (accepted|declined) your hibah \(qabul\), answered by their guardian (.+?)\.$/, (match) => `${match[1]} telah ${match[2] === 'accepted' ? 'menerima' : 'menolak'} hibah anda (qabul), dijawab oleh walinya ${match[3]}.`],
+  [/^(.+?) (accepted|declined) your hibah \(qabul\)\.$/, (match) => `${match[1]} telah ${match[2] === 'accepted' ? 'menerima' : 'menolak'} hibah anda (qabul).`],
+
   // Lease deposit and reminders
   [/^(.+?): the owner recorded your deposit of (.+?) as received \(reference (.+?)\)\.$/, '$1: pemilik merekodkan deposit anda sebanyak $2 sebagai diterima (rujukan $3).'],
   [/^(.+?): the owner refunded (.+?) of your deposit after deductions of (.+?) \((.+)\) \(reference (.+?)\)\.$/, '$1: pemilik memulangkan $2 daripada deposit anda selepas potongan $3 ($4) (rujukan $5).'],

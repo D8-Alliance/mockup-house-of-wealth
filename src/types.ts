@@ -52,6 +52,12 @@ export interface HibahAkad {
   /** The recipient's acceptance (qabul). Until 'Accepted', the hibah has no effect. */
   qabulStatus: 'Awaiting acceptance' | 'Accepted' | 'Declined';
   qabulAt?: string;
+  /** The qabul link: last sent, and until when it works. */
+  qabulSentAt?: string;
+  qabulExpiresAt?: string;
+  /** Who answered, and whether as the recipient's guardian (wali). */
+  qabulBy?: string;
+  qabulAsGuardian?: boolean;
 }
 
 export interface BeneficiaryItem {

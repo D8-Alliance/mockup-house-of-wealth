@@ -2448,6 +2448,16 @@ model EstateBeneficiary {
   hibahIjabAt             DateTime?
   hibahQabulStatus        String?
   hibahQabulAt            DateTime?
+  /// The one-time qabul link sent to the recipient: only its SHA-256 is kept; it expires, and five wrong tries lock it.
+  hibahQabulTokenHash     String?   @unique
+  hibahQabulSentAt        DateTime?
+  hibahQabulExpiresAt     DateTime?
+  hibahQabulAttempts      Int       @default(0)
+  /// Who gave the answer: the name typed, and whether as the recipient's guardian (wali) for a minor.
+  hibahQabulBy            String?
+  hibahQabulAsGuardian    Boolean?
+  /// When and from where the answer was given (IP address, browser), kept as evidence of the akad.
+  hibahQabulEvidence      Json?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 

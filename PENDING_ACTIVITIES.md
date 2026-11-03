@@ -21,7 +21,7 @@ Kerja yang belum siap sahaja. Kerja yang sudah siap dibuang daripada senarai ini
 | 13 | Pembantu dokumen AI | Fasa A smart upload, Fasa B chatbot tahu status, Fasa C lampiran | Keputusan; model AI lebih kuat |
 | 14 | DigitalOcean | Fail ke Spaces, model AI di staging, tetapan Keycloak, sandaran, pilot production | Bajet; lokasi data |
 | 15 | Entiti berasingan dan pihak berkaitan | Semakan nama kumpulan oleh KYB, paparan dalam skrin semakan, sumbangan modal penaja | Keputusan Shariah (sumbangan modal) |
-| 16 | Benefisiari dan pusaka | Estate Officer, aliran kematian, qabul hibah, persetujuan waris, wasi | Ditangguhkan (keputusan 2026-11-02); nasihat Shariah dan undang-undang |
+| 16 | Benefisiari dan pusaka | Estate Officer, aliran kematian, persetujuan waris, wasi (qabul hibah siap di mini-app) | Ditangguhkan (keputusan 2026-11-02); nasihat Shariah dan undang-undang |
 | 17 | Modul aset | Aliran tunai sewa/untung, baki tandatangan dan takaful, Fasa C agensi, skrin demo | Boleh diteruskan |
 | 18 | Kunci API | Kunci API untuk sistem luar | Ditangguhkan sehingga ada keperluan |
 | 19 | Pengurusan pengguna | Notis privasi rasmi; Fasa 2–4; penguatkuasaan PDPA di server | Butiran syarikat dan semakan peguam |
@@ -187,7 +187,7 @@ Bingkai kamera dan dokumen KYC masih disimpan tanpa had masa. **Perlu keputusan:
 **Baki:**
 1. **Peranan Estate Officer:** baca arahan pusaka hanya selepas kematian dilaporkan, dengan log audit.
 2. **Aliran kematian:** lapor, bekukan akaun, sahkan dokumen (sijil kematian, Sijil Faraid, surat kuasa/probet), salurkan pelaburan dan aset, penyelesaian.
-3. **Qabul hibah:** hantar permintaan kepada penerima dan skrin terima/tolak.
+3. **Qabul hibah:** siap 2026-11-03 di mini-app. Pemberi menghantar pautan sekali guna (diemel jika emel disediakan; boleh dikongsi melalui WhatsApp atau SMS). Penerima membuka `/m/hibah/<token>` tanpa log masuk, mengesahkan dengan empat aksara terakhir nombor pengenalan dan namanya (atau wali bagi kanak-kanak), kemudian menerima atau menolak. Jawapan muktamad, direkod bersama IP dan pelayar, dan pemberi dimaklumkan. Pautan sah 30 hari dan dikunci selepas 5 cubaan salah. Baki: butang pautan qabul di skrin web; semakan Shariah tentang qabul oleh wali dan qabul melalui pautan.
 4. **Persetujuan waris** bagi wasiyyah kepada waris faraid atau melebihi 1/3.
 5. **Wasi/pentadbir** (contoh Amanah Raya Berhad).
 6. **Semakan** teks panduan, akad hibah dan surat ikatan amanah oleh penasihat Shariah, peguam dan pemegang amanah.
