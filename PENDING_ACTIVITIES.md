@@ -26,7 +26,7 @@ Kerja yang belum siap sahaja. Kerja yang sudah siap dibuang daripada senarai ini
 | 18 | Kunci API | Kunci API untuk sistem luar | Ditangguhkan sehingga ada keperluan |
 | 19 | Pengurusan pengguna | Notis privasi rasmi; Fasa 2–4; penguatkuasaan PDPA di server | Butiran syarikat dan semakan peguam |
 | 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO/push D8 Ideas, ujian super app, Keycloak, terjemahan | Butiran bank; spesifikasi D8 Ideas |
-| 21 | Sewaan terus (Ijarah) tanpa projek | Perjanjian Ijarah daripada modul kontrak, skrin web, peringatan sewa, deposit, keputusan pungutan sewa, komisen dan cukai | Keputusan pemilik projek; nasihat peguam dan cukai |
+| 21 | Sewaan terus (Ijarah) tanpa projek | Skrin web, peringatan sewa, deposit, keputusan pungutan sewa, komisen dan cukai | Keputusan pemilik projek; nasihat peguam dan cukai |
 | 22 | Agihan keuntungan (Settlement Officer) | Skrin web, fail bayaran pukal bank, peringatan hasil projek lewat | Boleh dimulakan |
 | 23 | Projek bermasalah: arkib dan gantung | Butang Arkib dan Gantung untuk Super Admin dan Country Admin, aliran pulangan modal | Boleh dimulakan bila diperlukan |
 
@@ -256,7 +256,7 @@ Bingkai kamera dan dokumen KYC masih disimpan tanpa had masa. **Perlu keputusan:
 **Keputusan sementara (perlu disahkan):** sewa dibayar oleh penyewa **terus ke akaun bank pemilik**. Platform hanya merekod dan tidak memegang wang, jadi tiada isu wang pihak ketiga. Tiada komisen dikenakan buat masa ini.
 
 **Baki:**
-1. Perjanjian Ijarah dijana daripada modul kontrak dan e-tandatangan (sekarang hanya mesej "tandatangani perjanjian"). Perlu `leaseId` pada `Contract` dan templat Ijarah sewaan.
+1. Perjanjian Ijarah: siap 2026-11-03 (`Contract.leaseId`, `POST /contract-intelligence/agreements/lease-drafts`). Pemilik menyediakan perjanjian daripada terma sewaan yang diluluskan; teks khusus sewaan terus (kegunaan dibenarkan, deposit sebagai amanah dan dipulangkan dalam 30 hari, sewa bulanan di awal bulan). Penyewa bersetuju, pemilik menghantar untuk semakan Legal dan Shariah (penyemak di portal web), kemudian kedua-dua pihak menandatangani dengan OTP di mini-app. Baki: penyemak belum boleh menyemak di mini-app; skrin web Contracts masih menamakan penyewa sebagai "delivery partner".
 2. Skrin web (Asset Registry dan semakan Legal/Shariah). Buat masa ini semuanya dalam mini-app.
 3. Peringatan sewa automatik (sebelum tarikh perlu bayar dan semasa tertunggak), peringatan tamat sewaan, dan pembaharuan.
 4. Pemulangan deposit semasa tamat, dengan potongan dan sebab.

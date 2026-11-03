@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Building2, ChevronRight, Plus, RefreshCw } from 'lucide-react';
-import { apiClient, AssetLeaseView, AvailableUnit, LeasableUnitInput, MyLeasableUnit } from '../../services/apiClient';
+import { AgreementDetail, AgreementStatus, apiClient, AssetLeaseView, AvailableUnit, LeasableUnitInput, MyLeasableUnit } from '../../services/apiClient';
 import { useRBAC } from '../../rbac/RBACContext';
 import { LEASE_OWNER_ROLES, LEASE_REVIEWER_ROLES, LEASE_TENANT_ROLES } from '../mobileRoles';
 import { useT } from '../i18n';
@@ -295,7 +295,8 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
   const [paying, setPaying] = useState<string | null>(null);
   const [payment, setPayment] = useState({ reference: '', paidAt: today() });
 
-  useEffect(() => { apiClient.getLease(id).then(setLease).catch((cause) => setError(errorText(cause, t('The lease could not be loaded.')))); }, [id, t]);
+  const reload = useCallback(() => { apiClient.getLease(id).then(setLease).catch((cause) => setError(errorText(cause, t('The lease could not be loaded.')))); }, [id, t]);
+  useEffect(reload, [reload]);
   const open = (next: typeof mode) => {
     setMode(next);
     setNote('');
@@ -414,6 +415,8 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
         </section>
       )}
 
+      {['APPROVED', 'ENDED'].includes(lease.status) && lease.myParty && <LeaseAgreementCard lease={lease} onChanged={reload} />}
+
       {lease.payments.length > 0 && (
         <section className={`${card} space-y-2`}>
           <h2 className="text-sm font-black">{t('Rent schedule')}</h2>
@@ -462,5 +465,80 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
         </ol>
       </section>
     </div>
+  );
+};
+
+const AGREEMENT_STATUS: Record<AgreementStatus, string> = {
+  DRAFT: 'Draft: both sides agree to it', LEGAL_REVIEW: 'In legal review', SHARIAH_REVIEW: 'In Shariah review', APPROVED: 'Approved: ready to sign',
+  CHANGES_REQUESTED: 'Changes requested', EXECUTION: 'Signed by both sides',
+};
+
+/**
+ * The lease's Ijarah agreement: the owner drafts it from the approved terms, both sides agree to the text,
+ * the owner sends it to legal and Shariah review, then each side signs with a one-time code. Reviewers work
+ * on the web portal; the parties do everything here.
+ */
+const LeaseAgreementCard: React.FC<{ lease: AssetLeaseView; onChanged: () => void }> = ({ lease, onChanged }) => {
+  const { t } = useT();
+  const { activeUser } = useRBAC();
+  const [agreement, setAgreement] = useState<AgreementDetail | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [code, setCode] = useState<{ challengeId: string; destination: string; testCode?: string } | null>(null);
+  const [otp, setOtp] = useState('');
+  const [typedName, setTypedName] = useState('');
+  const agreementId = lease.agreement?.id;
+  const load = useCallback(() => { if (agreementId) apiClient.getAgreement(agreementId).then(setAgreement).catch((cause) => setError(errorText(cause, t('The agreement could not be loaded.')))); }, [agreementId, t]);
+  useEffect(load, [load]);
+  const act = async (call: () => Promise<unknown>) => {
+    setBusy(true);
+    setError('');
+    try { await call(); onChanged(); load(); } catch (cause) { setError(errorText(cause, t('That did not go through.'))); } finally { setBusy(false); }
+  };
+
+  const isOwner = lease.myParty === 'OWNER';
+  const actions = agreement?.partyActions ?? [];
+  const canConsent = actions.some(item => item.action === 'CONSENT');
+  const canSign = actions.some(item => item.action === 'SIGN');
+  const canSubmit = agreement?.availableActions.some(item => item.action === 'LEGAL_REVIEW') ?? false;
+  const canRevise = isOwner && agreement?.status === 'CHANGES_REQUESTED';
+  const status = agreement?.status ?? lease.agreement?.status;
+
+  return (
+    <section className={`${card} space-y-2`}>
+      <h2 className="text-sm font-black">{t('Ijarah agreement')}</h2>
+      {!agreementId && (isOwner
+        ? <>
+            <p className="text-xs text-slate-500">{t('Draft the agreement from the approved terms: rent, deposit, period and permitted use. The tenant then agrees to it, Legal and Shariah review the text, and both sides sign.')}</p>
+            <button type="button" disabled={busy} onClick={() => act(() => apiClient.draftLeaseAgreement(lease.id))} className={primary}>{t('Draft the Ijarah agreement')}</button>
+          </>
+        : <p className="text-xs text-slate-500">{t('Waiting for the owner to draft the agreement.')}</p>)}
+      {agreementId && (
+        <>
+          <p className="text-xs"><span className="font-mono">{lease.agreement?.contractNumber}</span>{agreement ? ` · ${t('version {version}', { version: agreement.latestVersion ?? 1 })}` : ''}</p>
+          {status && <p className="text-xs font-black">{t(AGREEMENT_STATUS[status])}</p>}
+          {agreement?.parties?.filter(party => party.role).map(party => (
+            <p key={party.displayName} className="text-[11px] text-slate-500">{party.displayName}: {party.signedAt ? t('signed') : party.consentedVersion === agreement.latestVersion ? t('agreed to this version') : t('not agreed yet')}</p>
+          ))}
+          <button type="button" onClick={() => act(() => apiClient.downloadAgreement(agreementId, 'pdf'))} className={secondary}>{t('Read the agreement (PDF)')}</button>
+          {canConsent && <button type="button" disabled={busy} onClick={() => act(() => apiClient.agreementPartyAction(agreementId, { action: 'CONSENT' }))} className={primary}>{t('Agree to version {version}', { version: agreement?.latestVersion ?? 1 })}</button>}
+          {canSubmit && <button type="button" disabled={busy} onClick={() => act(() => apiClient.reviewAgreement(agreementId, { reviewStatus: 'LEGAL_REVIEW' }))} className={primary}>{t('Send for legal review')}</button>}
+          {canRevise && <button type="button" disabled={busy} onClick={() => act(() => apiClient.draftLeaseAgreement(lease.id))} className={primary}>{t('Draft a new version')}</button>}
+          {canSign && !code && <button type="button" disabled={busy} onClick={() => act(async () => { const issued = await apiClient.requestSignCode(agreementId); setCode(issued); setTypedName(''); setOtp(''); })} className={primary}>{t('Sign the agreement')}</button>}
+          {canSign && code && (
+            <div className="space-y-2">
+              <p className="text-[11px]">{t('A one-time code was sent to {destination}.', { destination: code.destination })}{code.testCode ? ` ${t('Test code: {code}', { code: code.testCode })}` : ''}</p>
+              <input value={otp} onChange={(event) => setOtp(event.target.value)} inputMode="numeric" placeholder={t('One-time code')} className={input} />
+              <input value={typedName} onChange={(event) => setTypedName(event.target.value)} placeholder={t('Type your full name: {name}', { name: activeUser.name })} className={input} />
+              <button type="button" disabled={busy || otp.trim().length < 4 || typedName.trim().length < 3} onClick={() => act(async () => { await apiClient.agreementPartyAction(agreementId, { action: 'SIGN', signatureName: typedName.trim(), otpChallengeId: code.challengeId, otpCode: otp.trim() }); setCode(null); })} className={primary}>{t('Sign')}</button>
+            </div>
+          )}
+          {agreement?.signingBlocked && <p className="text-[11px] text-amber-700 dark:text-amber-300">{agreement.signingBlocked}</p>}
+          {status === 'EXECUTION' && <button type="button" onClick={() => act(() => apiClient.downloadSignedAgreement(agreementId))} className={secondary}>{t('Signed copy (PDF)')}</button>}
+          {status === 'EXECUTION' && <p className="text-[11px] text-slate-500">{t('Pay the stamp duty (LHDN STAMPS) within 30 days of signing.')}</p>}
+        </>
+      )}
+      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+    </section>
   );
 };

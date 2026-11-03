@@ -182,6 +182,8 @@ export const apiClient = {
   withdrawLease: (id: string, note?: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/withdraw`, { method: 'POST', body: JSON.stringify({ note }) }),
   reviewLease: (id: string, input: { decision: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES'; note: string; track?: 'LEGAL' | 'SHARIAH' }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   recordLeaseRent: (id: string, period: string, input: { reference: string; paidAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/payments/${encodeURIComponent(period)}`, { method: 'POST', body: JSON.stringify(input) }),
+  /** The owner drafts (or, after changes were requested, revises) the Ijarah agreement of an approved lease. */
+  draftLeaseAgreement: (leaseId: string) => request<{ contract: { id: string; contractNumber: string } }>('/contract-intelligence/agreements/lease-drafts', { method: 'POST', body: JSON.stringify({ leaseId }) }),
   endLease: (id: string, note: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/end`, { method: 'POST', body: JSON.stringify({ note }) }),
   createInvestmentOrder: (input: { poolId: string; amount: number; currency: string; idempotencyKey: string; akadTermsId: string; acceptAkad: true }) => request<BackendInvestmentOrder>('/investments/orders', { method: 'POST', body: JSON.stringify(input) }),
   getSettlementQueue: () => request<SettlementQueueOrder[]>('/investments/settlement-queue'),
@@ -2114,7 +2116,7 @@ export interface OrganisationKyb {
 export interface AgreementIntegrity { status: 'NOT_SEALED' | 'SEALED' | 'VERIFIED' | 'MISMATCH'; checkedAt?: string; sha256?: string; sealedAt?: string; signer?: string | null; certificateSha256?: string; timestamp?: { at: string | null; authority: string | null; serial: string | null } | null; note?: string | null }
 /** One of the platform's checks on an agreement's text. */
 export interface AgreementTextCheck { key: string; label: string; status: 'PASS' | 'WARN' | 'FAIL' | 'INFO'; detail: string }
-export interface AgreementPartyRow { id?: string; role: 'OWNER' | 'PDP' | null; organisationId: string | null; displayName: string; consentedVersion: number | null; consentedAt?: string | null; signedAt: string | null; signatureName?: string | null }
+export interface AgreementPartyRow { id?: string; role: 'OWNER' | 'PDP' | 'TENANT' | null; organisationId: string | null; displayName: string; consentedVersion: number | null; consentedAt?: string | null; signedAt: string | null; signatureName?: string | null }
 
 export interface AgreementSummary {
   id: string;
@@ -2229,6 +2231,8 @@ export interface AssetLeaseView {
   history: Array<{ at: string; byName: string; party: string; action: string; note?: string; statement?: string; terms?: { monthlyRent: number; depositAmount: number; startDate: string; endDate: string; termMonths: number } }>;
   payments: LeaseRentRow[];
   rent: { paid: number; overdue: number; due: number };
+  /** The Ijarah agreement drafted for the lease, once the owner drafts it. */
+  agreement: { id: string; contractNumber: string; status: AgreementStatus } | null;
   createdAt: string;
   updatedAt: string;
 }

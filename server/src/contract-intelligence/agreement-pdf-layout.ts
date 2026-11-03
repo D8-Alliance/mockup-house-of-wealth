@@ -77,7 +77,7 @@ export function drawAgreement(doc: PDFKit.PDFDocument, layout: AgreementLayout):
   const ruleTop = Math.max(y + 10, 520);
   doc.moveTo(left, ruleTop).lineTo(left + width, ruleTop).lineWidth(1).strokeColor(INK).stroke();
   doc.font(SERIF_BOLD).fontSize(24).fillColor(INK).text(front.title.toUpperCase(), left, ruleTop + 22, { width, align: 'center' });
-  doc.font(SERIF_BOLD).fontSize(11).text(`"${front.projectName.toUpperCase()}" PROJECT`, left, doc.y + 10, { width, align: 'center' });
+  doc.font(SERIF_BOLD).fontSize(11).text(front.coverLine ?? `"${front.projectName.toUpperCase()}" PROJECT`, left, doc.y + 10, { width, align: 'center' });
   const ruleBottom = doc.y + 18;
   doc.moveTo(left, ruleBottom).lineTo(left + width, ruleBottom).lineWidth(1).stroke();
   doc.font('Helvetica').fontSize(8).fillColor(GREY).text(`Document No. ${layout.contractNumber}  |  Version ${layout.version}  |  ${layout.status}`, left, ruleBottom + 14, { width, align: 'center' });

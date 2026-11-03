@@ -13,6 +13,13 @@ export class AgreementWizardDto {
   @IsOptional() @IsString() templateId?: string;
   /** Drafting the agreement of an approved asset partnership: one agreement per partnership, revised in place. */
   @IsOptional() @IsString() engagementId?: string;
+  /** Drafting the Ijarah agreement of an approved direct lease: one agreement per lease, revised in place. */
+  @IsOptional() @IsString() leaseId?: string;
+}
+
+/** The owner drafts the Ijarah agreement of an approved lease; the text comes from the lease's approved terms. */
+export class LeaseAgreementDto {
+  @IsString() leaseId!: string;
 }
 
 export class AgreementPartyActionDto {

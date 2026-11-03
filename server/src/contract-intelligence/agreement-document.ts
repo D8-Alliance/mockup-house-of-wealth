@@ -25,6 +25,8 @@ export interface AgreementParty {
 export interface AgreementFront {
   title: string;
   projectName: string;
+  /** The line under the title on the cover; by default the project ("X" PROJECT). */
+  coverLine?: string;
   parties: AgreementParty[];
   recitals: string[];
 }
@@ -38,6 +40,8 @@ export interface PartnershipDeal {
   endDate: string;
   assetName: string;
   approvedOn: string | null;
+  /** A direct lease of a unit to a company, without a project (src/leasing). */
+  lease?: { leaseId: string; depositAmount: number; intendedUse: string; tenantActivity: string };
 }
 
 export interface AgreementInput {
@@ -100,6 +104,7 @@ export function buildAgreement(input: AgreementInput, clauses: LibraryClause[], 
   const front: AgreementFront = {
     title: input.title,
     projectName: input.projectName,
+    ...(deal?.lease ? { coverLine: `LEASE OF ${deal.assetName.toUpperCase()}` } : {}),
     parties: input.parties,
     recitals: recitalsFor(input, first, second),
   };
@@ -122,6 +127,12 @@ function recitalsFor(input: AgreementInput, first: string, second: string): stri
     `${cap(second)} is undertaking the project known as ${input.projectName} (the "Project").`,
     ...(deal ? [`The Parties negotiated the terms of their participation in the Project on the Wealth Pooling platform under asset partnership ${deal.engagementId}, and those terms were approved after Legal and Shariah review${deal.approvedOn ? ` on ${deal.approvedOn}` : ''}.`] : []),
     'The Parties wish to carry out the Project together as a Musharakah, sharing profit by an agreed ratio and loss by their capital, on the terms of this Agreement.',
+  ];
+  if (input.contractType === 'IJARAH' && deal?.lease) return [
+    `${cap(first)} is the owner of the premises described in Schedule 1 (the "Asset").`,
+    `${cap(second)} carries on business as ${deal.lease.tenantActivity} and needs the Asset for ${deal.lease.intendedUse} (the "Permitted Use").`,
+    `The Parties negotiated the lease on the Wealth Pooling platform under lease ${deal.lease.leaseId}, and its terms were approved after Legal and Shariah review${deal.approvedOn ? ` on ${deal.approvedOn}` : ''}.`,
+    `${cap(first)} has agreed to lease the Asset to ${second} by way of Ijarah, for a known rent and period, on the terms of this Agreement.`,
   ];
   if (input.contractType === 'IJARAH') return [
     `${cap(first)} is the owner of the asset described in Schedule 1 (the "Asset").`,
@@ -230,13 +241,17 @@ function ijarah(input: AgreementInput, w: (key: string) => string, first: string
   const deal = input.deal;
   const rent = deal ? money(deal.terms.rentAmount, deal.terms.currency) : undefined;
   const upkeep = deal?.terms.upkeepBy === 'OWNER' ? first : second;
+  const lease = deal?.lease;
+  const deposit = lease ? money(lease.depositAmount, deal?.terms.currency) : undefined;
   return [
     definitions('1', [
       ...COMMON_DEFINITIONS,
       ['Asset', `the asset described in Schedule 1: ${w('assetDescription')};`],
       ['Lease Period', `the period ${period || w('leaseTerm')};`],
       ['Rent', 'the rent (ujrah) for the use of the Asset set out in Clause 4 and Schedule 1;'],
-      ['Project', `${input.projectName};`],
+      ...(lease
+        ? [['Permitted Use', `${lease.intendedUse}, in the course of ${second}'s business as ${lease.tenantActivity};`], ['Security Deposit', 'the sum set out in Clause 4 and Schedule 1, held under Clause 4;']] as Array<[string, string]>
+        : [['Project', `${input.projectName};`]] as Array<[string, string]>),
       ['Total Loss', 'the destruction of the Asset, or damage to it so that it can no longer be used for its purpose, without the fault of the Lessee.'],
     ]),
     { number: '2', title: 'The lease', paragraphs: numbered('2', [
@@ -249,7 +264,10 @@ function ijarah(input: AgreementInput, w: (key: string) => string, first: string
       `Rent is payable only from the day the Asset is delivered and can be used.`,
     ]) },
     { number: '4', title: 'Rent', paragraphs: numbered('4', [
-      `The Rent is ${rent ? `${rent} ${deal?.terms.rentFrequency === 'WHOLE_PERIOD' ? 'for the whole Lease Period' : 'a month'}` : w('rentalAmount')}, payable ${w('rentalFrequency')}.`,
+      lease
+        ? `The Rent is ${rent} a month, payable monthly in advance on the same day of each month as the first day of the Lease Period (or the last day of a shorter month), starting on the first day of the Lease Period.`
+        : `The Rent is ${rent ? `${rent} ${deal?.terms.rentFrequency === 'WHOLE_PERIOD' ? 'for the whole Lease Period' : 'a month'}` : w('rentalAmount')}, payable ${w('rentalFrequency')}.`,
+      ...(lease ? [`On signing this Agreement ${second} pays ${first} a Security Deposit of ${deposit}. ${cap(first)} holds it in trust (amanah) and may not treat it as Rent or income. Within 30 days after the lease ends and the Asset is returned, ${first} refunds it, less only Rent then unpaid and the actual cost of repairing damage beyond fair wear and tear, with an itemised statement of any deduction.`] : []),
       `${cap(second)} pays the Rent on its due date, without set-off or deduction, to the account of ${first} recorded on the Platform.`,
       'The Rent is fixed for the Lease Period. Rent for any renewal period may be reviewed only on a basis agreed in writing before that period starts.',
       `No Rent is payable for any time the Asset cannot be used for a reason not attributable to ${second}.`,
@@ -267,7 +285,8 @@ function ijarah(input: AgreementInput, w: (key: string) => string, first: string
       `${cap(first)} keeps the Asset covered by takaful for its replacement value throughout the Lease Period. The contribution may be reflected in the Rent but is not charged to ${second} separately.`,
     ]) },
     { number: '8', title: 'Use of the Asset', paragraphs: numbered('8', [
-      `${cap(second)} uses the Asset only for the Project, for purposes that comply with Shariah, and in accordance with every law, licence and condition of land use that applies.`,
+      `${cap(second)} uses the Asset only for ${lease ? 'the Permitted Use' : 'the Project'}, for purposes that comply with Shariah, and in accordance with every law, licence and condition of land use that applies.`,
+      ...(lease ? [`${cap(second)} may not use the Asset, or allow it to be used, for any activity that does not comply with Shariah, including the sale of alcohol, gambling, conventional interest-based lending or insurance, or entertainment that is not permissible. Such use is an Event of Default.`] : []),
       `${cap(second)} may not sub-lease, charge or part with possession of the Asset without the prior written consent of ${first}.`,
     ]) },
     { number: '9', title: 'Late payment', paragraphs: numbered('9', [
@@ -359,8 +378,17 @@ function schedule1(input: AgreementInput, w: (key: string) => string, first: str
   const lines: string[] = [];
   if (a) lines.push(`${cap(first)}: ${a.name} (${a.registration})`);
   if (b) lines.push(`${cap(second)}: ${b.name} (${b.registration})`);
-  lines.push(`Project: ${input.projectName}`);
-  if (deal) {
+  if (!deal?.lease) lines.push(`Project: ${input.projectName}`);
+  if (deal?.lease) {
+    lines.push(`Asset: ${deal.assetName}`);
+    lines.push(`Permitted Use: ${deal.lease.intendedUse}`);
+    lines.push(`Lease Period: ${longDate(deal.startDate)} to ${longDate(deal.endDate)} (both dates inclusive)`);
+    lines.push(`Rent: ${money(deal.terms.rentAmount, deal.terms.currency) ?? '-'} a month, payable monthly in advance`);
+    lines.push(`Security Deposit: ${money(deal.lease.depositAmount, deal.terms.currency) ?? '-'}`);
+    lines.push(`Day-to-day upkeep: ${deal.terms.upkeepBy === 'OWNER' ? first : second}`);
+    lines.push(`Stamp duty: borne by ${second}`);
+    lines.push(`Platform reference: lease ${deal.lease.leaseId}`);
+  } else if (deal) {
     lines.push(`Asset: ${deal.assetName}`);
     lines.push(`Period: ${longDate(deal.startDate)} to ${longDate(deal.endDate)} (both dates inclusive)`);
     if (input.contractType === 'MUSHARAKAH') {

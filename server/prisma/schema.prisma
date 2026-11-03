@@ -1661,6 +1661,8 @@ model Contract {
   lastGeneratedAt  DateTime?
   /// The asset partnership this agreement documents; one agreement per partnership.
   engagementId     String?   @unique
+  /// The direct lease (src/leasing) this Ijarah agreement documents; one agreement per lease.
+  leaseId          String?   @unique
   organisationId   String
   countryNodeId    String
   createdBy        String

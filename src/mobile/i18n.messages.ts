@@ -9,6 +9,9 @@ const EXPIRY_LABELS: Record<string, string> = { 'road tax': 'cukai jalan', 'insu
 const expiryLabel = (label: string) => EXPIRY_LABELS[label.toLowerCase()] ?? label;
 const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
+/** The sides of an agreement as the server names them, in Malay (capitalised: they start a sentence). */
+const PARTY_MS: Record<string, string> = { 'asset owner': 'Pemilik aset', tenant: 'Penyewa', 'delivery partner': 'Rakan pelaksana' };
+
 export const MS_SERVER_TEXT: Array<[RegExp, string | ((match: RegExpExecArray) => string)]> = [
   // Investments
   [/^Transfer (.+?) for (.+?) to (.+?) with reference (\S+)\. It counts in your portfolio once Finance confirms the money arrived\.$/, 'Pindahkan $1 untuk $2 ke $3 dengan rujukan $4. Ia dikira dalam portfolio anda sebaik sahaja Kewangan mengesahkan wang telah diterima.'],
@@ -57,6 +60,16 @@ export const MS_SERVER_TEXT: Array<[RegExp, string | ((match: RegExpExecArray) =
   [/^Lease rejected by (Legal|Shariah)$/, 'Sewaan ditolak oleh $1'],
   [/^(Legal|Shariah) review: changes requested$/, 'Semakan $1: pembetulan diminta'],
   [/^(Legal|Shariah) approval given$/, 'Kelulusan $1 diberi'],
+
+  // Agreements (lease and partnership)
+  [/^Ijarah agreement for (.+?): please review$/, 'Perjanjian Ijarah untuk $1: sila semak'],
+  [/^The owner drafted the Ijarah agreement for (.+?) \((\S+)\)\. Read it and agree to it\.$/, 'Pemilik telah menyediakan perjanjian Ijarah untuk $1 ($2). Bacanya dan nyatakan persetujuan anda.'],
+  [/^The owner revised the agreement to version (\d+) for (.+?) \((\S+)\)\. Read it and agree to it\.$/, 'Pemilik telah menyemak semula perjanjian kepada versi $1 untuk $2 ($3). Bacanya dan nyatakan persetujuan anda.'],
+  [/^Both sides agreed to version (\d+) of (\S+)\. It can now be submitted for legal review\.$/, 'Kedua-dua pihak bersetuju dengan versi $1 bagi $2. Ia kini boleh dihantar untuk semakan Legal.'],
+  [/^The (asset owner|tenant|delivery partner) agreed to version (\d+) of (\S+)\. Read it and agree, or draft a revision\.$/, (match) => `${PARTY_MS[match[1]]} telah bersetuju dengan versi ${match[2]} bagi ${match[3]}. Bacanya dan nyatakan persetujuan, atau sediakan semakan semula.`],
+  [/^(\S+) passed legal and Shariah review\. Each side now signs it\.$/, '$1 telah lulus semakan Legal dan Shariah. Setiap pihak kini menandatanganinya.'],
+  [/^(\S+) is signed by both sides\. Next: pay the stamp duty \(LHDN STAMPS\) within 30 days; the agreement takes effect as written in it\.$/, '$1 telah ditandatangani oleh kedua-dua pihak. Seterusnya: bayar duti setem (LHDN STAMPS) dalam tempoh 30 hari; perjanjian berkuat kuasa seperti yang tertulis.'],
+  [/^The (asset owner|tenant|delivery partner) signed (\S+)\. Sign it to complete the agreement\.$/, (match) => `${PARTY_MS[match[1]]} telah menandatangani ${match[2]}. Tandatanganinya untuk melengkapkan perjanjian.`],
 
   // Asset partnerships (asset owners)
   [/^(.+?) for (.+?) was accepted and now goes to Legal and Shariah review\.$/, '$1 untuk $2 telah diterima dan kini dihantar untuk semakan Legal dan Shariah.'],

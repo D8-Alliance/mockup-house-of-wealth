@@ -65,6 +65,7 @@ describe('LeasingService', () => {
     assetLease: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn() },
     leaseRentPayment: { createMany: jest.fn(), updateMany: jest.fn(), deleteMany: jest.fn() },
     userRoleAssignment: { findMany: jest.fn().mockResolvedValue([{ userId: 'USR-LEGAL', organisationId: 'ORG-PUBLIC' }]) },
+    contract: { findMany: jest.fn().mockResolvedValue([]) },
   };
   const audit = { recordActor: jest.fn().mockResolvedValue(undefined) };
   const notifications = { enqueue: jest.fn().mockResolvedValue(undefined) };

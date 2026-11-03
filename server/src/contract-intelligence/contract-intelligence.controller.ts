@@ -5,7 +5,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { CreateContractClauseDto, CreateContractInputSchemaDto, CreateContractTemplateDto, CreateDocumentVersionDto, CreateShariahRuleDto } from './contract-intelligence.dto';
 import { ContractIntelligenceService } from './contract-intelligence.service';
 import { AgreementGenerationService } from './agreement-generation.service';
-import { AgreementPartyActionDto, AgreementReviewDto, AgreementWizardDto } from './agreement.dto';
+import { AgreementPartyActionDto, AgreementReviewDto, AgreementWizardDto, LeaseAgreementDto } from './agreement.dto';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 
@@ -16,6 +16,8 @@ export class ContractIntelligenceController {
   constructor(private readonly engine: ContractIntelligenceService, private readonly agreements: AgreementGenerationService) {}
 
   @Get('agreements') listAgreements(@CurrentUser() actor: AuthenticatedUser) { return this.agreements.list(actor); }
+  /** The Ijarah agreement of an approved direct lease, drafted by the asset owner from the lease's terms. */
+  @Post('agreements/lease-drafts') createLeaseAgreement(@Body() input: LeaseAgreementDto, @CurrentUser() actor: AuthenticatedUser) { return this.agreements.draftForLease(actor, input); }
   @Post('agreements/drafts') createAgreementDraft(@Body() input: AgreementWizardDto, @CurrentUser() actor: AuthenticatedUser) { return this.agreements.createDraft(actor, input); }
   @Get('agreements/:agreementId') agreement(@Param('agreementId') id: string, @CurrentUser() actor: AuthenticatedUser) { return this.agreements.get(actor, id); }
   @Get('agreements/:agreementId/checks') agreementChecks(@Param('agreementId') id: string, @CurrentUser() actor: AuthenticatedUser) { return this.agreements.textChecks(actor, id); }

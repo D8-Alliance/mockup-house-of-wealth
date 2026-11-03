@@ -53,7 +53,7 @@ export const AGREEMENT_TRANSITIONS: Record<AgreementStatus, Partial<Record<Agree
 };
 
 export interface AgreementDecision { approverId: string; status: string; decidedAt: Date | null }
-/** A party to an asset partnership agreement (role OWNER or PDP); other agreements have no party roles. */
+/** A party to an asset partnership agreement (role OWNER or PDP) or a lease agreement (OWNER or TENANT); other agreements have no party roles. */
 export interface AgreementParty { role: string | null; organisationId: string | null; consentedVersion: number | null; signedAt: Date | null }
 export interface AgreementForReview { status: string; createdBy: string; organisationId: string; countryNodeId: string; approvals: AgreementDecision[]; parties?: AgreementParty[]; latestVersion?: number; /** When the latest version was written. */ latestVersionAt?: Date }
 export type PartyAction = 'CONSENT' | 'SIGN';
@@ -125,7 +125,9 @@ export function reviewBlocker(actor: AuthenticatedUser, agreement: AgreementForR
 /** What the actor's side of a partnership agreement can do now: agree to the latest draft, or sign once approved. */
 export function partyActions(actor: AuthenticatedUser, agreement: AgreementForReview): Array<{ action: PartyAction; label: string }> {
   const party = partyOf(actor, agreement);
-  if (!party || !(DRAFTER_ROLES as readonly string[]).includes(actor.role)) return [];
+  // A company renting space may act through its Corporate Investor account too (src/leasing TENANT_ROLES).
+  const signsForTenant = party?.role === 'TENANT' && actor.role === 'Corporate Investor';
+  if (!party || (!(DRAFTER_ROLES as readonly string[]).includes(actor.role) && !signsForTenant)) return [];
   const version = agreement.latestVersion ?? 1;
   if ((agreement.status === 'DRAFT' || agreement.status === 'CHANGES_REQUESTED') && party.consentedVersion !== version) return [{ action: 'CONSENT', label: `Agree to version ${version}` }];
   if (agreement.status === 'APPROVED' && !party.signedAt) return [{ action: 'SIGN', label: 'Sign the agreement' }];

@@ -129,13 +129,20 @@ export class LeasingService {
 
   async listLeases(actor: AuthenticatedUser) {
     const rows = await this.prisma.assetLease.findMany({ where: this.leaseScope(actor), orderBy: { updatedAt: 'desc' }, include: LEASE_INCLUDE });
-    const names = await this.tenantNames(rows);
-    return rows.map((row) => this.view(actor, row, names));
+    const [names, agreements] = await Promise.all([this.tenantNames(rows), this.agreements(rows)]);
+    return rows.map((row) => ({ ...this.view(actor, row, names), agreement: agreements.get(row.id) ?? null }));
   }
 
   async getLease(actor: AuthenticatedUser, id: string) {
     const row = await this.findLease(actor, id);
-    return this.view(actor, row, await this.tenantNames([row]));
+    const [names, agreements] = await Promise.all([this.tenantNames([row]), this.agreements([row])]);
+    return { ...this.view(actor, row, names), agreement: agreements.get(row.id) ?? null };
+  }
+
+  /** The Ijarah agreement drafted for each lease (contract-intelligence), so the parties open it instead of drafting another. */
+  private async agreements(rows: Array<{ id: string }>) {
+    const contracts = rows.length ? await this.prisma.contract.findMany({ where: { leaseId: { in: rows.map((row) => row.id) } }, select: { id: true, leaseId: true, contractNumber: true, status: true } }) : [];
+    return new Map(contracts.map((contract) => [contract.leaseId!, { id: contract.id, contractNumber: contract.contractNumber, status: contract.status }]));
   }
 
   /** A company asks to rent a listed unit, from a start date for a number of months. */

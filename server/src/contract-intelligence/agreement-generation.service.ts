@@ -10,11 +10,11 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { ContractClauseRetriever } from '../ai/contract-clause-retriever.service';
-import { AGREEMENT_TYPES, AgreementPartyActionDto, AgreementReviewDto, AgreementType, AgreementWizardDto } from './agreement.dto';
+import { AGREEMENT_TYPES, AgreementPartyActionDto, AgreementReviewDto, AgreementType, AgreementWizardDto, LeaseAgreementDto } from './agreement.dto';
 import { agreementTypeBlocker, availableActions, canSeeAgreement, DRAFTER_ROLES, isAgreementReviewer, partyActions, reviewBlocker } from './agreement-review-rules';
 import { NotificationService } from '../notifications/notification.service';
 import { UserRole as PrismaUserRole } from '@prisma/client';
-import { getJurisdictionProfile } from './jurisdiction-profiles';
+import { D8_JURISDICTIONS, getJurisdictionProfile } from './jurisdiction-profiles';
 import { agreementTextChecks } from './agreement-text-checks';
 import { AgreementFront, AgreementParty, buildAgreement, definedNames, PartnershipDeal, partiesFromWizard } from './agreement-document';
 import { datedLine, drawAgreement, drawFooters, ExecutionBlock } from './agreement-pdf-layout';
@@ -25,7 +25,9 @@ import { AgreementSigningService } from './signing/agreement-signing.service';
 
 type Section = { number: string; title: string; paragraphs: string[] };
 
-/** "profitSharing" → "Profit sharing", for the schedule of commercial inputs. */
+/** The name of each side of an agreement with party roles, in notices and the signature lines. */
+const SIDE_NAMES: Record<string, string> = { OWNER: 'asset owner', PDP: 'delivery partner', TENANT: 'tenant' };
+const sideName = (role: string | null | undefined) => SIDE_NAMES[role ?? ''] ?? 'other party';
 
 const labels: Record<AgreementType, string> = { IJARAH: 'Ijarah Agreement', MUSHARAKAH: 'Musharakah Joint Venture Agreement', MUDARABAH: 'Mudarabah Agreement', WAKALAH: 'Wakalah Agreement', SUKUK: 'Sukuk Structure Document' };
 
@@ -40,6 +42,7 @@ export class AgreementGenerationService {
     const typeBlocked = agreementTypeBlocker(actor.role, input.contractType);
     if (typeBlocked) throw new ForbiddenException(typeBlocked);
     if (input.engagementId) return this.draftForPartnership(actor, input, input.engagementId);
+    if (input.leaseId) return this.draftForLease(actor, { leaseId: input.leaseId });
     if (input.projectId) {
       const project = await this.prisma.project.findUnique({ where: { projectId: input.projectId }, select: { organisationId: true, countryNodeId: true } });
       if (!project) throw new NotFoundException('Project not found.');
@@ -99,6 +102,64 @@ export class AgreementGenerationService {
     return { contract: full, compliance, sections, variables: this.variables(input.wizardData), approvedClauses: clauses, shariahRules: rules };
   }
 
+  /**
+   * The Ijarah agreement of an approved direct lease. The owner drafts it from the lease's approved terms (no
+   * wizard: the rent, deposit, period and permitted use are already agreed and reviewed) and so agrees to it;
+   * the tenant agrees too, then it goes through legal and Shariah review of its text and both sign. A later
+   * draft, after changes were requested, becomes a new version of the same agreement.
+   */
+  async draftForLease(actor: AuthenticatedUser, input: LeaseAgreementDto) {
+    const lease = await this.prisma.assetLease.findUnique({ where: { id: input.leaseId }, include: { unit: { include: { asset: { select: { name: true, location: true, titleReference: true, organisation: { select: { name: true } } } } } } } });
+    if (!lease) throw new NotFoundException('Lease not found.');
+    if (!['Asset Owner', 'Asset Manager'].includes(actor.role) || actor.organisationId !== lease.ownerOrganisationId || actor.countryNodeId !== lease.countryNodeId) throw new ForbiddenException('Only the owner of the leased asset drafts its Ijarah agreement.');
+    if (lease.status !== 'APPROVED') throw new BadRequestException('The lease must be approved by Legal and Shariah before its agreement is drafted.');
+    const existing = await this.prisma.contract.findUnique({ where: { leaseId: lease.id }, include: { versions: { orderBy: { version: 'desc' }, take: 1 } } });
+    if (existing && !['DRAFT', 'CHANGES_REQUESTED'].includes(existing.status)) throw new ConflictException(`The agreement for this lease (${existing.contractNumber}) is already past drafting and can no longer be revised.`);
+    const tenant = await this.prisma.organisation.findUnique({ where: { id: lease.tenantOrganisationId }, select: { name: true, countryNode: { select: { name: true } } } });
+    const owner = lease.unit.asset.organisation.name;
+    const assetName = `${lease.unit.label}, ${lease.unit.asset.name}`;
+    const money = `${lease.currency} ${Number(lease.monthlyRent).toLocaleString('en-MY', { minimumFractionDigits: 2 })}`;
+    const day = (date: Date) => date.toISOString().slice(0, 10);
+    const wizard: AgreementWizardDto = {
+      contractType: 'IJARAH', projectName: assetName, leaseId: lease.id,
+      jurisdiction: (tenant?.countryNode?.name && (D8_JURISDICTIONS as readonly string[]).includes(tenant.countryNode.name)) ? tenant.countryNode.name : 'Malaysia',
+      wizardData: {
+        lessorName: owner, lesseeName: tenant?.name ?? '',
+        assetDescription: `${assetName}${lease.unit.floorArea ? `, ${Number(lease.unit.floorArea).toLocaleString('en-MY')} ${lease.unit.floorAreaUnit === 'SQM' ? 'square metres' : 'square feet'}` : ''}${lease.unit.asset.location ? `, at ${lease.unit.asset.location}` : ''}${lease.unit.asset.titleReference ? ` (title ${lease.unit.asset.titleReference})` : ''}`,
+        ownershipMaintained: `Yes. ${owner} keeps ownership, major maintenance and takaful of the premises.`,
+        rentalAmount: `${money} a month`, rentalFrequency: 'Monthly in advance', leaseTerm: `${day(lease.startDate)} to ${day(lease.endDate)}`,
+      },
+    };
+    const { content, compliance, sections, clauses, rules, aiSkippedReason } = await this.compose(actor, wizard);
+    const now = new Date();
+    const consent = (version: number) => ({ consentedVersion: version, consentedAt: now, consentedBy: actor.userId });
+    let contract: { id: string; contractNumber: string };
+    let version = 1;
+    if (!existing) {
+      contract = await this.prisma.contract.create({ data: {
+        organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, leaseId: lease.id, contractNumber: this.newContractNumber(), contractType: 'IJARAH', title: labels.IJARAH, status: 'DRAFT', wizardData: wizard.wizardData as object, complianceReport: compliance as object, createdBy: actor.userId,
+        versions: { create: { version: 1, content, status: 'DRAFT', createdBy: actor.userId } },
+        parties: { create: [
+          { partyType: 'LESSOR', role: 'OWNER', displayName: owner, organisationId: lease.ownerOrganisationId, ...consent(1) },
+          { partyType: 'LESSEE', role: 'TENANT', displayName: tenant?.name ?? lease.tenantOrganisationId, organisationId: lease.tenantOrganisationId },
+        ] },
+        events: { create: { eventType: 'DRAFT_CREATED', toStatus: 'DRAFT', actorId: actor.userId, metadata: { contractType: 'IJARAH', leaseId: lease.id, role: actor.role, byName: actor.name, version: 1, note: 'Drafted by the asset owner from the approved lease' } } },
+      } });
+    } else {
+      version = (existing.versions[0]?.version ?? 0) + 1;
+      contract = await this.prisma.$transaction(async (tx) => {
+        await tx.contractVersion.create({ data: { contractId: existing.id, version, content, status: 'DRAFT', createdBy: actor.userId } });
+        await tx.contractParty.updateMany({ where: { contractId: existing.id, role: 'OWNER' }, data: consent(version) });
+        await tx.contractEvent.create({ data: { contractId: existing.id, eventType: 'REVISED', fromStatus: existing.status, toStatus: existing.status, actorId: actor.userId, metadata: { version, role: actor.role, byName: actor.name, note: `Version ${version} by the asset owner` } } });
+        return tx.contract.update({ where: { id: existing.id }, data: { wizardData: wizard.wizardData as object, complianceReport: compliance as object, lastGeneratedAt: now } });
+      });
+    }
+    await this.auditRecord(actor, existing ? 'agreement.revised' : 'agreement.draft_created', contract.id, { contractType: 'IJARAH', leaseId: lease.id, version, complianceStatus: compliance.status, approvedClauseCount: clauses.length, aiSkippedReason });
+    await this.notifyOrganisation(lease.tenantOrganisationId, lease.countryNodeId, contract.id, `agreement-v${version}`, `Ijarah agreement for ${assetName}: please review`, `The owner ${existing ? `revised the agreement to version ${version}` : 'drafted the Ijarah agreement'} for ${assetName} (${contract.contractNumber}). Read it and agree to it.`);
+    const full = await this.prisma.contract.findUniqueOrThrow({ where: { id: contract.id }, include: { versions: { orderBy: { version: 'desc' } } } });
+    return { contract: full, compliance, sections, variables: this.variables(wizard.wizardData), approvedClauses: clauses, shariahRules: rules };
+  }
+
   /** The agreement text from the wizard facts, approved clauses and Shariah rules, with an optional AI drafting note. */
   private async compose(actor: AuthenticatedUser, input: AgreementWizardDto) {
     const clauses = await this.retriever.retrieveClauses(actor, { contractType: input.contractType, jurisdiction: input.jurisdiction, industry: this.value(input.wizardData, 'industry') });
@@ -125,16 +186,16 @@ export class AgreementGenerationService {
     // Each side agrees to, and signs, a version identified by its fingerprint.
     const versionHash = contract.versions[0] ? entryHash(contract.versions[0].content) : null;
     const other = contract.parties.find((item) => item.role && item.id !== party.id);
-    const sideName = party.role === 'OWNER' ? 'asset owner' : 'delivery partner';
+    const side = sideName(party.role);
     if (input.action === 'CONSENT') {
       await this.prisma.$transaction([
         this.prisma.contractParty.update({ where: { id: party.id }, data: { consentedVersion: latest, consentedAt: new Date(), consentedBy: actor.userId } }),
-        this.prisma.contractEvent.create({ data: { contractId: id, eventType: 'PARTY_CONSENTED', actorId: actor.userId, metadata: { version: latest, versionHash, role: actor.role, byName: actor.name, note: `The ${sideName} agreed to version ${latest}` } } }),
+        this.prisma.contractEvent.create({ data: { contractId: id, eventType: 'PARTY_CONSENTED', actorId: actor.userId, metadata: { version: latest, versionHash, role: actor.role, byName: actor.name, note: `The ${side} agreed to version ${latest}` } } }),
       ]);
       await this.auditRecord(actor, 'agreement.party_consented', id, { version: latest, versionHash, side: party.role, byName: actor.name });
       if (other?.organisationId) {
         const both = other.consentedVersion === latest;
-        await this.notifyOrganisation(other.organisationId, contract.countryNodeId, id, `consent-v${latest}-${party.role}`, both ? 'Agreement ready for legal review' : 'Agreement: the other side agreed', both ? `Both sides agreed to version ${latest} of ${contract.contractNumber}. It can now be submitted for legal review.` : `The ${sideName} agreed to version ${latest} of ${contract.contractNumber}. Read it and agree, or draft a revision.`);
+        await this.notifyOrganisation(other.organisationId, contract.countryNodeId, id, `consent-v${latest}-${party.role}`, both ? 'Agreement ready for legal review' : 'Agreement: the other side agreed', both ? `Both sides agreed to version ${latest} of ${contract.contractNumber}. It can now be submitted for legal review.` : `The ${side} agreed to version ${latest} of ${contract.contractNumber}. Read it and agree, or draft a revision.`);
       }
     } else {
       const typed = input.signatureName?.trim() ?? '';
@@ -144,7 +205,7 @@ export class AgreementGenerationService {
       const executed = await this.prisma.$transaction(async (tx) => {
         const signed = await tx.contractParty.updateMany({ where: { id: party.id, signedAt: null }, data: { signedAt: new Date(), signedBy: actor.userId, signatureName: typed, signatureMethod: otp ? 'TYPED_NAME_OTP' : 'TYPED_NAME', otpChannel: otp?.channel ?? null } });
         if (!signed.count) throw new ConflictException('Your side has already signed.');
-        await tx.contractEvent.create({ data: { contractId: id, eventType: 'PARTY_SIGNED', actorId: actor.userId, metadata: { version: latest, versionHash, role: actor.role, byName: actor.name, note: `Signed for the ${sideName} by ${typed}`, ...(otp ? { otp } : {}) } } });
+        await tx.contractEvent.create({ data: { contractId: id, eventType: 'PARTY_SIGNED', actorId: actor.userId, metadata: { version: latest, versionHash, role: actor.role, byName: actor.name, note: `Signed for the ${side} by ${typed}`, ...(otp ? { otp } : {}) } } });
         const unsigned = await tx.contractParty.count({ where: { contractId: id, role: { not: null }, signedAt: null } });
         if (unsigned) return false;
         const claimed = await tx.contract.updateMany({ where: { id, status: 'APPROVED' }, data: { status: 'EXECUTION' } });
@@ -158,7 +219,7 @@ export class AgreementGenerationService {
       // Sealing runs in the background; if it fails, the integrity sweep retries a minute after a restart and every six hours.
       if (executed && this.signing) void this.signing.finalize(id).catch((error) => this.logger.warn(`Agreement ${id} not sealed yet: ${error instanceof Error ? error.message : String(error)}`));
       for (const recipient of contract.parties.filter((item) => item.role && item.organisationId && (executed || item.id !== party.id))) {
-        await this.notifyOrganisation(recipient.organisationId!, contract.countryNodeId, id, executed ? 'executed' : `signed-${party.role}`, executed ? 'Agreement signed by both sides' : 'Agreement: the other side signed', executed ? `${contract.contractNumber} is signed by both sides. Next: pay the stamp duty (LHDN STAMPS) within 30 days; the agreement takes effect as written in it.` : `The ${sideName} signed ${contract.contractNumber}. Sign it to complete the agreement.`);
+        await this.notifyOrganisation(recipient.organisationId!, contract.countryNodeId, id, executed ? 'executed' : `signed-${party.role}`, executed ? 'Agreement signed by both sides' : 'Agreement: the other side signed', executed ? `${contract.contractNumber} is signed by both sides. Next: pay the stamp duty (LHDN STAMPS) within 30 days; the agreement takes effect as written in it.` : `The ${side} signed ${contract.contractNumber}. Sign it to complete the agreement.`);
       }
     }
     return this.get(actor, id);
@@ -190,7 +251,7 @@ export class AgreementGenerationService {
     const where = isAgreementReviewer(actor.role)
       ? { OR: [{ countryNodeId: actor.countryNodeId, status: { not: 'DRAFT' } }, tenantScopeFilter(actor), asParty] }
       : { OR: [tenantScopeFilter(actor), asParty] };
-    const contracts = await this.prisma.contract.findMany({ where: { ...where, contractType: { in: [...AGREEMENT_TYPES] } }, orderBy: { updatedAt: 'desc' }, take: 100, select: { id: true, contractNumber: true, title: true, contractType: true, status: true, createdBy: true, organisationId: true, countryNodeId: true, createdAt: true, updatedAt: true, complianceReport: true, engagementId: true, approvals: { select: { approverId: true, status: true, decidedAt: true } }, parties: { select: { role: true, organisationId: true, displayName: true, consentedVersion: true, signedAt: true } }, versions: { select: { version: true, createdAt: true }, orderBy: { version: 'desc' }, take: 1 } } });
+    const contracts = await this.prisma.contract.findMany({ where: { ...where, contractType: { in: [...AGREEMENT_TYPES] } }, orderBy: { updatedAt: 'desc' }, take: 100, select: { id: true, contractNumber: true, title: true, contractType: true, status: true, createdBy: true, organisationId: true, countryNodeId: true, createdAt: true, updatedAt: true, complianceReport: true, engagementId: true, leaseId: true, approvals: { select: { approverId: true, status: true, decidedAt: true } }, parties: { select: { role: true, organisationId: true, displayName: true, consentedVersion: true, signedAt: true } }, versions: { select: { version: true, createdAt: true }, orderBy: { version: 'desc' }, take: 1 } } });
     return contracts.map(({ approvals, complianceReport, versions, ...contract }) => {
       const shape = { ...contract, approvals, latestVersion: versions[0]?.version ?? 1, latestVersionAt: versions[0]?.createdAt };
       return { ...contract, latestVersion: shape.latestVersion, complianceStatus: (complianceReport as { status?: string } | null)?.status ?? null, availableActions: availableActions(actor, shape), partyActions: partyActions(actor, shape) };
@@ -316,11 +377,11 @@ export class AgreementGenerationService {
     const body = version?.content as { sections?: Section[]; front?: AgreementFront } | undefined;
     const parties = contract.parties.filter((party) => party.role);
     // Older drafts end with a Signatures section; it shows who has signed.
-    const sections = (body?.sections || []).map((section) => (parties.length && section.title === 'Signatures' ? { ...section, paragraphs: parties.map((party) => `For the ${party.role === 'OWNER' ? 'asset owner' : 'delivery partner'}, ${party.displayName}: ${party.signedAt ? `signed electronically by ${party.signatureName} on ${party.signedAt.toISOString().slice(0, 10)}` : 'not signed yet'}.`) } : section));
+    const sections = (body?.sections || []).map((section) => (parties.length && section.title === 'Signatures' ? { ...section, paragraphs: parties.map((party) => `For the ${sideName(party.role)}, ${party.displayName}: ${party.signedAt ? `signed electronically by ${party.signatureName} on ${party.signedAt.toISOString().slice(0, 10)}` : 'not signed yet'}.`) } : section));
     const executedAt = contract.events.find((event) => event.toStatus === 'EXECUTION')?.createdAt;
     const signatories = await this.signatories(contract);
     const execution: ExecutionBlock[] = (body?.front?.parties ?? []).map((party, index) => {
-      const signer = parties.find((item) => item.role === (index === 0 ? 'OWNER' : 'PDP'));
+      const signer = parties.find((item) => (index === 0 ? item.role === 'OWNER' : item.role !== 'OWNER'));
       return { defined: party.defined, name: party.name, registration: party.registration, signatory: signer ? signatories.get(signer.id) : undefined, signed: signer?.signedAt ? `Signed electronically on the Platform by ${signer.signatureName} on ${formatLocalDateTime(signer.signedAt, contract.countryNodeId)}, verified by a one-time code. See the Certificate of Completion in the signed copy.` : undefined };
     });
     const layout = { contractNumber: contract.contractNumber, title: contract.title || 'Islamic Finance Agreement', version: version?.version ?? 1, status: contract.status === 'EXECUTION' ? 'Executed' : contract.status.replace(/_/g, ' ').toLowerCase().replace(/^./, (c) => c.toUpperCase()), dated: executedAt ? datedLine(executedAt) : undefined, front: body?.front ?? null, sections, execution };
@@ -362,6 +423,26 @@ export class AgreementGenerationService {
       const organisation = organisationId ? await this.prisma.organisation.findUnique({ where: { id: organisationId }, select: { registrationNumber: true, registeredAddress: true } }) : null;
       return { registration: organisation?.registrationNumber?.trim() || payload.registrationNumber?.trim() || '[company number]', address: organisation?.registeredAddress?.trim() || payload.registeredAddress?.trim() || '[registered address]' };
     };
+    if (input.leaseId) {
+      const lease = await this.prisma.assetLease.findUnique({ where: { id: input.leaseId }, select: { id: true, monthlyRent: true, depositAmount: true, currency: true, startDate: true, endDate: true, intendedUse: true, tenantActivity: true, ownerOrganisationId: true, tenantOrganisationId: true, legalApprovedAt: true, shariahApprovedAt: true, unit: { select: { label: true, asset: { select: { name: true, titleReference: true } } } } } });
+      if (lease) {
+        const organisations = await this.prisma.organisation.findMany({ where: { id: { in: [lease.ownerOrganisationId, lease.tenantOrganisationId] } }, select: { id: true, name: true } });
+        const nameOf = (id: string) => organisations.find((organisation) => organisation.id === id)?.name ?? id;
+        const [ownerDefined, tenantDefined] = definedNames('IJARAH', true);
+        const parties: AgreementParty[] = [
+          { name: nameOf(lease.ownerOrganisationId), ...(await details(lease.ownerOrganisationId, nameOf(lease.ownerOrganisationId))), defined: ownerDefined, description: 'as the lessor' },
+          { name: nameOf(lease.tenantOrganisationId), ...(await details(lease.tenantOrganisationId, nameOf(lease.tenantOrganisationId))), defined: tenantDefined, description: 'as the lessee' },
+        ];
+        const approved = [lease.legalApprovedAt, lease.shariahApprovedAt].filter((item): item is Date => Boolean(item)).sort((x, y) => y.getTime() - x.getTime())[0];
+        return { parties, deal: {
+          engagementId: lease.id, akad: 'IJARAH', terms: { rentAmount: Number(lease.monthlyRent), rentFrequency: 'MONTHLY', upkeepBy: 'LESSEE', currency: lease.currency },
+          startDate: lease.startDate.toISOString().slice(0, 10), endDate: lease.endDate.toISOString().slice(0, 10),
+          assetName: `${lease.unit.label}, ${lease.unit.asset.name}${lease.unit.asset.titleReference ? `, ${lease.unit.asset.titleReference}` : ''}`,
+          approvedOn: approved ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kuala_Lumpur', day: 'numeric', month: 'long', year: 'numeric' }).format(approved) : null,
+          lease: { leaseId: lease.id, depositAmount: Number(lease.depositAmount), intendedUse: lease.intendedUse, tenantActivity: lease.tenantActivity },
+        } };
+      }
+    }
     if (input.engagementId) {
       const engagement = await this.prisma.assetEngagement.findUnique({ where: { id: input.engagementId }, select: { id: true, akad: true, terms: true, startDate: true, endDate: true, ownerOrganisationId: true, pdpOrganisationId: true, legalApprovedAt: true, shariahApprovedAt: true, asset: { select: { name: true, titleReference: true } } } });
       if (engagement) {
@@ -412,7 +493,7 @@ export class AgreementGenerationService {
       centred('BETWEEN'),
       ...front.parties.flatMap((party, index) => [...(index ? [centred('AND')] : []), centred(party.name.toUpperCase(), true, 36), centred(`(Company No.: ${party.registration})`), centred(`(${party.description})`)]),
       centred(front.title.toUpperCase(), true, 44),
-      centred(`"${front.projectName.toUpperCase()}" PROJECT`, true, 22),
+      centred(front.coverLine ?? `"${front.projectName.toUpperCase()}" PROJECT`, true, 22),
       centred(`Document No. ${layout.contractNumber} | Version ${layout.version} | ${layout.status}`, false, 16),
       new Paragraph({ children: [new PageBreak()] }),
       plain('THIS AGREEMENT is made on the date stated on the first page.'),
