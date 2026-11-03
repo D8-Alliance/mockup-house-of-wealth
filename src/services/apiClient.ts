@@ -194,14 +194,14 @@ export const apiClient = {
   getLeases: () => request<AssetLeaseView[]>('/leasing/leases'),
   getLease: (id: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}`),
   requestLease: (input: { unitId: string; startDate: string; termMonths: number; monthlyRent?: number; intendedUse: string; tenantActivity: string; shariahDeclaration: boolean; message?: string }) => request<AssetLeaseView>('/leasing/leases', { method: 'POST', body: JSON.stringify(input) }),
-  respondLease: (id: string, input: { action: 'ACCEPT' | 'DECLINE' | 'COUNTER'; monthlyRent?: number; depositAmount?: number; startDate?: string; termMonths?: number; note?: string; confirmed?: boolean }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/respond`, { method: 'POST', body: JSON.stringify(input) }),
+  respondLease: (id: string, input: { action: 'ACCEPT' | 'DECLINE' | 'COUNTER'; monthlyRent?: number; depositAmount?: number; utilityDepositAmount?: number; renovationDepositAmount?: number; startDate?: string; termMonths?: number; note?: string; confirmed?: boolean }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/respond`, { method: 'POST', body: JSON.stringify(input) }),
   withdrawLease: (id: string, note?: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/withdraw`, { method: 'POST', body: JSON.stringify({ note }) }),
   reviewLease: (id: string, input: { decision: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES'; note: string; track?: 'LEGAL' | 'SHARIAH' }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   recordLeaseRent: (id: string, period: string, input: { reference: string; paidAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/payments/${encodeURIComponent(period)}`, { method: 'POST', body: JSON.stringify(input) }),
   /** The owner drafts (or, after changes were requested, revises) the Ijarah agreement of an approved lease. */
   draftLeaseAgreement: (leaseId: string) => request<{ contract: { id: string; contractNumber: string } }>('/contract-intelligence/agreements/lease-drafts', { method: 'POST', body: JSON.stringify({ leaseId }) }),
   recordLeaseDeposit: (id: string, input: { reference: string; receivedAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/deposit`, { method: 'POST', body: JSON.stringify(input) }),
-  refundLeaseDeposit: (id: string, input: { deductions: Array<{ reason: string; amount: number }>; reference: string; paidAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/deposit/refund`, { method: 'POST', body: JSON.stringify(input) }),
+  refundLeaseDeposit: (id: string, input: { kind: DepositKind; deductions: Array<{ reason: string; amount: number }>; reference: string; paidAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/deposit/refund`, { method: 'POST', body: JSON.stringify(input) }),
   endLease: (id: string, note: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/end`, { method: 'POST', body: JSON.stringify({ note }) }),
   createInvestmentOrder: (input: { poolId: string; amount: number; currency: string; idempotencyKey: string; akadTermsId: string; acceptAkad: true }) => request<BackendInvestmentOrder>('/investments/orders', { method: 'POST', body: JSON.stringify(input) }),
   getSettlementQueue: () => request<SettlementQueueOrder[]>('/investments/settlement-queue'),
@@ -2191,10 +2191,19 @@ export interface LeasableUnitInput {
   monthlyRent: number;
   currency: string;
   depositMonths?: number;
+  /** Electricity and water deposit, in months of rent. */
+  utilityDepositMonths?: number;
+  /** A fixed amount held while the tenant fits out the space. */
+  renovationDeposit?: number;
+  utilitiesPaidBy?: UtilitiesPaidBy;
   minTermMonths?: number;
   availableFrom?: string;
   permittedUse?: string;
 }
+
+/** TENANT_DIRECT: meters in the tenant's name. OWNER_RECHARGE: the owner pays and bills the tenant at cost. */
+export type UtilitiesPaidBy = 'TENANT_DIRECT' | 'OWNER_RECHARGE';
+export type DepositKind = 'SECURITY' | 'UTILITY' | 'RENOVATION';
 
 export interface LeasableUnitView {
   id: string;
@@ -2206,6 +2215,9 @@ export interface LeasableUnitView {
   monthlyRent: number;
   currency: string;
   depositMonths: number;
+  utilityDepositMonths: number;
+  renovationDeposit: number;
+  utilitiesPaidBy: UtilitiesPaidBy;
   minTermMonths: number;
   availableFrom: string | null;
   permittedUse: string;
@@ -2250,14 +2262,26 @@ export interface AssetLeaseView {
   canEnd: boolean;
   canRecordDeposit: boolean;
   canReturnDeposit: boolean;
-  /** The security deposit: received by the owner, then refunded within 30 days after the lease, less reasoned deductions. */
-  deposit: { amount: number; receivedAt: string | null; reference: string | null; returnedAt: string | null; refund: { amount: number; reference: string; deductions: Array<{ reason: string; amount: number }> } | null; refundDueBy: string | null };
+  /**
+   * The deposits: security, utility (electricity and water) and renovation. Received together, refunded one by one
+   * with reasoned deductions; `refundable` lists what the owner can refund now.
+   */
+  deposit: {
+    amount: number; utility: number; renovation: number; total: number; utilitiesPaidBy: UtilitiesPaidBy;
+    receivedAt: string | null; reference: string | null; returnedAt: string | null;
+    refunds: Array<{ kind: DepositKind; amount: number; reference: string; paidAt: string; deductions: Array<{ reason: string; amount: number }> }>;
+    refundable: DepositKind[];
+    refundDueBy: string | null;
+  };
   unit: { id: string; label: string; floorArea: number | null; floorAreaUnit: string; permittedUse: string; minTermMonths: number };
   asset: { id: string; name: string; assetType: string; region: string; location?: string };
   ownerOrganisationName: string;
   tenantOrganisationName: string | null;
   monthlyRent: number;
   depositAmount: number;
+  utilityDepositAmount: number;
+  renovationDepositAmount: number;
+  utilitiesPaidBy: UtilitiesPaidBy;
   currency: string;
   startDate: string;
   endDate: string;

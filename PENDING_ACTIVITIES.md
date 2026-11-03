@@ -261,7 +261,11 @@ Bingkai kamera dan dokumen KYC masih disimpan tanpa had masa. **Perlu keputusan:
 1. Perjanjian Ijarah: siap 2026-11-03 (`Contract.leaseId`, `POST /contract-intelligence/agreements/lease-drafts`). Pemilik menyediakan perjanjian daripada terma sewaan yang diluluskan; teks khusus sewaan terus (kegunaan dibenarkan, deposit sebagai amanah dan dipulangkan dalam 30 hari, sewa bulanan di awal bulan). Penyewa bersetuju, pemilik menghantar untuk semakan Legal dan Shariah (penyemak di portal web), kemudian kedua-dua pihak menandatangani dengan OTP di mini-app. Baki: penyemak belum boleh menyemak di mini-app; skrin web Contracts masih menamakan penyewa sebagai "delivery partner".
 2. Skrin web (Asset Registry dan semakan Legal/Shariah). Buat masa ini semuanya dalam mini-app.
 3. Peringatan: siap 2026-11-03 (`LeaseReminderSweeper`, sekali sehari). Sewa 3 hari sebelum dan pada hari perlu bayar; tertunggak 1, 7, 14 dan 30 hari (pemilik juga dimaklumkan); sewaan tamat dalam 60 dan 30 hari; pemulangan deposit hampir atau lewat tarikh akhir. Baki: pembaharuan sewaan (sekarang penyewa memohon sewaan baharu).
-4. Deposit: siap 2026-11-03. Pemilik merekod deposit diterima; selepas sewaan tamat, pemilik memulangkannya dengan potongan dan sebab bagi setiap potongan, dalam 30 hari seperti dalam perjanjian.
+4. Deposit: siap 2026-11-03. Pemilik merekod deposit diterima; selepas sewaan tamat, pemilik memulangkannya dengan potongan dan sebab bagi setiap potongan, dalam 30 hari seperti dalam perjanjian. Dikemas kini 2026-11-04 (migration `20261104090000_lease_deposits`) kepada tiga deposit:
+   - deposit sekuriti (bulan sewa);
+   - deposit utiliti elektrik dan air (bulan sewa, lalai 1 bulan bagi unit baharu; unit sedia ada 0);
+   - deposit ubah suai (amaun tetap, boleh dipulangkan sebaik kerja ubah suai siap diperiksa, sebelum sewaan tamat).
+   Unit juga menyatakan siapa membayar bil: penyewa terus (TNB/air atas nama penyewa) atau pemilik bayar dan caj penyewa pada kos sebenar. Setiap deposit dipulangkan berasingan dengan potongan sendiri; perjanjian Ijarah memuatkan ketiga-tiganya. Baki: rekod caj semula utiliti bulanan bagi pilihan "pemilik bayar"; tetapan bulan deposit utiliti mengikut negeri (contoh 2–3 bulan bagi kedai makan).
 5. Keputusan pemilik projek:
    - sama ada platform memungut sewa (melalui akaun amanah) atau rekod sahaja;
    - komisen atau yuran langganan (semak Akta 242, ejen harta tanah);

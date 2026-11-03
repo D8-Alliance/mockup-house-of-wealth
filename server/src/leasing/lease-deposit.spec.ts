@@ -55,7 +55,7 @@ describe('LeasingService deposit and reminders', () => {
     id: 'LEASE-1', unitId: 'UNIT-1', assetId: 'A1', countryNodeId: 'CN-MYS', ownerOrganisationId: 'ORG-AHG', tenantOrganisationId: 'ORG-TENANT', status: 'APPROVED', awaiting: 'NONE',
     monthlyRent: dec(25500), currency: 'MYR', depositAmount: dec(51000), startDate: at('2027-01-01'), endDate: at('2027-12-31'), intendedUse: 'Office', tenantActivity: 'Engineering',
     history: [], legalApprovedBy: null, legalApprovedAt: null, shariahApprovedBy: null, shariahApprovedAt: null, endedAt: null,
-    depositReceivedAt: null, depositReference: null, depositReturnedAt: null, depositRefund: null, createdBy: 'USR-TN', createdAt: new Date(), updatedAt: new Date(), unit, payments: [],
+    depositReceivedAt: null, depositReference: null, depositReturnedAt: null, depositRefunds: null, utilityDepositAmount: dec(25500), renovationDepositAmount: dec(10000), utilitiesPaidBy: 'TENANT_DIRECT', createdBy: 'USR-TN', createdAt: new Date(), updatedAt: new Date(), unit, payments: [],
     ...overrides,
   });
   const prisma = {
@@ -85,23 +85,23 @@ describe('LeasingService deposit and reminders', () => {
 
   it('refunds only after the lease and only a received deposit', async () => {
     prisma.assetLease.findFirst.mockResolvedValueOnce(lease({ endDate: at('2099-12-31'), depositReceivedAt: at('2027-01-01') }));
-    await expect(service.returnDeposit(owner, 'LEASE-1', { deductions: [], reference: 'IBG-REF-1' })).rejects.toThrow(/after the lease ends/);
+    await expect(service.returnDeposit(owner, 'LEASE-1', { kind: 'SECURITY', deductions: [], reference: 'IBG-REF-1' })).rejects.toThrow(/after the lease ends/);
     prisma.assetLease.findFirst.mockResolvedValueOnce(lease({ status: 'ENDED' }));
-    await expect(service.returnDeposit(owner, 'LEASE-1', { deductions: [], reference: 'IBG-REF-1' })).rejects.toThrow(/received first/);
+    await expect(service.returnDeposit(owner, 'LEASE-1', { kind: 'SECURITY', deductions: [], reference: 'IBG-REF-1' })).rejects.toThrow(/received first/);
   });
 
   it('records the refund with its deductions and tells the tenant what was kept and why', async () => {
     const ended = lease({ status: 'ENDED', endedAt: at('2027-06-15'), depositReceivedAt: at('2027-01-01') });
     prisma.assetLease.findFirst.mockResolvedValueOnce(ended).mockResolvedValueOnce(ended);
     prisma.assetLease.updateMany.mockResolvedValueOnce({ count: 1 });
-    await service.returnDeposit(owner, 'LEASE-1', { deductions: [{ reason: 'Broken glass door', amount: 1200 }], reference: 'IBG-REF-1' });
-    expect(prisma.assetLease.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ depositRefund: { amount: 49800, reference: 'IBG-REF-1', deductions: [{ reason: 'Broken glass door', amount: 1200 }] } }) }));
+    await service.returnDeposit(owner, 'LEASE-1', { kind: 'SECURITY', deductions: [{ reason: 'Broken glass door', amount: 1200 }], reference: 'IBG-REF-1' });
+    expect(prisma.assetLease.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { depositRefunds: [expect.objectContaining({ kind: 'SECURITY', amount: 49800, reference: 'IBG-REF-1', deductions: [{ reason: 'Broken glass door', amount: 1200 }] })] } }));
     expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-TN', title: 'Deposit refunded', message: expect.stringContaining('Broken glass door') }));
   });
 
   it('refuses deductions larger than the deposit', async () => {
     prisma.assetLease.findFirst.mockResolvedValueOnce(lease({ status: 'ENDED', depositReceivedAt: at('2027-01-01') }));
-    await expect(service.returnDeposit(owner, 'LEASE-1', { deductions: [{ reason: 'Major damage', amount: 60000 }], reference: 'IBG-REF-1' })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.returnDeposit(owner, 'LEASE-1', { kind: 'SECURITY', deductions: [{ reason: 'Major damage', amount: 60000 }], reference: 'IBG-REF-1' })).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('sends the overdue reminder to the tenant and the owner, each stage once', async () => {
@@ -128,5 +128,28 @@ describe('LeasingService deposit and reminders', () => {
     expect((await service.getLease(tenant, 'LEASE-1')).counterparty).toEqual({ name: 'Amran Zain', email: 'amran@ahg.my', phone: null });
     prisma.assetLease.findFirst.mockResolvedValueOnce(lease({ status: 'PROPOSED' }));
     expect((await service.getLease(owner, 'LEASE-1')).counterparty).toBeNull();
+  });
+
+  it('refunds the renovation deposit once the fit-out is inspected, before the lease ends', async () => {
+    const running = lease({ endDate: at('2099-12-31'), depositReceivedAt: at('2027-01-01') });
+    prisma.assetLease.findFirst.mockResolvedValueOnce(running).mockResolvedValueOnce(running);
+    prisma.assetLease.updateMany.mockResolvedValueOnce({ count: 1 });
+    await service.returnDeposit(owner, 'LEASE-1', { kind: 'RENOVATION', deductions: [{ reason: 'Repaint the corridor wall', amount: 800 }], reference: 'IBG-REN-1' });
+    expect(prisma.assetLease.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { depositRefunds: [expect.objectContaining({ kind: 'RENOVATION', amount: 9200 })] } }));
+    prisma.assetLease.findFirst.mockResolvedValueOnce(running);
+    await expect(service.returnDeposit(owner, 'LEASE-1', { kind: 'UTILITY', deductions: [], reference: 'IBG-UTL-1' })).rejects.toThrow(/after the lease ends/);
+  });
+
+  it('marks the deposits returned only when the last one is refunded, each once', async () => {
+    const refunded = [{ kind: 'SECURITY', amount: 51000, reference: 'A', paidAt: '2027-06-20', deductions: [] }, { kind: 'RENOVATION', amount: 10000, reference: 'B', paidAt: '2027-02-01', deductions: [] }];
+    const ended = lease({ status: 'ENDED', endedAt: at('2027-06-15'), depositReceivedAt: at('2027-01-01'), depositRefunds: refunded });
+    prisma.assetLease.findFirst.mockResolvedValueOnce(ended);
+    await expect(service.returnDeposit(owner, 'LEASE-1', { kind: 'SECURITY', deductions: [], reference: 'C' })).rejects.toBeInstanceOf(ConflictException);
+    prisma.assetLease.findFirst.mockResolvedValueOnce(ended).mockResolvedValueOnce(ended);
+    prisma.assetLease.updateMany.mockResolvedValueOnce({ count: 1 });
+    await service.returnDeposit(owner, 'LEASE-1', { kind: 'UTILITY', deductions: [{ reason: 'TNB bill for June 2027', amount: 1450.6 }], reference: 'IBG-UTL-1' });
+    const data = prisma.assetLease.updateMany.mock.calls[0][0].data;
+    expect(data.depositRefunds).toHaveLength(3);
+    expect(data.depositReturnedAt).toBeInstanceOf(Date);
   });
 });

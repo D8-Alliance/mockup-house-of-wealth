@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Building2, ChevronRight, Plus, RefreshCw } from 'lucide-react';
-import { AgreementDetail, AgreementStatus, apiClient, AssetLeaseView, AvailableUnit, LeasableUnitInput, MyLeasableUnit } from '../../services/apiClient';
+import { AgreementDetail, AgreementStatus, apiClient, DepositKind, AssetLeaseView, AvailableUnit, LeasableUnitInput, LeasableUnitView, MyLeasableUnit } from '../../services/apiClient';
 import { useRBAC } from '../../rbac/RBACContext';
 import { LEASE_OWNER_ROLES, LEASE_REVIEWER_ROLES, LEASE_TENANT_ROLES } from '../mobileRoles';
 import { useT } from '../i18n';
@@ -119,6 +119,7 @@ const OwnerUnits: React.FC = () => {
                 <span className={`text-[10px] font-black rounded-full px-2 py-0.5 ${unit.status === 'LISTED' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-slate-500/10 text-slate-500'}`}>{unit.status === 'LISTED' ? t('Listed') : t('Not listed')}</span>
               </div>
               <p className="text-xs"><span className="font-black">{t('{amount} a month', { amount: money(unit.currency, unit.monthlyRent) })}</span> · {t('deposit {months} months', { months: unit.depositMonths })} · {t('at least {months} months', { months: unit.minTermMonths })}</p>
+              <UnitDeposits unit={unit} />
               {unit.occupiedUntil && <p className="text-xs font-bold text-sky-700 dark:text-sky-300">{t('Leased until {date}', { date: unit.occupiedUntil })}</p>}
               {unit.requests > 0 && <p className="text-xs font-bold text-amber-700 dark:text-amber-300">{t('{count} request(s) waiting for your answer: see Leases.', { count: unit.requests })}</p>}
               <button type="button" disabled={busy === unit.id} onClick={() => toggle(unit)} className={secondary}>{unit.status === 'LISTED' ? t('Stop listing') : t('List again')}</button>
@@ -132,7 +133,7 @@ const OwnerUnits: React.FC = () => {
 
 const UnitForm: React.FC<{ assets: Array<{ id: string; name: string }>; onDone: (saved: boolean) => void }> = ({ assets, onDone }) => {
   const { t } = useT();
-  const [form, setForm] = useState({ assetId: assets[0]?.id ?? '', label: '', floorArea: '', floorAreaUnit: 'SQFT', monthlyRent: '', depositMonths: '2', minTermMonths: '12', availableFrom: '', permittedUse: '', description: '' });
+  const [form, setForm] = useState({ assetId: assets[0]?.id ?? '', label: '', floorArea: '', floorAreaUnit: 'SQFT', monthlyRent: '', depositMonths: '2', utilityDepositMonths: '1', renovationDeposit: '0', utilitiesPaidBy: 'TENANT_DIRECT', minTermMonths: '12', availableFrom: '', permittedUse: '', description: '' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const set = (key: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(current => ({ ...current, [key]: event.target.value }));
@@ -142,7 +143,7 @@ const UnitForm: React.FC<{ assets: Array<{ id: string; name: string }>; onDone: 
     setError('');
     const body: LeasableUnitInput = {
       assetId: form.assetId, label: form.label, monthlyRent: Number(form.monthlyRent), currency: 'MYR',
-      depositMonths: Number(form.depositMonths), minTermMonths: Number(form.minTermMonths), floorAreaUnit: form.floorAreaUnit as 'SQFT' | 'SQM',
+      depositMonths: Number(form.depositMonths), utilityDepositMonths: Number(form.utilityDepositMonths), renovationDeposit: Number(form.renovationDeposit), utilitiesPaidBy: form.utilitiesPaidBy as 'TENANT_DIRECT' | 'OWNER_RECHARGE', minTermMonths: Number(form.minTermMonths), floorAreaUnit: form.floorAreaUnit as 'SQFT' | 'SQM',
       ...(form.floorArea ? { floorArea: Number(form.floorArea) } : {}), ...(form.availableFrom ? { availableFrom: form.availableFrom } : {}),
       permittedUse: form.permittedUse, description: form.description,
     };
@@ -163,6 +164,11 @@ const UnitForm: React.FC<{ assets: Array<{ id: string; name: string }>; onDone: 
         <label className="block text-xs font-bold text-slate-500">{t('Deposit (months of rent)')}<input required type="number" min={0} max={12} step="0.5" value={form.depositMonths} onChange={set('depositMonths')} className={input} /></label>
         <label className="block text-xs font-bold text-slate-500">{t('Shortest lease (months)')}<input required type="number" min={1} max={360} value={form.minTermMonths} onChange={set('minTermMonths')} className={input} /></label>
       </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block text-xs font-bold text-slate-500">{t('Utility deposit (months of rent)')}<input required type="number" min={0} max={12} step="0.5" value={form.utilityDepositMonths} onChange={set('utilityDepositMonths')} className={input} /></label>
+        <label className="block text-xs font-bold text-slate-500">{t('Renovation deposit (RM)')}<input required type="number" min={0} step="0.01" value={form.renovationDeposit} onChange={set('renovationDeposit')} className={input} /></label>
+      </div>
+      <label className="block text-xs font-bold text-slate-500">{t('Electricity and water')}<select value={form.utilitiesPaidBy} onChange={set('utilitiesPaidBy')} className={input}><option value="TENANT_DIRECT">{t('Tenant pays TNB and water directly')}</option><option value="OWNER_RECHARGE">{t('Owner pays and bills the tenant at cost')}</option></select></label>
       <label className="block text-xs font-bold text-slate-500">{t('Available from')}<input type="date" min={today()} value={form.availableFrom} onChange={set('availableFrom')} className={input} /></label>
       <label className="block text-xs font-bold text-slate-500">{t('Permitted use (e.g. Office)')}<input maxLength={160} value={form.permittedUse} onChange={set('permittedUse')} className={input} /></label>
       <label className="block text-xs font-bold text-slate-500">{t('Description')}<textarea maxLength={2000} rows={3} value={form.description} onChange={set('description')} className={input} /></label>
@@ -191,6 +197,7 @@ const FindSpace: React.FC<{ onRent: (unit: AvailableUnit) => void }> = ({ onRent
           </div>
           <p className="text-xs"><span className="font-black">{t('{amount} a month', { amount: money(unit.currency, unit.monthlyRent) })}</span>{unit.floorArea ? ` · ${unit.floorArea.toLocaleString()} ${unit.floorAreaUnit === 'SQM' ? t('sq m') : t('sq ft')}` : ''}</p>
           <p className="text-[11px] text-slate-500">{t('deposit {months} months', { months: unit.depositMonths })} · {t('at least {months} months', { months: unit.minTermMonths })}{unit.permittedUse ? ` · ${unit.permittedUse}` : ''}{unit.availableFrom ? ` · ${t('from {date}', { date: unit.availableFrom })}` : ''}</p>
+          <UnitDeposits unit={unit} />
           {unit.description && <p className="text-xs text-slate-600 dark:text-slate-300">{unit.description}</p>}
           {unit.taken.length > 0 && <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">{t('Taken: {periods}', { periods: unit.taken.map(period => `${period.startDate} – ${period.endDate}`).join(', ') })}</p>}
           <button type="button" onClick={() => onRent(unit)} className={primary}>{t('Ask to rent')}</button>
@@ -198,6 +205,19 @@ const FindSpace: React.FC<{ onRent: (unit: AvailableUnit) => void }> = ({ onRent
       ))}
     </div>
   );
+};
+
+/** The utility and renovation deposits a unit asks for, and who pays the bills; with `rent`, in ringgit for that rent. */
+const UnitDeposits: React.FC<{ unit: LeasableUnitView; rent?: number }> = ({ unit, rent }) => {
+  const { t } = useT();
+  const money = useMoney();
+  const parts = [
+    ...(rent ? [t('Security deposit {amount}', { amount: money(unit.currency, Math.round(rent * unit.depositMonths * 100) / 100) })] : []),
+    ...(unit.utilityDepositMonths > 0 ? [rent ? t('Utility deposit {amount}', { amount: money(unit.currency, Math.round(rent * unit.utilityDepositMonths * 100) / 100) }) : t('utility deposit {months} months', { months: unit.utilityDepositMonths })] : []),
+    ...(unit.renovationDeposit > 0 ? [t('Renovation deposit {amount}', { amount: money(unit.currency, unit.renovationDeposit) })] : []),
+    unit.utilitiesPaidBy === 'OWNER_RECHARGE' ? t('Owner pays, billed at cost') : t('Tenant pays directly'),
+  ];
+  return <p className="text-[11px] text-slate-500">{parts.join(' · ')}</p>;
 };
 
 const RentRequest: React.FC<{ unit: AvailableUnit; onBack: () => void; onSent: (lease: AssetLeaseView) => void }> = ({ unit, onBack, onSent }) => {
@@ -224,6 +244,7 @@ const RentRequest: React.FC<{ unit: AvailableUnit; onBack: () => void; onSent: (
       <div>
         <h1 className="text-lg font-black">{t('Ask to rent {unit}', { unit: unit.label })}</h1>
         <p className="text-xs text-slate-500">{unit.asset.name} · {t('asking {amount} a month', { amount: money(unit.currency, unit.monthlyRent) })}</p>
+        <UnitDeposits unit={unit} rent={Number(form.monthlyRent) || unit.monthlyRent} />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <label className="block text-xs font-bold text-slate-500">{t('Start date')}<input required type="date" min={earliest} value={form.startDate} onChange={set('startDate')} className={input} /></label>
@@ -293,7 +314,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
   const [mode, setMode] = useState<'' | 'accept' | 'counter' | 'decline' | 'withdraw' | 'review' | 'end'>('');
   const [note, setNote] = useState('');
   const [confirmed, setConfirmed] = useState(false);
-  const [counter, setCounter] = useState({ monthlyRent: '', depositAmount: '', startDate: '', termMonths: '' });
+  const [counter, setCounter] = useState({ monthlyRent: '', depositAmount: '', utilityDepositAmount: '', renovationDepositAmount: '', startDate: '', termMonths: '' });
   const [track, setTrack] = useState<'LEGAL' | 'SHARIAH'>('LEGAL');
   const [paying, setPaying] = useState<string | null>(null);
   const [payment, setPayment] = useState({ reference: '', paidAt: today() });
@@ -305,7 +326,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
     setNote('');
     setConfirmed(false);
     setError('');
-    if (lease && next === 'counter') setCounter({ monthlyRent: String(lease.monthlyRent), depositAmount: String(lease.depositAmount), startDate: lease.startDate, termMonths: String(lease.termMonths) });
+    if (lease && next === 'counter') setCounter({ monthlyRent: String(lease.monthlyRent), depositAmount: String(lease.depositAmount), utilityDepositAmount: String(lease.utilityDepositAmount), renovationDepositAmount: String(lease.renovationDepositAmount), startDate: lease.startDate, termMonths: String(lease.termMonths) });
   };
   const act = async (call: () => Promise<AssetLeaseView>) => {
     setBusy(true);
@@ -347,7 +368,10 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
           {row(t('Tenant'), lease.tenantOrganisationName ?? '-')}
           {lease.asset.location && row(t('Address'), lease.asset.location)}
           {row(t('Rent a month'), money(lease.currency, lease.monthlyRent))}
-          {row(t('Deposit'), money(lease.currency, lease.depositAmount))}
+          {row(t('Security deposit'), money(lease.currency, lease.depositAmount))}
+          {lease.utilityDepositAmount > 0 && row(t('Utility deposit'), money(lease.currency, lease.utilityDepositAmount))}
+          {lease.renovationDepositAmount > 0 && row(t('Renovation deposit'), money(lease.currency, lease.renovationDepositAmount))}
+          {row(t('Electricity and water'), lease.utilitiesPaidBy === 'OWNER_RECHARGE' ? t('Owner pays, billed at cost') : t('Tenant pays directly'))}
           {row(t('Period'), `${lease.startDate} – ${lease.endDate}`)}
           {row(t('Months'), lease.termMonths)}
           {row(t('Use'), lease.intendedUse)}
@@ -380,9 +404,13 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
       )}
 
       {mode === 'counter' && (
-        <form className={`${card} space-y-3`} onSubmit={(event) => { event.preventDefault(); act(() => apiClient.respondLease(lease.id, { action: 'COUNTER', monthlyRent: Number(counter.monthlyRent), ...(Number(counter.depositAmount) !== lease.depositAmount ? { depositAmount: Number(counter.depositAmount) } : {}), startDate: counter.startDate, termMonths: Number(counter.termMonths), note: note || undefined })); }}>
+        <form className={`${card} space-y-3`} onSubmit={(event) => { event.preventDefault(); act(() => apiClient.respondLease(lease.id, { action: 'COUNTER', monthlyRent: Number(counter.monthlyRent), ...(Number(counter.depositAmount) !== lease.depositAmount ? { depositAmount: Number(counter.depositAmount) } : {}), ...(Number(counter.utilityDepositAmount) !== lease.utilityDepositAmount ? { utilityDepositAmount: Number(counter.utilityDepositAmount) } : {}), ...(Number(counter.renovationDepositAmount) !== lease.renovationDepositAmount ? { renovationDepositAmount: Number(counter.renovationDepositAmount) } : {}), startDate: counter.startDate, termMonths: Number(counter.termMonths), note: note || undefined })); }}>
           <label className="block text-xs font-bold text-slate-500">{t('Rent a month (RM)')}<input required type="number" min={1} step="0.01" value={counter.monthlyRent} onChange={(event) => setCounter(current => ({ ...current, monthlyRent: event.target.value }))} className={input} /></label>
           <label className="block text-xs font-bold text-slate-500">{t('Deposit (RM)')}<input required type="number" min={0} step="0.01" value={counter.depositAmount} onChange={(event) => setCounter(current => ({ ...current, depositAmount: event.target.value }))} className={input} /></label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-xs font-bold text-slate-500">{t('Utility deposit (RM)')}<input required type="number" min={0} step="0.01" value={counter.utilityDepositAmount} onChange={(event) => setCounter(current => ({ ...current, utilityDepositAmount: event.target.value }))} className={input} /></label>
+            <label className="block text-xs font-bold text-slate-500">{t('Renovation deposit (RM)')}<input required type="number" min={0} step="0.01" value={counter.renovationDepositAmount} onChange={(event) => setCounter(current => ({ ...current, renovationDepositAmount: event.target.value }))} className={input} /></label>
+          </div>
           <p className="text-[11px] text-slate-500">{t('Leave the deposit as it is to work it out again from the new rent.')}</p>
           <div className="grid grid-cols-2 gap-2">
             <label className="block text-xs font-bold text-slate-500">{t('Start date')}<input required type="date" min={today()} value={counter.startDate} onChange={(event) => setCounter(current => ({ ...current, startDate: event.target.value }))} className={input} /></label>
@@ -548,14 +576,22 @@ const LeaseAgreementCard: React.FC<{ lease: AssetLeaseView; onChanged: () => voi
   );
 };
 
+const DEPOSIT_LABEL: Record<DepositKind, string> = { SECURITY: 'Security deposit', UTILITY: 'Utility deposit', RENOVATION: 'Renovation deposit' };
+const DEPOSIT_HINT: Record<DepositKind, string> = {
+  SECURITY: 'Deduct only rent still unpaid and the actual cost of repairing damage beyond fair wear and tear. The tenant sees each reason.',
+  UTILITY: 'Deduct only electricity, water and sewerage bills for the lease that are still unpaid, with the bill as the reason.',
+  RENOVATION: 'Refund once the fit-out is done and inspected. Deduct only the actual cost of making good damage caused by the works.',
+};
+
 /**
- * The security deposit: the owner records it as received, and after the lease refunds it within 30 days,
- * less only unpaid rent and repairs beyond fair wear and tear, each deduction with its reason.
+ * The deposits: security, utility (electricity and water) and renovation. The owner records them as received
+ * (usually one transfer), then refunds each with reasoned deductions: the security and utility deposits within
+ * 30 days after the lease, the renovation deposit once the fit-out is inspected.
  */
 const DepositCard: React.FC<{ lease: AssetLeaseView; onChanged: (lease: AssetLeaseView) => void }> = ({ lease, onChanged }) => {
   const { t, locale } = useT();
   const deposit = lease.deposit;
-  const [mode, setMode] = useState<'' | 'receive' | 'refund'>('');
+  const [mode, setMode] = useState<'' | 'receive' | DepositKind>('');
   const [reference, setReference] = useState('');
   const [date, setDate] = useState(today());
   const [deductions, setDeductions] = useState<Array<{ reason: string; amount: string }>>([]);
@@ -563,27 +599,39 @@ const DepositCard: React.FC<{ lease: AssetLeaseView; onChanged: (lease: AssetLea
   const [error, setError] = useState('');
   const money = (amount: number) => `${lease.currency === 'MYR' ? 'RM' : lease.currency} ${amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const deducted = deductions.reduce((total, item) => total + (Number(item.amount) || 0), 0);
+  const amountOf = (kind: DepositKind) => (kind === 'SECURITY' ? deposit.amount : kind === 'UTILITY' ? deposit.utility : deposit.renovation);
   const act = async (call: () => Promise<AssetLeaseView>) => {
     setBusy(true);
     setError('');
     try { onChanged(await call()); setMode(''); } catch (cause) { setError(errorText(cause, t('That did not go through.'))); } finally { setBusy(false); }
   };
-  const open = (next: 'receive' | 'refund') => { setMode(next); setReference(''); setDate(today()); setDeductions([]); setError(''); };
+  const open = (next: 'receive' | DepositKind) => { setMode(next); setReference(''); setDate(today()); setDeductions([]); setError(''); };
+  const kinds = (['SECURITY', 'UTILITY', 'RENOVATION'] as DepositKind[]).filter(kind => amountOf(kind) > 0);
+  const refundKind = mode !== '' && mode !== 'receive' ? mode : null;
 
   return (
     <section className={`${card} space-y-2`}>
-      <h2 className="text-sm font-black">{t('Security deposit')}</h2>
-      <p className="text-xs"><span className="font-black">{money(deposit.amount)}</span> · {deposit.returnedAt ? t('refunded {date}', { date: deposit.returnedAt }) : deposit.receivedAt ? t('received {date} · ref {reference}', { date: deposit.receivedAt, reference: deposit.reference ?? '' }) : t('not received yet')}</p>
-      {deposit.refund && (
-        <div className="text-[11px] space-y-0.5">
-          <p className="font-bold">{t('Refunded {amount} · ref {reference}', { amount: money(deposit.refund.amount), reference: deposit.refund.reference })}</p>
-          {deposit.refund.deductions.map((item, index) => <p key={index} className="text-slate-500">− {money(item.amount)}: {item.reason}</p>)}
-        </div>
-      )}
-      {deposit.refundDueBy && !deposit.returnedAt && <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">{t('To be refunded by {date}, less only unpaid rent and repairs beyond fair wear and tear.', { date: deposit.refundDueBy })}</p>}
+      <div className="flex justify-between gap-2">
+        <h2 className="text-sm font-black">{t('Deposits')}</h2>
+        <p className="text-sm font-black">{money(deposit.total)}</p>
+      </div>
+      <p className="text-[11px] text-slate-500">{deposit.receivedAt ? t('received {date} · ref {reference}', { date: deposit.receivedAt, reference: deposit.reference ?? '' }) : t('not received yet')}</p>
+      <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+        {kinds.map(kind => {
+          const refund = deposit.refunds.find(item => item.kind === kind);
+          return (
+            <li key={kind} className="py-1.5 text-xs space-y-0.5">
+              <div className="flex justify-between gap-2"><span>{t(DEPOSIT_LABEL[kind])}</span><span className="font-bold">{money(amountOf(kind))}</span></div>
+              {refund && <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">{t('Refunded {amount} · ref {reference}', { amount: money(refund.amount), reference: refund.reference })}</p>}
+              {refund?.deductions.map((item, index) => <p key={index} className="text-[11px] text-slate-500">− {money(item.amount)}: {item.reason}</p>)}
+              {!refund && deposit.refundable.includes(kind) && mode !== kind && <button type="button" onClick={() => open(kind)} className="text-[11px] font-black text-emerald-700 dark:text-emerald-400">{t('Refund this deposit')}</button>}
+            </li>
+          );
+        })}
+      </ul>
+      {deposit.refundDueBy && !deposit.returnedAt && <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">{t('Security and utility deposits to be refunded by {date}.', { date: deposit.refundDueBy })}</p>}
 
-      {lease.canRecordDeposit && mode !== 'receive' && <button type="button" onClick={() => open('receive')} className={secondary}>{t('Record deposit received')}</button>}
-      {lease.canReturnDeposit && mode !== 'refund' && <button type="button" onClick={() => open('refund')} className={primary}>{t('Refund the deposit')}</button>}
+      {lease.canRecordDeposit && mode !== 'receive' && <button type="button" onClick={() => open('receive')} className={secondary}>{t('Record deposits received ({amount})', { amount: money(deposit.total) })}</button>}
 
       {mode === 'receive' && (
         <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); act(() => apiClient.recordLeaseDeposit(lease.id, { reference: reference.trim(), receivedAt: date })); }}>
@@ -596,9 +644,10 @@ const DepositCard: React.FC<{ lease: AssetLeaseView; onChanged: (lease: AssetLea
         </form>
       )}
 
-      {mode === 'refund' && (
-        <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); act(() => apiClient.refundLeaseDeposit(lease.id, { deductions: deductions.map(item => ({ reason: item.reason.trim(), amount: Number(item.amount) })), reference: reference.trim(), paidAt: date })); }}>
-          <p className="text-[11px] text-slate-500">{t('Deduct only rent still unpaid and the actual cost of repairing damage beyond fair wear and tear. The tenant sees each reason.')}</p>
+      {refundKind && (
+        <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); act(() => apiClient.refundLeaseDeposit(lease.id, { kind: refundKind, deductions: deductions.map(item => ({ reason: item.reason.trim(), amount: Number(item.amount) })), reference: reference.trim(), paidAt: date })); }}>
+          <p className="text-xs font-black">{t('Refund the {deposit}', { deposit: t(DEPOSIT_LABEL[refundKind]).toLowerCase() })}</p>
+          <p className="text-[11px] text-slate-500">{t(DEPOSIT_HINT[refundKind])}</p>
           {deductions.map((item, index) => (
             <div key={index} className="grid grid-cols-[1fr_7rem_auto] gap-2 items-end">
               <input required minLength={3} maxLength={300} value={item.reason} onChange={(event) => setDeductions(current => current.map((row, i) => (i === index ? { ...row, reason: event.target.value } : row)))} placeholder={t('Reason')} className={input} />
@@ -607,11 +656,11 @@ const DepositCard: React.FC<{ lease: AssetLeaseView; onChanged: (lease: AssetLea
             </div>
           ))}
           <button type="button" onClick={() => setDeductions(current => [...current, { reason: '', amount: '' }])} className="text-xs font-black text-emerald-700 dark:text-emerald-400">{t('+ Add a deduction')}</button>
-          <p className={`text-xs font-black ${deducted > deposit.amount ? 'text-rose-700 dark:text-rose-400' : ''}`}>{t('To refund: {amount}', { amount: money(Math.max(0, deposit.amount - deducted)) })}</p>
+          <p className={`text-xs font-black ${deducted > amountOf(refundKind) ? 'text-rose-700 dark:text-rose-400' : ''}`}>{t('To refund: {amount}', { amount: money(Math.max(0, amountOf(refundKind) - deducted)) })}</p>
           <input required minLength={3} maxLength={120} value={reference} onChange={(event) => setReference(event.target.value)} placeholder={t('Transfer reference in your bank')} className={input} />
           <input required type="date" max={today()} value={date} onChange={(event) => setDate(event.target.value)} className={input} />
           <div className="grid grid-cols-2 gap-2">
-            <button type="submit" disabled={busy || deducted > deposit.amount} className={primary}>{t('Record the refund')}</button>
+            <button type="submit" disabled={busy || deducted > amountOf(refundKind)} className={primary}>{t('Record the refund')}</button>
             <button type="button" onClick={() => setMode('')} className={secondary}>{t('Cancel')}</button>
           </div>
         </form>

@@ -424,7 +424,7 @@ export class AgreementGenerationService {
       return { registration: organisation?.registrationNumber?.trim() || payload.registrationNumber?.trim() || '[company number]', address: organisation?.registeredAddress?.trim() || payload.registeredAddress?.trim() || '[registered address]' };
     };
     if (input.leaseId) {
-      const lease = await this.prisma.assetLease.findUnique({ where: { id: input.leaseId }, select: { id: true, monthlyRent: true, depositAmount: true, currency: true, startDate: true, endDate: true, intendedUse: true, tenantActivity: true, ownerOrganisationId: true, tenantOrganisationId: true, legalApprovedAt: true, shariahApprovedAt: true, unit: { select: { label: true, asset: { select: { name: true, titleReference: true } } } } } });
+      const lease = await this.prisma.assetLease.findUnique({ where: { id: input.leaseId }, select: { id: true, monthlyRent: true, depositAmount: true, utilityDepositAmount: true, renovationDepositAmount: true, utilitiesPaidBy: true, currency: true, startDate: true, endDate: true, intendedUse: true, tenantActivity: true, ownerOrganisationId: true, tenantOrganisationId: true, legalApprovedAt: true, shariahApprovedAt: true, unit: { select: { label: true, asset: { select: { name: true, titleReference: true } } } } } });
       if (lease) {
         const organisations = await this.prisma.organisation.findMany({ where: { id: { in: [lease.ownerOrganisationId, lease.tenantOrganisationId] } }, select: { id: true, name: true } });
         const nameOf = (id: string) => organisations.find((organisation) => organisation.id === id)?.name ?? id;
@@ -439,7 +439,7 @@ export class AgreementGenerationService {
           startDate: lease.startDate.toISOString().slice(0, 10), endDate: lease.endDate.toISOString().slice(0, 10),
           assetName: `${lease.unit.label}, ${lease.unit.asset.name}${lease.unit.asset.titleReference ? `, ${lease.unit.asset.titleReference}` : ''}`,
           approvedOn: approved ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kuala_Lumpur', day: 'numeric', month: 'long', year: 'numeric' }).format(approved) : null,
-          lease: { leaseId: lease.id, depositAmount: Number(lease.depositAmount), intendedUse: lease.intendedUse, tenantActivity: lease.tenantActivity },
+          lease: { leaseId: lease.id, depositAmount: Number(lease.depositAmount), utilityDepositAmount: Number(lease.utilityDepositAmount), renovationDepositAmount: Number(lease.renovationDepositAmount), utilitiesPaidBy: lease.utilitiesPaidBy, intendedUse: lease.intendedUse, tenantActivity: lease.tenantActivity },
         } };
       }
     }

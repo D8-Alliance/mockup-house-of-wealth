@@ -2225,6 +2225,12 @@ model LeasableUnit {
   currency       String
   /// Security deposit in months of rent, e.g. 2.
   depositMonths  Decimal   @default(2) @db.Decimal(4, 1)
+  /// Utility (electricity and water) deposit in months of rent, e.g. 1; 0 when the tenant opens its own TNB and water accounts.
+  utilityDepositMonths Decimal @default(1) @db.Decimal(4, 1)
+  /// Renovation deposit, a fixed amount held while the tenant fits out the space; 0 when none.
+  renovationDeposit    Decimal @default(0) @db.Decimal(18, 2)
+  /// Who pays electricity and water: TENANT_DIRECT (meters in the tenant's name) or OWNER_RECHARGE (the owner pays and bills the tenant).
+  utilitiesPaidBy      String  @default("TENANT_DIRECT")
   minTermMonths  Int       @default(12)
   availableFrom  DateTime?
   /// What the space may be used for, e.g. "Office".
@@ -2262,6 +2268,10 @@ model AssetLease {
   monthlyRent          Decimal   @db.Decimal(18, 2)
   currency             String
   depositAmount        Decimal   @db.Decimal(18, 2)
+  utilityDepositAmount    Decimal @default(0) @db.Decimal(18, 2)
+  renovationDepositAmount Decimal @default(0) @db.Decimal(18, 2)
+  /// TENANT_DIRECT or OWNER_RECHARGE, as agreed for this lease.
+  utilitiesPaidBy         String  @default("TENANT_DIRECT")
   startDate            DateTime
   endDate              DateTime
   /// What the tenant will use the space for, and its business, for the Shariah screening.
@@ -2278,9 +2288,10 @@ model AssetLease {
   /// The security deposit as the owner received it, and its refund after the lease (within 30 days, per the agreement).
   depositReceivedAt    DateTime?
   depositReference     String?
+  /// When the last of the deposits was refunded.
   depositReturnedAt    DateTime?
-  /// { amount, reference, deductions: [{ reason, amount }] } as the owner refunded it.
-  depositRefund        Json?
+  /// Each deposit as refunded: [{ kind: SECURITY | UTILITY | RENOVATION, amount, reference, paidAt, deductions: [{ reason, amount }] }].
+  depositRefunds       Json?
   createdBy            String
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt

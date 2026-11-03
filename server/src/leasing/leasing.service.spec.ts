@@ -18,13 +18,13 @@ const shariah = actor('Shariah Reviewer', 'ORG-PUBLIC', 'USR-SHARIAH');
 
 const dec = (value: number) => new Prisma.Decimal(value);
 const asset = { id: 'ASSET-MYS-TOWER001', name: 'Menara Hidayah', assetType: 'BUILDING', location: 'Jalan Teluk Sisek, Kuantan', details: { district: 'Kuantan', state: 'Pahang' }, status: 'VERIFIED', ownerUserId: 'USR-AO', organisationId: 'ORG-AHG', organisation: { name: 'Al Hidayah Group' } };
-const unit = { id: 'UNIT-MYS-FLOOR007', assetId: asset.id, organisationId: 'ORG-AHG', countryNodeId: 'CN-MYS', label: 'Floor 7', description: '', floorArea: dec(8500), floorAreaUnit: 'SQFT', monthlyRent: dec(25500), currency: 'MYR', depositMonths: dec(2), minTermMonths: 12, availableFrom: null, permittedUse: 'Office', status: 'LISTED', createdBy: 'USR-AO', createdAt: new Date(), updatedAt: new Date(), asset };
+const unit = { id: 'UNIT-MYS-FLOOR007', assetId: asset.id, organisationId: 'ORG-AHG', countryNodeId: 'CN-MYS', label: 'Floor 7', description: '', floorArea: dec(8500), floorAreaUnit: 'SQFT', monthlyRent: dec(25500), currency: 'MYR', depositMonths: dec(2), utilityDepositMonths: dec(1), renovationDeposit: dec(10000), utilitiesPaidBy: 'TENANT_DIRECT', minTermMonths: 12, availableFrom: null, permittedUse: 'Office', status: 'LISTED', createdBy: 'USR-AO', createdAt: new Date(), updatedAt: new Date(), asset };
 const nextYear = new Date().getUTCFullYear() + 1;
 const start = `${nextYear}-01-01`;
 
 const lease = (overrides: Record<string, unknown> = {}) => ({
   id: 'LEASE-MYS-0000001', unitId: unit.id, assetId: asset.id, countryNodeId: 'CN-MYS', ownerOrganisationId: 'ORG-AHG', tenantOrganisationId: 'ORG-TENANT',
-  status: 'PROPOSED', awaiting: 'OWNER', monthlyRent: dec(25500), currency: 'MYR', depositAmount: dec(51000), startDate: new Date(`${start}T00:00:00Z`), endDate: new Date(`${nextYear}-12-31T00:00:00Z`),
+  status: 'PROPOSED', awaiting: 'OWNER', monthlyRent: dec(25500), currency: 'MYR', depositAmount: dec(51000), utilityDepositAmount: dec(25500), renovationDepositAmount: dec(10000), utilitiesPaidBy: 'TENANT_DIRECT', depositRefunds: null, startDate: new Date(`${start}T00:00:00Z`), endDate: new Date(`${nextYear}-12-31T00:00:00Z`),
   intendedUse: 'Head office', tenantActivity: 'Engineering consultancy', history: [], legalApprovedBy: null, legalApprovedAt: null, shariahApprovedBy: null, shariahApprovedAt: null, endedAt: null,
   createdBy: 'USR-TN', createdAt: new Date(), updatedAt: new Date(), unit, payments: [],
   ...overrides,
