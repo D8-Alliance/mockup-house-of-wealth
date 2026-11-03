@@ -247,6 +247,8 @@ Bingkai kamera dan dokumen KYC masih disimpan tanpa had masa. **Perlu keputusan:
 3. Uji dalam sandbox super app, terutamanya kebenaran kamera dalam WebView.
 4. Keycloak: `/m/*` dalam Valid redirect URIs, dan SMTP (Realm settings › Email) untuk "Forgot password".
 5. Notifikasi dalam BM: tajuk dan mesej notifikasi utama (pelaburan, KYC, keuntungan, akaun bank, keahlian, KYB, tarikh tamat aset, sewaan, perkongsian aset) diterjemah dalam mini-app melalui `src/mobile/i18n.messages.ts`. Notis privasi mengikut bahasa mini-app. Mesej server baharu perlu ditambah ke jadual itu, jika tidak ia dipaparkan dalam bahasa Inggeris. Emel dan push masih dalam bahasa Inggeris.
+6. Tab Projek untuk penaja (Project Sponsor, Project Manager, Organization Admin), siap 2026-11-03: status projek, kemajuan pool, tranche dan permohonan pelepasan, serta laporan prestasi suku tahunan (isi, simpan, hantar kepada juruaudit). Baki: langkah seterusnya (roadmap) dipaparkan dalam bahasa Inggeris dari server, dan penyediaan projek kekal di web.
+7. Semakan di telefon untuk KYC Officer dan penyemak Legal/Shariah (KYC, aset, sewaan, perjanjian): belum dibina; penyemak menggunakan portal web.
 
 ## 21. Sewaan terus (Ijarah) tanpa projek
 

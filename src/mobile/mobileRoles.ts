@@ -14,3 +14,6 @@ export const LEASING_ROLES = [...LEASE_OWNER_ROLES, ...LEASE_TENANT_ROLES, ...LE
 
 /** Profit distribution and payouts (mirrors the server's settlement operators). */
 export const SETTLEMENT_ROLES = ['Super Admin', 'Settlement Officer'];
+
+/** The delivery partner's people, who follow their projects, tranches and quarterly reports. */
+export const SPONSOR_ROLES = ['Project Sponsor', 'Project Manager', 'Organization Admin'];
