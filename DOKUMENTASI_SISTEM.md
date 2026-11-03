@@ -1,21 +1,28 @@
 # Dokumentasi Sistem Wealth Pooling (House of Wealth)
 
-Keadaan sistem pada **6 Oktober 2026**, cawangan `feat/keycloak-oidc-auth`. Dokumen ini menerangkan apa yang ada dalam sistem sekarang. Kerja yang belum siap disenaraikan dalam [PENDING_ACTIVITIES.md](PENDING_ACTIVITIES.md); arahan menjalankan sistem ada dalam [RUN_COMMANDS.ps1](RUN_COMMANDS.ps1).
+Keadaan sistem pada **3 November 2026**, cawangan `feat/keycloak-oidc-auth`. Dokumen ini menerangkan apa yang ada dalam sistem sekarang. Kerja yang belum siap disenaraikan dalam [PENDING_ACTIVITIES.md](PENDING_ACTIVITIES.md); arahan menjalankan sistem ada dalam [RUN_COMMANDS.ps1](RUN_COMMANDS.ps1); [README.md](README.md) (bahasa Inggeris) ialah ringkasan untuk pembangun.
 
-> [README.md](README.md) (bahasa Inggeris) ditulis pada September 2026 dan sebahagiannya sudah lapuk. Jika bercanggah, ikut dokumen ini. Seni bina sasaran untuk 9 negara D-8 ada dalam dokumen *D-8 Wealth Pooling Master Architecture v1.0* dan *D-8 Wealth Pooling Technical Design Document v1.0* (Claude Docs).
+> Seni bina sasaran untuk 9 negara D-8 ada dalam *D-8 Wealth Pooling Master Architecture v1.0* dan *D-8 Wealth Pooling Technical Design Document v1.0* (Claude Docs). Kemas kini dokumen ini setiap kali modul, endpoint, migration atau peraturan perniagaan berubah, terutamanya bahagian 5, 6, 9 dan 10.
 
 ---
 
 ## 1. Ringkasan
 
-Wealth Pooling ialah platform pelaburan patuh Shariah untuk negara anggota D-8. Penaja projek mendaftarkan projek dan bukti, projek melalui analisis kebolehlaksanaan (feasibility) dan semakan berperingkat sehingga keputusan Jawatankuasa Shariah, kemudian dana dikumpul daripada pelabur melalui **pool** di bawah **akad** (Mudarabah, Musharakah, Wakalah atau Ijarah). Keuntungan diagihkan mengikut nisbah dalam akad, dan semua aliran wang direkod dalam lejar kewangan berganda (double-entry) yang dirantai hash.
+Wealth Pooling ialah platform pelaburan patuh Shariah untuk negara anggota D-8. Rakan penghantar projek (PDP) mendaftarkan projek dan bukti; projek melalui analisis kebolehlaksanaan (feasibility) dan semakan berperingkat sehingga keputusan Jawatankuasa Shariah; kemudian dana dikumpul daripada pelabur melalui **pool** di bawah **akad** (Mudarabah, Musharakah, Wakalah atau Ijarah). Keuntungan diagihkan mengikut nisbah dalam akad, dan semua aliran wang direkod dalam lejar kewangan berganda (double-entry) yang dirantai hash.
 
 Sistem juga mempunyai:
-- pendaftaran pengguna dan KYC (termasuk semakan wajah dan bacaan dokumen);
+- pendaftaran pengguna, KYC (semakan wajah dan bacaan dokumen) dan KYB organisasi;
+- pendaftaran aset (tanah, bangunan, kenderaan berat, mesin), perkongsian aset dengan projek dan sewaan terus (Ijarah);
+- perjanjian dengan tandatangan elektronik, meterai PAdES dan cap masa;
+- modal penaja dan takaful wajib sebelum dana dikeluarkan;
 - keahlian (membership) dan kredit AI berbayar melalui ToyyibPay;
-- ciri AI (analisis projek, kontrak, due diligence, pembantu RAG) menggunakan model tempatan (Ollama);
-- anggaran zakat ikut pusat zakat negeri (pilihan pengguna), penyata cukai dan penyata kewangan;
-- notifikasi (dalam app, push Firebase; e-mel dan SMS disediakan tetapi belum diaktifkan);
+- ciri AI (feasibility, kontrak, due diligence, pembantu RAG) dengan model sendiri (Ollama), serta alat analisis berasaskan peraturan;
+- zakat ikut pusat zakat negeri (pilihan pengguna), penyata cukai dan penyata kewangan;
+- benefisiari dan arahan pusaka (Islam atau sivil);
+- tadbir urus di Admin Center: papan pemuka, laporan regulator, daftar risiko, insiden, repositori fatwa;
+- laporan prestasi projek suku tahunan yang disahkan juruaudit;
+- notifikasi dalam aplikasi dan e-mel;
+- mini-app untuk super app D8 Ideas (`/m`), dalam BM dan EN;
 - log audit append-only dan rantai hash untuk mengesan perubahan rekod.
 
 Pengguna boleh Muslim atau bukan Muslim. Sistem **tidak menyimpan agama**: cukai terpakai kepada semua pengguna, zakat ialah pilihan yang dihidupkan sendiri.
@@ -26,25 +33,32 @@ Pengguna boleh Muslim atau bukan Muslim. Sistem **tidak menyimpan agama**: cukai
 
 | Lapisan | Teknologi | Lokasi |
 |---|---|---|
-| Frontend | React 19, Vite 6, Tailwind CSS 4, TypeScript 5.8 | `src/`, port **3000** |
+| Frontend web dan mini-app | React 19, Vite 6, Tailwind CSS 4, TypeScript 5.8 | `src/` (mini-app `src/mobile/`, laluan `/m`), port **3000** |
 | Backend API | NestJS 10, TypeScript, Prisma 6 | `server/src/`, port **3001** |
-| Database | PostgreSQL 16 dengan pgvector | container `keycloak-postgres-5433`, port **5433** |
-| Queue dan job | Redis 7 + BullMQ (`server/src/worker.ts`) | container `keycloak-redis-1`, port **6379** |
-| AI | Model tempatan melalui Ollama (API serasi OpenAI), contohnya `gemma2:2b` | container `gemma2`, port **11434** |
-| Identiti | `AUTH_MODE=mock` (pembangunan) atau `oidc` (Keycloak) | `server/keycloak/`, [server/KEYCLOAK_SETUP.md](server/KEYCLOAK_SETUP.md) |
-| Pembayaran | ToyyibPay (FPX/kad) | `server/src/membership/toyyibpay.service.ts` |
-| Push | Firebase Cloud Messaging HTTP v1 | `server/src/notifications/fcm-client.ts` |
-| PDF | pdfkit (penyata, perjanjian) | `server/src/statements/`, `server/src/contract-intelligence/` |
+| Database | PostgreSQL dengan pgvector | local: container Docker (lihat `RUN_COMMANDS.ps1`); staging: DigitalOcean Managed PostgreSQL |
+| Queue dan job | Redis 7 + BullMQ (`server/src/worker.ts`), dan semakan harian dalam API sendiri | `server/src/jobs/`, fail `*.sweeper.ts` |
+| AI | Model sendiri melalui Ollama (API serasi OpenAI); staging guna droplet `how-ai` dengan `qwen2.5:7b` | `server/src/ai/` |
+| Identiti | Keycloak (`AUTH_MODE=oidc`); `AUTH_MODE=mock` untuk pembangunan sahaja | `server/keycloak/`, [server/KEYCLOAK_SETUP.md](server/KEYCLOAK_SETUP.md) |
+| Pembayaran | ToyyibPay (FPX) | `server/src/membership/toyyibpay.service.ts` |
+| E-mel | Resend atau SMTP (nodemailer) | `server/src/notifications/email-config.ts` |
+| PDF dan tandatangan | pdfkit; meterai PAdES dan cap masa RFC 3161 | `server/src/statements/`, `server/src/contract-intelligence/signing/` |
 | KYC tempatan | tesseract.js (OCR), onnxruntime-node (YuNet/SFace) | `server/src/kyc/` |
 
-**Nota database local:** Windows merizab julat port 55422–55521, jadi container lama `keycloak-postgres-new` (port 55433) tidak dapat dihidupkan. Volume data yang sama kini dijalankan sebagai `keycloak-postgres-5433` pada port 5433; container lama disimpan dalam keadaan berhenti.
+**Persekitaran:**
+
+| Persekitaran | Lokasi | Catatan |
+|---|---|---|
+| Local | PC pembangun | `AUTH_MODE=mock`, data seed |
+| Staging | DigitalOcean (Singapura), `how-staging.alhidayahgroup.com.my`, `how-staging-api…`, `how-staging-auth…` | PM2 untuk API, nginx untuk web, Keycloak dalam Docker; deploy manual ([PANDUAN_STAGING_DIGITALOCEAN.md](PANDUAN_STAGING_DIGITALOCEAN.md)) |
+| Demo awam | Plesk, `how.alhidayahgroup.com.my` | build statik dengan data dirakam (bahagian 3.1) |
 
 **Struktur folder utama:**
-- `src/components/`: skrin utama (dashboard, pooling, financials, membership, admin dan lain-lain).
-- `src/services/`: klien API (`apiClient.ts`, `akadApi.ts`, `zakatApi.ts`, `statementsApi.ts`, `firebaseMessaging.ts`).
+- `src/components/`: skrin web (dashboard, pooling, financials, membership, admin dan lain-lain).
+- `src/mobile/`: mini-app D8 Ideas.
+- `src/services/`: klien API (`apiClient.ts`, `statementsApi.ts`, `apiFetch.ts`).
 - `server/src/<modul>/`: satu folder bagi setiap modul backend (controller, service, DTO, ujian).
 - `server/prisma/schema.prisma` dan `server/prisma/migrations/`: schema database dan migration.
-- `server/ops/`: rahsia (diabaikan Git), konfigurasi Redis, panduan Twilio.
+- `server/ops/`: rahsia (diabaikan Git) dan konfigurasi Redis.
 
 ---
 
@@ -53,17 +67,15 @@ Pengguna boleh Muslim atau bukan Muslim. Sistem **tidak menyimpan agama**: cukai
 Arahan penuh, termasuk pengguna ujian dan penyelesaian masalah, ada dalam [RUN_COMMANDS.ps1](RUN_COMMANDS.ps1). Ringkasnya:
 
 ```powershell
-docker start keycloak-postgres-5433 gemma2      # database dan model AI
-cd server; npm run start:dev                      # backend, port 3001
-npm run dev                                       # frontend, port 3000 (dari folder utama)
-curl.exe http://localhost:3001/health             # semak backend
+cd server; npx prisma migrate deploy; npm run start:dev   # backend, port 3001
+npm run dev                                                # frontend, port 3000 (dari folder utama)
+curl.exe http://localhost:3001/health                      # semak backend
 ```
 
-- Migration: `cd server; npx prisma migrate deploy`.
 - Data contoh: `cd server; npm run db:seed`.
-- Worker latar belakang: set `WORKER_ENABLED=true` dalam `server/.env` dan jalankan `npm run start:worker` (perlukan Redis).
+- Worker latar belakang: set `WORKER_ENABLED=true` dalam `server/.env` dan jalankan `npm run start:worker` (perlukan Redis). Peringatan harian (membership, aset, takaful) berjalan dalam API sendiri dan tidak memerlukan worker.
 - Pengguna baharu dan KYC: [PANDUAN_PENGGUNA_BARU_KYC.md](PANDUAN_PENGGUNA_BARU_KYC.md).
-- Pelayan VPS: [PANDUAN_LENGKAP_VPS.md](PANDUAN_LENGKAP_VPS.md), [DEPLOYMENT_TROUBLESHOOTING_PLESK.md](DEPLOYMENT_TROUBLESHOOTING_PLESK.md).
+- Deploy staging: `git pull`, `npm ci`, `npx prisma generate`, `npm run build`, `npx prisma migrate deploy`, `pm2 restart how-api`, kemudian build web ke `/opt/how-web`.
 
 ### 3.1 Mod demo frontend sahaja (tanpa backend)
 
@@ -79,17 +91,19 @@ Untuk menunjuk sistem secara langsung tanpa mendedahkan backend, frontend boleh 
   4. **Wajib sebelum commit:** `npm run demo:sanitize`. Ia membuang semua rekod milik pengguna yang mendaftar sendiri (`USR-REG-*`, iaitu penguji sebenar) supaya hanya data seed diterbitkan, dan gagal jika data peribadi mereka masih ada.
 - **Had:** hanya skrin yang dibuka semasa rakaman ada data; skrin lain memaparkan "this screen has no recorded data yet". Data tidak berubah dan kembali asal selepas refresh.
 
+**Mod DEMO lain:** `VITE_AUTH_MODE=DEMO` (dengan backend) memaparkan data contoh terbina dalam pada beberapa skrin. Di luar DEMO, setiap skrin membaca server atau menyatakan dengan jelas bahawa ia belum tersedia (bahagian 10).
+
 ---
 
 ## 4. Pengesahan, peranan (RBAC) dan tenant
 
 ### 4.1 Pengesahan
-- **`AUTH_MODE=mock`** (pembangunan): token demo ialah base64 JSON `{mock, role, countryNode, org}` diikuti `.demo-token`. Pengguna mesti wujud dan aktif dalam database.
-- **`AUTH_MODE=oidc`**: token JWT dari Keycloak; pengguna dipadankan melalui `idpSubjectId`.
+- **`AUTH_MODE=oidc`**: token JWT dari Keycloak (RS256 sahaja di production); pengguna dipadankan melalui `idpSubjectId`. Production menolak `mock` semasa server dimulakan dan bagi setiap permintaan.
+- **`AUTH_MODE=mock`** (pembangunan): bahagian pertama token ialah JSON base64url `{mock, role, countryNode, org}`; `mock` ialah akhiran ID pengguna (contoh `INV-MYS-01` bagi `USR-INV-MYS-01`). Pengguna mesti wujud dan aktif dalam database.
 - Frontend: `VITE_AUTH_MODE`, `VITE_OIDC_*`; `VITE_SINGLE_ROLE_MODE` mengehadkan log masuk demo kepada satu peranan ujian.
 
 ### 4.2 Peranan dan tugasan
-- **36 peranan** (`server/src/policy/permissions.ts`), dikumpulkan dalam frontend mengikut kumpulan (`src/rbac/roles/`): sistem, tadbir urus, operasi, pelabur, Shariah, pematuhan, kewangan, sokongan.
+- **36 peranan** (`server/src/policy/permissions.ts`), dikumpulkan dalam frontend mengikut kumpulan (`src/rbac/roles/`).
 
 | Kumpulan | Peranan |
 |---|---|
@@ -102,70 +116,55 @@ Untuk menunjuk sistem secara langsung tanpa mendedahkan backend, frontend boleh 
 | Kewangan | Finance Officer, Treasury Officer, Settlement Officer, Reconciliation Officer, Auditor |
 | Lain-lain | Customer Support, Guest |
 
-- Peranan diberi melalui **`UserRoleAssignment`**: setiap tugasan mengikat satu peranan kepada satu organisasi dan satu negara, dan boleh dinyahaktifkan. Seorang pengguna boleh memegang beberapa peranan (`POST /users/:userId/roles`, `DELETE /users/:userId/roles/...`).
-- **Peranan aktif:** peranan dalam token hanya diterima jika pengguna memang memegangnya dalam database; jika tidak, peranan pertama yang ditugaskan digunakan. Jadi menukar peranan dalam token tidak memberi akses tambahan.
-- **Peranan istimewa** (`PRIVILEGED_ROLES`): Super Admin, System, Security, Data dan AI Administrator.
+- **Satu Super Admin** untuk seluruh sistem (keputusan 2026-10-15); hanya dia mencipta Country Admin. Super Admin tidak boleh diberi atau ditarik melalui sistem (skrip `ensure-single-super-admin.ts`).
+- Peranan diberi melalui **`UserRoleAssignment`**: setiap tugasan mengikat satu peranan kepada satu organisasi dan satu negara, dan boleh dinyahaktifkan. Pengguna tidak boleh memberi peranan kepada diri sendiri.
+- **Peranan aktif:** peranan dalam token hanya diterima jika pengguna memang memegangnya dalam database.
+- **Member ID** `USR-MYS-XXXXXXXX`; individu mendapat organisasi peribadi `ORG-MYS-IND-…`. Negara akaun ditetapkan semasa pendaftaran dan tidak boleh ditukar.
+- **Persetujuan PDPA:** notis privasi dwibahasa dan rekod `PrivacyConsent` (deraf masih perlu semakan peguam).
 
 ### 4.3 Kebenaran (permission)
 - **Model:** setiap peranan mempunyai senarai **tindakan** (`create`, `read`, `update`, `delete`, `approve`, `disburse`, `audit`, `export`) bagi setiap **modul sumber** (`dashboard`, `assets`, `contracts`, `marketplace`, `pooling`, `ledger`, `profile`, `governance`, `approvals`, `users`, `audit_logs`, `reports`). Dinilai oleh `PolicyEngine` di server.
-- **Penguatkuasaan di server:** `@RequirePermission(modul, tindakan)` (70 penggunaan) dan `@Roles(...)` (89 penggunaan) pada controller, melalui guard global `OidcGuard` dan `RolesGuard`. Semakan tambahan dalam servis, contohnya: pegawai tidak boleh menyelesaikan pesanan sendiri, pencipta agihan tidak boleh meluluskannya, dan hanya Super Admin boleh mengurus pusat zakat.
-- **Frontend** (`src/rbac/`): `RoleGuard` menyembunyikan tab yang tidak dibenarkan dan `RoleSwitcherBar` menukar peranan aktif. Ini untuk pengalaman pengguna sahaja; keputusan sebenar dibuat di server.
-
-Contoh kebenaran:
-
-| Peranan | Kebenaran utama |
-|---|---|
-| Super Admin | Semua modul dan tindakan |
-| Country Admin | Cipta, baca, kemas kini dan lulus dalam negaranya (aset, kontrak, pool); baca dan audit lejar |
-| Project Sponsor | Cipta dan baca aset; cipta permohonan kelulusan; baca pool |
-| Pool Manager | Cipta, baca, kemas kini dan lulus pool (termasuk terma akad) |
-| Retail Investor | Baca dashboard, pasaran, pool dan lejar sendiri |
-| Shariah Committee | Cipta, baca, kemas kini dan lulus tadbir urus (keputusan akhir feasibility) |
-| Settlement Officer | Baca dan kemas kini lejar; selesaikan pesanan, proses agihan dan payout |
-| Auditor | Baca, audit dan eksport log audit, lejar dan laporan; sahkan rantai hash |
+- **Penguatkuasaan di server:** `@RequirePermission(modul, tindakan)` (109 penggunaan) dan `@Roles(...)` (188 penggunaan) pada controller, melalui guard global `OidcGuard` dan `RolesGuard`, ditambah semakan dalam servis (contohnya pengasingan tugas, bahagian 7).
+- **Matriks kelulusan:** Admin Center › Approval Matrix memaparkan siapa memutuskan setiap langkah dan peraturannya, dibina daripada senarai peranan yang sama yang disemak oleh servis (`server/src/governance/approval-matrix.ts`).
+- **Frontend** (`src/rbac/`): `RoleGuard` dan senarai tab setiap peranan menyembunyikan skrin yang tidak dibenarkan. Ini untuk pengalaman pengguna sahaja; keputusan sebenar dibuat di server.
 
 ### 4.4 Tenant
-- Setiap rekod milik satu **negara (country node)**, contohnya `CN-MYS`, dan satu **organisasi**. Pengguna hanya membaca dan menulis dalam tenant mereka (`assertTenantScope`, `tenantScopeFilter`); Super Admin merentas tenant.
+- Setiap rekod milik satu **negara (country node)**, contohnya `CN-MYS`, dan satu **organisasi**. Pengguna hanya membaca dan menulis dalam tenant mereka (`assertTenantScope`, `tenantScopeFilter`); Super Admin merentas tenant. `COUNTRY_NODE_ID` (pilihan) menolak negara lain pada satu pelayan.
 - Zon masa dan format telefon mengikut negara (GMT+8 dan +60 bagi Malaysia).
-- **Pengecualian untuk pelabur:** peranan pelabur (Retail, HNWI, Institutional, Corporate, Family Office) boleh melihat dan melabur dalam pool berstatus OPEN milik organisasi lain dalam **negara yang sama** (`server/src/pools/pool-access.ts`). Pesanan pelaburan memerlukan KYC berstatus APPROVED, dan ditolak jika pelabur dari organisasi yang menjalankan projek (entiti PDP), penaja projek, atau pemegang peranan Project Sponsor/Project Manager. Pelabur hanya melihat pesanan sendiri.
+- **Pelabur:** peranan pelabur boleh melihat dan melabur dalam pool OPEN milik organisasi lain dalam **negara yang sama** (`server/src/pools/pool-access.ts`). Pesanan memerlukan KYC APPROVED dan ditolak bagi organisasi yang menjalankan projek, penaja projek dan pemegang peranan PDP. Pelabur hanya melihat pesanan sendiri.
 
 ### 4.5 Modul ciri
-Admin boleh menghidupkan atau mematikan modul (`GET/PATCH /admin/modules`): `ASSET_REGISTRATION`, `WEALTH_POOLING`, `SHARIAH_GOVERNANCE`, `AI_INTELLIGENCE`, `CONTRACTS`, `DOCUMENT_VAULT`, `FINANCIAL_LEDGER`, `SECONDARY_MARKET`, `KYC_VERIFICATION`, `KYB_VERIFICATION`. Mod: `ACTIVE`, `MANUAL_REVIEW` atau `DISABLED`. Endpoint modul yang dimatikan ditolak oleh `FeatureModuleGuard`. Liputan sebenar: AI Intelligence (semua API AI), KYC Verification, Shariah Governance, Wealth Pooling (pool, funding, pesanan pelaburan, agihan), Contracts (kontrak dan perjanjian), Document Vault (muat naik dokumen dan bukti projek), KYB Verification (penghantaran dan semakan permohonan PDP; Manual Review menghantar ke penyemak manusia). Financial Ledger sentiasa aktif. Asset Registration dan Secondary Market belum mempunyai backend, jadi suisnya dikunci dan ditanda "Not built yet".
+Admin boleh menghidupkan atau mematikan modul (`GET/PATCH /admin/modules`): `ASSET_REGISTRATION`, `WEALTH_POOLING`, `SHARIAH_GOVERNANCE`, `AI_INTELLIGENCE`, `CONTRACTS`, `DOCUMENT_VAULT`, `FINANCIAL_LEDGER`, `SECONDARY_MARKET`, `KYC_VERIFICATION`, `KYB_VERIFICATION`. Mod: `ACTIVE`, `MANUAL_REVIEW` atau `DISABLED`; endpoint modul yang dimatikan ditolak oleh `FeatureModuleGuard`. Financial Ledger sentiasa aktif. Secondary Market belum mempunyai backend, jadi suisnya dikunci dan ditanda "Not built yet".
 
 ### 4.6 Peranan aktif (Role Availability)
-Super Admin boleh menghidupkan atau mematikan peranan untuk seluruh platform di **Admin Center → Role Availability** (`GET /roles/availability` awam, `PATCH /admin/roles/:role/availability` Super Admin sahaja). Peranan yang dimatikan:
-- tidak boleh digunakan untuk log masuk (backend menolak dengan "Your role is currently disabled on this platform"), diberi kepada pengguna, atau dipilih semasa mendaftar;
-- disembunyikan daripada pemilih peranan, borang log masuk, borang daftar dan modal pemberian peranan.
-
-Rekod pemberian peranan tidak dipadam, jadi menghidupkan semula peranan memulihkan akses. Super Admin dan Guest sentiasa aktif. Data seed menghidupkan set demo sahaja (Super Admin, Country Admin, Project Sponsor, Asset Owner, Retail Investor) jika jadual masih kosong. Build demo statik menggunakan `STATIC_DEMO_ROLES` dalam `src/services/apiFetch.ts`.
-
-Butang header juga ikut peranan (`src/rbac/menuVisibility.ts`): **PDP Onboarding** untuk pelawat dan peranan penghantar projek/pool/aset sahaja; **Code Review Report** untuk Super Admin dan System Administrator sahaja.
+Super Admin boleh menghidupkan atau mematikan peranan untuk seluruh platform di **Admin Center › Role Availability** (`GET /roles/availability`, `PATCH /admin/roles/:role/availability`). Peranan yang dimatikan tidak boleh digunakan untuk log masuk ("Your role is currently disabled on this platform"), diberi kepada pengguna atau dipilih semasa mendaftar. Rekod pemberian peranan tidak dipadam, jadi menghidupkan semula peranan memulihkan akses. Super Admin dan Guest sentiasa aktif. Data seed menghidupkan set demo sahaja; peranan seperti Legal Officer, peranan Shariah dan Auditor perlu dihidupkan sebelum digunakan.
 
 ---
 
 ## 5. Modul fungsi
 
 ### 5.1 Pengguna dan KYC (`/users`, `/kyc`, `/auth`)
-- Pendaftaran demo (`POST /auth/demo-register`), profil pengguna, peranan.
-- KYC: borang, muat naik dokumen, hantar untuk semakan, semakan pegawai KYC.
-- **Semakan automatik (nasihat sahaja; pegawai yang memutuskan):** konsistensi dokumen, nombor ID pendua, bacaan kandungan dokumen (OCR, bandingkan nama, ID, tarikh lahir, alamat dengan borang), dan prototaip **liveness** (arahan gerakan kepala rawak dari server, zon muka, kad dipegang ke kamera, padanan wajah dengan gambar kad).
+- Pendaftaran, profil, peranan; pilihan profil (kontrak pilihan, notifikasi, rangka pusaka, bahasa) disimpan dalam `preferences` di server.
+- KYC: borang, muat naik dokumen, hantar untuk semakan, keputusan pegawai KYC (lulus dengan **tahap KYC** LEVEL_1/2/3, pulangkan atau tolak).
+- **Semakan automatik (nasihat sahaja; pegawai yang memutuskan):** konsistensi dokumen, nombor ID pendua, bacaan kandungan dokumen (OCR), dan prototaip **liveness** (gerakan kepala rawak, kad dipegang ke kamera, padanan wajah). `KYC_REQUIRE_LIVENESS` kini `false`.
 - Rangka penyedia eKYC luar (`KYC_ROUTING_JSON`, adapter `http-vendor`, mod bayangan) sedia, tetapi penyedia belum dipilih.
-- Nombor telefon mengikut kod negara (contoh +60); masa dipaparkan mengikut zon negara (GMT+8 untuk Malaysia).
 
 ### 5.2 Projek, bukti dan feasibility (`/projects`, `/ai/projects/...`)
-- Projek dengan status kitaran hayat, milestone, pasukan, pengumuman dan kempen promosi.
-- **Bukti projek** (model kewangan, unjuran aliran tunai, penilaian aset, hak milik) dimuat naik dan dianalisis AI. **Pemeriksaan integriti** semasa muat naik: hash SHA-256 (disemak semula semasa analisis), metadata PDF, kesan suntingan bertambah, perisian penyunting, tarikh masa depan, fail sama dalam projek lain. Sebarang amaran mengekalkan status REQUIRES_REVIEW.
-- **Analisis feasibility** dengan revision bernombor dan semakan berperingkat: DRAFT → Finance → Risk → Compliance → Shariah → Investment Committee → **Final Decision** (Jawatankuasa Shariah). Satu keputusan aktif bagi setiap peringkat; satu keputusan akhir bagi setiap revision.
-- Projek yang telah diluluskan dikunci; hanya Super Admin atau Country Admin boleh membukanya semula (`POST /projects/:id/reopen`) sebelum dana diterima.
+- Projek dengan status kitaran hayat, milestone, pasukan, pengumuman dan kempen promosi (dibayar melalui ToyyibPay atau kredit).
+- **Bukti projek** dimuat naik dan dianalisis AI, dengan pemeriksaan integriti (SHA-256, metadata PDF, kesan suntingan bertambah, fail sama dalam projek lain). Sebarang amaran mengekalkan status REQUIRES_REVIEW.
+- **Analisis feasibility** dengan revision bernombor dan semakan berperingkat: DRAFT → Finance → Risk → Compliance → Shariah → Investment Committee → **Final Decision** (Jawatankuasa Shariah).
+- **Pengasingan tugas:** selepas DRAFT, penyemak daripada organisasi projek tidak boleh memutuskan; seorang hanya memutuskan satu peringkat bagi setiap analisis (memutuskan semula peringkat yang sama selepas *request changes* dibenarkan). Akibatnya Investment Committee dan Final Decision memerlukan dua ahli Jawatankuasa Shariah yang berbeza.
+- Projek yang diluluskan dikunci; hanya Super Admin atau Country Admin boleh membukanya semula sebelum dana diterima.
+- **Halaman Wealth Pooling:** senarai projek dan pool daripada server, kitaran 17 langkah dengan panel langkah seterusnya.
 
 ### 5.3 Tadbir urus Shariah (`/shariah/reviews`)
-- Semakan Shariah, keputusan, pembatalan dan penghantaran semula; paparan pusat untuk Malaysia.
+- Semakan Shariah, keputusan, pembatalan dan penghantaran semula. Peti **My reviews** di dashboard penyemak menghimpun semua semakan yang menunggu.
 
 ### 5.4 Pool, akad dan pelaburan (`/pools`, `/investments`)
-- Pool hanya boleh dicipta untuk projek yang telah mendapat keputusan akhir feasibility. Pencipta: Super Admin, Country Admin, Organization Admin, Pool Manager.
-- **Terma akad** setiap pool: jenis akad, **nisbah perkongsian untung (PSR)**, teks terma dan hash. Terma ber-versi, append-only (trigger database), dan **dikunci selepas pelabur menerimanya**. Mudarabah dan Musharakah memerlukan kedua-dua pihak berkongsi untung (1–99%).
-- Teks terma menyatakan pembahagian untung, siapa menanggung rugi, dan bahawa **pulangan serta modal tidak dijamin**.
-- **Ijab dan qabul:** pesanan pelaburan mesti menerima versi terma semasa; sistem menyimpan id terma, hash dan masa penerimaan.
+- Pool dicipta untuk projek yang telah mendapat keputusan akhir feasibility, bersama **terma akad versi 1**. Pencipta: Super Admin, Country Admin, Organization Admin, Pool Manager, Project Sponsor, Project Manager.
+- Pool bermula **DRAFT** dan memerlukan **empat tandatangan** (Shariah, Compliance, Risk, Authorised) sebelum dibuka (OPEN). Pengurus pool boleh Pause, Mark full dan Close.
+- **Terma akad** setiap pool: jenis akad, **nisbah perkongsian untung (PSR)**, teks dan hash. Terma ber-versi, append-only, dan **dikunci selepas pelabur menerimanya**.
+- **Ijab dan qabul:** pesanan mesti menerima versi terma semasa; id terma, hash dan masa penerimaan disimpan. Pelabur melihat terma yang diterima di Investments › My agreements.
 - Peraturan setiap akad (`server/src/pools/akad-terms.ts`):
 
 | Akad | Pelabur sebagai | Pengurus sebagai | Bahagian untung pelabur | Kerugian |
@@ -175,18 +174,25 @@ Butang header juga ikut peranan (`src/rbac/menuVisibility.ts`): **PDP Onboarding
 | Wakalah bil Istithmar | Prinsipal (muwakkil) | Wakil pelaburan | 1–100% (baki sebagai insentif wakil) | Ditanggung pelabur; wakil menanggung hanya jika cuai |
 | Ijarah | Pemilik bersama aset sewaan | Pengurus aset | 1–100% daripada sewa bersih | Risiko aset ditanggung pemilik ikut bahagian milikan |
 
-- Pesanan berstatus PENDING sehingga pegawai penyelesaian (Settlement Officer, Portfolio Manager, Super Admin) mengesahkan bayaran; pegawai tidak boleh menyelesaikan pesanan sendiri.
+- **Had pelaburan ikut tahap KYC** (`KYC_INVESTMENT_LIMITS`, JSON ikut tahap dan mata wang): jumlah pesanan PENDING dan SETTLED pelabur dibanding dengan had, di bawah kunci setiap pelabur. Tiada tetapan bermaksud tiada had; JSON yang tidak sah menyekat pesanan baharu. KYC lama tanpa tahap dikira LEVEL_1.
+- **Bayaran pesanan:** pelabur memindahkan wang ke **akaun amanah platform bagi negaranya** (bahagian 5.20) dengan nombor pesanan sebagai rujukan; arahan bayaran dipaparkan di web dan mini-app (`GET /investments/orders/:id/payment-instructions`). Wang pelabur tidak pernah terus ke penaja.
+- Pesanan PENDING sehingga pegawai penyelesaian mengesahkan bayaran dengan rujukan bank; pegawai tidak boleh menyelesaikan pesanan sendiri.
+- **Pihak berkaitan:** pesanan daripada entiti dalam kumpulan korporat yang sama dengan organisasi projek ditanda `relatedParty` (bahagian 5.17).
+- **Pelabur:** Investments memaparkan posisi (modal, bahagian pool, untung), sejarah keuntungan, perjanjian akad, laporan prestasi projek dan pool OPEN (pool di bawah kontrak pilihan pelabur disenaraikan dahulu).
 
 ### 5.5 Agihan keuntungan, kerugian dan payout (`/distributions`)
-- Agihan dikira dari hasil kasar dan kos layak, menggunakan **PSR dari akad** (bukan nilai yang ditaip semasa pengiraan), dan dibahagi kepada pelabur ikut nisbah modal.
-- **Kerugian:** tempoh yang rugi, atau untung yang habis menampung rugi lama, direkod tanpa bayaran (`POST /distributions/period-results`). Untung baharu menampung kerugian yang belum pulih sebelum dikongsi.
+- **Hasil projek** yang masuk ke akaun amanah direkod sekali bagi setiap rujukan bank (`POST /distributions/pool-income`); keuntungan hanya dibayar daripada hasil yang direkod, tidak sekali-kali daripada modal pelabur.
+- **Pratonton** oleh server (`POST /distributions/preview`): keputusan bersih, rugi terdahulu yang dipulihkan dahulu, bahagian pelabur ikut akad dan ikut modal, dan akaun bank yang disahkan.
+- **Kerugian:** tempoh yang rugi, atau untung yang habis menampung rugi lama, direkod tanpa bayaran (`POST /distributions/period-results`).
 - **Maker-checker:** dikira → dihantar → diluluskan oleh pegawai lain → diproses. Pencipta tidak boleh meluluskan sendiri.
-- **Payout:** destinasi bank disimpan secara encrypted, ada tempoh bertenang; status QUEUED → SUBMITTED → SETTLED / FAILED / REVERSED; webhook penyedia dengan tandatangan HMAC; reconciliation berjadual. Penyedia bank/DuitNow sebenar belum dipilih (fail bank manual buat masa ini).
+- **Payout:** hanya ke akaun bank yang disahkan dan selepas tempoh bertenang; nombor akaun disulitkan (hanya 4 digit akhir dipaparkan); pengesahan akaun oleh Settlement Officer atau Super Admin (bukan akaun sendiri); status QUEUED → SUBMITTED → SETTLED / FAILED / REVERSED; webhook bertandatangan HMAC; reconciliation berjadual. Penyedia bank/DuitNow sebenar belum dipilih (fail bank manual).
+- Aliran agihan Settlement Officer kini dalam mini-app (tab Agihan).
 
 ### 5.6 Lejar kewangan dan integriti (`/financial`, `/admin/audit/integrity`)
 - Lejar double-entry: setiap transaksi mesti seimbang (trigger database), dan jadual lejar append-only.
-- Akaun mengikut tenant (contohnya tunai ToyyibPay bagi setiap organisasi dan negara, tunai pool, akaun pengguna).
-- **Rantai hash:** setiap rekod audit dan transaksi lejar (dengan entri) dimeterai ke dalam jadual append-only `HashChainLink` (SHA-256 berangkai). Worker memeterai setiap 5 minit; Super Admin boleh memeterai segera dan Super Admin/Auditor boleh mengesahkan dalam skrin Audit Trail. Pengesahan menunjukkan rekod pertama yang diubah, dipadam atau dipautkan semula.
+- Akaun mengikut tenant (tunai ToyyibPay bagi setiap organisasi dan negara, tunai pool, akaun pengguna).
+- **Rantai hash:** setiap rekod audit dan transaksi lejar dimeterai ke dalam jadual append-only `HashChainLink` (SHA-256 berangkai). Worker memeterai setiap 5 minit; Super Admin boleh memeterai segera dan Super Admin/Auditor boleh mengesahkan. Pengesahan menunjukkan rekod pertama yang diubah, dipadam atau dipautkan semula.
+- Tab Ledger membaca lejar daripada server, dengan status rantai hash untuk Super Admin dan Auditor.
 
 ### 5.7 Membership, kredit AI dan ToyyibPay (`/membership`)
 
@@ -197,18 +203,18 @@ Butang header juga ikut peranan (`src/rbac/menuVisibility.ts`): **PDP Onboarding
 | Professional | RM149 | RM1,490 | 400 |
 | Enterprise | RM999 | RM9,990 | 2,500 |
 
-- **Pek kredit AI:** 50 kredit (RM25), 250+25 (RM99), 1,000+150 (RM349), 3,000+600 (RM899).
-- **Peraturan kredit:** kredit percuma digunakan dahulu, tamat setiap bulan, dan tidak boleh digunakan untuk membayar membership. Kredit yang dibeli tidak tamat dan boleh ditebus untuk membership.
-- **ToyyibPay:** yuran FPX RM1 dikenakan kepada pengguna; bil disahkan dengan ToyyibPay sebelum dipenuhi; status dituntut secara bersyarat supaya tidak dipenuhi dua kali; reconciliation berjadual; refund separa disokong.
-- Tempoh tenggang 7 hari dan amaran tamat 7 hari sebelum (banner dashboard).
-- **Pembayaran simulasi** (kad/dompet demo) hanya ditawarkan di luar production atau dengan `ALLOW_SIMULATED_PAYMENTS=true`; transaksinya dilabel DEMO dan tidak dikira sebagai hasil.
+- **Pek kredit AI:** 50 kredit (RM25), 250+25 (RM99), 1,000+150 (RM349), 3,000+600 (RM899). Promosi projek: Featured 7 hari (RM99 atau 50 kredit), Featured 30 hari (RM299 atau 150), Sponsored 30 hari (RM499 atau 250).
+- **Peraturan kredit:** kredit percuma digunakan dahulu, tamat setiap kitaran, dan tidak boleh membayar membership. Kredit yang dibeli tidak tamat dan boleh ditebus untuk membership (RM0.20 sekredit, `MEMBERSHIP_CREDIT_VALUE_MYR`).
+- **ToyyibPay:** yuran FPX RM1 dibayar pelanggan; bil disahkan dengan ToyyibPay sebelum dipenuhi; status dituntut secara bersyarat supaya tidak dipenuhi dua kali; reconciliation berjadual; refund separa disokong.
+- Tempoh tenggang 7 hari; **satu peringatan** (loceng dan e-mel) seminggu sebelum tempoh berbayar tamat (`MembershipExpirySweeper`).
+- **Pembayaran simulasi** hanya di luar production atau dengan `ALLOW_SIMULATED_PAYMENTS=true`; transaksinya dilabel DEMO dan tidak dikira sebagai hasil.
+- Jadual yuran semasa dipaparkan di Admin Center › Platform Fee Schedule.
 
 ### 5.8 Zakat (`/zakat`)
 - **Opt-in** (`GET/PUT /zakat/preference`).
 - **14 pusat zakat Malaysia** dengan laman rasmi: Selangor (LZS), WP (PPZ-MAIWP), Pahang, Kedah (LZNK), Perak, Sarawak (TBS), Johor (MAIJ), Melaka (MAIM), Negeri Sembilan (MAINS), Pulau Pinang (MAINPP), Kelantan (MAIK), Terengganu (MAIDAM), Perlis (MAIPs), Sabah (MUIS).
 - **Nisab bertarikh dengan sumber** yang direkod oleh admin atau pegawai Shariah. Setakat ini: Selangor 2026 (RM42,047 Jan–Jun; RM38,748 Jul–Dis), WP 2026 (RM33,996), Sarawak September 2026 (RM46,294.89). Jika tiada nisab, sistem tidak meneka; pengguna memasukkan nisab dari laman pusat zakat.
-- **Pengiraan:** haul ikut kategori (simpanan, modal pelaburan, perniagaan memerlukan haul; pendapatan dan pendapatan pelaburan tidak), kadar 2.5% (Hijrah) atau 2.577% (Masihi), tolak hutang. Pelaburan dalam platform dikira sama ada sebagai **keuntungan diterima (al-mustaghallat)** atau **modal yang cukup haul + keuntungan** (kaedah zakat saham).
-- Peraturan pengiraan (`server/src/zakat/zakat-rules.ts`):
+- **Pengiraan:** haul ikut kategori, kadar 2.5% (Hijrah) atau 2.577% (Masihi), tolak hutang. Pelaburan dalam platform dikira sama ada sebagai **keuntungan diterima (al-mustaghallat)** atau **modal yang cukup haul + keuntungan** (kaedah zakat saham).
 
 | Kategori | Haul diperlukan | Catatan |
 |---|---|---|
@@ -218,80 +224,75 @@ Butang header juga ikut peranan (`src/rbac/menuVisibility.ts`): **PDP Onboarding
 | Modal pelaburan | Ya | Kaedah zakat saham; modal kurang setahun dikecualikan |
 | Aset perniagaan (urud al-tijarah) | Ya | Stok dan penghutang |
 
-  Kadar: 2.5% (tahun Hijrah, 354 hari) atau 2.577% (tahun Masihi, 365 hari). Nisab dibandingkan dengan jumlah bersih selepas hutang.
 - **Platform tidak memungut zakat.** Butang bayar membuka portal rasmi pusat zakat. Memungut zakat tanpa pelantikan Majlis Agama Islam Negeri ialah kesalahan; kutipan melalui ToyyibPay hanya berjalan jika `ZAKAT_COLLECTION_APPOINTMENT_REF` diset selepas pelantikan rasmi.
 
 ### 5.9 Cukai dan penyata (`/tax`, `/statements`)
 - **Profil cukai:** negara pemastautin, status pemastautin Malaysia, jenis entiti, nombor cukai (disimpan; dipaparkan bertopeng; tidak masuk log audit).
-- **Penyata pelabur** (`GET /statements/investor`): pegangan, pesanan dengan akad yang diterima, agihan.
-- **Penyata projek** (`GET /statements/projects/:id`): pool dan akad, modal terkumpul, setiap tempoh (untung, rugi, ditampung), offset kerugian, bahagian pelabur dan pengurus; tanpa identiti pelabur. Boleh dibaca oleh penaja projek, kakitangan tenant, dan pelabur projek itu.
-- **Penyata pendapatan tahunan untuk cukai** (`GET /statements/investor/tax?year=`): pendapatan dibayar dalam tahun itu mengikut jenis akad (bahagian untung atau sewa Ijarah), cukai dipotong (tiada setakat ini), modal dilabur berasingan.
-- Format JSON, CSV dan PDF; tempoh mengikut zon masa negara pengguna.
-- **Platform belum mengira atau memotong cukai.** Kadar bergantung pada struktur undang-undang pool (lihat item 11 dalam fail pending).
+- **Penyata pelabur** (`GET /statements/investor`), **penyata projek** (`GET /statements/projects/:id`, juga di Sponsor Portal › Reports) dan **penyata pendapatan tahunan untuk cukai** (`GET /statements/investor/tax?year=`). Format JSON, CSV dan PDF.
+- **Platform belum mengira atau memotong cukai.** Kadar bergantung pada struktur undang-undang pool (item 10 dalam fail pending).
 
 ### 5.10 AI dan RAG (`/ai`)
 
 **Penyedia dan model**
-- Penyedia serasi OpenAI (`OPENAI_API_URL`, `OPENAI_MODEL`, `OPENAI_API_KEY`). Secara local, ia menunjuk kepada **Ollama** (container `gemma2`, model contohnya `gemma2:2b`), jadi data tidak keluar dari pelayan.
-- Tanpa kunci API, **penyedia sandbox** digunakan: output sintetik yang ditanda jelas sebagai bukan nasihat.
-- Had dan masa: `AI_CHAT_MAX_SOURCES` (lalai 4), `AI_CHAT_MAX_TOKENS`, `AI_CHAT_TIMEOUT_MS` (model CPU tempatan perlahan).
+- Penyedia serasi OpenAI (`OPENAI_API_URL`, `OPENAI_MODEL`, `OPENAI_API_KEY`), menunjuk kepada **Ollama** sendiri, jadi data tidak keluar dari pelayan. Tanpa `OPENAI_API_KEY`, penyedia **sandbox** memberi output sintetik yang ditanda jelas.
+- Had dan masa: `AI_CHAT_MAX_SOURCES`, `AI_CHAT_MAX_TOKENS`, `AI_CHAT_TIMEOUT_MS`. AI run yang tersangkut ditutup secara automatik dan kredit dipulangkan.
 
-**Ciri**
+**Ciri berbayar kredit**
 
 | Ciri | Endpoint | Kredit |
 |---|---|---|
 | Pembantu AI (chat) dengan sumber RAG | `POST /ai/chat` | 1 |
-| Ringkasan dan analisis dokumen projek/bukti | `POST /ai/projects/:id/documents/:docId/analyze` | 5 |
-| Analisis feasibility projek (dengan revision dan semakan berperingkat) | `POST /ai/projects/:id/feasibility/analyze` | 100 |
+| Analisis dokumen projek/bukti | `POST /ai/projects/:id/documents/:docId/analyze` | 5 |
+| Analisis feasibility projek | `POST /ai/projects/:id/feasibility/analyze` | 100 |
 | Analisis risiko / Shariah | `POST /ai/shariah/analyze` | 15 |
-| Nasihat struktur kontrak Shariah, draf kontrak, semakan klausa dan peraturan | `/ai/contract-advisor/...`, `/ai/contract-drafts/...`, `/ai/contracts/...` | 20 |
+| Struktur kontrak, draf, semakan klausa | `/ai/contract-advisor/...`, `/ai/contract-drafts/...`, `/ai/contracts/...` | 20 |
 | Due diligence projek | `POST /ai/projects/due-diligence/scan`, `POST /ai/due-diligence/analyze` | 30 |
+| Penasihat penstrukturan aset | halaman aset | 20 |
 
-**RAG (Retrieval-Augmented Generation)**
-- Dokumen rujukan dimuat naik dan dipecah kepada bahagian (`RagDocument`, `RagChunk`), dengan **skop**: GLOBAL (semua negara D-8), COUNTRY atau PROJECT. GLOBAL hanya diurus oleh Super Admin atau AI Administrator.
-- Carian kata kunci, ditambah carian vektor jika model embedding diset (`RAG_EMBEDDING_MODEL`, 768 dimensi, pgvector; ambang `RAG_MIN_VECTOR_SIMILARITY`, lalai 0.55).
-- Jawapan mesti merujuk sumber (`[S1]`, `[S2]`); sitasi disimpan (`AiCitation`) dan boleh disemak serta dieksport (`/ai/citations`).
-- Dokumen RAG melalui kitaran semakan: menunggu semakan, diluluskan, ditolak, perlu pindaan, atau diganti oleh versi baharu.
+**Alat analisis tanpa AI** (AI Wealth Engine, di luar DEMO; tiada kredit, jawapan sama bagi data yang sama, `src/ai/features/live/LiveAnalysisTools.tsx`): Pool Matcher (pemberat tetap), Portfolio Health dan Stress Scenarios (pelabur), Risk & Early Warning, Pool Sizing (pihak projek dan staf).
 
-Jadual harga (`AiCapabilityPricing`) juga mengandungi "Investment Analysis" (30) dan "Full Feasibility Analysis" (20), tetapi tiada ciri AI yang menggunakannya sekarang.
+**RAG**
+- Dokumen rujukan dipecah kepada bahagian (`RagDocument`, `RagChunk`) dengan skop GLOBAL, COUNTRY atau PROJECT; carian kata kunci ditambah carian vektor (pgvector) jika model embedding diset.
+- Jawapan mesti merujuk sumber (`[S1]`); sitasi disimpan dan boleh disemak (`/ai/citations`). Dokumen melalui kitaran semakan.
 
 **Kawalan**
-- Kredit ditolak hanya selepas operasi AI berjaya; kredit percuma digunakan dahulu.
-- Setiap permintaan dan jawapan direkod (`AiRun`, log audit); keputusan AI ialah **cadangan**, dan semakan manusia sentiasa diperlukan (`/ai/decisions/:id/review`).
-- Ciri AI dikunci mengikut peringkat projek: selepas kelulusan akhir, analisis semula ditolak sehingga projek dibuka semula.
-- Modul `AI_INTELLIGENCE` boleh dimatikan oleh admin; skrin membership kemudian menyembunyikan pelan AI.
+- Kredit ditolak hanya selepas operasi berjaya; setiap permintaan direkod (`AiRun`, log audit); keputusan AI ialah **cadangan** dan semakan manusia sentiasa diperlukan. Ciri AI dikunci mengikut peringkat projek. Menu AI mengikut peranan (penyemak tidak melihat alat draf).
 
-### 5.11 Kontrak (`/contracts`, `/contract-intelligence`)
-- Kontrak dengan versi, pihak, kelulusan dan peralihan status.
-- Penjanaan perjanjian (Ijarah, Musharakah, Mudarabah, Wakalah, Sukuk) dengan templat, klausa, peraturan Shariah dan semakan pematuhan asas; muat turun PDF.
-- Perjanjian belum dipautkan kepada projek (item 6 dalam fail pending).
+### 5.11 Kontrak dan perjanjian (`/contracts`, `/contract-intelligence`)
+- Kontrak dengan versi, pihak, kelulusan dan peralihan status; penjanaan perjanjian dengan templat, klausa dan semakan pematuhan.
+- **Perjanjian daripada perkongsian aset:** satu perjanjian bagi setiap perkongsian; draf seterusnya menjadi versi baharu. Kedua-dua pihak bersetuju dengan versi terkini sebelum semakan Legal, kemudian Shariah, oleh penyemak dari luar kedua-dua pihak. **Agreement checks** (klausa wajib ikut akad, ruang kosong, terma perkongsian) dan imbasan jurang AI membantu penyemak; kelulusan walaupun semakan gagal memerlukan alasan.
+- **Format:** gaya perjanjian komersial Malaysia, klausa bernombor penuh untuk Musharakah dan Ijarah, jadual dan halaman tandatangan; PDF dan Word.
+- **Tandatangan elektronik:** kod sekali guna (OTP) melalui e-mel; selepas kedua-dua pihak menandatangani, PDF muktamad dengan Sijil Penyempurnaan dimeterai platform (PAdES) dan dicap masa (RFC 3161); semakan integriti setiap 6 jam dan setiap muat turun. `SIGNING_REQUIRE_VERIFIED_IDENTITY=true` mewajibkan KYC/KYB penandatangan.
+- Contract Advisory dan Agreement Generation umum belum dipautkan kepada projek (item 5 dalam fail pending).
 
 ### 5.12 Notifikasi dan job latar belakang (`/notifications`, `server/src/jobs/`)
-- Notifikasi dalam app (senarai, belum dibaca, tanda dibaca).
-- Outbox dengan deduplikasi, cubaan semula dan dead-letter. Saluran: dalam app, **push Firebase (FCM HTTP v1)**; e-mel (Resend) dan SMS (Twilio) disediakan tetapi belum diaktifkan.
-- Job berjadual (BullMQ): reconciliation ToyyibPay (10 minit), reconciliation payout (15 minit), outbox notifikasi (30 saat), meterai rantai hash (5 minit).
+- **Saluran:** dalam aplikasi (loceng) dan **e-mel** (Resend atau SMTP), keputusan 2026-10-30; push (Firebase) dan SMS (Twilio) tidak digunakan (kod kekal). Saluran lalai `IN_APP,EMAIL`; pengguna boleh mematikan e-mel.
+- **Outbox** dengan deduplikasi, cubaan semula dan dead-letter. Setiap saluran dihantar berasingan dan direkod (`deliveredChannels`), jadi cubaan semula tidak menghantar e-mel dua kali; saluran yang belum disediakan dilangkau dan dicatat.
+- **Notifikasi utama:** keputusan KYC dan KYB, pelaburan disahkan atau dibatalkan, pool menunggu tandatangan, dibuka dan penuh, keuntungan dibayar atau gagal, akaun bank disahkan, tranche diminta/diluluskan/ditolak/dikeluarkan, langkah perkongsian dan perjanjian, laporan prestasi untuk disahkan dan diterbitkan, serta peringatan.
+- **Job berjadual (BullMQ, worker):** reconciliation ToyyibPay (10 minit), reconciliation payout (15 minit), outbox notifikasi (30 saat), meterai rantai hash (5 minit).
+- **Semakan harian dalam API** (tanpa worker): peringatan membership (seminggu sebelum tamat), peringatan tarikh luput aset dan takaful (30, 14, 7 hari dan selepas tamat), integriti perjanjian yang ditandatangani, dan AI run yang tersangkut.
 
 ### 5.13 Audit (`/admin/audit`)
-- Setiap tindakan penting direkod dalam `AuditEvent` (append-only; trigger menolak UPDATE dan DELETE). Eksport CSV tersedia.
+- Setiap tindakan penting direkod dalam `AuditEvent` (append-only; trigger menolak UPDATE dan DELETE). Admin Center › Audit Logs: senarai, tapisan, eksport CSV dan status rantai hash.
 
 ### 5.14 Smart contract dan blockchain
 
 **Keadaan sekarang: sistem tidak menggunakan blockchain dan tidak menjalankan smart contract.**
 - **"Kontrak" dalam sistem** ialah kontrak Shariah digital: dokumen akad, terma pool yang ber-versi dan ijab qabul yang direkod di database, serta perjanjian yang dijana (bahagian 5.4 dan 5.11). Ia bukan kod yang berjalan di blockchain.
-- **Wang sebenar** bergerak melalui ToyyibPay (FPX/kad) dan bank; sistem merekodnya dalam lejar kewangan.
-- **Teks UI yang dahulu mendakwa** "on the blockchain", "smart contract execution", "immutable ledger" dan memaparkan alamat dompet palsu telah dibetulkan pada 5 Okt 2026 (commit `cddb011`). Perkataan "tokenization" masih ada dalam beberapa skrin admin dan data mock.
+- **Wang sebenar** bergerak melalui ToyyibPay (FPX) dan bank; sistem merekodnya dalam lejar kewangan.
+- **Teks UI yang dahulu mendakwa** "on the blockchain", "smart contract execution", "immutable ledger" dan memaparkan alamat dompet palsu telah dibetulkan pada 5 Okt 2026 (commit `cddb011`). Perkataan "tokenization" masih ada dalam beberapa skrin mod DEMO.
 
-**Yang sudah ada sebagai asas (Fasa 1):** rantai hash SHA-256 ke atas log audit dan lejar kewangan (bahagian 5.6). Ia memberi kesan "tamper-evident" tanpa blockchain: perubahan, pemadaman atau penyusunan semula rekod yang telah dimeterai dikesan semasa pengesahan.
+**Yang sudah ada sebagai asas (Fasa 1):** rantai hash SHA-256 ke atas log audit dan lejar kewangan (bahagian 5.6). Ia memberi kesan "tamper-evident" tanpa blockchain.
 
-**Had Fasa 1:** sesiapa yang boleh menulis terus ke database boleh membina semula seluruh rantai. Ini hanya dapat dikesan jika hash kepala rantai (chain head) disimpan di luar sistem.
+**Had Fasa 1:** sesiapa yang boleh menulis terus ke database boleh membina semula seluruh rantai. Ini hanya dapat dikesan jika hash kepala rantai disimpan di luar sistem.
 
-**Rancangan (item 10 dalam fail pending):**
+**Rancangan (item 9 dalam fail pending):**
 
 | Fasa | Kandungan | Status |
 |---|---|---|
 | 0 | Betulkan dakwaan blockchain dalam UI | Siap |
 | 1 | Rantai hash audit dan lejar | Siap |
-| 2 | **Anchoring:** rekod hash kepala rantai atau Merkle root secara berkala ke blockchain awam yang murah (contohnya Ethereum Layer 2); halaman awam **Ketelusan Zakat**; butang "Sahkan bayaran saya" dengan bukti Merkle. Tiada data peribadi di blockchain | Menunggu pilihan rangkaian, dompet operasi dan bajet |
+| 2 | **Anchoring:** rekod hash kepala rantai atau Merkle root secara berkala ke blockchain awam yang murah; halaman awam **Ketelusan Zakat**; butang "Sahkan bayaran saya" dengan bukti Merkle. Tiada data peribadi di blockchain | Menunggu pilihan rangkaian, dompet operasi dan bajet |
 | 3 | **Tokenisasi** bahagian pool dan **smart contract escrow** | Menunggu nasihat undang-undang Suruhanjaya Sekuriti dan resolusi Shariah; token pelaburan berkemungkinan dianggap sekuriti |
 
 #### Apa itu smart contract
@@ -317,13 +318,13 @@ Logik "kontrak" (agihan mengikut nisbah akad, tolakan rugi, kunci terma) **sudah
 
 #### Sebab smart contract dilewatkan ke Fasa 3
 
-1. **Wang adalah ringgit sebenar.** Dana bergerak melalui ToyyibPay (FPX/kad) dan bank. Smart contract hanya boleh mengawal aset yang berada di blockchain, jadi ia memerlukan token atau ringgit digital (stablecoin). Ini dikawal selia oleh Bank Negara Malaysia dan Suruhanjaya Sekuriti (SC).
-2. **Status kawal selia.** Token yang mewakili bahagian pool berkemungkinan dianggap sekuriti dan memerlukan kelulusan atau pendaftaran SC (contohnya rangka kerja ECF atau aset digital) sebelum dilancarkan.
-3. **Masalah oracle.** Untung atau rugi projek berlaku di dunia sebenar dan mesti dimasukkan oleh manusia (akaun dan audit). Kepercayaan kepada pihak yang memasukkan data tidak hilang, jadi manfaat "tanpa perlu percaya" adalah terhad.
-4. **Kesilapan tidak boleh diundur.** Agihan wang pelabur yang tersilap tidak dapat dibetulkan seperti dalam sistem sekarang (maker-checker, pembalikan lejar).
+1. **Wang adalah ringgit sebenar.** Smart contract hanya boleh mengawal aset yang berada di blockchain, jadi ia memerlukan token atau ringgit digital (stablecoin), yang dikawal selia oleh Bank Negara Malaysia dan Suruhanjaya Sekuriti (SC).
+2. **Status kawal selia.** Token yang mewakili bahagian pool berkemungkinan dianggap sekuriti dan memerlukan kelulusan atau pendaftaran SC sebelum dilancarkan.
+3. **Masalah oracle.** Untung atau rugi projek berlaku di dunia sebenar dan mesti dimasukkan oleh manusia (akaun dan audit), jadi manfaat "tanpa perlu percaya" adalah terhad.
+4. **Kesilapan tidak boleh diundur.** Agihan yang tersilap tidak dapat dibetulkan seperti dalam sistem sekarang (maker-checker, pembalikan lejar).
 5. **PDPA.** Data peribadi tidak boleh diletakkan di rekod blockchain awam kerana ia tidak boleh dipadam atau dibetulkan.
 6. **Semakan Shariah.** Kod smart contract menjadi pelaksana akad, jadi kod itu sendiri memerlukan resolusi Majlis Penasihat Shariah.
-7. **Kos dan kepakaran.** Ia melibatkan yuran transaksi (gas), audit keselamatan kod oleh pihak ketiga (lazimnya puluhan ribu USD), pembangun Solidity atau seumpamanya, dan pengurusan kunci dompet operasi.
+7. **Kos dan kepakaran.** Yuran transaksi (gas), audit keselamatan kod oleh pihak ketiga (lazimnya puluhan ribu USD), pembangun Solidity atau seumpamanya, dan pengurusan kunci dompet operasi.
 
 #### Syarat untuk memulakan Fasa 3
 
@@ -333,80 +334,140 @@ Logik "kontrak" (agihan mengikut nisbah akad, tolakan rugi, kunci terma) **sudah
 - Keperluan perniagaan yang jelas, contohnya pasaran sekunder unit pool atau escrow automatik yang diminta pelabur.
 - Bajet bagi audit keselamatan kod dan operasi dompet.
 
-Sehingga syarat ini dipenuhi, logik akad kekal di server, dan ketelusan diperoleh melalui rantai hash (Fasa 1) serta anchoring (Fasa 2), tanpa memindahkan wang atau data peribadi ke blockchain.
+### 5.15 Aset (`/assets`)
+- **Pendaftaran:** Asset Owner atau Asset Manager mendaftar aset (tanah, bangunan, kenderaan berat, mesin) sebagai draf, memuat naik dokumen (bukti hak milik wajib; PDF/JPG/PNG disemak jenis sebenar, SHA-256, isyarat pengubahsuaian), membuat tiga pengakuan dan menghantar. Borang dan dokumen wajib mengikut jenis (contohnya geran dan Carian Rasmi untuk tanah, VOC JPJ untuk kenderaan, invois dan plat siri untuk mesin, CCC untuk bangunan); pin peta dan gambar tapak dengan GPS.
+- **OCR** geran, Carian Rasmi, cukai tanah, VOC, PUSPAKOM, invois, sijil JKKP; aset yang sama dikesan melalui no. hak milik/lot, casis atau siri.
+- **Pengesahan:** Country Admin atau Legal Officer negara itu mengesahkan, meminta perubahan atau menolak, tidak boleh untuk organisasi sendiri.
+- **Penstrukturan Shariah:** pilihan akad (Ijarah, Musharakah, Murabahah) daripada peraturan (`asset-structuring.ts`) dan penasihat AI (20 kredit).
+- **Peringatan tarikh luput** cukai jalan, insurans, PUSPAKOM, sijil JKKP (jika perlu) dan pajakan, kepada pemilik dan Asset Manager organisasi.
+
+### 5.16 Perkongsian aset dengan projek (`/asset-partnerships`)
+- PDP menyiarkan keperluan aset pada projek; Asset Owner dalam negara yang sama menawarkan aset VERIFIED, atau pemilik menawarkan aset kepada PDP (butiran sulit disembunyikan sehingga diluluskan). Pemilik aset sejenis dimaklumkan apabila keperluan baharu disiarkan.
+- Rundingan (terima, tolak, tawaran balas) di bawah Ijarah atau Musharakah; **Compare offers** dengan skor tetap /100 dan penjelasan AI (tanpa nama pihak lain).
+- Selepas diterima: semakan Legal dan Shariah oleh orang berbeza dari luar kedua-dua pihak, dengan panel **Pre-approval checks** (dokumen, gadaian, Rizab Melayu, penilaian, nisbah modal dan untung, aktiviti halal dan lain-lain) dan alasan wajib jika meluluskan walaupun ada semakan gagal.
+- Setiap langkah ditulis ke log audit dengan cap jari SHA-256; rekod penuh boleh dimuat turun sebagai PDF.
+
+### 5.17 KYB organisasi dan pihak berkaitan (`/organisations`)
+- Ahli organisasi mengisi no. pendaftaran SSM, alamat berdaftar, **jenis entiti** (GLC, syarikat, institusi, individu) dan **kumpulan korporat**, memuat naik profil syarikat SSM (wajib), senarai pengarah, pemegang saham dan resolusi lembaga, lalu menghantar. KYB Officer, Compliance Officer, Country Admin atau Super Admin negara yang sama memutuskan (tidak untuk organisasi sendiri). Butiran dikunci selepas diluluskan.
+- **Pihak berkaitan:** pesanan daripada organisasi lain dalam kumpulan yang sama dengan organisasi projek ditanda, dipaparkan "Related party" kepada staf, dan pool memaparkan kepada pelabur jumlah wang yang disahkan daripada pihak berkaitan. Kumpulan hanya untuk pendedahan; ia tidak berkongsi akses.
+
+### 5.18 Modal penaja dan takaful (`/projects/:id/safeguards`, `/safeguards/queue`)
+- Penaja menjanjikan modal (minimum 10% kos projek, boleh ditetapkan ikut negara dengan `MIN_SPONSOR_CONTRIBUTION_PCT`) dan memuat naik penyata bank; Finance Officer mengesahkan dan merekod setoran.
+- Syarat: projek hanya boleh dihantar jika modal minimum dijanjikan; pool hanya dibuka jika modal dibuktikan; dana hanya dikeluarkan jika modal disetor dan semua takaful wajib berkuat kuasa. Setiap pengeluaran merekod bahagian pro-rata penaja dan pelabur.
+- Takaful wajib dijana automatik ikut projek; Risk Officer (atau Compliance) mengesahkan; insurans konvensional hanya dengan kelulusan bertulis penasihat Shariah.
+
+### 5.19 Benefisiari dan pusaka (`/estate/beneficiaries`)
+- Untuk individu (Retail, HNWI, Family Office) dan Asset Owner sahaja. Pemilik memilih rangka Islam (faraid, Hibah Amanah, wasiyyah) atau sivil (wasiat), disimpan dalam akaun.
+- Peraturan disemak di server: wasiyyah maksimum 1/3 dan tidak kepada waris faraid; bahagian waris faraid tidak ditetapkan pengguna; institusi bukan waris faraid.
+- Nombor ID benefisiari disulitkan AES-256-GCM (`ESTATE_DATA_ENCRYPTION_KEY`) dan dipaparkan bertopeng; setiap perubahan diaudit tanpa nombor ID.
+
+### 5.20 Akaun amanah (kutipan) bagi setiap negara (`/collection-accounts`)
+- Satu akaun amanah platform bagi setiap negara, bukan bagi setiap pool. Super Admin mengisinya di Admin Center › Country Nodes. Selagi kosong, pelabur diberitahu supaya tidak memindahkan wang. Kewangan melepaskan wang kepada projek mengikut tranche.
+
+### 5.21 Sewaan terus (Ijarah) tanpa projek (`/leasing`)
+- Pemilik aset menyenaraikan unit daripada aset yang disahkan; syarikat penyewa dengan KYB diluluskan memohon dan berunding; kelulusan Legal dan Shariah oleh orang berbeza dari luar kedua-dua pihak (aktiviti yang mungkin haram ditanda); jadual sewa bulanan dan rekod bayaran oleh pemilik. Kini dalam mini-app sahaja. Keputusan sementara: sewa dibayar terus ke akaun pemilik; platform hanya merekod.
+
+### 5.22 Tadbir urus Admin Center (`/governance`, `/dashboard`)
+- **Papan pemuka** Compliance, Audit, Finance dan Security daripada database (Super Admin, Country Admin, Compliance Officer, Auditor). Security Dashboard menyemak tetapan pelayan yang diperlukan untuk production.
+- **Regulatory Reports:** eksport CSV (daftar pelabur, daftar KYC, pihak berkaitan, agihan, payout); setiap eksport diaudit.
+- **Risk Register, Incidents, Fatwa Repository:** rekod sebenar dengan sejarah dan audit (`RiskItem`, `Incident`, `FatwaResolution`).
+- **Approval Matrix, Platform Fee Schedule, PDP Country Rules:** paparan baca sahaja daripada nilai yang sama yang dikuatkuasakan kod.
+- **AML, PEP dan Sanctions:** memaparkan nota bahawa penyedia saringan belum dipilih.
+- Juga: User Directory, Organisations, Country Nodes, Role Management, Permission Matrix, Workflow Pipelines, Revenue, Promotions, System Status, Settlement Clearing, Payout Account Verification, kandungan laman awam dan Shariah Governance (`/site-content`).
+
+### 5.23 Laporan prestasi projek (`/performance-reports`)
+- PDP (Project Sponsor, Project Manager, Organization Admin organisasi projek) mengisi laporan bagi setiap suku yang telah tamat: hasil dan kos sebenar lawan unjuran, milestone tepat masa, bajet digunakan, insiden Shariah, dapatan audit, sehingga 5 KPI sektor dan ulasan. Untung diagih diisi server daripada agihan yang diluluskan dalam suku itu.
+- Juruaudit (Auditor) negara yang sama dan dari organisasi lain mengesahkan atau memulangkan dengan nota; laporan yang disahkan dikunci dan dipaparkan kepada pelabur projek, dengan notifikasi. Barisan juruaudit ada di tab Documents.
+
+### 5.24 Mini-app D8 Ideas (`/m`)
+- Log masuk, KYC dengan kamera dan pengesahan wajah, pool dan pesanan dengan arahan bayaran, portfolio, papan pemuka pelabur, profil, benefisiari, pengguna (Country Admin), sejarah keuntungan, notifikasi, penyata (PDF), zakat, sewaan dan agihan (Settlement Officer); BM dan EN (pilihan disimpan dalam akaun).
+- SSO dan push melalui D8 Ideas menunggu spesifikasi mereka.
 
 ---
 
 ## 6. Database
 
-- **77 model** dan **56 migration** (`server/prisma/migrations/`).
+- **98 model** dan **80 migration** (`server/prisma/migrations/`).
 - **Jadual append-only** (UPDATE/DELETE ditolak oleh trigger): `AuditEvent`, `LedgerTransaction`, `LedgerEntry`, `HashChainLink`, `PoolAkadTerms`.
-- **Kekangan penting:** baki lejar mesti seimbang (trigger tertangguh), satu nombor ID KYC bagi satu akaun, satu keputusan aktif bagi setiap peringkat feasibility, jenis tempoh agihan (`PROFIT`, `LOSS`, `ABSORBED`), nisab mesti positif dan tempoh sah.
-- **Pepijat yang dibetulkan pada 6 Okt 2026:** trigger baki lejar sebelum ini menyebabkan setiap posting lejar gagal pada PostgreSQL sebenar. Migration `20261006110000_fix_ledger_balance_trigger` membetulkannya.
+- **Kekangan penting:** baki lejar mesti seimbang (trigger tertangguh), satu nombor ID KYC bagi satu akaun, satu keputusan aktif bagi setiap peringkat feasibility, satu laporan prestasi bagi setiap projek dan suku, jenis tempoh agihan (`PROFIT`, `LOSS`, `ABSORBED`), nisab mesti positif dan tempoh sah.
+- **Data sensitif disulitkan:** nombor akaun payout (`PAYOUT_DESTINATION_ENCRYPTION_KEY`) dan nombor ID benefisiari (`ESTATE_DATA_ENCRYPTION_KEY`). Fail KYC, bukti dan dokumen masih disimpan dalam database (`Bytes`); pemindahan ke DigitalOcean Spaces dirancang (item 14).
 
 ---
 
 ## 7. Kawalan keselamatan dan integriti
 
 - Skop tenant pada setiap baca dan tulis; kawalan peranan pada endpoint (`@Roles`, `@RequirePermission`).
-- Maker-checker bagi agihan; pegawai tidak boleh menyelesaikan pesanan sendiri atau meluluskan agihan sendiri.
-- Tuntutan status bersyarat dan kunci baris (`FOR UPDATE`) untuk mengelakkan pemprosesan berganda (bayaran, payout, review feasibility, terma akad, offset kerugian).
+- **Pengasingan tugas:** pegawai tidak boleh menyelesaikan pesanan sendiri, meluluskan agihan atau tranche sendiri, mengesahkan akaun bank sendiri, menyemak organisasi atau aset sendiri, atau memutuskan feasibility projek organisasi sendiri; seorang memutuskan satu peringkat feasibility sahaja bagi setiap analisis.
+- Tuntutan status bersyarat dan kunci baris (`FOR UPDATE`, advisory lock bagi had KYC) untuk mengelakkan pemprosesan berganda.
 - Kunci idempotensi bagi posting lejar, pesanan pelaburan dan payout.
-- Destinasi payout encrypted (`PAYOUT_DESTINATION_ENCRYPTION_KEY`); webhook payout bertandatangan HMAC (`PAYOUT_WEBHOOK_SECRET`).
-- Rantai hash ke atas audit dan lejar; pemeriksaan integriti dokumen bukti.
+- Helmet, had kadar dan CORS (`CORS_ORIGINS` wajib di production); production hanya menerima `oidc` dan RS256.
+- Webhook payout bertandatangan HMAC (`PAYOUT_WEBHOOK_SECRET`).
+- Rantai hash ke atas audit dan lejar; pemeriksaan integriti dokumen bukti dan perjanjian yang ditandatangani.
 - Rahsia tidak disimpan dalam Git: `server/.env`, `server/.env.production` dan `server/ops/secrets/*` diabaikan.
-- Eksport CSV (penyata dan log audit) meneutralkan teks yang boleh dijalankan sebagai formula hamparan.
+- Eksport CSV meneutralkan teks yang boleh dijalankan sebagai formula hamparan.
 
 ---
 
 ## 8. Pembolehubah persekitaran utama
 
-**Backend (`server/.env`; contoh dalam `server/.env.example`):**
+**Backend (`server/.env`; contoh dan penerangan dalam `server/.env.example` dan `server/.env.production.example`):**
 
 | Kumpulan | Pembolehubah |
 |---|---|
-| Asas | `DATABASE_URL`, `PORT`, `NODE_ENV`, `AUTH_MODE`, `DEFAULT_COUNTRY_NODE`, `DEFAULT_ORGANISATION`, `PUBLIC_API_BASE_URL` |
+| Asas | `DATABASE_URL`, `PORT`, `NODE_ENV`, `AUTH_MODE`, `CORS_ORIGINS`, `COUNTRY_NODE_ID`, `PUBLIC_API_BASE_URL` |
+| OIDC | `OIDC_ISSUER`, `OIDC_AUDIENCE`, `OIDC_JWKS_URI` |
 | AI | `OPENAI_API_URL`, `OPENAI_MODEL`, `OPENAI_API_KEY`, `RAG_EMBEDDING_MODEL` |
 | ToyyibPay | `TOYYIBPAY_BASE_URL`, `TOYYIBPAY_SECRET_KEY`, `TOYYIBPAY_CATEGORY_CODE`, `TOYYIBPAY_CALLBACK_URL`, `TOYYIBPAY_RETURN_URL`, `ALLOW_SIMULATED_PAYMENTS`, `MEMBERSHIP_CREDIT_VALUE_MYR` |
-| Payout | `PAYOUT_DESTINATION_ENCRYPTION_KEY`, `PAYOUT_WEBHOOK_SECRET` |
+| Pelaburan | `KYC_INVESTMENT_LIMITS`, `MIN_SPONSOR_CONTRIBUTION_PCT` |
+| Penyulitan dan payout | `PAYOUT_DESTINATION_ENCRYPTION_KEY`, `PAYOUT_WEBHOOK_SECRET`, `ESTATE_DATA_ENCRYPTION_KEY` |
 | Redis/worker | `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD_FILE`, `REDIS_TLS`, `REDIS_CA_CERT_FILE`, `WORKER_ENABLED`, `WORKER_CONCURRENCY` |
-| Notifikasi | `NOTIFICATION_DEFAULT_CHANNELS`, `NOTIFICATION_PUSH_PROVIDER`, `FCM_SERVICE_ACCOUNT_FILE`, `NOTIFICATION_SMS_PROVIDER`, `TWILIO_*` (dan Resend untuk e-mel apabila diaktifkan) |
+| E-mel dan notifikasi | `NOTIFICATION_DEFAULT_CHANNELS`, `NOTIFICATION_EMAIL_PROVIDER` (`resend` atau `smtp`), `NOTIFICATION_EMAIL_FROM`, `RESEND_API_KEY`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` |
+| Tandatangan | `SIGNING_OTP_CHANNEL`, `SIGNING_P12_PATH`, `SIGNING_P12_PASSPHRASE`, `SIGNING_TSA_URL`, `SIGNING_ALLOW_SELF_SIGNED`, `SIGNING_REQUIRE_VERIFIED_IDENTITY` |
 | KYC | `KYC_REQUIRE_LIVENESS`, `KYC_ROUTING_JSON`, `KYC_VENDOR_A_*`, `KYC_ML_URL`, `KYC_ML_MEDIA_DIR` |
 | Zakat | `ZAKAT_COLLECTION_APPOINTMENT_REF` (hanya selepas pelantikan rasmi sebagai ejen kutipan) |
 
-**Frontend (`.env.local`; contoh dalam `.env.example`):** `VITE_API_BASE_URL`, `VITE_AUTH_MODE`, `VITE_OIDC_*`, `VITE_FIREBASE_*`, `VITE_SINGLE_ROLE_MODE`.
+**Frontend (`.env.local`; contoh dalam `.env.example`):** `VITE_API_BASE_URL`, `VITE_AUTH_MODE`, `VITE_OIDC_*`, `VITE_SINGLE_ROLE_MODE`, `VITE_DATA_SOURCE`.
 
 ---
 
 ## 9. Ujian
 
-- Backend: `cd server; npx jest`. Pada 6 Okt 2026: **41 suite, 280 ujian, semua lulus**.
+- Backend: `cd server; npx jest`. **103 fail ujian** (`*.spec.ts`). Suite penuh terakhir lulus pada Oktober 2026; sejak itu hanya type-check dijalankan kerana PC pembangunan (7.8 GB RAM) tidak dapat menjalankan Jest dalam Docker. Jalankan semula suite penuh selepas naik taraf RAM, satu suite pada satu masa jika perlu.
+- Type-check (termasuk fail ujian): `npx tsc --noEmit` (frontend) dan `cd server; npm run typecheck`.
 - Ujian integrasi (PostgreSQL + Redis): `RUN_INTEGRATION_TESTS=true npm run test:integration`.
-- Type-check: `npx tsc --noEmit -p .` (frontend) dan `cd server; npx tsc --noEmit -p tsconfig.json`.
-- Aliran wang, akad, zakat, kerugian dan penyata telah diuji end-to-end pada PostgreSQL sementara (migration dari kosong, seed, backend sebenar).
+- Ujian langsung secara local dibuat bagi had KYC, peringatan aset, pihak berkaitan, endpoint governance dan aliran laporan prestasi; data ujian dibuang selepas itu.
 
 ---
 
-## 10. Status skrin frontend
+## 10. Status skrin frontend (di luar mod DEMO)
 
 | Skrin | Status |
 |---|---|
-| Membership, transaksi bil, top-up kredit AI | Sebenar (backend + ToyyibPay) |
-| KYC dan semakan KYC | Sebenar |
-| Portal penaja projek, projek, bukti, feasibility, ciri AI | Sebenar |
-| Financials: penyata, zakat, penyata cukai | Sebenar |
-| Pooling: cipta pool (Pool Manager), langgan pool dengan akad | Sebenar; senarai pool dan sebahagian paparan lain masih data mock |
-| Audit Trail: panel integriti rantai hash | Sebenar; senarai acara di skrin itu masih mock |
-| Profil pengguna, dompet | Sebahagian sebenar |
-| Aset, kontrak saya, pasaran aset, lejar, pelaburan, dokumen, benefisiari, skrin admin | Kebanyakannya data mock |
-| Modal cipta pool pihak sponsor (`PDPPoolCreationModal`) | Cadangan mock |
+| Dashboard setiap peranan, My reviews | Sebenar |
+| Wealth Pooling (projek, pool, kitaran 17 langkah, tandatangan, buka pool) | Sebenar |
+| Investments: pelabur (posisi, keuntungan, perjanjian, laporan prestasi, pool OPEN, arahan bayaran); staf (pesanan) | Sebenar |
+| Asset Register, Asset Partnerships, perjanjian dan tandatangan | Sebenar |
+| Sponsor Portal (projek, KYB, modal dan takaful, kempen, penyata, laporan prestasi, keahlian) | Sebenar |
+| KYC, KYB dan semakan | Sebenar |
+| AI Wealth Engine (ciri AI dan alat analisis) | Sebenar |
+| Financials: transaksi, penyata, zakat, cukai, settlement | Sebenar (pelabur melihat pesanan dan keuntungan sendiri) |
+| Ledger dan Audit Logs | Sebenar |
+| Document Vault | Sebenar: dokumen projek; dokumen aset (pemilik, Asset Manager, Legal); dokumen KYB (KYB, Compliance); laporan untuk disahkan (Auditor) |
+| Membership, bil, kredit AI | Sebenar (backend + ToyyibPay) |
+| Beneficiaries | Sebenar |
+| Admin Center (semua bahagian) | Sebenar; AML, PEP dan Sanctions memaparkan nota "belum tersedia" |
+| Multi-Wallet | Staf: akaun lejar sebenar; pelabur: nota "belum tersedia" (akaun pelabur belum direka) |
+| Asset Marketplace | Pool OPEN sebenar; senarai aset contoh hanya dalam DEMO |
+
+Dalam mod DEMO, beberapa skrin masih memaparkan data contoh terbina dalam (`src/data/`).
 
 ---
 
 ## 11. Had dan kerja yang belum siap
 
 Senarai penuh dan terkini dalam [PENDING_ACTIVITIES.md](PENDING_ACTIVITIES.md). Perkara utama:
-- **Perlu penasihat Shariah:** caj kerugian ke atas modal pelabur, perkiraan akhir pool, proses kecuaian pengurus, bahagian rugi rakan kongsi Musharakah.
+- **Perlu penasihat Shariah:** caj kerugian ke atas modal pelabur, perkiraan akhir pool, proses kecuaian pengurus, bahagian rugi rakan kongsi Musharakah, teks templat perjanjian dan pusaka.
 - **Perlu penasihat cukai:** cukai pegangan bukan pemastautin, cukai perkhidmatan, e-Invois MyInvois, negara D-8 lain.
-- **Perlu keputusan:** penyedia eKYC, penyedia payout bank/DuitNow, akaun e-mel dan SMS, pelantikan ejen kutipan zakat, tempoh simpanan data biometrik (PDPA).
-- **Production:** sijil TLS Redis, akaun ToyyibPay live, domain sebenar, Keycloak.
+- **Perlu Compliance:** nilai had pelaburan ikut tahap KYC (kini nilai sementara), format laporan regulator, penyedia eKYC dan saringan AML/PEP.
+- **Perlu keputusan:** penyedia payout bank/DuitNow, pelantikan ejen kutipan zakat, tempoh simpanan data biometrik (PDPA), reka bentuk akaun pelabur (Multi-Wallet).
+- **Production:** rekod DNS Resend, sijil TLS Redis, akaun ToyyibPay live, sijil meterai daripada CA yang dipercayai, fail ke Spaces, Keycloak, dan semua baris Security Dashboard "Yes".
