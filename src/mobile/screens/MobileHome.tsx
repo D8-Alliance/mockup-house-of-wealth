@@ -6,7 +6,8 @@ import { apiClient, KycApplication } from '../../services/apiClient';
 import { KYC_STATUS_LABELS } from '../../kyc/kycLabels';
 import type { MobileTab } from '../MobileShell';
 import { MobileInvestorDashboard } from './MobileInvestorDashboard';
-import { USER_ADMIN_ROLES } from '../mobileRoles';
+import { MobileAssetOwnerDashboard } from './MobileAssetOwnerDashboard';
+import { ASSET_OWNER_ROLES, LEASING_ROLES, SETTLEMENT_ROLES, SPONSOR_ROLES, USER_ADMIN_ROLES } from '../mobileRoles';
 import { useT } from '../i18n';
 
 /** Home: who is signed in, whether they may invest yet (KYC), and the way to the pools. */
@@ -15,6 +16,9 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc:
   const { activeUser, currentRole } = useRBAC();
   const investor = canInvest(currentRole);
   const userAdmin = USER_ADMIN_ROLES.includes(currentRole);
+  const assetOwner = ASSET_OWNER_ROLES.includes(currentRole);
+  // Roles with nothing of their own in the mini-app yet are pointed to the website.
+  const webOnly = !investor && ![...USER_ADMIN_ROLES, ...ASSET_OWNER_ROLES, ...SPONSOR_ROLES, ...LEASING_ROLES, ...SETTLEMENT_ROLES].includes(currentRole);
   const [kyc, setKyc] = useState<KycApplication | null | undefined>(undefined);
   const [kycError, setKycError] = useState('');
 
@@ -52,10 +56,12 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc:
         </button>
       )}
 
-      {!investor && !userAdmin && (
+      {assetOwner && <MobileAssetOwnerDashboard onOpen={onOpen} />}
+
+      {webOnly && (
         <section className="rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-500/10 p-4 text-sm space-y-2">
-          <p className="font-bold flex items-center gap-2"><Monitor className="w-4 h-4" />{t('The mini-app is for investors for now')}</p>
-          <p className="text-xs text-slate-600 dark:text-slate-300">{t('Your role, {role}, works on the Wealth Pooling website. Asset owner screens come to the mini-app next.', { role: t(currentRole) })}</p>
+          <p className="font-bold flex items-center gap-2"><Monitor className="w-4 h-4" />{t('Your work is on the website')}</p>
+          <p className="text-xs text-slate-600 dark:text-slate-300">{t('Your role, {role}, works on the Wealth Pooling website for now.', { role: t(currentRole) })}</p>
           <a href="/" className="inline-block text-xs font-bold text-emerald-700 dark:text-emerald-400 underline">{t('Open the website')}</a>
         </section>
       )}
