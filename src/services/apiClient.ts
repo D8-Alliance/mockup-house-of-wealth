@@ -346,6 +346,9 @@ export const apiClient = {
   getPayoutAccountsForReview: () => request<PayoutAccountForReview[]>('/distributions/payout-destinations'),
   verifyPayoutAccount: (id: string) => request<PayoutAccountForReview>(`/distributions/payout-destinations/${encodeURIComponent(id)}/verify`, { method: 'POST' }),
   // Settlement (Settlement Officer, Super Admin): project income, distributions and payouts.
+  // Problem projects (Super Admin, Country Admin): archive, restore, suspend, resume, each with a reason.
+  getManagedProjects: () => request<ManagedProject[]>('/project-admin/projects'),
+  manageProject: (projectId: string, action: 'archive' | 'restore' | 'suspend' | 'resume', reason: string) => request<unknown>(`/project-admin/projects/${encodeURIComponent(projectId)}/${action}`, { method: 'POST', body: JSON.stringify({ reason }) }),
   getSettlementPools: () => request<SettlementPool[]>('/distributions/pools'),
   getSettlementDistributions: () => request<SettlementDistribution[]>('/distributions'),
   recordPoolIncome: (input: { poolId: string; amount: number; reference: string; receivedAt?: string; note?: string }) => request<{ poolId: string; incomeRecorded: number; profitPaidOut: number; available: number }>('/distributions/pool-income', { method: 'POST', body: JSON.stringify(input) }),
@@ -2331,4 +2334,23 @@ export interface SettlementDistribution {
   canApprove: boolean;
   createdAt: string;
   allocations: Array<{ id: string; beneficiaryUserId: string; beneficiaryName: string | null; amount: number | string; status: string; destination: { provider: string; maskedReference: string; accountHolder: string | null } | null; payoutInstruction: SettlementPayout | null }>;
+}
+
+/** A project as an administrator manages it: archived or suspended, and what is at stake. */
+export interface ManagedProject {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  status: string;
+  countryNodeId: string;
+  createdAt: string;
+  organisationName: string;
+  archivedAt: string | null;
+  archivedReason: string | null;
+  suspendedAt: string | null;
+  suspendedReason: string | null;
+  pools: Array<{ poolId: string; poolName: string; status: string; currency: string }>;
+  settled: Array<{ currency: string; amount: number }>;
+  hasSettledMoney: boolean;
+  pendingOrders: number;
 }

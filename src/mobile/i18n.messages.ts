@@ -13,6 +13,15 @@ const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(
 const PARTY_MS: Record<string, string> = { 'asset owner': 'Pemilik aset', tenant: 'Penyewa', 'delivery partner': 'Rakan pelaksana' };
 
 export const MS_SERVER_TEXT: Array<[RegExp, string | ((match: RegExpExecArray) => string)]> = [
+  // Problem projects
+  [/^Your order (\S+) for (.+?) was cancelled: (.+?) was withdrawn \((.+)\)\. Do not transfer money for it; if you already did, contact support for a refund\.$/, 'Pesanan $1 sebanyak $2 telah dibatalkan: $3 telah ditarik balik ($4). Jangan pindahkan wang untuknya; jika sudah, hubungi khidmat pelanggan untuk bayaran balik.'],
+  [/^(.+?) was withdrawn by an administrator: (.+)$/, '$1 telah ditarik balik oleh pentadbir: $2'],
+  [/^(.+?) is back in the lists: (.+?)\. Its pools stay closed until they are reopened\.$/, '$1 kembali dalam senarai: $2. Pool kekal ditutup sehingga dibuka semula.'],
+  [/^(.+?) is suspended while an issue is looked into: (.+?)\. No new investments are taken meanwhile; your investment is unchanged and you will be told when it resumes\.$/, '$1 digantung sementara isu disiasat: $2. Tiada pelaburan baharu diterima buat masa ini; pelaburan anda tidak berubah dan anda akan dimaklumkan apabila ia disambung semula.'],
+  [/^(.+?) is suspended: (.+?)\. Do not transfer money for your unpaid order until it resumes; an order you already paid is confirmed once it resumes\.$/, '$1 digantung: $2. Jangan pindahkan wang bagi pesanan anda yang belum dibayar sehingga ia disambung semula; pesanan yang sudah dibayar disahkan selepas ia disambung semula.'],
+  [/^(.+?) was suspended by an administrator: (.+?)\. Its open pools are paused\.$/, '$1 telah digantung oleh pentadbir: $2. Pool yang dibuka dijeda.'],
+  [/^(.+?) has resumed: (.+)\.$/, '$1 telah disambung semula: $2.'],
+
   // Investments
   [/^Transfer (.+?) for (.+?) to (.+?) with reference (\S+)\. It counts in your portfolio once Finance confirms the money arrived\.$/, 'Pindahkan $1 untuk $2 ke $3 dengan rujukan $4. Ia dikira dalam portfolio anda sebaik sahaja Kewangan mengesahkan wang telah diterima.'],
   [/^Transfer (.+?) for (.+?) with reference (\S+)\. It counts in your portfolio once Finance confirms the money arrived\.$/, 'Pindahkan $1 untuk $2 dengan rujukan $3. Ia dikira dalam portfolio anda sebaik sahaja Kewangan mengesahkan wang telah diterima.'],

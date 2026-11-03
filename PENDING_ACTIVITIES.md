@@ -28,7 +28,7 @@ Kerja yang belum siap sahaja. Kerja yang sudah siap dibuang daripada senarai ini
 | 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO/push D8 Ideas, ujian super app, Keycloak, terjemahan | Butiran bank; spesifikasi D8 Ideas |
 | 21 | Sewaan terus (Ijarah) tanpa projek | Skrin web, pembaharuan sewaan, keputusan pungutan sewa, komisen dan cukai | Keputusan pemilik projek; nasihat peguam dan cukai |
 | 22 | Agihan keuntungan (Settlement Officer) | Skrin web, fail bayaran pukal bank, peringatan hasil projek lewat | Boleh dimulakan |
-| 23 | Projek bermasalah: arkib dan gantung | Butang Arkib dan Gantung untuk Super Admin dan Country Admin, aliran pulangan modal | Boleh dimulakan bila diperlukan |
+| 23 | Projek bermasalah: arkib dan gantung | Skrin web; label "Digantung" untuk pelabur; aliran pulangan modal | Boleh dimulakan bila diperlukan |
 
 ## 1. Tamper detection dokumen bukti projek
 
@@ -298,6 +298,6 @@ Bingkai kamera dan dokumen KYC masih disimpan tanpa had masa. **Perlu keputusan:
   - Pencetus *append-only* (lejar, terma akad, audit) tidak pernah dimatikan.
 
 **Belum siap:**
-1. Butang **Arkib** (dengan sebab) dan **Pulihkan** untuk Super Admin dan Country Admin di skrin projek.
-2. **Gantung** bagi projek sebenar yang ada pelabur: pool dihentikan, pelabur dimaklumkan, label "Digantung" untuk pelabur sedia ada, kemudian sambung semula atau pulangkan modal.
+1. Arkib, Pulihkan, Gantung dan Sambung semula: siap 2026-11-03 di mini-app (Utama › Urus projek, `/project-admin`). Setiap tindakan wajib dengan sebab dan direkod dalam log audit; pelabur dan penaja dimaklumkan. Arkib ditolak jika ada wang pelabur yang sudah diselesaikan. Gantung menjeda pool yang dibuka tanpa membatalkan pesanan belum dibayar; Sambung semula membuka semula pool itu. Baki: skrin web.
+2. Label "Digantung" pada portfolio dan pool untuk pelabur sedia ada (sekarang pool kelihatan sebagai dijeda dan pelabur menerima notifikasi).
 3. Aliran pulangan modal kepada pelabur (lejar dan arahan bayaran).

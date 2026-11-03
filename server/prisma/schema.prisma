@@ -276,6 +276,12 @@ model Project {
   archivedAt              DateTime?
   archivedBy              String?
   archivedReason          String?
+  /// Suspended by an administrator (a problem under review): open pools paused, investors told; resumable.
+  suspendedAt             DateTime?
+  suspendedBy             String?
+  suspendedReason         String?
+  /// The pools this suspension paused, reopened when the project resumes.
+  suspendedPoolIds        Json?
   /// The project carries out works on a site (clearing, construction): Contractor's All Risk and public liability cover are required.
   hasSiteWork             Boolean  @default(false)
   /// The project employs workers: PERKESO cover is required.

@@ -15,12 +15,13 @@ import { MobileStatements } from './screens/MobileStatements';
 import { MobileZakat } from './screens/MobileZakat';
 import { MobileLeasing } from './screens/MobileLeasing';
 import { MobileAssets } from './screens/MobileAssets';
+import { MobileProjectsAdmin } from './screens/MobileProjectsAdmin';
 import { MobileSettlement } from './screens/MobileSettlement';
 import { ASSET_OWNER_ROLES, ESTATE_ROLES, LEASING_ROLES, SETTLEMENT_ROLES, USER_ADMIN_ROLES } from './mobileRoles';
 import { LanguageToggle, useT } from './i18n';
 
 export type MobileTab = 'home' | 'beneficiaries' | 'pools' | 'portfolio' | 'assets' | 'leasing' | 'settlement' | 'users' | 'account';
-type Overlay = 'kyc' | 'notifications' | 'statements' | 'zakat';
+type Overlay = 'kyc' | 'notifications' | 'statements' | 'zakat' | 'projects';
 
 const TABS: Array<{ id: MobileTab; label: string; icon: React.ReactNode; investorsOnly?: boolean; adminsOnly?: boolean; estateOnly?: boolean; leasingOnly?: boolean; settlementOnly?: boolean; assetOwnersOnly?: boolean }> = [
   { id: 'home', label: 'Home', icon: <Home className="w-5 h-5" /> },
@@ -92,7 +93,8 @@ export const MobileShell: React.FC = () => {
         {overlay === 'notifications' && <MobileNotifications onBack={() => setOverlay(null)} onUnreadChange={setUnread} />}
         {overlay === 'statements' && <MobileStatements onBack={() => openTab('portfolio')} />}
         {overlay === 'zakat' && <MobileZakat onBack={() => openTab('portfolio')} />}
-        {!overlayOpen && tab === 'home' && <MobileHome onOpen={openTab} onOpenKyc={openKyc} />}
+        {overlay === 'projects' && <MobileProjectsAdmin onBack={() => openTab('home')} />}
+        {!overlayOpen && tab === 'home' && <MobileHome onOpen={openTab} onOpenKyc={openKyc} onOpenProjects={() => setOverlay('projects')} />}
         {!overlayOpen && tab === 'beneficiaries' && <MobileBeneficiaries />}
         {!overlayOpen && tab === 'pools' && <MobilePools onOpenPortfolio={() => openTab('portfolio')} onOpenKyc={openKyc} />}
         {!overlayOpen && tab === 'portfolio' && <MobilePortfolio onOpenStatements={() => setOverlay('statements')} onOpenZakat={() => setOverlay('zakat')} />}
