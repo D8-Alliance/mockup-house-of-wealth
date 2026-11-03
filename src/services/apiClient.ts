@@ -2262,6 +2262,8 @@ export interface AssetLeaseView {
   rent: { paid: number; overdue: number; due: number };
   /** The Ijarah agreement drafted for the lease, once the owner drafts it. */
   agreement: { id: string; contractNumber: string; status: AgreementStatus } | null;
+  /** The other side's contact person, once the lease is approved: the tenant's for the owner, the owner's for the tenant. */
+  counterparty: { name: string; email: string; phone: string | null } | null;
   createdAt: string;
   updatedAt: string;
 }

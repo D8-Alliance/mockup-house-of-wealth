@@ -129,14 +129,14 @@ export class LeasingService {
 
   async listLeases(actor: AuthenticatedUser) {
     const rows = await this.prisma.assetLease.findMany({ where: this.leaseScope(actor), orderBy: { updatedAt: 'desc' }, include: LEASE_INCLUDE });
-    const [names, agreements] = await Promise.all([this.tenantNames(rows), this.agreements(rows)]);
-    return rows.map((row) => ({ ...this.view(actor, row, names), agreement: agreements.get(row.id) ?? null }));
+    const [names, agreements, contacts] = await Promise.all([this.tenantNames(rows), this.agreements(rows), this.contacts(actor, rows)]);
+    return rows.map((row) => ({ ...this.view(actor, row, names), agreement: agreements.get(row.id) ?? null, counterparty: contacts.get(row.id) ?? null }));
   }
 
   async getLease(actor: AuthenticatedUser, id: string) {
     const row = await this.findLease(actor, id);
-    const [names, agreements] = await Promise.all([this.tenantNames([row]), this.agreements([row])]);
-    return { ...this.view(actor, row, names), agreement: agreements.get(row.id) ?? null };
+    const [names, agreements, contacts] = await Promise.all([this.tenantNames([row]), this.agreements([row]), this.contacts(actor, [row])]);
+    return { ...this.view(actor, row, names), agreement: agreements.get(row.id) ?? null, counterparty: contacts.get(row.id) ?? null };
   }
 
   /** The Ijarah agreement drafted for each lease (contract-intelligence), so the parties open it instead of drafting another. */
@@ -467,6 +467,25 @@ export class LeasingService {
 
   private entry(actor: AuthenticatedUser, party: LeaseParty | 'REVIEW', action: string, note?: string): LeaseHistoryEntry {
     return { at: new Date().toISOString(), by: actor.userId, byName: actor.name, party, action, ...(note ? { note } : {}) };
+  }
+
+  /**
+   * The other side's contact person, for the two parties of an approved (or ended) lease only: the owner sees
+   * who asked for the lease at the tenant company, the tenant sees the asset's owner. Nobody else, and not before
+   * both sides are bound, so a request does not hand out anyone's phone number.
+   */
+  private async contacts(actor: AuthenticatedUser, rows: LeaseRow[]) {
+    const wanted = rows.flatMap((row) => {
+      const party = this.partyOf(actor, row);
+      if (!party || !['APPROVED', 'ENDED'].includes(row.status)) return [];
+      return [{ leaseId: row.id, userId: party === 'OWNER' ? row.createdBy : row.unit.asset.ownerUserId }];
+    });
+    const users = wanted.length ? await this.prisma.user.findMany({ where: { id: { in: [...new Set(wanted.map((item) => item.userId))] } }, select: { id: true, name: true, email: true, profile: true } }) : [];
+    return new Map(wanted.map((item) => {
+      const user = users.find((candidate) => candidate.id === item.userId);
+      const phone = (user?.profile as { phone?: unknown } | null)?.phone;
+      return [item.leaseId, user ? { name: user.name, email: user.email, phone: typeof phone === 'string' ? phone : null } : null] as const;
+    }));
   }
 
   private async tenantNames(rows: Array<{ tenantOrganisationId: string }>) {

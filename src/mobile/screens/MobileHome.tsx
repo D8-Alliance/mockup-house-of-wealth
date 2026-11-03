@@ -7,7 +7,7 @@ import { KYC_STATUS_LABELS } from '../../kyc/kycLabels';
 import type { MobileTab } from '../MobileShell';
 import { MobileInvestorDashboard } from './MobileInvestorDashboard';
 import { MobileAssetOwnerDashboard } from './MobileAssetOwnerDashboard';
-import { ASSET_OWNER_ROLES, LEASING_ROLES, SETTLEMENT_ROLES, SPONSOR_ROLES, USER_ADMIN_ROLES } from '../mobileRoles';
+import { ASSET_OWNER_ROLES, LEASING_ROLES, POOL_VIEW_ROLES, SETTLEMENT_ROLES, SPONSOR_ROLES, USER_ADMIN_ROLES } from '../mobileRoles';
 import { useT } from '../i18n';
 
 /** Home: who is signed in, whether they may invest yet (KYC), and the way to the pools. */
@@ -90,13 +90,15 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc:
 
       {investor && <MobileInvestorDashboard onOpen={onOpen} />}
 
-      <button type="button" onClick={() => onOpen('pools')} className="w-full flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 text-left">
-        <span>
-          <span className="block text-sm font-black">{t('Wealth pools')}</span>
-          <span className="block text-xs text-slate-500">{t('Pools open for investment, and how much each has raised')}</span>
-        </span>
-        <ChevronRight className="w-5 h-5 text-slate-400" />
-      </button>
+      {POOL_VIEW_ROLES.includes(currentRole) && (
+        <button type="button" onClick={() => onOpen('pools')} className="w-full flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 text-left">
+          <span>
+            <span className="block text-sm font-black">{t('Wealth pools')}</span>
+            <span className="block text-xs text-slate-500">{t('Pools open for investment, and how much each has raised')}</span>
+          </span>
+          <ChevronRight className="w-5 h-5 text-slate-400" />
+        </button>
+      )}
 
     </div>
   );

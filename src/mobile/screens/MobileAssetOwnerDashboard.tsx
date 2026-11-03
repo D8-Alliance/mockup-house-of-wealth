@@ -21,10 +21,11 @@ export const MobileAssetOwnerDashboard: React.FC<{ onOpen: (tab: MobileTab) => v
   const [engagements, setEngagements] = useState<AssetEngagement[]>([]);
   const [error, setError] = useState('');
   useEffect(() => {
-    apiClient.getAssets().then(setAssets).catch((cause) => setError(cause instanceof Error ? cause.message : t('Your assets could not be loaded.')));
-    apiClient.getMyLeasableUnits().then((data) => setUnits(data.units)).catch(() => setUnits([]));
-    apiClient.getLeases().then(setLeases).catch(() => setLeases([]));
-    apiClient.getAssetEngagements().then(setEngagements).catch(() => setEngagements([]));
+    // Lists only: anything else (an error page, a changed response) shows as empty rather than breaking Home.
+    apiClient.getAssets().then((rows) => setAssets(Array.isArray(rows) ? rows : [])).catch((cause) => setError(cause instanceof Error ? cause.message : t('Your assets could not be loaded.')));
+    apiClient.getMyLeasableUnits().then((data) => setUnits(Array.isArray(data?.units) ? data.units : [])).catch(() => setUnits([]));
+    apiClient.getLeases().then((rows) => setLeases(Array.isArray(rows) ? rows : [])).catch(() => setLeases([]));
+    apiClient.getAssetEngagements().then((rows) => setEngagements(Array.isArray(rows) ? rows : [])).catch(() => setEngagements([]));
   }, [t]);
   const money = (amount: number, currency = 'MYR') => `${currency === 'MYR' ? 'RM' : currency} ${amount.toLocaleString(locale, { maximumFractionDigits: 0 })}`;
 
