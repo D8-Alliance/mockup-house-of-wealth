@@ -416,6 +416,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
       )}
 
       {['APPROVED', 'ENDED'].includes(lease.status) && lease.myParty && <LeaseAgreementCard lease={lease} onChanged={reload} />}
+      {['APPROVED', 'ENDED'].includes(lease.status) && (lease.myParty || lease.deposit.receivedAt) && <DepositCard lease={lease} onChanged={setLease} />}
 
       {lease.payments.length > 0 && (
         <section className={`${card} space-y-2`}>
@@ -537,6 +538,79 @@ const LeaseAgreementCard: React.FC<{ lease: AssetLeaseView; onChanged: () => voi
           {status === 'EXECUTION' && <button type="button" onClick={() => act(() => apiClient.downloadSignedAgreement(agreementId))} className={secondary}>{t('Signed copy (PDF)')}</button>}
           {status === 'EXECUTION' && <p className="text-[11px] text-slate-500">{t('Pay the stamp duty (LHDN STAMPS) within 30 days of signing.')}</p>}
         </>
+      )}
+      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+    </section>
+  );
+};
+
+/**
+ * The security deposit: the owner records it as received, and after the lease refunds it within 30 days,
+ * less only unpaid rent and repairs beyond fair wear and tear, each deduction with its reason.
+ */
+const DepositCard: React.FC<{ lease: AssetLeaseView; onChanged: (lease: AssetLeaseView) => void }> = ({ lease, onChanged }) => {
+  const { t, locale } = useT();
+  const deposit = lease.deposit;
+  const [mode, setMode] = useState<'' | 'receive' | 'refund'>('');
+  const [reference, setReference] = useState('');
+  const [date, setDate] = useState(today());
+  const [deductions, setDeductions] = useState<Array<{ reason: string; amount: string }>>([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const money = (amount: number) => `${lease.currency === 'MYR' ? 'RM' : lease.currency} ${amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const deducted = deductions.reduce((total, item) => total + (Number(item.amount) || 0), 0);
+  const act = async (call: () => Promise<AssetLeaseView>) => {
+    setBusy(true);
+    setError('');
+    try { onChanged(await call()); setMode(''); } catch (cause) { setError(errorText(cause, t('That did not go through.'))); } finally { setBusy(false); }
+  };
+  const open = (next: 'receive' | 'refund') => { setMode(next); setReference(''); setDate(today()); setDeductions([]); setError(''); };
+
+  return (
+    <section className={`${card} space-y-2`}>
+      <h2 className="text-sm font-black">{t('Security deposit')}</h2>
+      <p className="text-xs"><span className="font-black">{money(deposit.amount)}</span> · {deposit.returnedAt ? t('refunded {date}', { date: deposit.returnedAt }) : deposit.receivedAt ? t('received {date} · ref {reference}', { date: deposit.receivedAt, reference: deposit.reference ?? '' }) : t('not received yet')}</p>
+      {deposit.refund && (
+        <div className="text-[11px] space-y-0.5">
+          <p className="font-bold">{t('Refunded {amount} · ref {reference}', { amount: money(deposit.refund.amount), reference: deposit.refund.reference })}</p>
+          {deposit.refund.deductions.map((item, index) => <p key={index} className="text-slate-500">− {money(item.amount)}: {item.reason}</p>)}
+        </div>
+      )}
+      {deposit.refundDueBy && !deposit.returnedAt && <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">{t('To be refunded by {date}, less only unpaid rent and repairs beyond fair wear and tear.', { date: deposit.refundDueBy })}</p>}
+
+      {lease.canRecordDeposit && mode !== 'receive' && <button type="button" onClick={() => open('receive')} className={secondary}>{t('Record deposit received')}</button>}
+      {lease.canReturnDeposit && mode !== 'refund' && <button type="button" onClick={() => open('refund')} className={primary}>{t('Refund the deposit')}</button>}
+
+      {mode === 'receive' && (
+        <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); act(() => apiClient.recordLeaseDeposit(lease.id, { reference: reference.trim(), receivedAt: date })); }}>
+          <input required minLength={3} maxLength={120} value={reference} onChange={(event) => setReference(event.target.value)} placeholder={t('Transfer reference in your bank')} className={input} />
+          <input required type="date" max={today()} value={date} onChange={(event) => setDate(event.target.value)} className={input} />
+          <div className="grid grid-cols-2 gap-2">
+            <button type="submit" disabled={busy} className={primary}>{t('Save')}</button>
+            <button type="button" onClick={() => setMode('')} className={secondary}>{t('Cancel')}</button>
+          </div>
+        </form>
+      )}
+
+      {mode === 'refund' && (
+        <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); act(() => apiClient.refundLeaseDeposit(lease.id, { deductions: deductions.map(item => ({ reason: item.reason.trim(), amount: Number(item.amount) })), reference: reference.trim(), paidAt: date })); }}>
+          <p className="text-[11px] text-slate-500">{t('Deduct only rent still unpaid and the actual cost of repairing damage beyond fair wear and tear. The tenant sees each reason.')}</p>
+          {deductions.map((item, index) => (
+            <div key={index} className="grid grid-cols-[1fr_7rem_auto] gap-2 items-end">
+              <input required minLength={3} maxLength={300} value={item.reason} onChange={(event) => setDeductions(current => current.map((row, i) => (i === index ? { ...row, reason: event.target.value } : row)))} placeholder={t('Reason')} className={input} />
+              <input required type="number" min={0.01} step="0.01" inputMode="decimal" value={item.amount} onChange={(event) => setDeductions(current => current.map((row, i) => (i === index ? { ...row, amount: event.target.value } : row)))} placeholder={t('Amount')} className={input} />
+              <button type="button" aria-label={t('Remove')} onClick={() => setDeductions(current => current.filter((_, i) => i !== index))} className="mb-1 text-xs font-black text-slate-500">✕</button>
+            </div>
+          ))}
+          <button type="button" onClick={() => setDeductions(current => [...current, { reason: '', amount: '' }])} className="text-xs font-black text-emerald-700 dark:text-emerald-400">{t('+ Add a deduction')}</button>
+          <p className={`text-xs font-black ${deducted > deposit.amount ? 'text-rose-700 dark:text-rose-400' : ''}`}>{t('To refund: {amount}', { amount: money(Math.max(0, deposit.amount - deducted)) })}</p>
+          <input required minLength={3} maxLength={120} value={reference} onChange={(event) => setReference(event.target.value)} placeholder={t('Transfer reference in your bank')} className={input} />
+          <input required type="date" max={today()} value={date} onChange={(event) => setDate(event.target.value)} className={input} />
+          <div className="grid grid-cols-2 gap-2">
+            <button type="submit" disabled={busy || deducted > deposit.amount} className={primary}>{t('Record the refund')}</button>
+            <button type="button" onClick={() => setMode('')} className={secondary}>{t('Cancel')}</button>
+          </div>
+        </form>
       )}
       {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
     </section>

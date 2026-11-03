@@ -26,7 +26,7 @@ Kerja yang belum siap sahaja. Kerja yang sudah siap dibuang daripada senarai ini
 | 18 | Kunci API | Kunci API untuk sistem luar | Ditangguhkan sehingga ada keperluan |
 | 19 | Pengurusan pengguna | Notis privasi rasmi; Fasa 2–4; penguatkuasaan PDPA di server | Butiran syarikat dan semakan peguam |
 | 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO/push D8 Ideas, ujian super app, Keycloak, terjemahan | Butiran bank; spesifikasi D8 Ideas |
-| 21 | Sewaan terus (Ijarah) tanpa projek | Skrin web, peringatan sewa, deposit, keputusan pungutan sewa, komisen dan cukai | Keputusan pemilik projek; nasihat peguam dan cukai |
+| 21 | Sewaan terus (Ijarah) tanpa projek | Skrin web, pembaharuan sewaan, keputusan pungutan sewa, komisen dan cukai | Keputusan pemilik projek; nasihat peguam dan cukai |
 | 22 | Agihan keuntungan (Settlement Officer) | Skrin web, fail bayaran pukal bank, peringatan hasil projek lewat | Boleh dimulakan |
 | 23 | Projek bermasalah: arkib dan gantung | Butang Arkib dan Gantung untuk Super Admin dan Country Admin, aliran pulangan modal | Boleh dimulakan bila diperlukan |
 
@@ -258,8 +258,8 @@ Bingkai kamera dan dokumen KYC masih disimpan tanpa had masa. **Perlu keputusan:
 **Baki:**
 1. Perjanjian Ijarah: siap 2026-11-03 (`Contract.leaseId`, `POST /contract-intelligence/agreements/lease-drafts`). Pemilik menyediakan perjanjian daripada terma sewaan yang diluluskan; teks khusus sewaan terus (kegunaan dibenarkan, deposit sebagai amanah dan dipulangkan dalam 30 hari, sewa bulanan di awal bulan). Penyewa bersetuju, pemilik menghantar untuk semakan Legal dan Shariah (penyemak di portal web), kemudian kedua-dua pihak menandatangani dengan OTP di mini-app. Baki: penyemak belum boleh menyemak di mini-app; skrin web Contracts masih menamakan penyewa sebagai "delivery partner".
 2. Skrin web (Asset Registry dan semakan Legal/Shariah). Buat masa ini semuanya dalam mini-app.
-3. Peringatan sewa automatik (sebelum tarikh perlu bayar dan semasa tertunggak), peringatan tamat sewaan, dan pembaharuan.
-4. Pemulangan deposit semasa tamat, dengan potongan dan sebab.
+3. Peringatan: siap 2026-11-03 (`LeaseReminderSweeper`, sekali sehari). Sewa 3 hari sebelum dan pada hari perlu bayar; tertunggak 1, 7, 14 dan 30 hari (pemilik juga dimaklumkan); sewaan tamat dalam 60 dan 30 hari; pemulangan deposit hampir atau lewat tarikh akhir. Baki: pembaharuan sewaan (sekarang penyewa memohon sewaan baharu).
+4. Deposit: siap 2026-11-03. Pemilik merekod deposit diterima; selepas sewaan tamat, pemilik memulangkannya dengan potongan dan sebab bagi setiap potongan, dalam 30 hari seperti dalam perjanjian.
 5. Keputusan pemilik projek:
    - sama ada platform memungut sewa (melalui akaun amanah) atau rekod sahaja;
    - komisen atau yuran langganan (semak Akta 242, ejen harta tanah);

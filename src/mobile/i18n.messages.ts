@@ -61,6 +61,16 @@ export const MS_SERVER_TEXT: Array<[RegExp, string | ((match: RegExpExecArray) =
   [/^(Legal|Shariah) review: changes requested$/, 'Semakan $1: pembetulan diminta'],
   [/^(Legal|Shariah) approval given$/, 'Kelulusan $1 diberi'],
 
+  // Lease deposit and reminders
+  [/^(.+?): the owner recorded your deposit of (.+?) as received \(reference (.+?)\)\.$/, '$1: pemilik merekodkan deposit anda sebanyak $2 sebagai diterima (rujukan $3).'],
+  [/^(.+?): the owner refunded (.+?) of your deposit after deductions of (.+?) \((.+)\) \(reference (.+?)\)\.$/, '$1: pemilik memulangkan $2 daripada deposit anda selepas potongan $3 ($4) (rujukan $5).'],
+  [/^(.+?): the owner refunded (.+?) of your deposit \(reference (.+?)\)\.$/, '$1: pemilik memulangkan $2 daripada deposit anda (rujukan $3).'],
+  [/^(.+?): the rent of (.+?) due on (\S+) is (\d+) day\(s\) late\. Pay it to the owner's bank account; the owner records it once received\.$/, '$1: sewa $2 yang perlu dibayar pada $3 sudah lewat $4 hari. Bayar ke akaun bank pemilik; pemilik merekodkannya selepas diterima.'],
+  [/^(.+?): the rent of (.+?) due on (\S+) is not recorded as received, (\d+) day\(s\) after it was due\. If it reached your account, record it\.$/, '$1: sewa $2 yang perlu dibayar pada $3 belum direkod sebagai diterima, $4 hari selepas tarikhnya. Jika sudah masuk ke akaun anda, rekodkannya.'],
+  [/^(.+?): the rent of (.+?) for (\S+) is due on (\S+)\. Pay it to the owner's bank account\.$/, '$1: sewa $2 bagi $3 perlu dibayar pada $4. Bayar ke akaun bank pemilik.'],
+  [/^(.+?): the lease ends on (\S+), in (\d+) days\. To continue, the tenant asks for a new lease; otherwise the space is handed back on that day\.$/, '$1: sewaan tamat pada $2, dalam $3 hari. Untuk meneruskan, penyewa memohon sewaan baharu; jika tidak, ruang diserahkan semula pada hari itu.'],
+  [/^(.+?): refund the deposit of (.+?) by (\S+), less only unpaid rent and repairs beyond fair wear and tear, and record it in Leasing\.$/, '$1: pulangkan deposit $2 sebelum $3, ditolak hanya sewa tertunggak dan pembaikan melebihi haus dan lusuh biasa, dan rekodkannya di Sewaan.'],
+
   // Agreements (lease and partnership)
   [/^Ijarah agreement for (.+?): please review$/, 'Perjanjian Ijarah untuk $1: sila semak'],
   [/^The owner drafted the Ijarah agreement for (.+?) \((\S+)\)\. Read it and agree to it\.$/, 'Pemilik telah menyediakan perjanjian Ijarah untuk $1 ($2). Bacanya dan nyatakan persetujuan anda.'],

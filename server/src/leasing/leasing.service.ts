@@ -8,8 +8,8 @@ import { publicDetails, regionOf } from '../asset-partnerships/asset-partnership
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { newCountryScopedId } from '../users/user-identity';
-import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, RecordRentPaymentDto, RespondLeaseDto, ReviewLeaseDto, UpdateLeasableUnitDto } from './leasing.dto';
-import { depositFor, HOLDING_LEASE_STATUSES, isOverdue, LeaseParty, leaseEndDate, leaseTermMonths, OPEN_LEASE_STATUSES, otherLeaseParty, rentSchedule, shariahFlags } from './leasing-rules';
+import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, RecordDepositDto, RecordRentPaymentDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto } from './leasing.dto';
+import { daysUntil, depositFor, depositRefund, depositRefundDueBy, endingReminder, HOLDING_LEASE_STATUSES, isOverdue, LeaseParty, leaseEndDate, leaseTermMonths, OPEN_LEASE_STATUSES, otherLeaseParty, rentReminder, rentSchedule, shariahFlags } from './leasing-rules';
 
 /** Roles that rent space for their company. */
 export const TENANT_ROLES: ReadonlySet<string> = new Set(['Organization Admin', 'Corporate Investor', 'Project Sponsor', 'Project Manager']);
@@ -328,6 +328,91 @@ export class LeasingService {
     return this.getLease(actor, id);
   }
 
+  /** The owner records the tenant's security deposit as received in their bank account. */
+  async recordDeposit(actor: AuthenticatedUser, id: string, input: RecordDepositDto) {
+    const lease = await this.findLease(actor, id);
+    if (this.partyOf(actor, lease) !== 'OWNER') throw new ForbiddenException('Only the owner records the deposit received.');
+    if (lease.status !== 'APPROVED') throw new BadRequestException('The deposit is recorded for an approved lease.');
+    const receivedAt = input.receivedAt ? new Date(input.receivedAt) : new Date();
+    if (receivedAt > new Date()) throw new BadRequestException('The date received cannot be in the future.');
+    const claimed = await this.prisma.assetLease.updateMany({ where: { id, depositReceivedAt: null }, data: { depositReceivedAt: receivedAt, depositReference: input.reference } });
+    if (!claimed.count) throw new ConflictException('The deposit is already recorded as received.');
+    await this.audit.recordActor(actor, { action: 'asset_lease.deposit_received', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { amount: Number(lease.depositAmount), reference: input.reference, receivedAt: receivedAt.toISOString() } });
+    await this.notifyParty(lease, 'TENANT', 'Deposit received', `${lease.unit.label}, ${lease.unit.asset.name}: the owner recorded your deposit of ${money(lease.currency, Number(lease.depositAmount))} as received (reference ${input.reference}).`);
+    return this.getLease(actor, id);
+  }
+
+  /**
+   * After the lease, the owner refunds the deposit less only unpaid rent and the cost of repairing damage
+   * beyond fair wear and tear, each deduction with its reason, within 30 days (the agreement says so).
+   */
+  async returnDeposit(actor: AuthenticatedUser, id: string, input: ReturnDepositDto) {
+    const lease = await this.findLease(actor, id);
+    if (this.partyOf(actor, lease) !== 'OWNER') throw new ForbiddenException('Only the owner refunds the deposit.');
+    const over = lease.status === 'ENDED' || (lease.status === 'APPROVED' && daysUntil(lease.endDate, new Date()) < 0);
+    if (!over) throw new BadRequestException('The deposit is refunded after the lease ends.');
+    if (!lease.depositReceivedAt) throw new BadRequestException('Record the deposit as received first.');
+    const { amount, problem } = depositRefund(Number(lease.depositAmount), input.deductions);
+    if (problem) throw new BadRequestException(problem);
+    const paidAt = input.paidAt ? new Date(input.paidAt) : new Date();
+    if (paidAt > new Date()) throw new BadRequestException('The payment date cannot be in the future.');
+    const refund = { amount, reference: input.reference, deductions: input.deductions.map((item) => ({ reason: item.reason, amount: item.amount })) };
+    const claimed = await this.prisma.assetLease.updateMany({ where: { id, depositReturnedAt: null }, data: { depositReturnedAt: paidAt, depositRefund: refund as Prisma.InputJsonValue } });
+    if (!claimed.count) throw new ConflictException('The deposit is already recorded as refunded.');
+    await this.audit.recordActor(actor, { action: 'asset_lease.deposit_refunded', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { deposit: Number(lease.depositAmount), ...refund, paidAt: paidAt.toISOString() } });
+    const deducted = refund.deductions.length ? ` after deductions of ${money(lease.currency, Number(lease.depositAmount) - amount)} (${refund.deductions.map((item) => item.reason).join('; ')})` : '';
+    await this.notifyParty(lease, 'TENANT', 'Deposit refunded', `${lease.unit.label}, ${lease.unit.asset.name}: the owner refunded ${money(lease.currency, amount)} of your deposit${deducted} (reference ${input.reference}).`);
+    return this.getLease(actor, id);
+  }
+
+  /**
+   * Once a day: rent due in three days or today, rent 1, 7, 14 and 30 days late (the owner is told too),
+   * leases ending in 60 and 30 days, and deposits not yet refunded as the 30-day limit nears or passes.
+   * Each reminder is sent once: its dedupe key names the stage it reached.
+   */
+  async remindDue(now = new Date()): Promise<number> {
+    if (!this.notifications) return 0;
+    let sent = 0;
+    const soon = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
+    const payments = await this.prisma.leaseRentPayment.findMany({ where: { status: 'DUE', dueDate: { lte: soon }, lease: { status: 'APPROVED' } }, include: { lease: { include: LEASE_INCLUDE } } });
+    for (const payment of payments) {
+      const reminder = rentReminder(payment.dueDate, now);
+      if (!reminder) continue;
+      const lease = payment.lease;
+      const what = `${lease.unit.label}, ${lease.unit.asset.name}`;
+      const amount = money(payment.currency, Number(payment.amount));
+      const tenant = { userId: lease.createdBy, organisationId: lease.tenantOrganisationId };
+      const owner = { userId: lease.unit.asset.ownerUserId, organisationId: lease.ownerOrganisationId };
+      if (reminder.stage === 'OVERDUE') {
+        await this.remind(lease, [tenant], `lease-rent:${payment.id}:overdue-${reminder.days}`, 'Rent overdue', `${what}: the rent of ${amount} due on ${day(payment.dueDate)} is ${reminder.days} day(s) late. Pay it to the owner's bank account; the owner records it once received.`);
+        await this.remind(lease, [owner], `lease-rent-owner:${payment.id}:overdue-${reminder.days}`, 'Rent not received', `${what}: the rent of ${amount} due on ${day(payment.dueDate)} is not recorded as received, ${reminder.days} day(s) after it was due. If it reached your account, record it.`);
+      } else {
+        await this.remind(lease, [tenant], `lease-rent:${payment.id}:${reminder.stage}`, reminder.stage === 'DUE_TODAY' ? 'Rent due today' : 'Rent due soon', `${what}: the rent of ${amount} for ${payment.period} is due on ${day(payment.dueDate)}. Pay it to the owner's bank account.`);
+      }
+      sent += 1;
+    }
+    const ending = await this.prisma.assetLease.findMany({ where: { status: 'APPROVED', endDate: { gte: now, lte: new Date(now.getTime() + 61 * 24 * 60 * 60 * 1000) } }, include: LEASE_INCLUDE });
+    for (const lease of ending) {
+      const stage = endingReminder(lease.endDate, now);
+      if (!stage) continue;
+      const what = `${lease.unit.label}, ${lease.unit.asset.name}`;
+      const parties = [{ userId: lease.createdBy, organisationId: lease.tenantOrganisationId }, { userId: lease.unit.asset.ownerUserId, organisationId: lease.ownerOrganisationId }];
+      await this.remind(lease, parties, `lease-ending:${lease.id}:${stage}`, 'Lease ending soon', `${what}: the lease ends on ${day(lease.endDate)}, in ${daysUntil(lease.endDate, now)} days. To continue, the tenant asks for a new lease; otherwise the space is handed back on that day.`);
+      sent += 1;
+    }
+    const unrefunded = await this.prisma.assetLease.findMany({ where: { depositReceivedAt: { not: null }, depositReturnedAt: null, OR: [{ status: 'ENDED' }, { status: 'APPROVED', endDate: { lt: now } }] }, include: LEASE_INCLUDE });
+    for (const lease of unrefunded) {
+      const dueBy = depositRefundDueBy(lease);
+      const left = daysUntil(dueBy, now);
+      if (left > 7) continue;
+      const what = `${lease.unit.label}, ${lease.unit.asset.name}`;
+      const owner = { userId: lease.unit.asset.ownerUserId, organisationId: lease.ownerOrganisationId };
+      await this.remind(lease, [owner], `lease-deposit:${lease.id}:${left < 0 ? 'late' : 'soon'}`, left < 0 ? 'Deposit refund overdue' : 'Deposit refund due', `${what}: refund the deposit of ${money(lease.currency, Number(lease.depositAmount))} by ${day(dueBy)}, less only unpaid rent and repairs beyond fair wear and tear, and record it in Leasing.`);
+      sent += 1;
+    }
+    return sent;
+  }
+
   // ---- Helpers ----
 
   private assertOwner(actor: AuthenticatedUser) {
@@ -441,6 +526,16 @@ export class LeasingService {
       canReview: reviewer && row.status === 'ACCEPTED' && actor.organisationId !== row.ownerOrganisationId && actor.organisationId !== row.tenantOrganisationId,
       canRecordPayment: party === 'OWNER' && ['APPROVED', 'ENDED'].includes(row.status),
       canEnd: party === 'OWNER' && row.status === 'APPROVED',
+      canRecordDeposit: party === 'OWNER' && row.status === 'APPROVED' && !row.depositReceivedAt,
+      canReturnDeposit: party === 'OWNER' && Boolean(row.depositReceivedAt) && !row.depositReturnedAt && (row.status === 'ENDED' || (row.status === 'APPROVED' && daysUntil(row.endDate, today) < 0)),
+      deposit: {
+        amount: Number(row.depositAmount),
+        receivedAt: day(row.depositReceivedAt),
+        reference: row.depositReference,
+        returnedAt: day(row.depositReturnedAt),
+        refund: (row.depositRefund as { amount: number; reference: string; deductions: Array<{ reason: string; amount: number }> } | null) ?? null,
+        refundDueBy: row.depositReceivedAt && (row.status === 'ENDED' || daysUntil(row.endDate, today) < 0) ? day(depositRefundDueBy(row)) : null,
+      },
       unit: { id: row.unit.id, label: row.unit.label, floorArea: row.unit.floorArea === null ? null : Number(row.unit.floorArea), floorAreaUnit: row.unit.floorAreaUnit, permittedUse: row.unit.permittedUse, minTermMonths: row.unit.minTermMonths },
       asset: { id: row.unit.asset.id, name: row.unit.asset.name, assetType: row.unit.asset.assetType, region: regionOf(details), ...(party || reviewer || row.status === 'APPROVED' ? { location: row.unit.asset.location } : {}) },
       ownerOrganisationName: row.unit.asset.organisation.name,
@@ -484,6 +579,14 @@ export class LeasingService {
     const roles = ['Legal_Officer', 'Shariah_Reviewer', 'Shariah_Advisor', 'Shariah_Committee'] as PrismaUserRole[];
     const reviewers = await this.prisma.userRoleAssignment.findMany({ where: { role: { in: roles }, isActive: true, countryNodeId: row.countryNodeId, organisationId: { notIn: [row.ownerOrganisationId, row.tenantOrganisationId] } }, select: { userId: true, organisationId: true } });
     await this.send(row, reviewers, 'Lease to review', `${row.unit.label}, ${row.unit.asset.name}: Ijarah at ${money(row.currency, Number(row.monthlyRent))} a month from ${day(row.startDate)} to ${day(row.endDate)} (${row.id}).`);
+  }
+
+  /** A reminder sent once per stage: the key names the lease, the month or the deadline, and the stage. */
+  private async remind(row: LeaseRow, recipients: Array<{ userId: string; organisationId: string }>, key: string, title: string, message: string) {
+    await Promise.all(recipients.map((recipient) => this.notifications!.enqueue({
+      recipientUserId: recipient.userId, organisationId: recipient.organisationId, countryNodeId: row.countryNodeId, type: 'ASSET_LEASE',
+      title, message, resourceType: 'AssetLease', resourceId: row.id, dedupeKey: `${key}:${recipient.userId}`,
+    }).catch(() => undefined)));
   }
 
   private async send(row: LeaseRow, recipients: Array<{ userId: string; organisationId: string }>, title: string, message: string) {

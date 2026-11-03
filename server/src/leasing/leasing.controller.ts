@@ -4,7 +4,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { Roles } from '../auth/roles.decorator';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
-import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, RecordRentPaymentDto, RespondLeaseDto, ReviewLeaseDto, UpdateLeasableUnitDto } from './leasing.dto';
+import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, RecordDepositDto, RecordRentPaymentDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto } from './leasing.dto';
 import { LeasingService } from './leasing.service';
 
 const OWNERS = ['Asset Owner', 'Asset Manager'] as const;
@@ -61,6 +61,14 @@ export class LeasingController {
   @Post('leases/:id/payments/:period')
   @Roles(...OWNERS)
   recordPayment(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Param('period') period: string, @Body() body: RecordRentPaymentDto) { return this.leasing.recordPayment(actor, id, period, body); }
+
+  @Post('leases/:id/deposit')
+  @Roles(...OWNERS)
+  recordDeposit(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() body: RecordDepositDto) { return this.leasing.recordDeposit(actor, id, body); }
+
+  @Post('leases/:id/deposit/refund')
+  @Roles(...OWNERS)
+  returnDeposit(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() body: ReturnDepositDto) { return this.leasing.returnDeposit(actor, id, body); }
 
   @Post('leases/:id/end')
   @Roles(...OWNERS)

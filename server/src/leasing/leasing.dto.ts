@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { Transform, Type } from 'class-transformer';
-import { Equals, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { ArrayMaxSize, Equals, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
 import { PAYOUT_CURRENCIES } from '../distribution/payout-destination.dto';
 
 export const AREA_UNITS = ['SQFT', 'SQM'] as const;
@@ -77,6 +77,24 @@ export class ReviewLeaseDto {
 }
 
 export class RecordRentPaymentDto {
+  @Transform(trim) @IsString() @MinLength(3) @MaxLength(120) reference!: string;
+  @IsOptional() @IsDateString() paidAt?: string;
+}
+
+/** The tenant's security deposit as it reached the owner's bank account. */
+export class RecordDepositDto {
+  @Transform(trim) @IsString() @MinLength(3) @MaxLength(120) reference!: string;
+  @IsOptional() @IsDateString() receivedAt?: string;
+}
+
+export class DepositDeductionDto {
+  @Transform(trim) @IsString() @MinLength(3) @MaxLength(300) reason!: string;
+  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) @Max(1e11) amount!: number;
+}
+
+/** The deposit refunded after the lease, less only unpaid rent and repairs beyond fair wear and tear, each with its reason. */
+export class ReturnDepositDto {
+  @IsArray() @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => DepositDeductionDto) deductions!: DepositDeductionDto[];
   @Transform(trim) @IsString() @MinLength(3) @MaxLength(120) reference!: string;
   @IsOptional() @IsDateString() paidAt?: string;
 }

@@ -2269,6 +2269,12 @@ model AssetLease {
   shariahApprovedAt    DateTime?
   /// Set when the lease ends before its end date.
   endedAt              DateTime?
+  /// The security deposit as the owner received it, and its refund after the lease (within 30 days, per the agreement).
+  depositReceivedAt    DateTime?
+  depositReference     String?
+  depositReturnedAt    DateTime?
+  /// { amount, reference, deductions: [{ reason, amount }] } as the owner refunded it.
+  depositRefund        Json?
   createdBy            String
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt

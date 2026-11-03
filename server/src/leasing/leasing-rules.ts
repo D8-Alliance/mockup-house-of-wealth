@@ -66,3 +66,52 @@ export function shariahFlags(...texts: string[]): string[] {
 
 /** The period's rent is overdue once its due date has passed without payment. */
 export const isOverdue = (payment: { status: string; dueDate: Date }, today: Date) => payment.status === 'DUE' && isoDay(payment.dueDate) < isoDay(today);
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** Whole days from today to a date, by calendar day (UTC): negative once it has passed. */
+export const daysUntil = (date: Date, today: Date) => Math.round((Date.parse(isoDay(date)) - Date.parse(isoDay(today))) / DAY_MS);
+
+/** Days after the due date at which an unpaid month is chased again; the owner is told too. */
+export const OVERDUE_REMINDER_DAYS = [1, 7, 14, 30] as const;
+/** Days before the end of a lease at which both sides are reminded to renew or hand back. */
+export const ENDING_REMINDER_DAYS = [60, 30] as const;
+/** The agreement gives the owner 30 days after the lease ends to refund the deposit. */
+export const DEPOSIT_REFUND_DAYS = 30;
+
+export type RentReminder = { stage: 'UPCOMING' | 'DUE_TODAY'; days: number } | { stage: 'OVERDUE'; days: number };
+
+/**
+ * The reminder a month's rent has reached: three days before it is due, on the day, then 1, 7, 14 and 30
+ * days late. The nearest stage reached is sent, so a day the server was down only delays a reminder; the
+ * outbox sends each stage once (its dedupe key names the stage).
+ */
+export function rentReminder(dueDate: Date, today: Date): RentReminder | null {
+  const days = daysUntil(dueDate, today);
+  if (days > 3) return null;
+  if (days > 0) return { stage: 'UPCOMING', days };
+  if (days === 0) return { stage: 'DUE_TODAY', days: 0 };
+  const late = -days;
+  const reached = [...OVERDUE_REMINDER_DAYS].reverse().find((threshold) => late >= threshold);
+  return reached ? { stage: 'OVERDUE', days: reached } : null;
+}
+
+/** The ending reminder (60 or 30 days before) a running lease has reached, or null. */
+export function endingReminder(endDate: Date, today: Date): number | null {
+  const days = daysUntil(endDate, today);
+  if (days < 0) return null;
+  return [...ENDING_REMINDER_DAYS].reverse().find((threshold) => days <= threshold) ?? null;
+}
+
+/** The last day to refund the deposit: 30 days after the lease ended (early, or at its end date). */
+export function depositRefundDueBy(lease: { endDate: Date; endedAt: Date | null }): Date {
+  const ended = lease.endedAt && lease.endedAt < lease.endDate ? lease.endedAt : lease.endDate;
+  return new Date(Date.parse(isoDay(ended)) + DEPOSIT_REFUND_DAYS * DAY_MS);
+}
+
+/** What is refunded after the deductions, and why a refund cannot be recorded as given. */
+export function depositRefund(deposit: number, deductions: Array<{ reason: string; amount: number }>): { amount: number; problem: string | null } {
+  const deducted = Math.round(deductions.reduce((total, item) => total + item.amount, 0) * 100) / 100;
+  if (deductions.some((item) => item.amount <= 0 || item.reason.trim().length < 3)) return { amount: 0, problem: 'Give each deduction an amount and a reason.' };
+  if (deducted > deposit) return { amount: 0, problem: 'The deductions cannot be more than the deposit.' };
+  return { amount: Math.round((deposit - deducted) * 100) / 100, problem: null };
+}

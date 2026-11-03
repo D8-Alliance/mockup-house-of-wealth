@@ -184,6 +184,8 @@ export const apiClient = {
   recordLeaseRent: (id: string, period: string, input: { reference: string; paidAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/payments/${encodeURIComponent(period)}`, { method: 'POST', body: JSON.stringify(input) }),
   /** The owner drafts (or, after changes were requested, revises) the Ijarah agreement of an approved lease. */
   draftLeaseAgreement: (leaseId: string) => request<{ contract: { id: string; contractNumber: string } }>('/contract-intelligence/agreements/lease-drafts', { method: 'POST', body: JSON.stringify({ leaseId }) }),
+  recordLeaseDeposit: (id: string, input: { reference: string; receivedAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/deposit`, { method: 'POST', body: JSON.stringify(input) }),
+  refundLeaseDeposit: (id: string, input: { deductions: Array<{ reason: string; amount: number }>; reference: string; paidAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/deposit/refund`, { method: 'POST', body: JSON.stringify(input) }),
   endLease: (id: string, note: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/end`, { method: 'POST', body: JSON.stringify({ note }) }),
   createInvestmentOrder: (input: { poolId: string; amount: number; currency: string; idempotencyKey: string; akadTermsId: string; acceptAkad: true }) => request<BackendInvestmentOrder>('/investments/orders', { method: 'POST', body: JSON.stringify(input) }),
   getSettlementQueue: () => request<SettlementQueueOrder[]>('/investments/settlement-queue'),
@@ -2212,6 +2214,10 @@ export interface AssetLeaseView {
   canReview: boolean;
   canRecordPayment: boolean;
   canEnd: boolean;
+  canRecordDeposit: boolean;
+  canReturnDeposit: boolean;
+  /** The security deposit: received by the owner, then refunded within 30 days after the lease, less reasoned deductions. */
+  deposit: { amount: number; receivedAt: string | null; reference: string | null; returnedAt: string | null; refund: { amount: number; reference: string; deductions: Array<{ reason: string; amount: number }> } | null; refundDueBy: string | null };
   unit: { id: string; label: string; floorArea: number | null; floorAreaUnit: string; permittedUse: string; minTermMonths: number };
   asset: { id: string; name: string; assetType: string; region: string; location?: string };
   ownerOrganisationName: string;
