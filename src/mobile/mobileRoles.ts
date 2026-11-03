@@ -6,6 +6,8 @@ export const ESTATE_ROLES = ['Retail Investor', 'HNWI Investor', 'Family Office'
 
 /** Direct leasing (mirrors the server's leasing roles): owners list space, companies rent it, Legal and Shariah approve. */
 export const LEASE_OWNER_ROLES = ['Asset Owner', 'Asset Manager'];
+/** Who registers assets (mirrors the server's asset owner roles). */
+export const ASSET_OWNER_ROLES = ['Asset Owner', 'Asset Manager'];
 export const LEASE_TENANT_ROLES = ['Organization Admin', 'Corporate Investor', 'Project Sponsor', 'Project Manager'];
 export const LEASE_REVIEWER_ROLES = ['Super Admin', 'Country Admin', 'Legal Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'];
 export const LEASING_ROLES = [...LEASE_OWNER_ROLES, ...LEASE_TENANT_ROLES, ...LEASE_REVIEWER_ROLES];
