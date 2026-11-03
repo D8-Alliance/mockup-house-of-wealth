@@ -14,3 +14,16 @@ export const LEASING_ROLES = [...LEASE_OWNER_ROLES, ...LEASE_TENANT_ROLES, ...LE
 
 /** Profit distribution and payouts (mirrors the server's settlement operators). */
 export const SETTLEMENT_ROLES = ['Super Admin', 'Settlement Officer'];
+
+/** The delivery partner's people, who follow their projects, tranches and quarterly reports. */
+export const SPONSOR_ROLES = ['Project Sponsor', 'Project Manager', 'Organization Admin'];
+
+/**
+ * Who may read pools (mirrors "pooling: read" in server/src/policy/permissions.ts). Asset owners, reviewers and
+ * other staff do not: for them the Pools tab would only show the server's refusal.
+ */
+export const POOL_VIEW_ROLES = [
+  'Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager', 'Pool Manager',
+  'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office', 'Portfolio Manager',
+  'Finance Officer', 'Treasury Officer', 'Settlement Officer',
+];

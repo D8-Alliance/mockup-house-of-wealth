@@ -92,7 +92,7 @@ FIELDS.EQUIPMENT = FIELDS.MACHINERY;
 const EXPIRY_KEYS: Array<[keyof AssetDetailsInput, string]> = [['roadTaxExpiry', 'Road tax'], ['insuranceExpiry', 'Insurance or takaful'], ['inspectionExpiry', 'PUSPAKOM inspection'], ['doshCertificateExpiry', 'JKKP certificate'], ['leaseExpiry', 'Lease']];
 const daysUntil = (date: string) => Math.ceil((new Date(`${date}T00:00:00Z`).getTime() - Date.now()) / 86_400_000);
 
-function expiries(asset: RegisteredAsset) {
+export function expiries(asset: RegisteredAsset) {
   const details = (asset.details ?? {}) as AssetDetailsInput;
   return EXPIRY_KEYS.flatMap(([key, label]) => (typeof details[key] === 'string' && details[key] ? [{ label, date: String(details[key]).slice(0, 10), days: daysUntil(String(details[key]).slice(0, 10)) }] : []));
 }

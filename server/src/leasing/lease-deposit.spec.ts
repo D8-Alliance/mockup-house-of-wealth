@@ -63,6 +63,7 @@ describe('LeasingService deposit and reminders', () => {
     leaseRentPayment: { findMany: jest.fn().mockResolvedValue([]) },
     organisation: { findMany: jest.fn().mockResolvedValue([{ id: 'ORG-TENANT', name: 'Teras Engineering' }]) },
     contract: { findMany: jest.fn().mockResolvedValue([]) },
+    user: { findMany: jest.fn().mockResolvedValue([{ id: 'USR-TN', name: 'Hafiz Teras', email: 'hafiz@teras.my', profile: { phone: '+60123456789' } }, { id: 'USR-AO', name: 'Amran Zain', email: 'amran@ahg.my', profile: null }]) },
   };
   const audit = { recordActor: jest.fn() };
   const notifications = { enqueue: jest.fn().mockResolvedValue(undefined) };
@@ -117,5 +118,15 @@ describe('LeasingService deposit and reminders', () => {
     prisma.assetLease.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([lease({ status: 'ENDED', endedAt: at('2027-06-15'), depositReceivedAt: at('2027-01-01') })]);
     await service.remindDue(at('2027-07-10'));
     expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-AO', title: 'Deposit refund due', message: expect.stringContaining('by 2027-07-15') }));
+  });
+
+  it("shows each side the other side's contact only once the lease is approved", async () => {
+    prisma.assetLease.findFirst.mockResolvedValueOnce(lease());
+    const forOwner = await service.getLease(owner, 'LEASE-1');
+    expect(forOwner.counterparty).toEqual({ name: 'Hafiz Teras', email: 'hafiz@teras.my', phone: '+60123456789' });
+    prisma.assetLease.findFirst.mockResolvedValueOnce(lease());
+    expect((await service.getLease(tenant, 'LEASE-1')).counterparty).toEqual({ name: 'Amran Zain', email: 'amran@ahg.my', phone: null });
+    prisma.assetLease.findFirst.mockResolvedValueOnce(lease({ status: 'PROPOSED' }));
+    expect((await service.getLease(owner, 'LEASE-1')).counterparty).toBeNull();
   });
 });

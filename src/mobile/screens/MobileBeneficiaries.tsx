@@ -104,7 +104,8 @@ export const MobileBeneficiaries: React.FC<{ onBack?: () => void }> = ({ onBack 
             <span className="text-sm font-black whitespace-nowrap">{hasOwnerSetShare(item.distributionType) ? `${item.allocationPercent}%` : t('By faraid')}</span>
           </div>
           {item.identityNumberMasked && <p className="text-[11px] text-slate-500">{t('ID')} {item.identityNumberMasked}</p>}
-          {item.hibahAkad && <p className="text-[11px] text-slate-500">{t('Hibah: {status}', { status: t(item.hibahAkad.qabulStatus) })}</p>}
+          {item.hibahAkad && <p className="text-[11px] text-slate-500">{t('Hibah: {status}', { status: t(item.hibahAkad.qabulStatus) })}{item.hibahAkad.qabulBy ? ` · ${item.hibahAkad.qabulAsGuardian ? t('by guardian {name}', { name: item.hibahAkad.qabulBy }) : item.hibahAkad.qabulBy}` : ''}</p>}
+          {item.hibahAkad?.qabulStatus === 'Awaiting acceptance' && <QabulLink item={item} onSent={load} />}
           <div className="grid grid-cols-3 gap-2 pt-1">
             <button type="button" onClick={() => setEditing(item)} className="flex items-center justify-center gap-1 py-2 rounded-xl border border-slate-300 dark:border-slate-600 text-xs font-bold"><Pencil className="w-3.5 h-3.5" />{t('Edit')}</button>
             <button type="button" disabled={item.isPrimary || busy === item.id} onClick={() => void makePrimary(item)} className="flex items-center justify-center gap-1 py-2 rounded-xl border border-slate-300 dark:border-slate-600 text-xs font-bold disabled:opacity-40"><Star className="w-3.5 h-3.5" />{t('Primary')}</button>
@@ -203,6 +204,53 @@ const BeneficiaryForm: React.FC<BeneficiaryFormProps> = ({ item, framework, othe
           <button type="button" disabled={saving} onClick={() => void save()} className="py-3 rounded-2xl bg-emerald-600 text-white text-sm font-black disabled:opacity-50">{saving ? t('Saving...') : t('Save')}</button>
         </div>
       </section>
+    </div>
+  );
+};
+
+/**
+ * The donor sends the hibah recipient a one-time link to accept (qabul). It is emailed when email is set up;
+ * the donor can also share it from the phone (WhatsApp, SMS). Sending a new link replaces the old one.
+ */
+const QabulLink: React.FC<{ item: BeneficiaryItem; onSent: () => void }> = ({ item, onSent }) => {
+  const { t, locale } = useT();
+  const [link, setLink] = useState<{ url: string; expiresAt: string; emailed: boolean } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+  const send = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await apiClient.requestHibahQabul(item.id);
+      setLink({ url: `${window.location.origin}/m/hibah/${result.token}`, expiresAt: result.expiresAt, emailed: result.emailed });
+      onSent();
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t('That did not go through.')); } finally { setBusy(false); }
+  };
+  const message = link ? t('{name}, I have made you a hibah on Wealth Pooling. Please open this link to accept it (qabul): {url}', { name: item.name, url: link.url }) : '';
+  const share = async () => {
+    if (!link) return;
+    if (navigator.share) { await navigator.share({ text: message }).catch(() => undefined); return; }
+    await navigator.clipboard?.writeText(message).then(() => setCopied(true)).catch(() => undefined);
+  };
+  const sentAt = item.hibahAkad?.qabulSentAt;
+  return (
+    <div className="rounded-xl bg-amber-50 dark:bg-amber-500/10 p-3 space-y-2">
+      {!link && (
+        <>
+          <p className="text-[11px] text-amber-800 dark:text-amber-200">{sentAt ? t('A link was sent on {date}; it works until {expires}.', { date: new Date(sentAt).toLocaleDateString(locale), expires: item.hibahAkad?.qabulExpiresAt ? new Date(item.hibahAkad.qabulExpiresAt).toLocaleDateString(locale) : '-' }) : t('The hibah takes effect only once {name} accepts it (qabul). Send them a link to answer.', { name: item.name })}</p>
+          <button type="button" disabled={busy} onClick={send} className="w-full rounded-xl bg-emerald-600 py-2.5 text-xs font-black text-white disabled:opacity-50">{sentAt ? t('Send a new link') : t('Send the qabul link')}</button>
+        </>
+      )}
+      {link && (
+        <>
+          <p className="text-[11px] text-amber-800 dark:text-amber-200">{link.emailed ? t('Emailed to {email}. You can also share it:', { email: item.email ?? '' }) : t('Email is not set up yet: share this link with {name} yourself.', { name: item.name })}</p>
+          <p className="text-[11px] font-mono break-all">{link.url}</p>
+          <button type="button" onClick={share} className="w-full rounded-xl bg-emerald-600 py-2.5 text-xs font-black text-white">{copied ? t('Copied') : t('Share the link')}</button>
+          <p className="text-[11px] text-slate-500">{t('Only {name} should open it: they confirm with the last four characters of their ID. It works until {date}.', { name: item.name, date: new Date(link.expiresAt).toLocaleDateString(locale) })}</p>
+        </>
+      )}
+      {error && <p role="alert" className="text-[11px] font-bold text-rose-700 dark:text-rose-300">{error}</p>}
     </div>
   );
 };

@@ -4,8 +4,9 @@ import { AgreementDetail, AgreementStatus, apiClient, AssetLeaseView, AvailableU
 import { useRBAC } from '../../rbac/RBACContext';
 import { LEASE_OWNER_ROLES, LEASE_REVIEWER_ROLES, LEASE_TENANT_ROLES } from '../mobileRoles';
 import { useT } from '../i18n';
+import { LeaseReport } from './LeaseReport';
 
-type Section = 'units' | 'find' | 'leases' | 'review';
+type Section = 'units' | 'find' | 'leases' | 'review' | 'report';
 
 const STATUS_LABEL: Record<string, string> = {
   PROPOSED: 'Under discussion', ACCEPTED: 'Awaiting Legal and Shariah approval', APPROVED: 'Approved', DECLINED: 'Declined',
@@ -44,6 +45,7 @@ export const MobileLeasing: React.FC = () => {
     ...(isTenant ? [['find', t('Find space')] as [Section, string]] : []),
     ...(isReviewer ? [['review', t('To review')] as [Section, string]] : []),
     ['leases', isReviewer && !isOwner && !isTenant ? t('All leases') : t('Leases')],
+    ...(isOwner ? [['report', t('Report')] as [Section, string]] : []),
   ];
   const [section, setSection] = useState<Section>(sections[0][0]);
   const [openLease, setOpenLease] = useState<string | null>(null);
@@ -66,6 +68,7 @@ export const MobileLeasing: React.FC = () => {
         </div>
       )}
       {section === 'units' && <OwnerUnits />}
+      {section === 'report' && <LeaseReport />}
       {section === 'find' && <FindSpace onRent={setRenting} />}
       {section === 'review' && <LeaseList filter={(lease) => lease.canReview} empty={t('No lease is waiting for your review.')} onOpen={setOpenLease} />}
       {section === 'leases' && <LeaseList empty={isTenant ? t('Your company has no lease or request yet. Find space to ask for one.') : t('No lease yet.')} onOpen={setOpenLease} />}
@@ -349,6 +352,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
           {row(t('Months'), lease.termMonths)}
           {row(t('Use'), lease.intendedUse)}
           {row(t("Tenant's business"), lease.tenantActivity)}
+          {lease.counterparty && row(lease.myParty === 'OWNER' ? t('Tenant contact') : t('Owner contact'), <span className="block">{lease.counterparty.name}<a href={`mailto:${lease.counterparty.email}`} className="block text-emerald-700 dark:text-emerald-400">{lease.counterparty.email}</a>{lease.counterparty.phone && <a href={`tel:${lease.counterparty.phone}`} className="block text-emerald-700 dark:text-emerald-400">{lease.counterparty.phone}</a>}</span>)}
         </dl>
         {lease.shariahFlags && lease.shariahFlags.length > 0 && <p className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 p-3 text-xs font-bold text-amber-800 dark:text-amber-200">{t('Check the activity: it may involve {flags}.', { flags: lease.shariahFlags.join(', ') })}</p>}
       </section>

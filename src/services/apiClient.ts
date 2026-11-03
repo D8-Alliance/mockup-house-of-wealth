@@ -102,6 +102,22 @@ export interface BackendBeneficiary {
   hibahIjabAt: string | null;
   hibahQabulStatus: 'AWAITING' | 'ACCEPTED' | 'DECLINED' | null;
   hibahQabulAt: string | null;
+  /** The qabul link: when it was last sent and until when it works; who answered, and whether as guardian. */
+  hibahQabulSentAt?: string | null;
+  hibahQabulExpiresAt?: string | null;
+  hibahQabulBy?: string | null;
+  hibahQabulAsGuardian?: boolean | null;
+}
+
+/** What the hibah recipient sees on the qabul link (no sign-in). */
+export interface HibahOffer {
+  donorName: string;
+  recipientName: string;
+  relation: string;
+  allocationPercent: number | null;
+  ijabAt: string | null;
+  status: 'AWAITING' | 'ACCEPTED' | 'DECLINED';
+  expiresAt: string | null;
 }
 
 export interface SaveBeneficiaryInput {
@@ -212,6 +228,10 @@ export const apiClient = {
   createBeneficiary: (input: SaveBeneficiaryInput) => request<BackendBeneficiary>('/estate/beneficiaries', { method: 'POST', body: JSON.stringify(input) }),
   updateBeneficiary: (id: string, input: SaveBeneficiaryInput) => request<BackendBeneficiary>(`/estate/beneficiaries/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) }),
   setPrimaryBeneficiary: (id: string) => request<BackendBeneficiary[]>(`/estate/beneficiaries/${encodeURIComponent(id)}/primary`, { method: 'POST' }),
+  /** A new one-time qabul link for a hibah recipient; emailed when email is set up, and returned once to share. */
+  requestHibahQabul: (id: string) => request<{ token: string; expiresAt: string; emailed: boolean }>(`/estate/beneficiaries/${encodeURIComponent(id)}/qabul-request`, { method: 'POST' }),
+  getHibahOffer: (token: string) => request<HibahOffer>(`/estate/hibah/${encodeURIComponent(token)}`),
+  answerHibah: (token: string, input: { decision: 'ACCEPT' | 'DECLINE'; fullName: string; identityLast4: string; asGuardian?: boolean }) => request<{ status: 'ACCEPTED' | 'DECLINED'; answeredAt: string }>(`/estate/hibah/${encodeURIComponent(token)}`, { method: 'POST', body: JSON.stringify(input) }),
   deleteBeneficiary: (id: string) => request<{ id: string }>(`/estate/beneficiaries/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getPools: () => request<BackendPool[]>('/pools'),
   getPool: (poolId: string) => request<BackendPoolDetail>(`/pools/${encodeURIComponent(poolId)}`),
@@ -326,6 +346,9 @@ export const apiClient = {
   getPayoutAccountsForReview: () => request<PayoutAccountForReview[]>('/distributions/payout-destinations'),
   verifyPayoutAccount: (id: string) => request<PayoutAccountForReview>(`/distributions/payout-destinations/${encodeURIComponent(id)}/verify`, { method: 'POST' }),
   // Settlement (Settlement Officer, Super Admin): project income, distributions and payouts.
+  // Problem projects (Super Admin, Country Admin): archive, restore, suspend, resume, each with a reason.
+  getManagedProjects: () => request<ManagedProject[]>('/project-admin/projects'),
+  manageProject: (projectId: string, action: 'archive' | 'restore' | 'suspend' | 'resume', reason: string) => request<unknown>(`/project-admin/projects/${encodeURIComponent(projectId)}/${action}`, { method: 'POST', body: JSON.stringify({ reason }) }),
   getSettlementPools: () => request<SettlementPool[]>('/distributions/pools'),
   getSettlementDistributions: () => request<SettlementDistribution[]>('/distributions'),
   recordPoolIncome: (input: { poolId: string; amount: number; reference: string; receivedAt?: string; note?: string }) => request<{ poolId: string; incomeRecorded: number; profitPaidOut: number; available: number }>('/distributions/pool-income', { method: 'POST', body: JSON.stringify(input) }),
@@ -2250,6 +2273,8 @@ export interface AssetLeaseView {
   rent: { paid: number; overdue: number; due: number };
   /** The Ijarah agreement drafted for the lease, once the owner drafts it. */
   agreement: { id: string; contractNumber: string; status: AgreementStatus } | null;
+  /** The other side's contact person, once the lease is approved: the tenant's for the owner, the owner's for the tenant. */
+  counterparty: { name: string; email: string; phone: string | null } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -2322,4 +2347,23 @@ export interface SettlementDistribution {
   canApprove: boolean;
   createdAt: string;
   allocations: Array<{ id: string; beneficiaryUserId: string; beneficiaryName: string | null; amount: number | string; status: string; destination: { provider: string; maskedReference: string; accountHolder: string | null } | null; payoutInstruction: SettlementPayout | null }>;
+}
+
+/** A project as an administrator manages it: archived or suspended, and what is at stake. */
+export interface ManagedProject {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  status: string;
+  countryNodeId: string;
+  createdAt: string;
+  organisationName: string;
+  archivedAt: string | null;
+  archivedReason: string | null;
+  suspendedAt: string | null;
+  suspendedReason: string | null;
+  pools: Array<{ poolId: string; poolName: string; status: string; currency: string }>;
+  settled: Array<{ currency: string; amount: number }>;
+  hasSettledMoney: boolean;
+  pendingOrders: number;
 }
