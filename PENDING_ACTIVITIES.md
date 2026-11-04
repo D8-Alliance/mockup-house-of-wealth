@@ -25,10 +25,11 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 17 | Modul aset | Sewa/untung pemilik aset, tandatangan, takaful, agensi luar, skrin demo | Boleh diteruskan |
 | 18 | Kunci API | Kunci untuk sistem luar | Tangguh sehingga perlu |
 | 19 | Pengurusan pengguna | Notis privasi rasmi, pelulus kedua untuk peranan admin, sebab tukar peranan | Butiran syarikat; peguam |
-| 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, Keycloak, terjemahan | Butiran bank; spesifikasi D8 Ideas |
-| 21 | Sewaan terus (Ijarah) | Pembaharuan sewaan, caj utiliti, keputusan kutipan sewa dan cukai | Pemilik projek; peguam dan cukai |
+| 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, Keycloak, terjemahan, semakan di telefon | Butiran bank; spesifikasi D8 Ideas |
+| 21 | Sewaan terus (Ijarah) | Semakan perjanjian di mini-app, label "Delivery partner", pembaharuan, caj utiliti, keputusan kutipan sewa dan cukai | Pemilik projek; peguam dan cukai |
 | 22 | Agihan keuntungan | Skrin web Kewangan, fail bayaran pukal bank, peringatan hasil lewat | Boleh dimulakan |
 | 23 | Projek bermasalah | Skrin web, label "Digantung", pulangan modal | Boleh dimulakan bila perlu |
+| 24 | Pangkalan pengetahuan dan Tanya | Tanda standard lama, model embedding di staging, Rebuild & embed, ujian jawapan | Shariah/Kewangan semak versi; tetapan staging |
 
 ---
 
@@ -67,6 +68,8 @@ Buat masa ini, Compliance menyemak sendiri semasa KYC dan KYB. Skrin AML, PEP da
 3. Semak kad sebenar (condongkan kad untuk lihat hologram; kesan kad yang ditunjuk pada skrin).
 4. Uji pada lebih banyak telefon dan bila skrin dipusing.
 5. **Sebelum dihidupkan** (`KYC_REQUIRE_LIVENESS=true`, kini `false`): sediakan jalan lain untuk orang yang tiada kamera atau asyik gagal, contohnya semakan manual atau panggilan video.
+
+**Nota:** muat naik selfie sudah dibuang daripada KYC (4 November 2026). Sekarang tiada semakan wajah langsung; jika perlu, semakan wajah (liveness) inilah yang menggantikannya.
 
 ## 4. Data biometrik (PDPA 2010)
 
@@ -233,7 +236,7 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 2. Log masuk (SSO) dan push melalui D8 Ideas: tunggu spesifikasi mereka.
 3. Uji dalam super app, terutamanya kamera dalam WebView.
 4. Keycloak: tambah `/m/*` dalam Valid redirect URIs, dan tetapkan emel (SMTP) untuk "Forgot password".
-5. Terjemahan: notifikasi utama sudah dalam BM (`src/mobile/i18n.messages.ts`). Mesej server yang baharu perlu ditambah ke situ, jika tidak ia keluar dalam bahasa Inggeris. Emel masih dalam bahasa Inggeris.
+5. Terjemahan: notifikasi utama sudah dalam BM (`src/mobile/i18n.messages.ts`). Mesej server yang baharu perlu ditambah ke situ, jika tidak ia keluar dalam bahasa Inggeris. Yang masih dalam bahasa Inggeris: sebahagian mesej ralat sewaan daripada server, kira-kira 20 teks dalam skrin kes pusaka, dan emel.
 6. Tab Projek untuk penaja: langkah seterusnya masih dalam bahasa Inggeris; penyediaan projek kekal di web.
 7. Semakan di telefon untuk KYC Officer dan penyemak Legal/Shariah: belum dibina; mereka guna portal web.
 
@@ -243,12 +246,13 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 - **Keputusan sementara (perlu disahkan):** penyewa membayar sewa **terus ke akaun bank pemilik**. Platform hanya merekod, tidak memegang wang, dan tiada komisen buat masa ini.
 
 **Belum siap:**
-1. Penyemak belum boleh menyemak perjanjian sewaan di mini-app. Skrin web Contracts masih memanggil penyewa "delivery partner".
-2. Skrin web sewaan masih satu lajur di tengah (belum disusun untuk skrin lebar).
+1. Penyemak belum boleh menyemak perjanjian sewaan di mini-app (guna web).
+2. Skrin web Contracts (`src/ai/features/contract/AgreementReviewPanel.tsx`) masih memanggil penyewa "Delivery partner".
 3. Pembaharuan sewaan (sekarang penyewa perlu mohon sewaan baharu).
 4. Rekod caj utiliti bulanan jika pemilik yang bayar bil; tetapan bulan deposit utiliti ikut negeri.
 5. **Keputusan pemilik projek:** platform kutip sewa atau rekod sahaja; komisen atau yuran (semak Akta 242); duti setem; cukai perkhidmatan atas sewa komersial.
 6. Fasa kemudian: pool pelaburan daripada hasil sewa.
+7. **SIT:** sewaan Tingkat 6 (`LEASE-MYS-QAAJDKTT`) ditamatkan awal. Untuk sambung SIT, jalankan sendiri di staging: `cd /opt/how/server && npx tsx scripts/reopen-ended-lease.ts --lease LEASE-MYS-QAAJDKTT` (lihat dahulu), kemudian tambah `--confirm --by <userId> --reason "..."`.
 
 ## 22. Agihan keuntungan (Settlement Officer)
 
@@ -267,3 +271,13 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 1. Skrin web untuk tindakan ini.
 2. Label "Digantung" pada portfolio dan pool untuk pelabur sedia ada.
 3. Aliran memulangkan modal kepada pelabur.
+
+## 24. Pangkalan pengetahuan (AAOIFI) dan Tanya
+
+- **Keadaan:** 47 PDF AAOIFI sudah dimuat naik dan APPROVED (AI Center › Knowledge Base, muat naik dan semakan pukal). Butang Tanya (ikon ✨) di mini-app menjawab hanya daripada sumber yang diluluskan, dengan rujukan.
+
+**Belum siap:**
+1. **Standard lama:** tanda versi yang sudah diganti sebagai lapuk, contohnya FAS 1 (1993) diganti FAS 1 (2022, berkuat kuasa 1 Januari 2024). Fail lain perlu disemak oleh penasihat Shariah atau Kewangan.
+2. **Model embedding di staging:** `RAG_EMBEDDING_MODEL` belum diisi dalam `/opt/how/server/.env`, jadi carian hanya ikut kata kunci. Cadangan: `nomic-embed-text` pada Ollama di droplet how-ai. Selepas itu tekan **Rebuild & embed**.
+3. Uji soalan sebenar di Tanya dan semak rujukan yang diberi.
+4. Kredit AI: soalan tanpa sumber tidak ditolak kredit; putuskan sama ada pelabur biasa perlu kredit untuk Tanya.
