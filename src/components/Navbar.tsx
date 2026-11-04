@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { WealthPoolingLogo } from './WealthPoolingLogo';
 import { 
-  Building2, 
+  Building2,
+  Scale,
   LayoutDashboard, 
   Landmark,
   Handshake,
@@ -82,6 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'wallet', label: t.wallet || 'Wallet', icon: <Wallet className="w-4 h-4" /> },
     { id: 'financials', label: t.financials || 'Financials', icon: <Coins className="w-4 h-4" /> },
     { id: 'beneficiaries', label: t.beneficiaries || 'Beneficiaries', icon: <Users className="w-4 h-4" /> },
+    { id: 'estate-cases', label: 'Estate Cases', icon: <Scale className="w-4 h-4 text-stone-500" /> },
     { id: 'documents', label: t.documents || 'Documents', icon: <FolderKanban className="w-4 h-4" /> },
     { id: 'ledger', label: t.ledger || 'Audit Trail', icon: <FileCheck className="w-4 h-4" /> },
     { id: 'membership', label: 'Membership & Pricing', icon: <CreditCard className="w-4 h-4 text-emerald-500" /> },

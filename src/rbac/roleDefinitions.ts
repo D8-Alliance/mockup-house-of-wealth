@@ -13,7 +13,7 @@ const ALL_USER_ROLES: UserRole[] = [
   'Asset Owner', 'Asset Manager', 'Pool Manager', 'Retail Investor', 'HNWI Investor',
   'Institutional Investor', 'Corporate Investor', 'Family Office', 'Portfolio Manager',
   'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee', 'Compliance Officer', 'KYC Officer',
-  'KYB Officer', 'AML Officer', 'Risk Officer', 'Fraud Analyst', 'Legal Officer', 'Finance Officer',
+  'KYB Officer', 'AML Officer', 'Risk Officer', 'Fraud Analyst', 'Legal Officer', 'Estate Officer', 'Finance Officer',
   'Treasury Officer', 'Settlement Officer', 'Reconciliation Officer', 'Auditor', 'Customer Support',
   'System Administrator', 'Security Administrator', 'Data Administrator', 'AI Administrator',
   'AI Model Reviewer', 'Guest'

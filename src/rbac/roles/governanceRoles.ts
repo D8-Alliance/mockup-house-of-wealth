@@ -7,7 +7,7 @@ export const GOVERNANCE_ROLES: Record<string, RoleDefinition> = {
     category: 'System Executive',
     description: 'Manages regional node operations, local asset registration, national Waqf pools, and jurisdiction regulatory compliance.',
     badgeColor: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
-    accessibleTabs: ['dashboard', 'ai-engine', 'admin-center', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'wallet', 'financials', 'documents', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'ai-engine', 'admin-center', 'estate-cases', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'wallet', 'financials', 'documents', 'ledger', 'profile'],
     permissions: {
       dashboard: ['read', 'export'],
       assets: ['create', 'read', 'update', 'approve', 'audit', 'export'],

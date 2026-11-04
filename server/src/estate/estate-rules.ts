@@ -27,8 +27,23 @@ export const hasOwnerSetShare = (type: string) => type !== 'Faraid Heir';
 
 const total = (items: EstateItem[], type: DistributionType) => items.filter((item) => item.distributionType === type).reduce((sum, item) => sum + (item.allocationPercent ?? 0), 0);
 
-/** Why the beneficiary is not allowed, or null. `others` are the owner's other beneficiaries. */
-export function estateRuleError(item: EstateItem, others: EstateItem[]): string | null {
+/**
+ * Why a wasiyyah needs the other heirs' consent after death (to a faraid heir, or taking the wasiyyah above
+ * one-third), or null. Without that consent the part concerned follows faraid.
+ */
+export function heirConsentReason(item: EstateItem, others: EstateItem[]): string | null {
+  if (item.distributionType !== 'Wasiyyah') return null;
+  if (FARAID_HEIR_RELATIONS.includes(item.relation as Relation)) return `A wasiyyah to a faraid heir (${item.relation.toLowerCase()}) is valid only if the other heirs agree after your death.`;
+  const sum = total(others, 'Wasiyyah') + (item.allocationPercent ?? 0);
+  if (sum > WASIYYAH_LIMIT_PCT + 0.001) return `Wasiyyah above one-third (here ${sum.toFixed(2)}%) is valid only if the heirs agree after your death.`;
+  return null;
+}
+
+/**
+ * Why the beneficiary is not allowed, or null. `others` are the owner's other beneficiaries. A wasiyyah that needs
+ * the heirs' consent is refused unless `heirConsentAcknowledged`: the owner knows it holds only if they agree.
+ */
+export function estateRuleError(item: EstateItem, others: EstateItem[], heirConsentAcknowledged = false): string | null {
   if (!(RELATIONS as readonly string[]).includes(item.relation)) return `Unknown relation "${item.relation}".`;
   if (!(DISTRIBUTION_TYPES as readonly string[]).includes(item.distributionType)) return `Unknown distribution type "${item.distributionType}".`;
   if (hasOwnerSetShare(item.distributionType)) {
@@ -36,12 +51,12 @@ export function estateRuleError(item: EstateItem, others: EstateItem[]): string 
   } else if (item.allocationPercent !== null) {
     return "A faraid heir's share is fixed by faraid, not set by you.";
   }
-  if (item.distributionType === 'Wasiyyah') {
+  if (item.distributionType === 'Wasiyyah' && !heirConsentAcknowledged) {
     if (FARAID_HEIR_RELATIONS.includes(item.relation as Relation)) {
-      return `A wasiyyah cannot go to a faraid heir (${item.relation.toLowerCase()}) unless the other heirs agree. Give to an heir during your lifetime with Hibah Amanah, or leave their share to faraid.`;
+      return `A wasiyyah cannot go to a faraid heir (${item.relation.toLowerCase()}) unless the other heirs agree after your death. Give to an heir during your lifetime with Hibah Amanah, leave their share to faraid, or confirm that it depends on the heirs' consent.`;
     }
     const sum = total(others, 'Wasiyyah') + (item.allocationPercent ?? 0);
-    if (sum > WASIYYAH_LIMIT_PCT + 0.001) return `Wasiyyah is limited to one-third (33.33%) of the estate. With this one it would be ${sum.toFixed(2)}%.`;
+    if (sum > WASIYYAH_LIMIT_PCT + 0.001) return `Wasiyyah is limited to one-third (33.33%) of the estate. With this one it would be ${sum.toFixed(2)}%. Above that it holds only if the heirs agree after your death; confirm that if you want to keep it.`;
   }
   if (item.distributionType === 'Faraid Heir' && INSTITUTIONS.includes(item.relation as Relation)) {
     return 'An institution cannot be a faraid heir. Use Wasiyyah (up to one-third) or Zakat & Sadaqah instead.';

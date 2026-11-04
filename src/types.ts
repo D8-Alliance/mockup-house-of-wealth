@@ -18,7 +18,8 @@ export type NavTab =
   | 'ledger'
   | 'profile'
   | 'membership'
-  | 'billing-transactions';
+  | 'billing-transactions'
+  | 'estate-cases';
 
 export interface UserProfile {
   id: string;
@@ -84,6 +85,8 @@ export interface BeneficiaryItem {
   identityNumberMasked?: string | null;
   payoutMethod: string;
   isPrimary: boolean;
+  /** Wasiyyah to a faraid heir or above one-third: holds only if the other heirs agree after the death. */
+  heirConsentRequired?: boolean;
 }
 
 export type AssetType = 'Real Estate' | 'Commodities' | 'Financial Inst.' | 'Private Equity' | 'Machinery' | 'IP & Knowledge';

@@ -17,6 +17,7 @@ export function fromServer(row: BackendBeneficiary): BeneficiaryItem {
     identityNumberMasked: row.identityNumberMasked,
     payoutMethod: row.payoutMethod,
     isPrimary: row.isPrimary,
+    heirConsentRequired: row.heirConsentRequired === true,
     hibahAkad: row.hibahIjabAt ? { ijabDeclaredAt: row.hibahIjabAt, qabulStatus: QABUL[row.hibahQabulStatus ?? 'AWAITING'], qabulAt: row.hibahQabulAt ?? undefined, qabulSentAt: row.hibahQabulSentAt ?? undefined, qabulExpiresAt: row.hibahQabulExpiresAt ?? undefined, qabulBy: row.hibahQabulBy ?? undefined, qabulAsGuardian: row.hibahQabulAsGuardian ?? undefined } : undefined,
   };
 }
@@ -34,5 +35,6 @@ export function toServer(item: BeneficiaryItem): SaveBeneficiaryInput {
     payoutMethod: item.payoutMethod,
     isPrimary: item.isPrimary,
     ijabConfirmed: item.distributionType === 'Hibah Amanah' ? true : undefined,
+    heirConsentAcknowledged: item.heirConsentRequired ? true : undefined,
   };
 }

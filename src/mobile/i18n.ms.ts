@@ -56,6 +56,7 @@ export const MS: Record<string, string> = {
   'AML Officer': 'Pegawai AML',
   'Risk Officer': 'Pegawai Risiko',
   'Fraud Analyst': 'Penganalisis Penipuan',
+  'Estate Officer': 'Pegawai Pusaka',
   'Legal Officer': 'Pegawai Undang-undang',
   'Finance Officer': 'Pegawai Kewangan',
   'Treasury Officer': 'Pegawai Perbendaharaan',

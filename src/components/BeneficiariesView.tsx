@@ -26,6 +26,7 @@ import { apiClient } from '../services/apiClient';
 import { fromServer, toServer } from '../beneficiaries/beneficiaryApi';
 import { TRANSLATIONS } from '../data/translations';
 import { hasOwnerSetShare, useEstateFramework, wasiyyahTotal, willTotal, WASIYYAH_LIMIT_PCT } from '../beneficiaries/estateRules';
+import { EstateExecutorsPanel } from '../beneficiaries/EstateExecutorsPanel';
 
 interface BeneficiariesViewProps {
   beneficiaries: BeneficiaryItem[];
@@ -57,6 +58,17 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Hibah acceptance (qabul): a one-time link for the recipient, shown once so the donor can share it.
+  const [qabulLinks, setQabulLinks] = useState<Record<string, { url: string; expiresAt: string; emailed: boolean }>>({});
+  const sendQabulLink = async (ben: BeneficiaryItem) => {
+    try {
+      const link = await apiClient.requestHibahQabul(ben.id);
+      setQabulLinks((current) => ({ ...current, [ben.id]: { url: `${window.location.origin}/m/hibah/${link.token}`, expiresAt: link.expiresAt, emailed: link.emailed } }));
+    } catch (cause) {
+      showToast(cause instanceof Error ? cause.message : 'The link could not be created.');
+    }
   };
 
   const failed = (cause: unknown) => showToast(cause instanceof Error ? cause.message : 'That was not saved.');
@@ -420,7 +432,23 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
                           Qabul: {ben.hibahAkad.qabulStatus}
                         </span>
                       )}
+                      {saved && ben.hibahAkad?.qabulStatus === 'Awaiting acceptance' && (
+                        <button type="button" onClick={() => void sendQabulLink(ben)} className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 cursor-pointer">
+                          {qabulLinks[ben.id] ? 'New acceptance link' : 'Send acceptance link'}
+                        </button>
+                      )}
+                      {ben.heirConsentRequired && (
+                        <span title="This wasiyyah holds only if the other heirs agree after your death." className="text-[11px] font-bold px-2.5 py-0.5 rounded-lg border bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30">
+                          Needs heirs&rsquo; consent
+                        </span>
+                      )}
                     </div>
+                    {qabulLinks[ben.id] && (
+                      <div className="mt-2 p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-500/20 text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
+                        <p>{qabulLinks[ben.id].emailed ? `Emailed to ${ben.email}. ` : ''}Share this link with {ben.name} (for example by WhatsApp); it works until {qabulLinks[ben.id].expiresAt.slice(0, 10)}:</p>
+                        <p className="font-mono break-all select-all">{qabulLinks[ben.id].url}</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Allocation Badge */}
@@ -523,6 +551,8 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
           ))}
         </div>
       )}
+
+      {saved && <EstateExecutorsPanel />}
 
       {/* Modal */}
       {modalOpen && (

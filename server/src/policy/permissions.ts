@@ -54,6 +54,7 @@ export type UserRole =
   | 'Risk Officer'
   | 'Fraud Analyst'
   | 'Legal Officer'
+  | 'Estate Officer'
   | 'Finance Officer'
   | 'Treasury Officer'
   | 'Settlement Officer'
@@ -93,6 +94,7 @@ export const USER_ROLES: readonly UserRole[] = [
   'Risk Officer',
   'Fraud Analyst',
   'Legal Officer',
+  'Estate Officer',
   'Finance Officer',
   'Treasury Officer',
   'Settlement Officer',
@@ -305,6 +307,11 @@ const PERMISSIONS: Record<UserRole, Partial<Record<ResourceModule, PermissionAct
   'Fraud Analyst': {
     dashboard: ['read'],
     audit_logs: ['read', 'audit', 'export'],
+    users: ['read'],
+    profile: ['read', 'update'],
+  },
+  'Estate Officer': {
+    dashboard: ['read'],
     users: ['read'],
     profile: ['read', 'update'],
   },

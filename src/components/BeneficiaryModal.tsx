@@ -17,7 +17,7 @@ import {
 import { BeneficiaryItem } from '../types';
 import { authService } from '../auth/services/authService';
 import { phoneFormatFor } from '../countryNodes/countryPhone';
-import { EstateFramework, estateRuleError, hasOwnerSetShare, TYPES_BY_FRAMEWORK } from '../beneficiaries/estateRules';
+import { EstateFramework, estateRuleError, hasOwnerSetShare, heirConsentReason, TYPES_BY_FRAMEWORK } from '../beneficiaries/estateRules';
 
 interface BeneficiaryModalProps {
   beneficiary: BeneficiaryItem | null; // null for Create
@@ -74,6 +74,9 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
   // Hibah Amanah: the donor's offer (ijab). Already made when editing an existing hibah.
   const [ijabConfirmed, setIjabConfirmed] = useState<boolean>(!!beneficiary?.hibahAkad);
   const isHibah = distributionType === 'Hibah Amanah';
+  // A wasiyyah to a faraid heir or above one-third holds only if the other heirs agree after the death.
+  const consentReason = heirConsentReason({ relation, distributionType, allocationPercent: ownerSetsShare ? Number(allocationPercent) : 0 }, others);
+  const [heirConsentAck, setHeirConsentAck] = useState<boolean>(!!beneficiary?.heirConsentRequired);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,7 +93,7 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
     }
 
     const shareToSave = ownerSetsShare ? Number(allocationPercent) : 0;
-    const ruleError = estateRuleError({ relation, distributionType, allocationPercent: shareToSave }, others);
+    const ruleError = estateRuleError({ relation, distributionType, allocationPercent: shareToSave }, others, heirConsentAck);
     if (ruleError) {
       setErrorMsg(ruleError);
       return;
@@ -128,7 +131,8 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
       identityNumberMasked: beneficiary?.identityNumberMasked,
       payoutMethod,
       isPrimary,
-      hibahAkad
+      hibahAkad,
+      heirConsentRequired: Boolean(consentReason) && heirConsentAck,
     };
 
     try {
@@ -337,6 +341,17 @@ export const BeneficiaryModal: React.FC<BeneficiaryModalProps> = ({
               <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
                 Recipient&rsquo;s acceptance (qabul): {beneficiary?.hibahAkad?.qabulStatus ?? 'Awaiting acceptance'}
               </p>
+            </div>
+          )}
+
+          {/* Wasiyyah that needs the other heirs' consent after death */}
+          {consentReason && (
+            <div className="p-4 rounded-2xl border border-amber-500/30 bg-amber-50/60 dark:bg-amber-950/20 space-y-2">
+              <p className="text-[11px] text-amber-800 dark:text-amber-200">{consentReason} Without their consent this part follows faraid. The estate officer records each heir's answer after your death.</p>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" checked={heirConsentAck} onChange={e => setHeirConsentAck(e.target.checked)} className="mt-0.5 w-4 h-4 accent-amber-600" />
+                <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">I understand this wasiyyah holds only if the other heirs agree after my death.</span>
+              </label>
             </div>
           )}
 

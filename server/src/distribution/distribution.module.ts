@@ -12,6 +12,6 @@ import { PayoutDestinationService } from './payout-destination.service';
   imports: [AuditModule, FinancialLedgerModule, FeatureModuleModule, NotificationModule],
   controllers: [DistributionController, PayoutAccountsController],
   providers: [DistributionService, PayoutDestinationService],
-  exports: [DistributionService],
+  exports: [DistributionService, PayoutDestinationService],
 })
 export class DistributionModule {}

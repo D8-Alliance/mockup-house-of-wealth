@@ -40,6 +40,7 @@ const AIWealthEngineView = lazy(() => import('./AIWealthEngineView').then((m) =>
 const AdminCenterView = lazy(() => import('./AdminCenterView').then((m) => ({ default: m.AdminCenterView })));
 const ProjectSponsorView = lazy(() => import('./sponsor/ProjectSponsorView').then((m) => ({ default: m.ProjectSponsorView })));
 const MembershipView = lazy(() => import('./revenue/MembershipView').then((m) => ({ default: m.MembershipView })));
+const EstateCasesView = lazy(() => import('../estate/EstateCasesView').then((m) => ({ default: m.EstateCasesView })));
 
 interface MainTabViewsProps {
   currentTab: NavTab;
@@ -249,6 +250,12 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
       )}
 
       {currentTab === 'billing-transactions' && <BillingTransactionsView />}
+
+      {currentTab === 'estate-cases' && (
+        <RoleGuard tab="estate-cases">
+          <EstateCasesView />
+        </RoleGuard>
+      )}
     </Suspense>
   );
 };

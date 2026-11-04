@@ -107,6 +107,31 @@ export interface BackendBeneficiary {
   hibahQabulExpiresAt?: string | null;
   hibahQabulBy?: string | null;
   hibahQabulAsGuardian?: boolean | null;
+  /** A wasiyyah that holds only if the other heirs agree after the death. */
+  heirConsentRequired?: boolean;
+}
+
+/** The owner's executor (wasi) or administrator (server/src/estate). */
+export interface EstateExecutorInput { name: string; kind: 'INDIVIDUAL' | 'AMANAH_RAYA' | 'TRUST_COMPANY' | 'LAWYER'; relation?: string; email?: string; phone?: string; identityNumber?: string; isPrimary?: boolean }
+export interface EstateExecutor extends Omit<EstateExecutorInput, 'identityNumber'> { id: string; identityNumberMasked: string | null; isPrimary: boolean; relation?: string; email?: string; phone?: string }
+
+export interface EstateSettlementPlan { holdings: Array<{ poolId: string; recipients: Array<{ userId: string; sharePct: number }> }>; note: string }
+export type EstateCaseStatus = 'REPORTED' | 'REJECTED' | 'DEATH_VERIFIED' | 'DOCUMENTS_VERIFIED' | 'PLAN_SUBMITTED' | 'SETTLED';
+export interface EstateCaseSummary { id: string; caseNumber: string; deceasedUserId: string; deceasedName: string; countryNodeId: string; status: EstateCaseStatus; dateOfDeath: string; reporterName: string; reporterRelation: string; createdAt: string; settledAt: string | null }
+export interface EstateCaseFile extends Omit<EstateCaseSummary, 'deceasedName'> {
+  reporterKind: string; reporterEmail: string | null; reporterPhone: string | null; rejectedReason: string | null;
+  planBy: string | null; plan: EstateSettlementPlan | null;
+  history: Array<{ at: string; byName: string; action: string; note?: string }>;
+  documents: Array<{ id: string; documentType: string; fileName: string; fileSize: number; sha256: string; uploadedBy: string; createdAt: string }>;
+  consents: Array<{ id: string; beneficiaryId: string; heirName: string; heirRelation: string; decision: string; note: string; createdAt: string }>;
+  deceased: { id: string; name: string; email: string; frozen: boolean; deceasedAt: string | null } | null;
+  instructions: null | {
+    framework: string | null;
+    beneficiaries: Array<{ id: string; name: string; relation: string; distributionType: string; allocationPercent: number | null; email: string | null; phone: string | null; identityNumberMasked: string | null; payoutMethod: string; hibahQabulStatus: string | null; heirConsentRequired: boolean }>;
+    executors: Array<{ id: string; name: string; kind: string; relation: string | null; email: string | null; phone: string | null; identityNumberMasked: string | null; isPrimary: boolean }>;
+  };
+  holdings: Array<{ poolId: string; poolName: string; poolStatus: string; currency: string; capital: number; profitUnpaid: number }>;
+  estateAccounts: Array<{ id: string; provider: string; maskedReference: string; accountHolder: string | null; status: string; currency: string | null }>;
 }
 
 /** What the hibah recipient sees on the qabul link (no sign-in). */
@@ -132,6 +157,8 @@ export interface SaveBeneficiaryInput {
   payoutMethod: string;
   isPrimary?: boolean;
   ijabConfirmed?: boolean;
+  /** Wasiyyah to a faraid heir or above one-third: kept only if the heirs agree after death. */
+  heirConsentAcknowledged?: boolean;
 }
 
 /** An investor transfer waiting for Finance to match it to the bank. */
@@ -230,6 +257,30 @@ export const apiClient = {
   setPrimaryBeneficiary: (id: string) => request<BackendBeneficiary[]>(`/estate/beneficiaries/${encodeURIComponent(id)}/primary`, { method: 'POST' }),
   /** A new one-time qabul link for a hibah recipient; emailed when email is set up, and returned once to share. */
   requestHibahQabul: (id: string) => request<{ token: string; expiresAt: string; emailed: boolean }>(`/estate/beneficiaries/${encodeURIComponent(id)}/qabul-request`, { method: 'POST' }),
+  getEstateExecutors: () => request<EstateExecutor[]>('/estate/executors'),
+  saveEstateExecutor: (input: EstateExecutorInput, id?: string) => request<EstateExecutor>(id ? `/estate/executors/${encodeURIComponent(id)}` : '/estate/executors', { method: id ? 'PUT' : 'POST', body: JSON.stringify(input) }),
+  deleteEstateExecutor: (id: string) => request<{ id: string }>(`/estate/executors/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  /** No sign-in: a recorded executor or beneficiary reports a death with the death certificate. */
+  reportDeath: async (fields: Record<string, string>, certificate: File) => {
+    const body = new FormData();
+    Object.entries(fields).forEach(([key, value]) => { if (value) body.append(key, value); });
+    body.append('file', certificate);
+    const response = await apiFetch(`${API_BASE_URL}/estate/death-reports`, { method: 'POST', body });
+    const result = await response.json().catch(() => null) as { message?: string | string[]; received?: boolean } | null;
+    if (!response.ok) throw new Error((Array.isArray(result?.message) ? result?.message.join(' ') : result?.message) || 'The report could not be sent.');
+    return result as { received: boolean; message: string };
+  },
+  getEstateCases: () => request<EstateCaseSummary[]>('/estate/cases'),
+  getEstateCase: (id: string) => request<EstateCaseFile>(`/estate/cases/${encodeURIComponent(id)}`),
+  decideEstateDeath: (id: string, decision: 'VERIFY' | 'REJECT', note: string) => request<EstateCaseFile>(`/estate/cases/${encodeURIComponent(id)}/death`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
+  uploadEstateDocument: (id: string, documentType: string, file: File) => { const body = new FormData(); body.append('file', file); return request<EstateCaseFile>(`/estate/cases/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentType)}`, { method: 'POST', body }); },
+  downloadEstateDocument: (id: string, documentId: string) => openAuthenticatedFile(`/estate/cases/${encodeURIComponent(id)}/documents/${encodeURIComponent(documentId)}/download`),
+  verifyEstateDocuments: (id: string, note: string) => request<EstateCaseFile>(`/estate/cases/${encodeURIComponent(id)}/documents-verified`, { method: 'POST', body: JSON.stringify({ note }) }),
+  recordHeirConsent: (id: string, input: { beneficiaryId: string; heirName: string; heirRelation: string; decision: 'CONSENTED' | 'REFUSED'; note?: string }) => request<EstateCaseFile>(`/estate/cases/${encodeURIComponent(id)}/heir-consents`, { method: 'POST', body: JSON.stringify(input) }),
+  addEstateAccount: (id: string, input: { provider: string; destinationType: 'BANK_ACCOUNT'; reference: string; accountHolder: string; currency?: string }) => request<EstateCaseFile>(`/estate/cases/${encodeURIComponent(id)}/estate-account`, { method: 'POST', body: JSON.stringify(input) }),
+  findEstateRecipients: (id: string, q: string) => request<Array<{ id: string; name: string; email: string; kycApproved: boolean }>>(`/estate/cases/${encodeURIComponent(id)}/recipients?q=${encodeURIComponent(q)}`),
+  submitEstatePlan: (id: string, plan: EstateSettlementPlan) => request<EstateCaseFile>(`/estate/cases/${encodeURIComponent(id)}/plan`, { method: 'PUT', body: JSON.stringify(plan) }),
+  decideEstatePlan: (id: string, decision: 'APPROVE' | 'RETURN', note: string) => request<EstateCaseFile>(`/estate/cases/${encodeURIComponent(id)}/plan/decision`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
   getHibahOffer: (token: string) => request<HibahOffer>(`/estate/hibah/${encodeURIComponent(token)}`),
   answerHibah: (token: string, input: { decision: 'ACCEPT' | 'DECLINE'; fullName: string; identityLast4: string; asGuardian?: boolean }) => request<{ status: 'ACCEPTED' | 'DECLINED'; answeredAt: string }>(`/estate/hibah/${encodeURIComponent(token)}`, { method: 'POST', body: JSON.stringify(input) }),
   deleteBeneficiary: (id: string) => request<{ id: string }>(`/estate/beneficiaries/${encodeURIComponent(id)}`, { method: 'DELETE' }),

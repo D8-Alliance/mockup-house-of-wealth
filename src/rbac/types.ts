@@ -25,6 +25,7 @@ export type UserRole =
   | 'Risk Officer'
   | 'Fraud Analyst'
   | 'Legal Officer'
+  | 'Estate Officer'
   | 'Finance Officer'
   | 'Treasury Officer'
   | 'Settlement Officer'

@@ -41,6 +41,7 @@ enum UserRole {
   Risk_Officer
   Fraud_Analyst
   Legal_Officer
+  Estate_Officer
   Finance_Officer
   Treasury_Officer
   Settlement_Officer
@@ -70,6 +71,8 @@ model User {
   userType          String   @default("INDIVIDUAL")
   /// The country the account was registered in. Fixed: moving country means registering in that country.
   homeCountryNodeId String?
+  /// Set when an estate officer verifies the member's death; the account is frozen from then on.
+  deceasedAt        DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -1153,6 +1156,8 @@ model InvestmentOrder {
   settledBy        String?
   /// The investor's organisation is in the same corporate group as the organisation running the project.
   relatedParty     Boolean   @default(false)
+  /// The estate case that moved this holding: on the deceased's order (status TRANSFERRED) and on each heir's new order.
+  estateCaseId     String?
 
   pool         WealthPool              @relation(fields: [poolId], references: [poolId], onDelete: Restrict)
   akadTerms    PoolAkadTerms?          @relation(fields: [akadTermsId], references: [id], onDelete: Restrict)
@@ -2464,6 +2469,8 @@ model EstateBeneficiary {
   hibahQabulAsGuardian    Boolean?
   /// When and from where the answer was given (IP address, browser), kept as evidence of the akad.
   hibahQabulEvidence      Json?
+  /// A wasiyyah to a faraid heir or above one-third: valid only if the other heirs consent after death, which the estate officer records.
+  heirConsentRequired     Boolean   @default(false)
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
@@ -2587,4 +2594,102 @@ model ProjectPerformanceReport {
 
   @@unique([projectId, year, quarter])
   @@index([countryNodeId, status])
+}
+
+/// The owner's executor (wasi) or administrator, e.g. a family member, Amanah Raya Berhad or a trust company.
+model EstateExecutor {
+  id                      String   @id @default(cuid())
+  ownerUserId             String
+  name                    String
+  /// INDIVIDUAL, AMANAH_RAYA, TRUST_COMPANY or LAWYER.
+  kind                    String
+  relation                String?
+  email                   String?
+  phone                   String?
+  identityNumberEncrypted String?
+  identityNumberMasked    String?
+  isPrimary               Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  @@index([ownerUserId])
+}
+
+/// A member's estate after a reported death: verification, freezing, court documents, and the settlement of holdings.
+model EstateCase {
+  id                  String    @id @default(cuid())
+  caseNumber          String    @unique
+  deceasedUserId      String
+  countryNodeId       String
+  /// REPORTED, REJECTED, DEATH_VERIFIED, DOCUMENTS_VERIFIED, PLAN_SUBMITTED or SETTLED.
+  status              String    @default("REPORTED")
+  dateOfDeath         DateTime
+  /// Who reported it: a recorded executor or beneficiary of the deceased (EXECUTOR or BENEFICIARY and its id).
+  reporterName        String
+  reporterRelation    String
+  reporterKind        String
+  reporterRefId       String
+  reporterEmail       String?
+  reporterPhone       String?
+  reportEvidence      Json?
+  deathVerifiedBy     String?
+  deathVerifiedAt     DateTime?
+  documentsVerifiedBy String?
+  documentsVerifiedAt DateTime?
+  /// The settlement plan: per pool, who receives what share of the deceased's capital.
+  plan                Json?
+  planBy              String?
+  planAt              DateTime?
+  approvedBy          String?
+  approvedAt          DateTime?
+  settledAt           DateTime?
+  rejectedReason      String?
+  /// Steps, oldest first: { at, by, byName, action, note }.
+  history             Json      @default("[]")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  documents EstateCaseDocument[]
+  consents  EstateHeirConsent[]
+
+  @@index([countryNodeId, status])
+  @@index([deceasedUserId])
+}
+
+/// Death certificate, faraid certificate, probate, letters of administration and other evidence for an estate case.
+model EstateCaseDocument {
+  id           String   @id @default(cuid())
+  caseId       String
+  /// DEATH_CERTIFICATE, SIJIL_FARAID, PROBATE, LETTER_OF_ADMINISTRATION, HEIR_CONSENT or OTHER.
+  documentType String
+  fileName     String
+  mimeType     String
+  fileSize     Int
+  fileContent  Bytes
+  sha256       String
+  /// The officer's user id, or REPORTER for the death certificate sent with the report.
+  uploadedBy   String
+  createdAt    DateTime @default(now())
+
+  estateCase EstateCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+/// An heir's consent or refusal, after the death, to a wasiyyah that needs it.
+model EstateHeirConsent {
+  id            String   @id @default(cuid())
+  caseId        String
+  beneficiaryId String
+  heirName      String
+  heirRelation  String
+  /// CONSENTED or REFUSED.
+  decision      String
+  note          String   @default("")
+  recordedBy    String
+  createdAt     DateTime @default(now())
+
+  estateCase EstateCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
 }

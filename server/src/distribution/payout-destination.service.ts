@@ -24,6 +24,14 @@ export class PayoutDestinationService {
   constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, @Optional() private readonly notifications?: NotificationService) {}
 
   async create(actor: AuthenticatedUser, input: CreatePayoutDestinationDto) {
+    return this.createFor(actor, { userId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId }, input);
+  }
+
+  /**
+   * Adds a payout account for `owner`: normally the actor, or a deceased member's estate account added by the
+   * estate officer. It always starts unverified, so a settlement operator checks it like any other account.
+   */
+  async createFor(actor: AuthenticatedUser, owner: { userId: string; organisationId: string; countryNodeId: string }, input: CreatePayoutDestinationDto) {
     const reference = input.reference.trim();
     if (reference.replace(/[\s-]/g, '').length < 6) throw new BadRequestException('Enter the full account number (at least 6 digits).');
     const key = process.env.PAYOUT_DESTINATION_ENCRYPTION_KEY;
@@ -34,11 +42,11 @@ export class PayoutDestinationService {
     const encryptedReference = `${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${encrypted.toString('base64url')}`;
     const destinationHash = createHash('sha256').update(reference).digest('hex');
     const destination = await this.prisma.$transaction(async (tx) => {
-      const active = await tx.payoutDestination.count({ where: { ownerUserId: actor.userId, status: { not: 'REMOVED' } } });
+      const active = await tx.payoutDestination.count({ where: { ownerUserId: owner.userId, status: { not: 'REMOVED' } } });
       // The first account is the default; a later one becomes it only when asked.
       const isDefault = active === 0 || input.isDefault === true;
-      if (isDefault) await tx.payoutDestination.updateMany({ where: { ownerUserId: actor.userId, isDefault: true }, data: { isDefault: false } });
-      return tx.payoutDestination.create({ data: { ownerUserId: actor.userId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, provider: input.provider.trim(), destinationType: input.destinationType, encryptedReference, destinationHash, maskedReference: maskReference(reference), accountHolder: input.accountHolder?.trim() || null, currency: input.currency ?? null, isDefault, status: 'PENDING_VERIFICATION', cooldownUntil: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
+      if (isDefault) await tx.payoutDestination.updateMany({ where: { ownerUserId: owner.userId, isDefault: true }, data: { isDefault: false } });
+      return tx.payoutDestination.create({ data: { ownerUserId: owner.userId, organisationId: owner.organisationId, countryNodeId: owner.countryNodeId, provider: input.provider.trim(), destinationType: input.destinationType, encryptedReference, destinationHash, maskedReference: maskReference(reference), accountHolder: input.accountHolder?.trim() || null, currency: input.currency ?? null, isDefault, status: 'PENDING_VERIFICATION', cooldownUntil: new Date(Date.now() + 24 * 60 * 60 * 1000) } });
     });
     await this.audit.recordActor(actor, { action: 'payout.destination.create', resourceType: 'PayoutDestination', resourceId: destination.id, organisationId: destination.organisationId, countryNodeId: destination.countryNodeId, metadata: { provider: destination.provider, destinationType: destination.destinationType, destinationHash: destination.destinationHash } });
     return this.publicDestination(destination);

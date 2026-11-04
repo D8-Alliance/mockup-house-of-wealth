@@ -103,7 +103,7 @@ Untuk menunjuk sistem secara langsung tanpa mendedahkan backend, frontend boleh 
 - Frontend: `VITE_AUTH_MODE`, `VITE_OIDC_*`; `VITE_SINGLE_ROLE_MODE` mengehadkan log masuk demo kepada satu peranan ujian.
 
 ### 4.2 Peranan dan tugasan
-- **36 peranan** (`server/src/policy/permissions.ts`), dikumpulkan dalam frontend mengikut kumpulan (`src/rbac/roles/`).
+- **37 peranan** (`server/src/policy/permissions.ts`), dikumpulkan dalam frontend mengikut kumpulan (`src/rbac/roles/`).
 
 | Kumpulan | Peranan |
 |---|---|
@@ -112,7 +112,7 @@ Untuk menunjuk sistem secara langsung tanpa mendedahkan backend, frontend boleh 
 | Projek dan aset | Project Sponsor, Project Manager, Asset Owner, Asset Manager, Pool Manager |
 | Pelabur | Retail Investor, HNWI Investor, Institutional Investor, Corporate Investor, Family Office, Portfolio Manager |
 | Shariah | Shariah Advisor, Shariah Reviewer, Shariah Committee |
-| Pematuhan dan risiko | Compliance Officer, KYC Officer, KYB Officer, AML Officer, Risk Officer, Fraud Analyst, Legal Officer |
+| Pematuhan dan risiko | Compliance Officer, KYC Officer, KYB Officer, AML Officer, Risk Officer, Fraud Analyst, Legal Officer, Estate Officer |
 | Kewangan | Finance Officer, Treasury Officer, Settlement Officer, Reconciliation Officer, Auditor |
 | Lain-lain | Customer Support, Guest |
 
@@ -366,6 +366,16 @@ Logik "kontrak" (agihan mengikut nisbah akad, tolakan rugi, kunci terma) **sudah
 - Untuk individu (Retail, HNWI, Family Office) dan Asset Owner sahaja. Pemilik memilih rangka Islam (faraid, Hibah Amanah, wasiyyah) atau sivil (wasiat), disimpan dalam akaun.
 - Peraturan disemak di server: wasiyyah maksimum 1/3 dan tidak kepada waris faraid; bahagian waris faraid tidak ditetapkan pengguna; institusi bukan waris faraid.
 - Nombor ID benefisiari disulitkan AES-256-GCM (`ESTATE_DATA_ENCRYPTION_KEY`) dan dipaparkan bertopeng; setiap perubahan diaudit tanpa nombor ID.
+- **Wasiyyah yang perlukan persetujuan waris** (kepada waris faraid, atau melebihi 1/3) boleh disimpan jika pemilik mengesahkan ia sah hanya dengan persetujuan waris selepas kematian (`heirConsentRequired`).
+- **Qabul hibah:** pemilik menghantar pautan sekali guna dari skrin web atau mini-app; penerima menjawab di `/m/hibah/<token>` tanpa log masuk.
+- **Wasi/pentadbir** (`/estate/executors`): individu, Amanah Raya Berhad, syarikat amanah atau peguam, dengan nombor ID disulitkan.
+- **Kes pusaka** (`/estate/death-reports`, `/estate/cases`; peranan baharu **Estate Officer**, dengan Country Admin dan Super Admin sebagai pengganti):
+  1. **Lapor:** wasi atau benefisiari yang direkod melapor di `/m/estate/report` tanpa log masuk (nombor ID dan nama si mati, nama sendiri dan empat aksara akhir ID sendiri, sijil kematian). Jawapan sentiasa sama supaya borang tidak boleh digunakan untuk menyemak keahlian; hanya laporan yang sepadan membuka kes, dan pegawai negara itu dimaklumkan.
+  2. **Sahkan kematian:** akaun dibekukan (tidak boleh log masuk, pesanan PENDING dibatalkan, akaun bank payout digantung). Arahan pusaka dan pegangan hanya dipaparkan selepas itu, dan setiap paparan diaudit.
+  3. **Dokumen mahkamah:** Sijil Faraid, geran probet atau surat kuasa mentadbir dimuat naik dan disahkan; persetujuan atau penolakan setiap waris direkod bagi wasiyyah yang memerlukannya.
+  4. **Akaun bank pusaka:** didaftar atas nama si mati dan disahkan oleh Settlement seperti akaun lain; untung yang belum dibayar disalurkan ke situ.
+  5. **Pelan penyelesaian:** bagi setiap pool, penerima (pelabur berdaftar dengan KYC diluluskan dalam negara yang sama) dan bahagian (jumlah 100%); diluluskan oleh pegawai kedua (bukan penyedia pelan).
+  6. **Pindahan:** kelulusan memindahkan modal dalam lejar (transaksi `ESTATE_TRANSFER`) dari akaun pelabur si mati kepada setiap penerima, mencipta pesanan SETTLED di bawah terma akad yang sama, dan menanda pesanan serta sumbangan si mati `TRANSFERRED`. Penerima dimaklumkan. Aliran ini menunggu semakan Shariah dan undang-undang (item 16 dalam fail pending).
 
 ### 5.20 Akaun amanah (kutipan) bagi setiap negara (`/collection-accounts`)
 - Satu akaun amanah platform bagi setiap negara, bukan bagi setiap pool. Super Admin mengisinya di Admin Center › Country Nodes. Selagi kosong, pelabur diberitahu supaya tidak memindahkan wang. Kewangan melepaskan wang kepada projek mengikut tranche.

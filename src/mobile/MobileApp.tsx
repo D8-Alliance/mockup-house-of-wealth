@@ -7,10 +7,13 @@ import { UserProfile } from '../types';
 import { MobileShell } from './MobileShell';
 import { LanguageProvider, LanguageToggle, useT } from './i18n';
 import { HibahQabulPage } from './HibahQabulPage';
+import { DeathReportPage } from './DeathReportPage';
 import { MOBILE_BASE } from './mobilePath';
 
 /** /m/hibah/<token>: the hibah recipient's qabul link, answered without signing in. */
 const HIBAH_TOKEN = new RegExp(`^${MOBILE_BASE}/hibah/([A-Za-z0-9_-]{20,})/?$`).exec(window.location.pathname)?.[1];
+/** /m/estate/report: an executor or beneficiary reports a member's death, without signing in. */
+const DEATH_REPORT = new RegExp(`^${MOBILE_BASE}/estate/report/?$`).test(window.location.pathname);
 
 const GUEST: UserProfile = {
   id: 'GUEST-001',
@@ -41,6 +44,7 @@ const GUEST: UserProfile = {
  */
 export default function MobileApp() {
   if (HIBAH_TOKEN) return <LanguageProvider><HibahQabulPage token={HIBAH_TOKEN} /></LanguageProvider>;
+  if (DEATH_REPORT) return <LanguageProvider><DeathReportPage /></LanguageProvider>;
   return <SignedInMobileApp />;
 }
 

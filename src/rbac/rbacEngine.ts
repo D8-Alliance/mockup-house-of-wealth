@@ -52,7 +52,7 @@ export function canApproveWorkflow(role: UserRole, workflowName: string): boolea
  * Checks whether a role has read access to a specific tab.
  */
 /** Platform staff do not hold a membership or pay subscriptions; billing is for members and administrators. */
-const NO_BILLING_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Guest', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee', 'Legal Officer', 'KYC Officer', 'KYB Officer', 'AML Officer', 'Auditor', 'AI Model Reviewer', 'Fraud Analyst']);
+const NO_BILLING_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Guest', 'Finance Officer', 'Risk Officer', 'Compliance Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee', 'Legal Officer', 'KYC Officer', 'KYB Officer', 'AML Officer', 'Auditor', 'AI Model Reviewer', 'Fraud Analyst', 'Estate Officer']);
 
 export function isTabAccessible(role: UserRole, tab: NavTab): boolean {
   if (tab === 'billing-transactions' || tab === 'membership') return !NO_BILLING_ROLES.has(role);

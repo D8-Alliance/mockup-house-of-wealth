@@ -6,8 +6,8 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { NotificationDeliveryService } from '../notifications/notification-delivery.service';
 import { NotificationService } from '../notifications/notification.service';
-import { HibahAnswerDto, SaveBeneficiaryDto } from './estate.dto';
-import { estateRuleError, EstateItem, hasOwnerSetShare, maskIdentity } from './estate-rules';
+import { HibahAnswerDto, SaveBeneficiaryDto, SaveExecutorDto } from './estate.dto';
+import { estateRuleError, EstateItem, hasOwnerSetShare, heirConsentReason, maskIdentity } from './estate-rules';
 
 /** What the owner sees: everything but the encrypted identity number. */
 export type BeneficiaryView = Omit<EstateBeneficiary, 'identityNumberEncrypted' | 'allocationPercent' | 'hibahQabulTokenHash' | 'hibahQabulEvidence'> & { allocationPercent: number | null };
@@ -74,6 +74,40 @@ export class EstateService {
       await tx.estateBeneficiary.delete({ where: { id } });
       await this.record(actor, 'estate.beneficiary.delete', existing, tx);
     });
+    return { id };
+  }
+
+  // ---- Executors (wasi) and administrators ----
+
+  async listExecutors(actor: AuthenticatedUser) {
+    const rows = await this.prisma.estateExecutor.findMany({ where: { ownerUserId: actor.userId }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] });
+    return rows.map(({ identityNumberEncrypted: _hidden, ...row }) => row);
+  }
+
+  async saveExecutor(actor: AuthenticatedUser, input: SaveExecutorDto, id?: string) {
+    const existing = id ? await this.prisma.estateExecutor.findFirst({ where: { id, ownerUserId: actor.userId } }) : null;
+    if (id && !existing) throw new NotFoundException('Executor not found.');
+    const identityNumber = input.identityNumber?.trim() || null;
+    const data = {
+      name: input.name.trim(), kind: input.kind, relation: input.relation?.trim() || null,
+      email: input.email?.trim() || null, phone: input.phone?.trim() || null, isPrimary: input.isPrimary === true,
+      ...(identityNumber ? { identityNumberEncrypted: encrypt(identityNumber), identityNumberMasked: maskIdentity(identityNumber) } : {}),
+    };
+    const saved = await this.prisma.$transaction(async (tx) => {
+      if (data.isPrimary) await tx.estateExecutor.updateMany({ where: { ownerUserId: actor.userId, isPrimary: true, ...(id ? { id: { not: id } } : {}) }, data: { isPrimary: false } });
+      const row = id ? await tx.estateExecutor.update({ where: { id }, data }) : await tx.estateExecutor.create({ data: { ...data, ownerUserId: actor.userId } });
+      await this.audit.recordActor(actor, { action: id ? 'estate.executor.update' : 'estate.executor.create', resourceType: 'EstateExecutor', resourceId: row.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { kind: row.kind, isPrimary: row.isPrimary } }, tx);
+      return row;
+    });
+    const { identityNumberEncrypted: _hidden, ...row } = saved;
+    return row;
+  }
+
+  async removeExecutor(actor: AuthenticatedUser, id: string) {
+    const existing = await this.prisma.estateExecutor.findFirst({ where: { id, ownerUserId: actor.userId } });
+    if (!existing) throw new NotFoundException('Executor not found.');
+    await this.prisma.estateExecutor.delete({ where: { id } });
+    await this.audit.recordActor(actor, { action: 'estate.executor.delete', resourceType: 'EstateExecutor', resourceId: id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { kind: existing.kind } });
     return { id };
   }
 
@@ -160,8 +194,11 @@ export class EstateService {
   /** Checks the estate rules and the hibah akad, and turns the input into stored fields. */
   private prepare(input: SaveBeneficiaryDto, others: EstateItem[], existing: EstateBeneficiary | null) {
     const allocationPercent = hasOwnerSetShare(input.distributionType) ? input.allocationPercent ?? null : null;
-    const ruleError = estateRuleError({ relation: input.relation, distributionType: input.distributionType, allocationPercent }, others);
+    const item = { relation: input.relation, distributionType: input.distributionType, allocationPercent };
+    const ruleError = estateRuleError(item, others, input.heirConsentAcknowledged === true);
     if (ruleError) throw new BadRequestException(ruleError);
+    // Kept only if the heirs agree after the death; the estate officer records their answers.
+    const heirConsentRequired = Boolean(heirConsentReason(item, others));
     const identityNumber = input.identityNumber?.trim() || null;
     const keepsIdentity = !identityNumber && Boolean(existing?.identityNumberEncrypted);
     const isHibah = input.distributionType === 'Hibah Amanah';
@@ -181,6 +218,7 @@ export class EstateService {
       ...(identityNumber ? { identityNumberEncrypted: encrypt(identityNumber), identityNumberMasked: maskIdentity(identityNumber) } : {}),
       payoutMethod: input.payoutMethod.trim(),
       isPrimary: input.isPrimary === true,
+      heirConsentRequired,
       // The offer keeps its first date; a beneficiary no longer under hibah has no akad.
       hibahIjabAt: isHibah ? existing?.hibahIjabAt ?? new Date() : null,
       hibahQabulStatus: isHibah ? existing?.hibahQabulStatus ?? 'AWAITING' : null,
@@ -199,7 +237,7 @@ function view(row: EstateBeneficiary): BeneficiaryView {
 }
 
 /** AES-256-GCM with its own key, as iv.tag.ciphertext; the same scheme as payout account numbers. */
-function encrypt(value: string): string {
+export function encrypt(value: string): string {
   const key = process.env.ESTATE_DATA_ENCRYPTION_KEY;
   if (!key) throw new ServiceUnavailableException('Estate data encryption is not configured (ESTATE_DATA_ENCRYPTION_KEY).');
   const iv = randomBytes(12);

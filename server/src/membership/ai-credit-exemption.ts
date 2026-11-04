@@ -30,6 +30,7 @@ export const AI_CREDIT_EXEMPT_ROLES: ReadonlySet<UserRole> = new Set<UserRole>([
   'AML Officer',
   'Risk Officer',
   'Fraud Analyst',
+  'Estate Officer',
   'Legal Officer',
   'Auditor',
   'AI Model Reviewer',

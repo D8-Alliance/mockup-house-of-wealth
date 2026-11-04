@@ -217,5 +217,36 @@ export const COMPLIANCE_ROLES: Record<string, RoleDefinition> = {
       organization: 'Fraud Intelligence Center',
       avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'
     }
+  },
+  'Estate Officer': {
+    role: 'Estate Officer',
+    title: 'Estate & Succession Officer',
+    category: 'Governance & Risk',
+    description: 'Handles a member\'s estate after a reported death: verifies the death and the faraid certificate, probate or letters of administration, freezes the account, and settles investments to the heirs. Reads estate instructions only once a death is reported.',
+    badgeColor: 'bg-stone-500/10 text-stone-700 dark:text-stone-300 border-stone-500/30',
+    accessibleTabs: ['dashboard', 'estate-cases', 'profile'],
+    permissions: {
+      dashboard: ['read'],
+      assets: [],
+      contracts: [],
+      marketplace: [],
+      pooling: [],
+      ledger: [],
+      profile: ['read', 'update'],
+      governance: [],
+      approvals: [],
+      users: ['read'],
+      audit_logs: [],
+      reports: []
+    },
+    approvalRights: ['Death verification', 'Estate settlement plan (maker-checker)'],
+    reportsAvailable: ['Estate case file'],
+    notifications: ['New death report to verify'],
+    demoUser: {
+      name: 'Estate Officer',
+      email: 'estate.officer@example.com',
+      organization: 'Estate & Succession Unit',
+      avatarUrl: ''
+    }
   }
 };

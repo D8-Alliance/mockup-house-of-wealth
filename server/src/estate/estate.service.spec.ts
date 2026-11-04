@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EstateService } from './estate.service';
-import { estateRuleError } from './estate-rules';
+import { estateRuleError, heirConsentReason } from './estate-rules';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -17,6 +17,15 @@ describe('estate rules', () => {
     expect(estateRuleError(wasiyyah(20), [wasiyyah(13)])).toBeNull();
     expect(estateRuleError(wasiyyah(20), [wasiyyah(14)])).toMatch(/one-third/);
     expect(estateRuleError({ relation: 'Child', distributionType: 'Wasiyyah', allocationPercent: 5 }, [])).toMatch(/faraid heir/);
+  });
+
+  it('keeps a wasiyyah that needs the heirs\' consent only when the owner confirms it', () => {
+    const toChild = { relation: 'Child', distributionType: 'Wasiyyah', allocationPercent: 5 };
+    expect(estateRuleError(toChild, [], true)).toBeNull();
+    expect(heirConsentReason(toChild, [])).toMatch(/other heirs agree/);
+    expect(estateRuleError(wasiyyah(20), [wasiyyah(14)], true)).toBeNull();
+    expect(heirConsentReason(wasiyyah(20), [wasiyyah(14)])).toMatch(/above one-third/);
+    expect(heirConsentReason(wasiyyah(20), [wasiyyah(13)])).toBeNull();
   });
 
   it('lets faraid fix an heir\'s share, and keeps institutions out of faraid', () => {
