@@ -97,7 +97,7 @@ const Answer: React.FC<{ message: BackendAiMessage }> = ({ message }) => {
     <div className="mr-6 rounded-2xl rounded-bl-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-2.5 space-y-2">
       <p className="text-sm whitespace-pre-wrap">{serverText(message.content)}</p>
       <div className="flex flex-wrap items-center gap-1.5">
-        {confidence && <span className={`text-[10px] font-black rounded-full px-2 py-0.5 ${CONFIDENCE_STYLE[confidence.level] ?? CONFIDENCE_STYLE.LOW}`}>{t(`Support: ${confidence.level.toLowerCase()}`)}</span>}
+        {confidence && message.metadata?.groundingStatus !== 'NO_SOURCES' && <span className={`text-[10px] font-black rounded-full px-2 py-0.5 ${CONFIDENCE_STYLE[confidence.level] ?? CONFIDENCE_STYLE.LOW}`}>{t(`Support: ${confidence.level.toLowerCase()}`)}</span>}
         {citations.length > 0 && <button type="button" onClick={() => setOpen(value => !value)} className="flex items-center gap-1 text-[11px] font-black text-emerald-700 dark:text-emerald-400"><BookOpen className="w-3.5 h-3.5" />{open ? t('Hide sources') : t('{count} source(s)', { count: citations.length })}</button>}
       </div>
       {open && (
