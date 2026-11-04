@@ -10,11 +10,31 @@ const expiryLabel = (label: string) => EXPIRY_LABELS[label.toLowerCase()] ?? lab
 const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 /** The lease deposits as the server names them, in Malay. */
 const DEPOSIT_NAMES: Record<string, string> = { security: 'deposit sekuriti', utility: 'deposit utiliti', renovation: 'deposit ubah suai' };
+/** Asset types, detail fields and required documents as the server names them when an asset cannot be submitted. */
+const ASSET_TYPE_MS: Record<string, string> = { land: 'tanah', vehicle: 'kenderaan', machine: 'jentera', equipment: 'peralatan', building: 'bangunan', asset: 'aset' };
+const ASSET_FIELD_MS: Record<string, string> = {
+  'JKKP certificate expiry': 'tarikh tamat sijil JKKP', 'JKKP certificate number': 'nombor sijil JKKP', area: 'keluasan', 'building use': 'kegunaan bangunan',
+  'chassis number': 'nombor casis', district: 'daerah', 'engine number': 'nombor enjin', 'floor area': 'keluasan lantai', 'freehold or leasehold': 'pegangan bebas atau pajakan',
+  'land use category': 'kategori kegunaan tanah', 'lease expiry date': 'tarikh tamat pajakan', 'lot number': 'nombor lot', make: 'jenama', manufacturer: 'pengeluar', model: 'model',
+  mukim: 'mukim', 'parcel number': 'nombor petak', 'registration number': 'nombor pendaftaran', 'serial number': 'nombor siri', state: 'negeri', 'strata title number': 'nombor hakmilik strata',
+  'title kind': 'jenis hakmilik', 'title number': 'nombor hakmilik', 'title type': 'jenis hakmilik', 'year completed': 'tahun siap', 'year of manufacture': 'tahun dibuat',
+};
+const ASSET_DOCUMENT_MS: Record<string, string> = {
+  'proof of ownership (land title, JPJ ownership certificate, purchase invoice, or building title or sale agreement)': 'bukti pemilikan (geran tanah, sijil pemilikan JPJ, invois pembelian, atau hakmilik bangunan atau perjanjian jual beli)',
+  'official land search (Carian Rasmi)': 'carian rasmi tanah',
+  'a photo of the serial plate': 'gambar plat siri',
+  'the JKKP certificate of fitness (PMA)': 'perakuan kelayakan JKKP (PMA)',
+  'the completion certificate (CCC or certificate of fitness)': 'sijil siap (CCC atau perakuan layak menduduki)',
+};
 
 /** The sides of an agreement as the server names them, in Malay (capitalised: they start a sentence). */
 const PARTY_MS: Record<string, string> = { 'asset owner': 'Pemilik aset', tenant: 'Penyewa', 'delivery partner': 'Rakan pelaksana' };
 
 export const MS_SERVER_TEXT: Array<[RegExp, string | ((match: RegExpExecArray) => string)]> = [
+  // Asset submission
+  [/^Complete the (land|vehicle|machine|equipment|building|asset) details first: (.+)\.$/, (match) => `Lengkapkan butiran ${ASSET_TYPE_MS[match[1]]} dahulu: ${match[2].split(', ').map((field) => ASSET_FIELD_MS[field] ?? field).join(', ')}.`],
+  [/^Upload (.+) first\.$/, (match) => `Muat naik ${match[1].split(' and ').map((label) => ASSET_DOCUMENT_MS[label] ?? label).join(' dan ')} dahulu.`],
+
   // Problem projects
   [/^Your order (\S+) for (.+?) was cancelled: (.+?) was withdrawn \((.+)\)\. Do not transfer money for it; if you already did, contact support for a refund\.$/, 'Pesanan $1 sebanyak $2 telah dibatalkan: $3 telah ditarik balik ($4). Jangan pindahkan wang untuknya; jika sudah, hubungi khidmat pelanggan untuk bayaran balik.'],
   [/^(.+?) was withdrawn by an administrator: (.+)$/, '$1 telah ditarik balik oleh pentadbir: $2'],

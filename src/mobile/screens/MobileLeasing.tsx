@@ -88,6 +88,7 @@ const OwnerUnits: React.FC = () => {
   const [data, setData] = useState<{ assets: Array<{ id: string; name: string }>; units: MyLeasableUnit[] } | null>(null);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<MyLeasableUnit | null>(null);
   const [busy, setBusy] = useState('');
   const load = useCallback(() => { setError(''); apiClient.getMyLeasableUnits().then(setData).catch((cause) => setError(errorText(cause, t('Your units could not be loaded.')))); }, [t]);
   useEffect(load, [load]);
@@ -97,7 +98,7 @@ const OwnerUnits: React.FC = () => {
     try { await apiClient.updateLeasableUnit(unit.id, { status: unit.status === 'LISTED' ? 'WITHDRAWN' : 'LISTED' }); load(); } catch (cause) { setError(errorText(cause, t('The unit could not be changed.'))); } finally { setBusy(''); }
   };
 
-  if (adding && data) return <UnitForm assets={data.assets} onDone={(saved) => { setAdding(false); if (saved) load(); }} />;
+  if ((adding || editing) && data) return <UnitForm assets={data.assets} unit={editing ?? undefined} onDone={(saved) => { setAdding(false); setEditing(null); if (saved) load(); }} />;
   return (
     <div className="space-y-3">
       {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
@@ -122,7 +123,10 @@ const OwnerUnits: React.FC = () => {
               <UnitDeposits unit={unit} />
               {unit.occupiedUntil && <p className="text-xs font-bold text-sky-700 dark:text-sky-300">{t('Leased until {date}', { date: unit.occupiedUntil })}</p>}
               {unit.requests > 0 && <p className="text-xs font-bold text-amber-700 dark:text-amber-300">{t('{count} request(s) waiting for your answer: see Leases.', { count: unit.requests })}</p>}
-              <button type="button" disabled={busy === unit.id} onClick={() => toggle(unit)} className={secondary}>{unit.status === 'LISTED' ? t('Stop listing') : t('List again')}</button>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setEditing(unit)} className={secondary}>{t('Edit terms')}</button>
+                <button type="button" disabled={busy === unit.id} onClick={() => toggle(unit)} className={secondary}>{unit.status === 'LISTED' ? t('Stop listing') : t('List again')}</button>
+              </div>
             </section>
           ))}
         </>
@@ -131,9 +135,12 @@ const OwnerUnits: React.FC = () => {
   );
 };
 
-const UnitForm: React.FC<{ assets: Array<{ id: string; name: string }>; onDone: (saved: boolean) => void }> = ({ assets, onDone }) => {
+/** Adds a unit, or with `unit` changes its terms; leases already requested keep the terms they were made on. */
+const UnitForm: React.FC<{ assets: Array<{ id: string; name: string }>; unit?: MyLeasableUnit; onDone: (saved: boolean) => void }> = ({ assets, unit, onDone }) => {
   const { t } = useT();
-  const [form, setForm] = useState({ assetId: assets[0]?.id ?? '', label: '', floorArea: '', floorAreaUnit: 'SQFT', monthlyRent: '', depositMonths: '2', utilityDepositMonths: '1', renovationDeposit: '0', utilitiesPaidBy: 'TENANT_DIRECT', minTermMonths: '12', availableFrom: '', permittedUse: '', description: '' });
+  const [form, setForm] = useState(unit
+    ? { assetId: unit.assetId, label: unit.label, floorArea: unit.floorArea ? String(unit.floorArea) : '', floorAreaUnit: unit.floorAreaUnit, monthlyRent: String(unit.monthlyRent), depositMonths: String(unit.depositMonths), utilityDepositMonths: String(unit.utilityDepositMonths), renovationDeposit: String(unit.renovationDeposit), utilitiesPaidBy: unit.utilitiesPaidBy as string, minTermMonths: String(unit.minTermMonths), availableFrom: unit.availableFrom ?? '', permittedUse: unit.permittedUse, description: unit.description }
+    : { assetId: assets[0]?.id ?? '', label: '', floorArea: '', floorAreaUnit: 'SQFT', monthlyRent: '', depositMonths: '2', utilityDepositMonths: '1', renovationDeposit: '0', utilitiesPaidBy: 'TENANT_DIRECT', minTermMonths: '12', availableFrom: '', permittedUse: '', description: '' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const set = (key: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(current => ({ ...current, [key]: event.target.value }));
@@ -147,13 +154,20 @@ const UnitForm: React.FC<{ assets: Array<{ id: string; name: string }>; onDone: 
       ...(form.floorArea ? { floorArea: Number(form.floorArea) } : {}), ...(form.availableFrom ? { availableFrom: form.availableFrom } : {}),
       permittedUse: form.permittedUse, description: form.description,
     };
-    try { await apiClient.createLeasableUnit(body); onDone(true); } catch (cause) { setError(errorText(cause, t('The unit could not be saved.'))); } finally { setSaving(false); }
+    try {
+      if (unit) {
+        const { assetId: _asset, currency: _currency, ...changes } = body;
+        await apiClient.updateLeasableUnit(unit.id, changes);
+      } else await apiClient.createLeasableUnit(body);
+      onDone(true);
+    } catch (cause) { setError(errorText(cause, t('The unit could not be saved.'))); } finally { setSaving(false); }
   };
   return (
     <form onSubmit={save} className="space-y-3">
       <button type="button" onClick={() => onDone(false)} className="flex items-center gap-1 text-sm font-bold text-emerald-700 dark:text-emerald-400"><ArrowLeft className="w-4 h-4" />{t('My units')}</button>
-      <h2 className="text-base font-black">{t('Add a unit for rent')}</h2>
-      <label className="block text-xs font-bold text-slate-500">{t('Asset')}<select required value={form.assetId} onChange={set('assetId')} className={input}>{assets.map(asset => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</select></label>
+      <h2 className="text-base font-black">{unit ? t('Edit {unit}', { unit: unit.label }) : t('Add a unit for rent')}</h2>
+      {unit && <p className="text-[11px] text-slate-500">{t('New terms apply to new requests. Leases already requested keep the terms they were made on.')}</p>}
+      <label className="block text-xs font-bold text-slate-500">{t('Asset')}<select required disabled={!!unit} value={form.assetId} onChange={set('assetId')} className={input}>{assets.map(asset => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</select></label>
       <label className="block text-xs font-bold text-slate-500">{t('Unit name (e.g. Floor 7, Lot G-03, whole building)')}<input required minLength={2} maxLength={80} value={form.label} onChange={set('label')} className={input} /></label>
       <div className="grid grid-cols-[1fr_auto] gap-2">
         <label className="block text-xs font-bold text-slate-500">{t('Floor area')}<input type="number" min={1} inputMode="decimal" value={form.floorArea} onChange={set('floorArea')} className={input} /></label>
@@ -169,11 +183,11 @@ const UnitForm: React.FC<{ assets: Array<{ id: string; name: string }>; onDone: 
         <label className="block text-xs font-bold text-slate-500">{t('Renovation deposit (RM)')}<input required type="number" min={0} step="0.01" value={form.renovationDeposit} onChange={set('renovationDeposit')} className={input} /></label>
       </div>
       <label className="block text-xs font-bold text-slate-500">{t('Electricity and water')}<select value={form.utilitiesPaidBy} onChange={set('utilitiesPaidBy')} className={input}><option value="TENANT_DIRECT">{t('Tenant pays TNB and water directly')}</option><option value="OWNER_RECHARGE">{t('Owner pays and bills the tenant at cost')}</option></select></label>
-      <label className="block text-xs font-bold text-slate-500">{t('Available from')}<input type="date" min={today()} value={form.availableFrom} onChange={set('availableFrom')} className={input} /></label>
+      <label className="block text-xs font-bold text-slate-500">{t('Available from')}<input type="date" min={unit ? undefined : today()} value={form.availableFrom} onChange={set('availableFrom')} className={input} /></label>
       <label className="block text-xs font-bold text-slate-500">{t('Permitted use (e.g. Office)')}<input maxLength={160} value={form.permittedUse} onChange={set('permittedUse')} className={input} /></label>
       <label className="block text-xs font-bold text-slate-500">{t('Description')}<textarea maxLength={2000} rows={3} value={form.description} onChange={set('description')} className={input} /></label>
       {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
-      <button type="submit" disabled={saving} className={primary}>{saving ? t('Saving...') : t('List the unit')}</button>
+      <button type="submit" disabled={saving} className={primary}>{saving ? t('Saving...') : unit ? t('Save') : t('List the unit')}</button>
     </form>
   );
 };

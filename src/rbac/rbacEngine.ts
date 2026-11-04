@@ -29,10 +29,22 @@ const ASSET_PARTNERSHIP_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Asset
 /** Asset Register: owners register assets, reviewers verify them. Mirrors server/src/assets/assets.controller.ts. */
 const ASSET_REGISTER_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Asset Owner', 'Asset Manager', 'Super Admin', 'Country Admin', 'Legal Officer']);
 
+/**
+ * Who may read pools: mirrors "pooling: read" in server/src/policy/permissions.ts. The Wealth Pooling and
+ * Marketplace tabs list pools, so for anyone else they would only show the server's refusal. Guests keep the
+ * marketplace they see before signing in.
+ */
+const POOL_READ_ROLES: ReadonlySet<UserRole> = new Set<UserRole>([
+  'Super Admin', 'Country Admin', 'Organization Admin', 'Project Sponsor', 'Project Manager', 'Pool Manager',
+  'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office', 'Portfolio Manager',
+  'Finance Officer', 'Treasury Officer', 'Settlement Officer',
+]);
+const readsPools = (role: UserRole, tab: NavTab) => (tab !== 'pooling' && tab !== 'marketplace') || role === 'Guest' || POOL_READ_ROLES.has(role);
+
 export function getAccessibleTabs(role: UserRole): NavTab[] {
   const roleDef = ROLE_DEFINITIONS[role];
   if (!roleDef) return [];
-  const tabs = roleDef.accessibleTabs.filter((tab) => tab !== 'assets' || ASSET_REGISTER_ROLES.has(role));
+  const tabs = roleDef.accessibleTabs.filter((tab) => (tab !== 'assets' || ASSET_REGISTER_ROLES.has(role)) && readsPools(role, tab));
   if (ASSET_REGISTER_ROLES.has(role) && !tabs.includes('assets')) tabs.push('assets');
   return ASSET_PARTNERSHIP_ROLES.has(role) ? [...tabs, 'asset-partnerships'] : tabs;
 }
@@ -58,6 +70,7 @@ export function isTabAccessible(role: UserRole, tab: NavTab): boolean {
   if (tab === 'billing-transactions' || tab === 'membership') return !NO_BILLING_ROLES.has(role);
   if (tab === 'asset-partnerships') return ASSET_PARTNERSHIP_ROLES.has(role);
   if (tab === 'assets') return ASSET_REGISTER_ROLES.has(role);
+  if (!readsPools(role, tab)) return false;
   const roleDef = ROLE_DEFINITIONS[role];
   if (!roleDef) return false;
   return roleDef.accessibleTabs.includes(tab);

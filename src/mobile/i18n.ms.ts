@@ -1135,4 +1135,8 @@ export const MS: Record<string, string> = {
   "Refund the {deposit}": "Pulangkan {deposit}",
   "Deduct only electricity, water and sewerage bills for the lease that are still unpaid, with the bill as the reason.": "Tolak hanya bil elektrik, air dan pembetungan bagi tempoh sewaan yang belum dibayar, dengan bil sebagai sebabnya.",
   "Refund once the fit-out is done and inspected. Deduct only the actual cost of making good damage caused by the works.": "Pulangkan setelah kerja ubah suai siap dan diperiksa. Tolak hanya kos sebenar membaiki kerosakan akibat kerja tersebut.",
+  // Edit a unit
+  "Edit terms": "Ubah terma",
+  "Edit {unit}": "Ubah {unit}",
+  "New terms apply to new requests. Leases already requested keep the terms they were made on.": "Terma baharu terpakai kepada permohonan baharu. Sewaan yang sudah dimohon kekal dengan terma asalnya.",
 };

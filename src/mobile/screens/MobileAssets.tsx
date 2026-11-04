@@ -103,7 +103,7 @@ export function expiries(asset: RegisteredAsset) {
  * delivery partners' offers. A verified asset can then be leased out under Leasing.
  */
 export const MobileAssets: React.FC = () => {
-  const { t } = useT();
+  const { t, serverText } = useT();
   const [assets, setAssets] = useState<RegisteredAsset[] | null>(null);
   const [engagements, setEngagements] = useState<AssetEngagement[]>([]);
   const [error, setError] = useState('');
@@ -126,7 +126,7 @@ export const MobileAssets: React.FC = () => {
         <p className="text-xs text-slate-500">{t('Register an asset, upload its documents and have it verified. A verified asset can be leased out or offered to projects.')}</p>
       </div>
       <button type="button" onClick={() => setView({ kind: 'form' })} className={`${primary} flex items-center justify-center gap-1.5`}><Plus className="w-4 h-4" />{t('Register an asset')}</button>
-      {error && <p role="alert" className={alert}>{error}</p>}
+      {error && <p role="alert" className={alert}>{serverText(error)}</p>}
       {!assets && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
       {assets && shown.length === 0 && <p className="text-xs text-slate-500">{t('No asset registered yet.')}</p>}
       {shown.map(asset => {
@@ -152,7 +152,7 @@ export const MobileAssets: React.FC = () => {
 };
 
 const AssetForm: React.FC<{ asset?: RegisteredAsset; onBack: () => void; onSaved: (asset: RegisteredAsset) => void }> = ({ asset, onBack, onSaved }) => {
-  const { t } = useT();
+  const { t, serverText } = useT();
   const [type, setType] = useState<AssetTypeCode>(asset?.assetType ?? 'BUILDING');
   const [form, setForm] = useState({
     name: asset?.name ?? '', description: asset?.description ?? '', location: asset?.location ?? '', estimatedValue: asset ? String(asset.estimatedValue) : '', currency: asset?.currency ?? 'MYR',
@@ -228,7 +228,7 @@ const AssetForm: React.FC<{ asset?: RegisteredAsset; onBack: () => void; onSaved
       <label className="flex items-start gap-2 text-xs font-bold"><input type="checkbox" checked={form.isEncumbered} onChange={(event) => set('isEncumbered', event.target.checked)} className="mt-0.5 w-4 h-4" />{t('Charged to a bank or otherwise pledged')}</label>
       {form.isEncumbered && <label className="block text-xs font-bold text-slate-500">{t('Who holds the charge, and is the financing Islamic?')}<input maxLength={500} value={form.encumbranceNote} onChange={(event) => set('encumbranceNote', event.target.value)} className={input} /></label>}
       <label className="block text-xs font-bold text-slate-500">{t('Description')}<textarea maxLength={2000} rows={3} value={form.description} onChange={(event) => set('description', event.target.value)} className={input} /></label>
-      {error && <p role="alert" className={alert}>{error}</p>}
+      {error && <p role="alert" className={alert}>{serverText(error)}</p>}
       <button type="submit" disabled={saving} className={primary}>{saving ? t('Saving...') : t('Save')}</button>
       <p className="text-[11px] text-slate-500">{t('Fields marked * are needed before the asset can be submitted; you can save a draft without them.')}</p>
     </form>
@@ -236,7 +236,7 @@ const AssetForm: React.FC<{ asset?: RegisteredAsset; onBack: () => void; onSaved
 };
 
 const AssetDetail: React.FC<{ id: string; engagements: AssetEngagement[]; onBack: () => void; onEdit: (asset: RegisteredAsset) => void; onChanged: () => void }> = ({ id, engagements, onBack, onEdit, onChanged }) => {
-  const { t, locale } = useT();
+  const { t, locale, serverText } = useT();
   const [asset, setAsset] = useState<RegisteredAsset | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
@@ -267,7 +267,7 @@ const AssetDetail: React.FC<{ id: string; engagements: AssetEngagement[]; onBack
     await act(`upload-${type}`, async () => apiClient.uploadAssetDocument(asset.id, type, file, type === 'SITE_PHOTO' ? await position() : undefined));
   };
 
-  if (!asset) return <div className="space-y-4"><button type="button" onClick={onBack} className={back}><ArrowLeft className="w-4 h-4" />{t('My assets')}</button>{error ? <p role="alert" className={alert}>{error}</p> : <p className="text-sm text-slate-500">{t('Loading...')}</p>}</div>;
+  if (!asset) return <div className="space-y-4"><button type="button" onClick={onBack} className={back}><ArrowLeft className="w-4 h-4" />{t('My assets')}</button>{error ? <p role="alert" className={alert}>{serverText(error)}</p> : <p className="text-sm text-slate-500">{t('Loading...')}</p>}</div>;
 
   const editable = ASSET_EDITABLE.has(asset.status);
   const checklist = documentChecklist(asset.assetType, asset.details);
@@ -285,7 +285,7 @@ const AssetDetail: React.FC<{ id: string; engagements: AssetEngagement[]; onBack
       </div>
       {asset.reviewNote && ['CHANGES_REQUESTED', 'REJECTED'].includes(asset.status) && <p className="rounded-xl bg-amber-50 dark:bg-amber-500/10 p-3 text-xs font-bold text-amber-800 dark:text-amber-200">{t('Reviewer: {note}', { note: asset.reviewNote })}</p>}
       {asset.status === 'VERIFIED' && <p className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-3 text-xs font-bold text-emerald-800 dark:text-emerald-200">{t('Verified. You can lease it out under Leasing, or offer it to projects.')}</p>}
-      {error && <p role="alert" className={alert}>{error}</p>}
+      {error && <p role="alert" className={alert}>{serverText(error)}</p>}
 
       {dates.length > 0 && (
         <section className={`${card} space-y-1.5`}>
@@ -357,7 +357,7 @@ const ENGAGEMENT_STATUS: Record<string, string> = { PROPOSED: 'Under discussion'
 
 /** Delivery partners' offers and requests for this asset: accept or decline here; a counter-offer is made on the web portal. */
 const Offers: React.FC<{ engagements: AssetEngagement[]; onChanged: () => void }> = ({ engagements, onChanged }) => {
-  const { t, locale } = useT();
+  const { t, locale, serverText } = useT();
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -370,7 +370,7 @@ const Offers: React.FC<{ engagements: AssetEngagement[]; onChanged: () => void }
   return (
     <section className={`${card} space-y-3`}>
       <h2 className="text-sm font-black">{t('Project offers')}</h2>
-      {error && <p role="alert" className={alert}>{error}</p>}
+      {error && <p role="alert" className={alert}>{serverText(error)}</p>}
       {engagements.map(engagement => (
         <div key={engagement.id} className="space-y-1.5 border-t border-slate-100 dark:border-slate-800 pt-2 first:border-0 first:pt-0">
           <p className="text-xs font-black">{engagement.project.projectName}</p>
