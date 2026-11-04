@@ -40,6 +40,27 @@ describe('Ijarah agreement of a direct lease', () => {
   });
 });
 
+describe('the utility and renovation deposits in a lease agreement', () => {
+  const withDeposits = { ...deal, lease: { ...deal.lease, utilityDepositAmount: 25500, renovationDepositAmount: 10000, utilitiesPaidBy: 'OWNER_RECHARGE' } };
+  const { sections } = buildAgreement({ contractType: 'IJARAH', title: 'Ijarah Agreement', projectName: 'Tingkat 7, Menara Hidayah', jurisdiction: 'Malaysia', wizardData: wizard, parties, deal: withDeposits }, [], []);
+  const text = sections.map((section) => section.paragraphs.join(' ')).join(' ');
+
+  it('holds each deposit in trust for its own purpose and says who pays electricity and water', () => {
+    expect(text).toContain('Utility Deposit of RM 25,500.00');
+    expect(text).toContain('Renovation Deposit of RM 10,000.00');
+    expect(text).toContain('recovers from the Lessee the charges for the Lease Period at cost');
+    const particulars = sections.find((section) => section.title === 'Particulars')!.paragraphs;
+    expect(particulars).toEqual(expect.arrayContaining(['Utility Deposit: RM 25,500.00', 'Renovation Deposit: RM 10,000.00', 'Electricity and water: paid by the Lessor and recovered from the Lessee at cost']));
+  });
+
+  it('leaves out deposits that are not held', () => {
+    const { sections: plain } = buildAgreement({ contractType: 'IJARAH', title: 'Ijarah Agreement', projectName: 'Tingkat 7', jurisdiction: 'Malaysia', wizardData: wizard, parties, deal }, [], []);
+    const words = plain.map((section) => section.paragraphs.join(' ')).join(' ');
+    expect(words).not.toContain('Utility Deposit');
+    expect(words).toContain('opens the electricity, water and sewerage accounts for the Asset in its own name');
+  });
+});
+
 describe('the tenant side of a lease agreement', () => {
   const tenant = (role: AuthenticatedUser['role']): AuthenticatedUser => ({ userId: 'USR-TN', idpSubjectId: 'x', email: 'x', name: 'Hafiz', role, countryNodeId: 'CN-MYS', organisationId: 'ORG-TENANT', assignedRoles: [role] });
   const agreement = { status: 'DRAFT', createdBy: 'USR-AO', organisationId: 'ORG-AHG', countryNodeId: 'CN-MYS', approvals: [], latestVersion: 1, parties: [{ role: 'OWNER', organisationId: 'ORG-AHG', consentedVersion: 1, signedAt: null }, { role: 'TENANT', organisationId: 'ORG-TENANT', consentedVersion: null, signedAt: null }] };

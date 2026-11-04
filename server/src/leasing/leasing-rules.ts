@@ -108,6 +108,24 @@ export function depositRefundDueBy(lease: { endDate: Date; endedAt: Date | null 
   return new Date(Date.parse(isoDay(ended)) + DEPOSIT_REFUND_DAYS * DAY_MS);
 }
 
+export type DepositKind = 'SECURITY' | 'UTILITY' | 'RENOVATION';
+export interface DepositRefund { kind: DepositKind; amount: number; reference: string; paidAt: string; deductions: Array<{ reason: string; amount: number }> }
+
+/** Each deposit of a lease and its amount; a deposit of 0 is not held. */
+export const depositsOf = (lease: { depositAmount: number; utilityDepositAmount: number; renovationDepositAmount: number }): Record<DepositKind, number> => ({
+  SECURITY: lease.depositAmount, UTILITY: lease.utilityDepositAmount, RENOVATION: lease.renovationDepositAmount,
+});
+
+/**
+ * The deposits the owner can refund now: received, held (more than 0), not refunded yet. The security and utility
+ * deposits once the lease is over; the renovation deposit at any time once the fit-out has been inspected.
+ */
+export function refundableDeposits(lease: { status: string; endDate: Date; received: boolean; amounts: Record<DepositKind, number>; refunds: DepositRefund[] }, today: Date): DepositKind[] {
+  if (!lease.received || !['APPROVED', 'ENDED'].includes(lease.status)) return [];
+  const over = lease.status === 'ENDED' || daysUntil(lease.endDate, today) < 0;
+  return (['SECURITY', 'UTILITY', 'RENOVATION'] as DepositKind[]).filter((kind) => lease.amounts[kind] > 0 && !lease.refunds.some((refund) => refund.kind === kind) && (kind === 'RENOVATION' || over));
+}
+
 /** What is refunded after the deductions, and why a refund cannot be recorded as given. */
 export function depositRefund(deposit: number, deductions: Array<{ reason: string; amount: number }>): { amount: number; problem: string | null } {
   const deducted = Math.round(deductions.reduce((total, item) => total + item.amount, 0) * 100) / 100;

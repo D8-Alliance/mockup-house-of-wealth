@@ -8,6 +8,9 @@ export const UNIT_STATUSES = ['LISTED', 'WITHDRAWN'] as const;
 export const LEASE_RESPONSES = ['ACCEPT', 'DECLINE', 'COUNTER'] as const;
 export const LEASE_REVIEW_DECISIONS = ['APPROVE', 'REJECT', 'REQUEST_CHANGES'] as const;
 export const LEASE_REVIEW_TRACKS = ['LEGAL', 'SHARIAH'] as const;
+/** TENANT_DIRECT: electricity and water meters in the tenant's name. OWNER_RECHARGE: the owner pays and bills the tenant. */
+export const UTILITY_PAYERS = ['TENANT_DIRECT', 'OWNER_RECHARGE'] as const;
+export const DEPOSIT_KINDS = ['SECURITY', 'UTILITY', 'RENOVATION'] as const;
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -21,6 +24,9 @@ export class LeasableUnitDto {
   @Type(() => Number) @IsNumber() @Min(1) @Max(1e10) monthlyRent!: number;
   @IsIn(PAYOUT_CURRENCIES) currency!: string;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(12) depositMonths?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(12) utilityDepositMonths?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1e10) renovationDeposit?: number;
+  @IsOptional() @IsIn(UTILITY_PAYERS) utilitiesPaidBy?: (typeof UTILITY_PAYERS)[number];
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(360) minTermMonths?: number;
   @IsOptional() @IsDateString() availableFrom?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(160) permittedUse?: string;
@@ -33,6 +39,9 @@ export class UpdateLeasableUnitDto {
   @IsOptional() @IsIn(AREA_UNITS) floorAreaUnit?: (typeof AREA_UNITS)[number];
   @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(1e10) monthlyRent?: number;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(12) depositMonths?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(12) utilityDepositMonths?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1e10) renovationDeposit?: number;
+  @IsOptional() @IsIn(UTILITY_PAYERS) utilitiesPaidBy?: (typeof UTILITY_PAYERS)[number];
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(360) minTermMonths?: number;
   @IsOptional() @IsDateString() availableFrom?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(160) permittedUse?: string;
@@ -58,6 +67,8 @@ export class RespondLeaseDto {
   /** A counter-offer changes any of these. */
   @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(1e10) monthlyRent?: number;
   @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1e11) depositAmount?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1e11) utilityDepositAmount?: number;
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(0) @Max(1e11) renovationDepositAmount?: number;
   @IsOptional() @IsDateString() startDate?: string;
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(360) termMonths?: number;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) note?: string;
@@ -92,8 +103,13 @@ export class DepositDeductionDto {
   @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) @Max(1e11) amount!: number;
 }
 
-/** The deposit refunded after the lease, less only unpaid rent and repairs beyond fair wear and tear, each with its reason. */
+/**
+ * One deposit refunded, less reasoned deductions: the security deposit (unpaid rent, damage beyond fair wear and
+ * tear) and the utility deposit (unpaid electricity and water) after the lease; the renovation deposit once the
+ * fit-out is done and inspected.
+ */
 export class ReturnDepositDto {
+  @IsIn(DEPOSIT_KINDS) kind!: (typeof DEPOSIT_KINDS)[number];
   @IsArray() @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => DepositDeductionDto) deductions!: DepositDeductionDto[];
   @Transform(trim) @IsString() @MinLength(3) @MaxLength(120) reference!: string;
   @IsOptional() @IsDateString() paidAt?: string;

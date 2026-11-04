@@ -41,7 +41,7 @@ export interface PartnershipDeal {
   assetName: string;
   approvedOn: string | null;
   /** A direct lease of a unit to a company, without a project (src/leasing). */
-  lease?: { leaseId: string; depositAmount: number; intendedUse: string; tenantActivity: string };
+  lease?: { leaseId: string; depositAmount: number; utilityDepositAmount?: number; renovationDepositAmount?: number; utilitiesPaidBy?: string; intendedUse: string; tenantActivity: string };
 }
 
 export interface AgreementInput {
@@ -268,6 +268,11 @@ function ijarah(input: AgreementInput, w: (key: string) => string, first: string
         ? `The Rent is ${rent} a month, payable monthly in advance on the same day of each month as the first day of the Lease Period (or the last day of a shorter month), starting on the first day of the Lease Period.`
         : `The Rent is ${rent ? `${rent} ${deal?.terms.rentFrequency === 'WHOLE_PERIOD' ? 'for the whole Lease Period' : 'a month'}` : w('rentalAmount')}, payable ${w('rentalFrequency')}.`,
       ...(lease ? [`On signing this Agreement ${second} pays ${first} a Security Deposit of ${deposit}. ${cap(first)} holds it in trust (amanah) and may not treat it as Rent or income. Within 30 days after the lease ends and the Asset is returned, ${first} refunds it, less only Rent then unpaid and the actual cost of repairing damage beyond fair wear and tear, with an itemised statement of any deduction.`] : []),
+      ...(lease?.utilityDepositAmount ? [`On signing this Agreement ${second} also pays ${first} a Utility Deposit of ${money(lease.utilityDepositAmount, deal?.terms.currency)} as security for electricity, water and sewerage charges. ${cap(first)} holds it in trust (amanah) on the same terms as the Security Deposit, and may deduct from it only charges for the Lease Period that remain unpaid.`] : []),
+      ...(lease ? [lease.utilitiesPaidBy === 'OWNER_RECHARGE'
+        ? `${cap(first)} pays the electricity, water and sewerage charges of the Asset and recovers from ${second} the charges for the Lease Period at cost, as metered, without mark-up, with copies of the bills.`
+        : `${cap(second)} opens the electricity, water and sewerage accounts for the Asset in its own name and pays those charges directly to the providers for the Lease Period.`] : []),
+      ...(lease?.renovationDepositAmount ? [`Before starting any fit-out or renovation, ${second} pays ${first} a Renovation Deposit of ${money(lease.renovationDepositAmount, deal?.terms.currency)} and obtains ${first}'s written approval of the plans. ${cap(first)} holds it in trust (amanah) and refunds it within 30 days after the works are completed and inspected, less only the actual cost of making good damage caused by the works, with an itemised statement.`] : []),
       `${cap(second)} pays the Rent on its due date, without set-off or deduction, to the account of ${first} recorded on the Platform.`,
       'The Rent is fixed for the Lease Period. Rent for any renewal period may be reviewed only on a basis agreed in writing before that period starts.',
       `No Rent is payable for any time the Asset cannot be used for a reason not attributable to ${second}.`,
@@ -385,6 +390,9 @@ function schedule1(input: AgreementInput, w: (key: string) => string, first: str
     lines.push(`Lease Period: ${longDate(deal.startDate)} to ${longDate(deal.endDate)} (both dates inclusive)`);
     lines.push(`Rent: ${money(deal.terms.rentAmount, deal.terms.currency) ?? '-'} a month, payable monthly in advance`);
     lines.push(`Security Deposit: ${money(deal.lease.depositAmount, deal.terms.currency) ?? '-'}`);
+    if (deal.lease.utilityDepositAmount) lines.push(`Utility Deposit: ${money(deal.lease.utilityDepositAmount, deal.terms.currency)}`);
+    if (deal.lease.renovationDepositAmount) lines.push(`Renovation Deposit: ${money(deal.lease.renovationDepositAmount, deal.terms.currency)}`);
+    lines.push(`Electricity and water: ${deal.lease.utilitiesPaidBy === 'OWNER_RECHARGE' ? `paid by ${first} and recovered from ${second} at cost` : `paid by ${second} directly to the providers`}`);
     lines.push(`Day-to-day upkeep: ${deal.terms.upkeepBy === 'OWNER' ? first : second}`);
     lines.push(`Stamp duty: borne by ${second}`);
     lines.push(`Platform reference: lease ${deal.lease.leaseId}`);

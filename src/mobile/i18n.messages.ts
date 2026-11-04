@@ -8,11 +8,33 @@
 const EXPIRY_LABELS: Record<string, string> = { 'road tax': 'cukai jalan', 'insurance or takaful': 'insurans atau takaful', 'puspakom inspection': 'pemeriksaan PUSPAKOM', 'jkkp certificate': 'sijil JKKP', lease: 'pajakan' };
 const expiryLabel = (label: string) => EXPIRY_LABELS[label.toLowerCase()] ?? label;
 const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+/** The lease deposits as the server names them, in Malay. */
+const DEPOSIT_NAMES: Record<string, string> = { security: 'deposit sekuriti', utility: 'deposit utiliti', renovation: 'deposit ubah suai' };
+/** Asset types, detail fields and required documents as the server names them when an asset cannot be submitted. */
+const ASSET_TYPE_MS: Record<string, string> = { land: 'tanah', vehicle: 'kenderaan', machine: 'jentera', equipment: 'peralatan', building: 'bangunan', asset: 'aset' };
+const ASSET_FIELD_MS: Record<string, string> = {
+  'JKKP certificate expiry': 'tarikh tamat sijil JKKP', 'JKKP certificate number': 'nombor sijil JKKP', area: 'keluasan', 'building use': 'kegunaan bangunan',
+  'chassis number': 'nombor casis', district: 'daerah', 'engine number': 'nombor enjin', 'floor area': 'keluasan lantai', 'freehold or leasehold': 'pegangan bebas atau pajakan',
+  'land use category': 'kategori kegunaan tanah', 'lease expiry date': 'tarikh tamat pajakan', 'lot number': 'nombor lot', make: 'jenama', manufacturer: 'pengeluar', model: 'model',
+  mukim: 'mukim', 'parcel number': 'nombor petak', 'registration number': 'nombor pendaftaran', 'serial number': 'nombor siri', state: 'negeri', 'strata title number': 'nombor hakmilik strata',
+  'title kind': 'jenis hakmilik', 'title number': 'nombor hakmilik', 'title type': 'jenis hakmilik', 'year completed': 'tahun siap', 'year of manufacture': 'tahun dibuat',
+};
+const ASSET_DOCUMENT_MS: Record<string, string> = {
+  'proof of ownership (land title, JPJ ownership certificate, purchase invoice, or building title or sale agreement)': 'bukti pemilikan (geran tanah, sijil pemilikan JPJ, invois pembelian, atau hakmilik bangunan atau perjanjian jual beli)',
+  'official land search (Carian Rasmi)': 'carian rasmi tanah',
+  'a photo of the serial plate': 'gambar plat siri',
+  'the JKKP certificate of fitness (PMA)': 'perakuan kelayakan JKKP (PMA)',
+  'the completion certificate (CCC or certificate of fitness)': 'sijil siap (CCC atau perakuan layak menduduki)',
+};
 
 /** The sides of an agreement as the server names them, in Malay (capitalised: they start a sentence). */
 const PARTY_MS: Record<string, string> = { 'asset owner': 'Pemilik aset', tenant: 'Penyewa', 'delivery partner': 'Rakan pelaksana' };
 
 export const MS_SERVER_TEXT: Array<[RegExp, string | ((match: RegExpExecArray) => string)]> = [
+  // Asset submission
+  [/^Complete the (land|vehicle|machine|equipment|building|asset) details first: (.+)\.$/, (match) => `Lengkapkan butiran ${ASSET_TYPE_MS[match[1]]} dahulu: ${match[2].split(', ').map((field) => ASSET_FIELD_MS[field] ?? field).join(', ')}.`],
+  [/^Upload (.+) first\.$/, (match) => `Muat naik ${match[1].split(' and ').map((label) => ASSET_DOCUMENT_MS[label] ?? label).join(' dan ')} dahulu.`],
+
   // Problem projects
   [/^Your order (\S+) for (.+?) was cancelled: (.+?) was withdrawn \((.+)\)\. Do not transfer money for it; if you already did, contact support for a refund\.$/, 'Pesanan $1 sebanyak $2 telah dibatalkan: $3 telah ditarik balik ($4). Jangan pindahkan wang untuknya; jika sudah, hubungi khidmat pelanggan untuk bayaran balik.'],
   [/^(.+?) was withdrawn by an administrator: (.+)$/, '$1 telah ditarik balik oleh pentadbir: $2'],
@@ -58,6 +80,7 @@ export const MS_SERVER_TEXT: Array<[RegExp, string | ((match: RegExpExecArray) =
   [/^(.+?) asks to rent (.+?) from (\S+) for (\d+) months at (.+?) a month \((\S+)\)\.$/, '$1 memohon menyewa $2 mulai $3 selama $4 bulan pada $5 sebulan ($6).'],
   [/^(.+?): the terms were accepted and now go to Legal and Shariah review\.$/, '$1: terma telah diterima dan kini dihantar untuk semakan Legal dan Shariah.'],
   [/^(.+?) was declined\.(?: (.+))?$/, '$1 telah ditolak. $2'],
+  [/^(.+?): (.+?) a month, deposit (.+?), (\d+) months from (\S+)\. Utility deposit (.+?), renovation deposit (.+?)\.$/, '$1: $2 sebulan, deposit $3, $4 bulan mulai $5. Deposit utiliti $6, deposit ubah suai $7.'],
   [/^(.+?): (.+?) a month, deposit (.+?), (\d+) months from (\S+)\.$/, '$1: $2 sebulan, deposit $3, $4 bulan mulai $5.'],
   [/^(.+?) was withdrawn\.$/, '$1 telah ditarik balik.'],
   [/^(.+?): (.+?) The owner proposes corrected terms; once the tenant accepts, it is reviewed again\.$/, '$1: $2 Pemilik mencadangkan terma yang dibetulkan; setelah penyewa menerima, ia disemak semula.'],
@@ -76,6 +99,8 @@ export const MS_SERVER_TEXT: Array<[RegExp, string | ((match: RegExpExecArray) =
 
   // Lease deposit and reminders
   [/^(.+?): the owner recorded your deposit of (.+?) as received \(reference (.+?)\)\.$/, '$1: pemilik merekodkan deposit anda sebanyak $2 sebagai diterima (rujukan $3).'],
+  [/^(.+?): the owner refunded (.+?) of your (security|utility|renovation) deposit after deductions of (.+?) \((.+)\) \(reference (.+?)\)\.$/, (match) => `${match[1]}: pemilik memulangkan ${match[2]} daripada ${DEPOSIT_NAMES[match[3]]} anda selepas potongan ${match[4]} (${match[5]}) (rujukan ${match[6]}).`],
+  [/^(.+?): the owner refunded (.+?) of your (security|utility|renovation) deposit \(reference (.+?)\)\.$/, (match) => `${match[1]}: pemilik memulangkan ${match[2]} daripada ${DEPOSIT_NAMES[match[3]]} anda (rujukan ${match[4]}).`],
   [/^(.+?): the owner refunded (.+?) of your deposit after deductions of (.+?) \((.+)\) \(reference (.+?)\)\.$/, '$1: pemilik memulangkan $2 daripada deposit anda selepas potongan $3 ($4) (rujukan $5).'],
   [/^(.+?): the owner refunded (.+?) of your deposit \(reference (.+?)\)\.$/, '$1: pemilik memulangkan $2 daripada deposit anda (rujukan $3).'],
   [/^(.+?): the rent of (.+?) due on (\S+) is (\d+) day\(s\) late\. Pay it to the owner's bank account; the owner records it once received\.$/, '$1: sewa $2 yang perlu dibayar pada $3 sudah lewat $4 hari. Bayar ke akaun bank pemilik; pemilik merekodkannya selepas diterima.'],

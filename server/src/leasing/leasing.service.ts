@@ -9,7 +9,7 @@ import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { newCountryScopedId } from '../users/user-identity';
 import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, RecordDepositDto, RecordRentPaymentDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto } from './leasing.dto';
-import { daysUntil, depositFor, depositRefund, depositRefundDueBy, endingReminder, HOLDING_LEASE_STATUSES, isOverdue, LeaseParty, leaseEndDate, leaseTermMonths, OPEN_LEASE_STATUSES, otherLeaseParty, rentReminder, rentSchedule, shariahFlags } from './leasing-rules';
+import { daysUntil, DepositKind, DepositRefund, depositsOf, depositFor, depositRefund, depositRefundDueBy, refundableDeposits, endingReminder, HOLDING_LEASE_STATUSES, isOverdue, LeaseParty, leaseEndDate, leaseTermMonths, OPEN_LEASE_STATUSES, otherLeaseParty, rentReminder, rentSchedule, shariahFlags } from './leasing-rules';
 
 /** Roles that rent space for their company. */
 export const TENANT_ROLES: ReadonlySet<string> = new Set(['Organization Admin', 'Corporate Investor', 'Project Sponsor', 'Project Manager']);
@@ -26,7 +26,7 @@ interface LeaseHistoryEntry {
   party: LeaseParty | 'REVIEW' | 'SYSTEM';
   action: string;
   note?: string;
-  terms?: { monthlyRent: number; depositAmount: number; startDate: string; endDate: string; termMonths: number };
+  terms?: { monthlyRent: number; depositAmount: number; utilityDepositAmount: number; renovationDepositAmount: number; startDate: string; endDate: string; termMonths: number };
   statement?: string;
 }
 
@@ -89,6 +89,7 @@ export class LeasingService {
         id: newCountryScopedId('UNIT', actor.countryNodeId), assetId: asset.id, organisationId: asset.organisationId, countryNodeId: asset.countryNodeId,
         label: input.label, description: input.description ?? '', floorArea: input.floorArea ?? null, floorAreaUnit: input.floorAreaUnit ?? 'SQFT',
         monthlyRent: input.monthlyRent, currency: input.currency, depositMonths: input.depositMonths ?? 2, minTermMonths: input.minTermMonths ?? 12,
+        utilityDepositMonths: input.utilityDepositMonths ?? 1, renovationDeposit: input.renovationDeposit ?? 0, utilitiesPaidBy: input.utilitiesPaidBy ?? 'TENANT_DIRECT',
         availableFrom: input.availableFrom ? new Date(input.availableFrom) : null, permittedUse: input.permittedUse ?? '', createdBy: actor.userId,
       },
       include: { asset: UNIT_ASSET },
@@ -160,14 +161,14 @@ export class LeasingService {
     if (open) throw new ConflictException(`Your company already has a request for this unit (${open.id}).`);
 
     const monthlyRent = input.monthlyRent ?? Number(unit.monthlyRent);
-    const terms = this.terms(start, input.termMonths, monthlyRent, depositFor(monthlyRent, Number(unit.depositMonths)));
+    const terms = this.terms(start, input.termMonths, monthlyRent, depositFor(monthlyRent, Number(unit.depositMonths)), depositFor(monthlyRent, Number(unit.utilityDepositMonths)), Number(unit.renovationDeposit));
     await this.assertUnitFree({ id: '', unitId: unit.id, startDate: start, endDate: new Date(terms.endDate) });
     const entry = { ...this.entry(actor, 'TENANT', 'PROPOSED', input.message), terms, statement: 'Declared that its business and its use of the space are Shariah-compliant.' };
     const created = await this.prisma.assetLease.create({
       data: {
         id: newCountryScopedId('LEASE', actor.countryNodeId), unitId: unit.id, assetId: unit.assetId, countryNodeId: unit.countryNodeId,
         ownerOrganisationId: unit.organisationId, tenantOrganisationId: actor.organisationId, status: 'PROPOSED', awaiting: 'OWNER',
-        monthlyRent, currency: unit.currency, depositAmount: terms.depositAmount, startDate: start, endDate: new Date(terms.endDate),
+        monthlyRent, currency: unit.currency, depositAmount: terms.depositAmount, utilityDepositAmount: terms.utilityDepositAmount, renovationDepositAmount: terms.renovationDepositAmount, utilitiesPaidBy: unit.utilitiesPaidBy, startDate: start, endDate: new Date(terms.endDate),
         intendedUse: input.intendedUse, tenantActivity: input.tenantActivity, history: [entry] as unknown as Prisma.InputJsonValue, createdBy: actor.userId,
       },
       include: LEASE_INCLUDE,
@@ -185,7 +186,7 @@ export class LeasingService {
     if (lease.status !== 'PROPOSED') throw new BadRequestException('This request is no longer open for a response.');
     if (lease.awaiting !== party) throw new BadRequestException('Waiting for the other side to respond.');
     const history = lease.history as unknown as LeaseHistoryEntry[];
-    const current = this.terms(lease.startDate, leaseTermMonths(lease.startDate, lease.endDate), Number(lease.monthlyRent), Number(lease.depositAmount));
+    const current = this.terms(lease.startDate, leaseTermMonths(lease.startDate, lease.endDate), Number(lease.monthlyRent), Number(lease.depositAmount), Number(lease.utilityDepositAmount), Number(lease.renovationDepositAmount));
     let data: Prisma.AssetLeaseUpdateManyMutationInput;
     let notice: [string, string];
     const what = `${lease.unit.label}, ${lease.unit.asset.name}`;
@@ -204,13 +205,18 @@ export class LeasingService {
       const termMonths = input.termMonths ?? current.termMonths;
       if (termMonths < lease.unit.minTermMonths && party === 'TENANT') throw new BadRequestException(`The owner leases this unit for at least ${lease.unit.minTermMonths} months.`);
       const monthlyRent = input.monthlyRent ?? current.monthlyRent;
-      const terms = this.terms(start, termMonths, monthlyRent, input.depositAmount ?? (input.monthlyRent !== undefined ? depositFor(monthlyRent, Number(lease.unit.depositMonths)) : current.depositAmount));
+      // A deposit not given follows the new rent (in months, as the unit sets it) or stays as it was.
+      const rentChanged = input.monthlyRent !== undefined;
+      const terms = this.terms(start, termMonths, monthlyRent,
+        input.depositAmount ?? (rentChanged ? depositFor(monthlyRent, Number(lease.unit.depositMonths)) : current.depositAmount),
+        input.utilityDepositAmount ?? (rentChanged ? depositFor(monthlyRent, Number(lease.unit.utilityDepositMonths)) : current.utilityDepositAmount),
+        input.renovationDepositAmount ?? current.renovationDepositAmount);
       if (JSON.stringify(terms) === JSON.stringify(current)) throw new BadRequestException('This counter-offer changes nothing. Change the terms, or accept or decline them.');
       data = {
-        monthlyRent: terms.monthlyRent, depositAmount: terms.depositAmount, startDate: start, endDate: new Date(terms.endDate), awaiting: otherLeaseParty(party),
+        monthlyRent: terms.monthlyRent, depositAmount: terms.depositAmount, utilityDepositAmount: terms.utilityDepositAmount, renovationDepositAmount: terms.renovationDepositAmount, startDate: start, endDate: new Date(terms.endDate), awaiting: otherLeaseParty(party),
         history: [...history, { ...this.entry(actor, party, 'COUNTERED', input.note), terms }] as unknown as Prisma.InputJsonValue,
       };
-      notice = ['New lease terms proposed', `${what}: ${money(lease.currency, terms.monthlyRent)} a month, deposit ${money(lease.currency, terms.depositAmount)}, ${terms.termMonths} months from ${terms.startDate}.`];
+      notice = ['New lease terms proposed', `${what}: ${money(lease.currency, terms.monthlyRent)} a month, deposit ${money(lease.currency, terms.depositAmount)}, ${terms.termMonths} months from ${terms.startDate}.${terms.utilityDepositAmount || terms.renovationDepositAmount ? ` Utility deposit ${money(lease.currency, terms.utilityDepositAmount)}, renovation deposit ${money(lease.currency, terms.renovationDepositAmount)}.` : ''}`];
     }
     // Claimed atomically, so two people on the same side cannot both respond.
     const claimed = await this.prisma.assetLease.updateMany({ where: { id, status: 'PROPOSED', awaiting: party }, data });
@@ -337,32 +343,49 @@ export class LeasingService {
     if (receivedAt > new Date()) throw new BadRequestException('The date received cannot be in the future.');
     const claimed = await this.prisma.assetLease.updateMany({ where: { id, depositReceivedAt: null }, data: { depositReceivedAt: receivedAt, depositReference: input.reference } });
     if (!claimed.count) throw new ConflictException('The deposit is already recorded as received.');
-    await this.audit.recordActor(actor, { action: 'asset_lease.deposit_received', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { amount: Number(lease.depositAmount), reference: input.reference, receivedAt: receivedAt.toISOString() } });
-    await this.notifyParty(lease, 'TENANT', 'Deposit received', `${lease.unit.label}, ${lease.unit.asset.name}: the owner recorded your deposit of ${money(lease.currency, Number(lease.depositAmount))} as received (reference ${input.reference}).`);
+    const amounts = this.depositAmounts(lease);
+    const total = amounts.SECURITY + amounts.UTILITY + amounts.RENOVATION;
+    await this.audit.recordActor(actor, { action: 'asset_lease.deposit_received', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { amount: total, security: amounts.SECURITY, utility: amounts.UTILITY, renovation: amounts.RENOVATION, reference: input.reference, receivedAt: receivedAt.toISOString() } });
+    await this.notifyParty(lease, 'TENANT', 'Deposit received', `${lease.unit.label}, ${lease.unit.asset.name}: the owner recorded your deposit of ${money(lease.currency, total)} as received (reference ${input.reference}).`);
     return this.getLease(actor, id);
   }
 
   /**
-   * After the lease, the owner refunds the deposit less only unpaid rent and the cost of repairing damage
-   * beyond fair wear and tear, each deduction with its reason, within 30 days (the agreement says so).
+   * The owner refunds one deposit, less reasoned deductions: the security and utility deposits after the lease
+   * (within 30 days, the agreement says), the renovation deposit once the fit-out is done and inspected.
    */
   async returnDeposit(actor: AuthenticatedUser, id: string, input: ReturnDepositDto) {
     const lease = await this.findLease(actor, id);
     if (this.partyOf(actor, lease) !== 'OWNER') throw new ForbiddenException('Only the owner refunds the deposit.');
-    const over = lease.status === 'ENDED' || (lease.status === 'APPROVED' && daysUntil(lease.endDate, new Date()) < 0);
-    if (!over) throw new BadRequestException('The deposit is refunded after the lease ends.');
     if (!lease.depositReceivedAt) throw new BadRequestException('Record the deposit as received first.');
-    const { amount, problem } = depositRefund(Number(lease.depositAmount), input.deductions);
+    const amounts = this.depositAmounts(lease);
+    const refunds = this.refunds(lease);
+    if (!amounts[input.kind]) throw new BadRequestException('This lease holds no such deposit.');
+    if (refunds.some((refund) => refund.kind === input.kind)) throw new ConflictException('This deposit is already recorded as refunded.');
+    if (!refundableDeposits({ status: lease.status, endDate: lease.endDate, received: true, amounts, refunds }, new Date()).includes(input.kind)) throw new BadRequestException('The security and utility deposits are refunded after the lease ends.');
+    const { amount, problem } = depositRefund(amounts[input.kind], input.deductions);
     if (problem) throw new BadRequestException(problem);
     const paidAt = input.paidAt ? new Date(input.paidAt) : new Date();
     if (paidAt > new Date()) throw new BadRequestException('The payment date cannot be in the future.');
-    const refund = { amount, reference: input.reference, deductions: input.deductions.map((item) => ({ reason: item.reason, amount: item.amount })) };
-    const claimed = await this.prisma.assetLease.updateMany({ where: { id, depositReturnedAt: null }, data: { depositReturnedAt: paidAt, depositRefund: refund as Prisma.InputJsonValue } });
-    if (!claimed.count) throw new ConflictException('The deposit is already recorded as refunded.');
-    await this.audit.recordActor(actor, { action: 'asset_lease.deposit_refunded', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { deposit: Number(lease.depositAmount), ...refund, paidAt: paidAt.toISOString() } });
-    const deducted = refund.deductions.length ? ` after deductions of ${money(lease.currency, Number(lease.depositAmount) - amount)} (${refund.deductions.map((item) => item.reason).join('; ')})` : '';
-    await this.notifyParty(lease, 'TENANT', 'Deposit refunded', `${lease.unit.label}, ${lease.unit.asset.name}: the owner refunded ${money(lease.currency, amount)} of your deposit${deducted} (reference ${input.reference}).`);
+    const refund: DepositRefund = { kind: input.kind, amount, reference: input.reference, paidAt: paidAt.toISOString(), deductions: input.deductions.map((item) => ({ reason: item.reason, amount: item.amount })) };
+    const next = [...refunds, refund];
+    const allDone = (Object.keys(amounts) as DepositKind[]).every((kind) => !amounts[kind] || next.some((item) => item.kind === kind));
+    // Conditional on the lease as read, so two refunds recorded at once cannot overwrite each other.
+    const claimed = await this.prisma.assetLease.updateMany({ where: { id, updatedAt: lease.updatedAt }, data: { depositRefunds: next as unknown as Prisma.InputJsonValue, ...(allDone ? { depositReturnedAt: paidAt } : {}) } });
+    if (!claimed.count) throw new ConflictException('The lease changed meanwhile. Reload and try again.');
+    await this.audit.recordActor(actor, { action: 'asset_lease.deposit_refunded', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { deposit: amounts[input.kind], ...refund } });
+    const kindName = { SECURITY: 'security deposit', UTILITY: 'utility deposit', RENOVATION: 'renovation deposit' }[input.kind];
+    const deducted = refund.deductions.length ? ` after deductions of ${money(lease.currency, amounts[input.kind] - amount)} (${refund.deductions.map((item) => item.reason).join('; ')})` : '';
+    await this.notifyParty(lease, 'TENANT', 'Deposit refunded', `${lease.unit.label}, ${lease.unit.asset.name}: the owner refunded ${money(lease.currency, amount)} of your ${kindName}${deducted} (reference ${input.reference}).`);
     return this.getLease(actor, id);
+  }
+
+  private depositAmounts(lease: { depositAmount: Prisma.Decimal; utilityDepositAmount: Prisma.Decimal; renovationDepositAmount: Prisma.Decimal }) {
+    return depositsOf({ depositAmount: Number(lease.depositAmount), utilityDepositAmount: Number(lease.utilityDepositAmount), renovationDepositAmount: Number(lease.renovationDepositAmount) });
+  }
+
+  private refunds(lease: { depositRefunds: Prisma.JsonValue }): DepositRefund[] {
+    return Array.isArray(lease.depositRefunds) ? (lease.depositRefunds as unknown as DepositRefund[]) : [];
   }
 
   /**
@@ -405,9 +428,13 @@ export class LeasingService {
       const dueBy = depositRefundDueBy(lease);
       const left = daysUntil(dueBy, now);
       if (left > 7) continue;
+      const amounts = this.depositAmounts(lease);
+      const refunded = this.refunds(lease);
+      const outstanding = (Object.keys(amounts) as DepositKind[]).filter((kind) => !refunded.some((refund) => refund.kind === kind)).reduce((total, kind) => total + amounts[kind], 0);
+      if (!outstanding) continue;
       const what = `${lease.unit.label}, ${lease.unit.asset.name}`;
       const owner = { userId: lease.unit.asset.ownerUserId, organisationId: lease.ownerOrganisationId };
-      await this.remind(lease, [owner], `lease-deposit:${lease.id}:${left < 0 ? 'late' : 'soon'}`, left < 0 ? 'Deposit refund overdue' : 'Deposit refund due', `${what}: refund the deposit of ${money(lease.currency, Number(lease.depositAmount))} by ${day(dueBy)}, less only unpaid rent and repairs beyond fair wear and tear, and record it in Leasing.`);
+      await this.remind(lease, [owner], `lease-deposit:${lease.id}:${left < 0 ? 'late' : 'soon'}`, left < 0 ? 'Deposit refund overdue' : 'Deposit refund due', `${what}: refund the deposit of ${money(lease.currency, outstanding)} by ${day(dueBy)}, less only unpaid rent and repairs beyond fair wear and tear, and record it in Leasing.`);
       sent += 1;
     }
     return sent;
@@ -427,8 +454,8 @@ export class LeasingService {
     return start;
   }
 
-  private terms(start: Date, termMonths: number, monthlyRent: number, depositAmount: number) {
-    return { monthlyRent, depositAmount, startDate: day(start)!, endDate: day(leaseEndDate(start, termMonths))!, termMonths };
+  private terms(start: Date, termMonths: number, monthlyRent: number, depositAmount: number, utilityDepositAmount = 0, renovationDepositAmount = 0) {
+    return { monthlyRent, depositAmount, utilityDepositAmount, renovationDepositAmount, startDate: day(start)!, endDate: day(leaseEndDate(start, termMonths))!, termMonths };
   }
 
   private leaseScope(actor: AuthenticatedUser): Prisma.AssetLeaseWhereInput {
@@ -499,7 +526,7 @@ export class LeasingService {
   }
 
   /** A unit as listed; companies browsing see the area, not the street address. */
-  private unitView(unit: { id: string; assetId: string; label: string; description: string; floorArea: Prisma.Decimal | null; floorAreaUnit: string; monthlyRent: Prisma.Decimal; currency: string; depositMonths: Prisma.Decimal; minTermMonths: number; availableFrom: Date | null; permittedUse: string; status: string }, asset: { name: string; assetType: string; location: string; details: Prisma.JsonValue; organisation: { name: string } }, forTenant = false) {
+  private unitView(unit: { id: string; assetId: string; label: string; description: string; floorArea: Prisma.Decimal | null; floorAreaUnit: string; monthlyRent: Prisma.Decimal; currency: string; depositMonths: Prisma.Decimal; utilityDepositMonths: Prisma.Decimal; renovationDeposit: Prisma.Decimal; utilitiesPaidBy: string; minTermMonths: number; availableFrom: Date | null; permittedUse: string; status: string }, asset: { name: string; assetType: string; location: string; details: Prisma.JsonValue; organisation: { name: string } }, forTenant = false) {
     const details = asset.details as AssetDetails | null;
     return {
       id: unit.id,
@@ -511,6 +538,9 @@ export class LeasingService {
       monthlyRent: Number(unit.monthlyRent),
       currency: unit.currency,
       depositMonths: Number(unit.depositMonths),
+      utilityDepositMonths: Number(unit.utilityDepositMonths),
+      renovationDeposit: Number(unit.renovationDeposit),
+      utilitiesPaidBy: unit.utilitiesPaidBy,
       minTermMonths: unit.minTermMonths,
       availableFrom: day(unit.availableFrom),
       permittedUse: unit.permittedUse,
@@ -535,6 +565,9 @@ export class LeasingService {
     }));
     const sum = (status: string) => Math.round(payments.filter((payment) => payment.status === status).reduce((total, payment) => total + payment.amount, 0) * 100) / 100;
     const details = row.unit.asset.details as AssetDetails | null;
+    const amounts = this.depositAmounts(row);
+    const refunds = this.refunds(row);
+    const refundable = refundableDeposits({ status: row.status, endDate: row.endDate, received: Boolean(row.depositReceivedAt), amounts, refunds }, today);
     return {
       id: row.id,
       status: row.status,
@@ -546,13 +579,19 @@ export class LeasingService {
       canRecordPayment: party === 'OWNER' && ['APPROVED', 'ENDED'].includes(row.status),
       canEnd: party === 'OWNER' && row.status === 'APPROVED',
       canRecordDeposit: party === 'OWNER' && row.status === 'APPROVED' && !row.depositReceivedAt,
-      canReturnDeposit: party === 'OWNER' && Boolean(row.depositReceivedAt) && !row.depositReturnedAt && (row.status === 'ENDED' || (row.status === 'APPROVED' && daysUntil(row.endDate, today) < 0)),
+      canReturnDeposit: party === 'OWNER' && refundable.length > 0,
       deposit: {
-        amount: Number(row.depositAmount),
+        amount: amounts.SECURITY,
+        utility: amounts.UTILITY,
+        renovation: amounts.RENOVATION,
+        total: amounts.SECURITY + amounts.UTILITY + amounts.RENOVATION,
+        utilitiesPaidBy: row.utilitiesPaidBy,
         receivedAt: day(row.depositReceivedAt),
         reference: row.depositReference,
         returnedAt: day(row.depositReturnedAt),
-        refund: (row.depositRefund as { amount: number; reference: string; deductions: Array<{ reason: string; amount: number }> } | null) ?? null,
+        refunds,
+        // What the owner can refund now (empty for anyone else).
+        refundable: party === 'OWNER' ? refundable : [],
         refundDueBy: row.depositReceivedAt && (row.status === 'ENDED' || daysUntil(row.endDate, today) < 0) ? day(depositRefundDueBy(row)) : null,
       },
       unit: { id: row.unit.id, label: row.unit.label, floorArea: row.unit.floorArea === null ? null : Number(row.unit.floorArea), floorAreaUnit: row.unit.floorAreaUnit, permittedUse: row.unit.permittedUse, minTermMonths: row.unit.minTermMonths },
@@ -561,6 +600,9 @@ export class LeasingService {
       tenantOrganisationName: tenantNames.get(row.tenantOrganisationId) ?? null,
       monthlyRent: Number(row.monthlyRent),
       depositAmount: Number(row.depositAmount),
+      utilityDepositAmount: amounts.UTILITY,
+      renovationDepositAmount: amounts.RENOVATION,
+      utilitiesPaidBy: row.utilitiesPaidBy,
       currency: row.currency,
       startDate: day(row.startDate),
       endDate: day(row.endDate),
