@@ -3,7 +3,7 @@ import { ArrowLeft, Pencil, Plus, Star, Trash2, Users } from 'lucide-react';
 import { apiClient, apiErrorMessage } from '../../services/apiClient';
 import { BeneficiaryItem } from '../../types';
 import { fromServer, toServer } from '../../beneficiaries/beneficiaryApi';
-import { EstateFramework, estateRuleError, hasOwnerSetShare, TYPES_BY_FRAMEWORK, useEstateFramework, wasiyyahTotal, WASIYYAH_LIMIT_PCT, willTotal } from '../../beneficiaries/estateRules';
+import { EstateFramework, estateRuleError, hasOwnerSetShare, heirConsentReason, TYPES_BY_FRAMEWORK, useEstateFramework, wasiyyahTotal, WASIYYAH_LIMIT_PCT, willTotal } from '../../beneficiaries/estateRules';
 import { useT } from '../i18n';
 
 const RELATIONS: BeneficiaryItem['relation'][] = ['Spouse', 'Child', 'Parent', 'Sibling', 'Waqf Foundation', 'Zakat Institution', 'Other'];
@@ -103,6 +103,7 @@ export const MobileBeneficiaries: React.FC<{ onBack?: () => void }> = ({ onBack 
             </div>
             <span className="text-sm font-black whitespace-nowrap">{hasOwnerSetShare(item.distributionType) ? `${item.allocationPercent}%` : t('By faraid')}</span>
           </div>
+          {item.heirConsentRequired && <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">{t("Needs the heirs' consent after your death")}</p>}
           {item.identityNumberMasked && <p className="text-[11px] text-slate-500">{t('ID')} {item.identityNumberMasked}</p>}
           {item.hibahAkad && <p className="text-[11px] text-slate-500">{t('Hibah: {status}', { status: t(item.hibahAkad.qabulStatus) })}{item.hibahAkad.qabulBy ? ` · ${item.hibahAkad.qabulAsGuardian ? t('by guardian {name}', { name: item.hibahAkad.qabulBy }) : item.hibahAkad.qabulBy}` : ''}</p>}
           {item.hibahAkad?.qabulStatus === 'Awaiting acceptance' && <QabulLink item={item} onSent={load} />}
@@ -128,23 +129,26 @@ interface BeneficiaryFormProps {
 }
 
 const BeneficiaryForm: React.FC<BeneficiaryFormProps> = ({ item, framework, others, onDone, onCancel }) => {
-  const { t } = useT();
+  const { t, serverText } = useT();
   const [form, setForm] = useState<BeneficiaryItem>(item);
   const [identityNumber, setIdentityNumber] = useState('');
   const [ijab, setIjab] = useState(!!item.hibahAkad);
+  const [heirConsent, setHeirConsent] = useState(!!item.heirConsentRequired);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const editingExisting = !!item.id;
   const isHibah = form.distributionType === 'Hibah Amanah';
   const types = TYPES_BY_FRAMEWORK[framework].includes(form.distributionType) ? TYPES_BY_FRAMEWORK[framework] : [form.distributionType, ...TYPES_BY_FRAMEWORK[framework]];
   const set = (patch: Partial<BeneficiaryItem>) => setForm({ ...form, ...patch });
+  // A wasiyyah to a faraid heir, or above one-third, holds only if the heirs agree after the death (as on the website).
+  const consentReason = heirConsentReason(form, others);
 
   const save = async () => {
     setError('');
     if (!form.name.trim()) return setError(t("Enter the beneficiary's name."));
     if (hasOwnerSetShare(form.distributionType) && !(form.allocationPercent > 0 && form.allocationPercent <= 100)) return setError(t('Enter a share between 0 and 100%.'));
-    const rule = estateRuleError(form, others);
-    if (rule) return setError(t(rule));
+    const rule = estateRuleError(form, others, heirConsent);
+    if (rule) return setError(serverText(rule));
     if (isHibah) {
       if (!form.email?.trim()) return setError(t("Hibah Amanah needs the recipient's email, so they can accept the hibah (qabul)."));
       if (!identityNumber.trim() && !item.identityNumberMasked) return setError(t("Hibah Amanah needs the recipient's national ID or passport number."));
@@ -152,7 +156,7 @@ const BeneficiaryForm: React.FC<BeneficiaryFormProps> = ({ item, framework, othe
     }
     setSaving(true);
     try {
-      const payload = toServer({ ...form, name: form.name.trim(), identityNumber: identityNumber.trim() || undefined });
+      const payload = toServer({ ...form, name: form.name.trim(), identityNumber: identityNumber.trim() || undefined, heirConsentRequired: Boolean(consentReason) && heirConsent });
       if (editingExisting) await apiClient.updateBeneficiary(item.id, payload); else await apiClient.createBeneficiary(payload);
       onDone();
     } catch (cause) {
@@ -192,6 +196,15 @@ const BeneficiaryForm: React.FC<BeneficiaryFormProps> = ({ item, framework, othe
             {[...new Set([form.payoutMethod, ...PAYOUT_METHODS])].filter(Boolean).map(method => <option key={method} value={method}>{t(method)}</option>)}
           </select>
         </label>
+        {consentReason && (
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-500/10 p-3 space-y-2 text-xs text-amber-900 dark:text-amber-100">
+            <p>{serverText(consentReason)} {t("Without their consent this part follows faraid. The estate officer records each heir's answer after your death.")}</p>
+            <label className="flex items-start gap-3 font-bold">
+              <input type="checkbox" className="mt-0.5 w-5 h-5 shrink-0" checked={heirConsent} onChange={(event) => setHeirConsent(event.target.checked)} />
+              {t("I understand: keep it, subject to the heirs' consent.")}
+            </label>
+          </div>
+        )}
         {isHibah && !item.hibahAkad && (
           <label className="flex items-start gap-3 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-3 text-xs text-emerald-900 dark:text-emerald-100">
             <input type="checkbox" className="mt-0.5 w-5 h-5 shrink-0" checked={ijab} onChange={(event) => setIjab(event.target.checked)} />

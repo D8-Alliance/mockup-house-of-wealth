@@ -8,7 +8,7 @@ import { publicDetails, regionOf } from '../asset-partnerships/asset-partnership
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { newCountryScopedId } from '../users/user-identity';
-import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, RecordDepositDto, RecordRentPaymentDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto } from './leasing.dto';
+import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, RecordDepositDto, RecordRentPaymentDto, RenewLeaseDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto } from './leasing.dto';
 import { daysUntil, DepositKind, DepositRefund, depositsOf, depositFor, depositRefund, depositRefundDueBy, refundableDeposits, endingReminder, HOLDING_LEASE_STATUSES, isOverdue, LeaseParty, leaseEndDate, leaseTermMonths, OPEN_LEASE_STATUSES, otherLeaseParty, rentReminder, rentSchedule, shariahFlags } from './leasing-rules';
 
 /** Roles that rent space for their company. */
@@ -130,20 +130,61 @@ export class LeasingService {
 
   async listLeases(actor: AuthenticatedUser) {
     const rows = await this.prisma.assetLease.findMany({ where: this.leaseScope(actor), orderBy: { updatedAt: 'desc' }, include: LEASE_INCLUDE });
-    const [names, agreements, contacts] = await Promise.all([this.tenantNames(rows), this.agreements(rows), this.contacts(actor, rows)]);
-    return rows.map((row) => ({ ...this.view(actor, row, names), agreement: agreements.get(row.id) ?? null, counterparty: contacts.get(row.id) ?? null }));
+    const [names, agreements, contacts, renewals] = await Promise.all([this.tenantNames(rows), this.agreements(rows), this.contacts(actor, rows), this.renewals(rows)]);
+    return rows.map((row) => ({ ...this.view(actor, row, names, renewals.get(row.id) ?? null), agreement: agreements.get(row.id) ?? null, counterparty: contacts.get(row.id) ?? null }));
   }
 
   async getLease(actor: AuthenticatedUser, id: string) {
     const row = await this.findLease(actor, id);
-    const [names, agreements, contacts] = await Promise.all([this.tenantNames([row]), this.agreements([row]), this.contacts(actor, [row])]);
-    return { ...this.view(actor, row, names), agreement: agreements.get(row.id) ?? null, counterparty: contacts.get(row.id) ?? null };
+    const [names, agreements, contacts, renewals] = await Promise.all([this.tenantNames([row]), this.agreements([row]), this.contacts(actor, [row]), this.renewals([row])]);
+    return { ...this.view(actor, row, names, renewals.get(row.id) ?? null), agreement: agreements.get(row.id) ?? null, counterparty: contacts.get(row.id) ?? null };
   }
 
   /** The Ijarah agreement drafted for each lease (contract-intelligence), so the parties open it instead of drafting another. */
   private async agreements(rows: Array<{ id: string }>) {
     const contracts = rows.length ? await this.prisma.contract.findMany({ where: { leaseId: { in: rows.map((row) => row.id) } }, select: { id: true, leaseId: true, contractNumber: true, status: true } }) : [];
     return new Map(contracts.map((contract) => [contract.leaseId!, { id: contract.id, contractNumber: contract.contractNumber, status: contract.status }]));
+  }
+
+  /** The renewal under way or agreed for each lease, if any (a declined or withdrawn one does not count). */
+  private async renewals(rows: Array<{ id: string }>) {
+    const found = rows.length ? await this.prisma.assetLease.findMany({ where: { renewsLeaseId: { in: rows.map((row) => row.id) }, status: { in: [...OPEN_LEASE_STATUSES, 'APPROVED'] } }, select: { id: true, status: true, renewsLeaseId: true } }) : [];
+    return new Map(found.map((lease) => [lease.renewsLeaseId!, { id: lease.id, status: lease.status }]));
+  }
+
+  /**
+   * The tenant asks to renew an approved lease: a new request for the same unit from the day after it ends, with the
+   * same use and, unless the tenant offers other rent, the same rent and deposits. It then goes through the same
+   * negotiation, Legal and Shariah review and agreement as any lease. The unit need not be listed: it is theirs now.
+   */
+  async renewLease(actor: AuthenticatedUser, id: string, input: RenewLeaseDto) {
+    const lease = await this.findLease(actor, id);
+    if (this.partyOf(actor, lease) !== 'TENANT') throw new ForbiddenException('Only the tenant can ask to renew.');
+    if (lease.status !== 'APPROVED' || day(lease.endDate)! < day(new Date())!) throw new BadRequestException('Only a running approved lease can be renewed.');
+    const organisation = await this.prisma.organisation.findUnique({ where: { id: actor.organisationId }, select: { kybStatus: true } });
+    if (organisation?.kybStatus !== 'APPROVED') throw new BadRequestException('Your company must pass business verification (KYB) before it can rent space.');
+    if (lease.unit.asset.status !== 'VERIFIED') throw new BadRequestException('Only a verified asset can be leased out.');
+    if (input.termMonths < lease.unit.minTermMonths) throw new BadRequestException(`The owner leases this unit for at least ${lease.unit.minTermMonths} months.`);
+    const existing = (await this.renewals([lease])).get(lease.id);
+    if (existing) throw new ConflictException(`This lease is already being renewed (${existing.id}).`);
+
+    const start = new Date(lease.endDate.getTime() + 24 * 60 * 60 * 1000);
+    const monthlyRent = input.monthlyRent ?? Number(lease.monthlyRent);
+    const terms = this.terms(start, input.termMonths, monthlyRent, Number(lease.depositAmount), Number(lease.utilityDepositAmount), Number(lease.renovationDepositAmount));
+    await this.assertUnitFree({ id: '', unitId: lease.unitId, startDate: start, endDate: new Date(terms.endDate) });
+    const entry = { ...this.entry(actor, 'TENANT', 'PROPOSED', input.message), terms, statement: `Renewal of ${lease.id}. Declared that its business and its use of the space are Shariah-compliant.` };
+    const created = await this.prisma.assetLease.create({
+      data: {
+        id: newCountryScopedId('LEASE', lease.countryNodeId), unitId: lease.unitId, assetId: lease.assetId, countryNodeId: lease.countryNodeId,
+        ownerOrganisationId: lease.ownerOrganisationId, tenantOrganisationId: lease.tenantOrganisationId, status: 'PROPOSED', awaiting: 'OWNER', renewsLeaseId: lease.id,
+        monthlyRent, currency: lease.currency, depositAmount: terms.depositAmount, utilityDepositAmount: terms.utilityDepositAmount, renovationDepositAmount: terms.renovationDepositAmount, utilitiesPaidBy: lease.utilitiesPaidBy, startDate: start, endDate: new Date(terms.endDate),
+        intendedUse: lease.intendedUse, tenantActivity: lease.tenantActivity, history: [entry] as unknown as Prisma.InputJsonValue, createdBy: actor.userId,
+      },
+      include: LEASE_INCLUDE,
+    });
+    await this.record(actor, 'asset_lease.renewal_request', created);
+    await this.notifyParty(created, 'OWNER', 'A tenant asks to renew', `${await this.tenantName(created)} asks to renew ${created.unit.label}, ${created.unit.asset.name}, from ${terms.startDate} for ${terms.termMonths} months at ${money(created.currency, monthlyRent)} a month (${created.id}, renewing ${lease.id}).`);
+    return this.getLease(actor, created.id);
   }
 
   /** A company asks to rent a listed unit, from a start date for a number of months. */
@@ -555,7 +596,7 @@ export class LeasingService {
     };
   }
 
-  private view(actor: AuthenticatedUser, row: LeaseRow, tenantNames: Map<string, string>) {
+  private view(actor: AuthenticatedUser, row: LeaseRow, tenantNames: Map<string, string>, renewal: { id: string; status: string } | null = null) {
     const party = this.partyOf(actor, row);
     const reviewer = !party && REVIEWERS.has(actor.role);
     const today = new Date();
@@ -578,6 +619,9 @@ export class LeasingService {
       canReview: reviewer && row.status === 'ACCEPTED' && actor.organisationId !== row.ownerOrganisationId && actor.organisationId !== row.tenantOrganisationId,
       canRecordPayment: party === 'OWNER' && ['APPROVED', 'ENDED'].includes(row.status),
       canEnd: party === 'OWNER' && row.status === 'APPROVED',
+      canRenew: party === 'TENANT' && row.status === 'APPROVED' && day(row.endDate)! >= day(today)! && !renewal,
+      renewsLeaseId: row.renewsLeaseId,
+      renewal,
       canRecordDeposit: party === 'OWNER' && row.status === 'APPROVED' && !row.depositReceivedAt,
       canReturnDeposit: party === 'OWNER' && refundable.length > 0,
       deposit: {

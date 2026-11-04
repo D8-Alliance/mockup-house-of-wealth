@@ -76,6 +76,15 @@ export class RespondLeaseDto {
   @IsOptional() @IsBoolean() confirmed?: boolean;
 }
 
+/** The tenant asks to renew an approved lease: from the day after it ends, for a number of months. */
+export class RenewLeaseDto {
+  @Type(() => Number) @IsInt() @Min(1) @Max(360) termMonths!: number;
+  /** The rent the tenant offers; the current rent when left out. */
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(1e10) monthlyRent?: number;
+  @Equals(true, { message: 'Confirm that your business and your use of the space are Shariah-compliant.' }) shariahDeclaration!: boolean;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) message?: string;
+}
+
 export class LeaseNoteDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) note?: string;
 }

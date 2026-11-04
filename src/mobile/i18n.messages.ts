@@ -1,3 +1,6 @@
+import { MS_LEASING_PATTERNS, MS_LEASING_TEXT } from './i18n.leasing';
+import { MS_ROADMAP_PATTERNS, MS_ROADMAP_TEXT } from './i18n.roadmap';
+
 /**
  * Notification texts the server writes in English with values filled in (amounts, names, dates, references),
  * and their Malay wording. The server keeps one language so the record stays the same for everyone; the
@@ -30,7 +33,16 @@ const ASSET_DOCUMENT_MS: Record<string, string> = {
 /** The sides of an agreement as the server names them, in Malay (capitalised: they start a sentence). */
 const PARTY_MS: Record<string, string> = { 'asset owner': 'Pemilik aset', tenant: 'Penyewa', 'delivery partner': 'Rakan pelaksana' };
 
+/** Faraid heirs as the estate rules name them (lower case, in a sentence). */
+const HEIR_MS: Record<string, string> = { spouse: 'pasangan', child: 'anak', parent: 'ibu bapa' };
+
 export const MS_SERVER_TEXT: Array<[RegExp, string | ((match: RegExpExecArray) => string)]> = [
+  // Wasiyyah and the heirs' consent (src/beneficiaries/estateRules.ts and the server's estate rules)
+  [/^A wasiyyah to a faraid heir \((\w+)\) is valid only if the other heirs agree after your death\.$/, (match) => `Wasiyyah kepada waris faraid (${HEIR_MS[match[1]] ?? match[1]}) sah hanya jika waris lain bersetuju selepas kematian anda.`],
+  [/^Wasiyyah above one-third \(here ([\d.]+)%\) is valid only if the heirs agree after your death\.$/, 'Wasiyyah melebihi satu pertiga (di sini $1%) sah hanya jika waris bersetuju selepas kematian anda.'],
+  [/^A wasiyyah cannot go to a faraid heir \((\w+)\) unless the other heirs agree after your death\..*$/, (match) => `Wasiyyah tidak boleh diberi kepada waris faraid (${HEIR_MS[match[1]] ?? match[1]}) kecuali waris lain bersetuju selepas kematian anda. Beri semasa hidup melalui Hibah Amanah, biarkan bahagiannya mengikut faraid, atau sahkan bahawa ia bergantung pada persetujuan waris.`],
+  [/^Wasiyyah is limited to one-third \(33\.33%\) of the estate\. With this one it would be ([\d.]+)%\..*$/, 'Wasiyyah terhad kepada satu pertiga (33.33%) harta pusaka. Dengan ini jumlahnya menjadi $1%. Melebihi had itu ia sah hanya jika waris bersetuju selepas kematian anda; sahkan jika mahu mengekalkannya.'],
+
   // Asset submission
   [/^Complete the (land|vehicle|machine|equipment|building|asset) details first: (.+)\.$/, (match) => `Lengkapkan butiran ${ASSET_TYPE_MS[match[1]]} dahulu: ${match[2].split(', ').map((field) => ASSET_FIELD_MS[field] ?? field).join(', ')}.`],
   [/^Upload (.+) first\.$/, (match) => `Muat naik ${match[1].split(' and ').map((label) => ASSET_DOCUMENT_MS[label] ?? label).join(' dan ')} dahulu.`],
@@ -144,12 +156,14 @@ const MS_SERVER_TITLES: Record<string, string> = {
   'Asset partnership withdrawn': 'Perkongsian aset ditarik balik',
   'Asset partnership approved': 'Perkongsian aset diluluskan',
   'Offer closed': 'Tawaran ditutup',
+  'A tenant asks to renew': 'Penyewa memohon pembaharuan sewaan',
 };
 
 /** The server's English notification title or message in Malay, when known; otherwise as written. */
 export function translateServerText(text: string): string {
-  if (MS_SERVER_TITLES[text]) return MS_SERVER_TITLES[text];
-  for (const [pattern, malay] of MS_SERVER_TEXT) {
+  const known = MS_SERVER_TITLES[text] ?? MS_ROADMAP_TEXT[text] ?? MS_LEASING_TEXT[text];
+  if (known) return known;
+  for (const [pattern, malay] of [...MS_SERVER_TEXT, ...MS_ROADMAP_PATTERNS, ...MS_LEASING_PATTERNS]) {
     const match = pattern.exec(text);
     if (match) return (typeof malay === 'function' ? malay(match) : malay.replace(/\$(\d)/g, (_, index: string) => match[Number(index)] ?? '')).trim();
   }

@@ -2306,6 +2306,8 @@ model AssetLease {
   depositReturnedAt    DateTime?
   /// Each deposit as refunded: [{ kind: SECURITY | UTILITY | RENOVATION, amount, reference, paidAt, deductions: [{ reason, amount }] }].
   depositRefunds       Json?
+  /// The lease this one renews: it starts the day after that lease ends, for the same unit and tenant.
+  renewsLeaseId        String?
   createdBy            String
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
@@ -2317,6 +2319,7 @@ model AssetLease {
   @@index([countryNodeId, status])
   @@index([ownerOrganisationId])
   @@index([tenantOrganisationId])
+  @@index([renewsLeaseId])
 }
 
 /** One month's rent of an approved lease: due, then recorded as paid by the owner. */

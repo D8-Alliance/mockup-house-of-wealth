@@ -2,7 +2,8 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface ErrorBoundaryProps {
   children: ReactNode;
-  fallback?: ReactNode;
+  /** Shown instead of the default message; a function receives the error. */
+  fallback?: ReactNode | ((error: Error | null) => ReactNode);
 }
 
 interface ErrorBoundaryState {
@@ -34,6 +35,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
   render(): ReactNode {
     if (this.state.hasError) {
+      if (typeof this.props.fallback === 'function') return this.props.fallback(this.state.error);
       if (this.props.fallback) return this.props.fallback;
       return (
         <div className="min-h-[50vh] flex items-center justify-center p-8">

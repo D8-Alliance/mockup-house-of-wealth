@@ -234,3 +234,18 @@ describe('ProjectsService: a sponsor corrects a draft and submits it', () => {
     await expect(service.deleteMilestone('PRJ-1', 'MS-2', sponsor)).rejects.toThrow('locked');
   });
 });
+
+describe('ProjectsService.lifecycle', () => {
+  it('returns the milestones as a list, not the project they belong to', async () => {
+    const project = { projectId: 'PRJ-1', organisationId: 'ORG-A', countryNodeId: 'CN-MYS', projectSponsorId: 'USR-A', fundingRequired: 1000, status: 'EXECUTION' };
+    const rows = [{ id: 'MS-1', title: 'Land clearing' }];
+    const prisma = {
+      project: { findUnique: jest.fn().mockResolvedValue(project) },
+      projectMilestone: { findMany: jest.fn().mockResolvedValue(rows) },
+      projectLifecycleEvent: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const service = new ProjectsService(prisma as unknown as PrismaService, auditMock as unknown as AuditService, policy);
+    const result = await service.lifecycle('PRJ-1', actor('Project Sponsor', 'CN-MYS'));
+    expect(result.milestones).toEqual(rows);
+  });
+});

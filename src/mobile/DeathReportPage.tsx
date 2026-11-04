@@ -12,7 +12,7 @@ const LABEL = 'block text-xs font-bold text-slate-600 dark:text-slate-300';
  * them, and the death certificate. The answer is the same whatever the details, so it cannot be used to look people up.
  */
 export const DeathReportPage: React.FC = () => {
-  const { t } = useT();
+  const { t, serverText } = useT();
   const [form, setForm] = useState({ deceasedIdNumber: '', deceasedName: '', dateOfDeath: '', reporterName: '', reporterIdLast4: '', reporterRelation: '', reporterEmail: '', reporterPhone: '' });
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -46,7 +46,7 @@ export const DeathReportPage: React.FC = () => {
         {done ? (
           <div className="p-5 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 space-y-2">
             <p className="flex items-center gap-2 font-black text-emerald-800 dark:text-emerald-200"><CheckCircle2 className="w-5 h-5" />{t('Report sent')}</p>
-            <p className="text-sm text-emerald-900 dark:text-emerald-100">{done}</p>
+            <p className="text-sm text-emerald-900 dark:text-emerald-100">{serverText(done)}</p>
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-4 bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200 dark:border-slate-800">
@@ -65,7 +65,7 @@ export const DeathReportPage: React.FC = () => {
               <span className="truncate">{file ? file.name : t('Death certificate (PDF, JPG or PNG)')}</span>
               <input type="file" accept="application/pdf,image/jpeg,image/png" className="hidden" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
             </label>
-            {error && <p role="alert" className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-sm font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+            {error && <p role="alert" className="p-3 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-sm font-bold text-rose-700 dark:text-rose-300">{serverText(error)}</p>}
             <button type="submit" disabled={busy} className="w-full py-3 rounded-xl bg-emerald-600 text-white font-black disabled:opacity-50">{busy ? t('Sending…') : t('Send report')}</button>
             <p className="text-[11px] text-slate-400">{t('Your details are used only to handle this estate and are kept with the case.')}</p>
           </form>

@@ -132,7 +132,7 @@ export class ProjectsService {
 
   async lifecycle(projectId: string, user: AuthenticatedUser) {
     const project = await this.get(projectId, user);
-    const milestones = await this.ensureMilestones(project);
+    const { milestones } = await this.ensureMilestones(project);
     const events = await this.prisma.projectLifecycleEvent.findMany({ where: { projectId: project.projectId }, orderBy: { createdAt: 'asc' } });
     return { project, milestones, events };
   }

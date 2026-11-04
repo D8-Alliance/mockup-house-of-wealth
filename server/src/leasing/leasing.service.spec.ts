@@ -62,7 +62,7 @@ describe('LeasingService', () => {
     asset: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
     organisation: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([{ id: 'ORG-TENANT', name: 'Teras Engineering Sdn Bhd' }]) },
     leasableUnit: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn() },
-    assetLease: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn() },
+    assetLease: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn() },
     leaseRentPayment: { createMany: jest.fn(), updateMany: jest.fn(), deleteMany: jest.fn() },
     userRoleAssignment: { findMany: jest.fn().mockResolvedValue([{ userId: 'USR-LEGAL', organisationId: 'ORG-PUBLIC' }]) },
     contract: { findMany: jest.fn().mockResolvedValue([]) },
@@ -110,6 +110,30 @@ describe('LeasingService', () => {
     prisma.leasableUnit.findFirst.mockResolvedValueOnce(unit);
     prisma.assetLease.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: 'LEASE-MYS-OTHER', startDate: new Date('2020-01-01'), endDate: new Date(`${nextYear + 2}-01-01`) });
     await expect(service.createLease(tenant, request)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('renews an approved lease from the day after it ends, with the same rent and deposits, and tells the owner', async () => {
+    prisma.assetLease.findFirst.mockResolvedValueOnce(lease({ status: 'APPROVED', awaiting: 'NONE' })).mockResolvedValueOnce(null).mockResolvedValueOnce(lease({ id: 'LEASE-MYS-RENEW01' }));
+    prisma.organisation.findUnique.mockResolvedValueOnce({ kybStatus: 'APPROVED' });
+    prisma.assetLease.create.mockImplementationOnce(async ({ data }) => lease(data));
+    await service.renewLease(tenant, 'LEASE-MYS-0000001', { termMonths: 12, shariahDeclaration: true });
+    expect(prisma.assetLease.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      renewsLeaseId: 'LEASE-MYS-0000001', status: 'PROPOSED', awaiting: 'OWNER', monthlyRent: 25500, depositAmount: 51000, utilityDepositAmount: 25500, renovationDepositAmount: 10000,
+      startDate: new Date(`${nextYear + 1}-01-01T00:00:00.000Z`), endDate: new Date(`${nextYear + 1}-12-31T00:00:00.000Z`), intendedUse: 'Head office',
+    }) }));
+    expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-AO', title: 'A tenant asks to renew' }));
+  });
+
+  it('lets only the tenant renew, once at a time', async () => {
+    prisma.assetLease.findFirst.mockResolvedValueOnce(lease({ status: 'APPROVED', awaiting: 'NONE' }));
+    await expect(service.renewLease(owner, 'LEASE-MYS-0000001', { termMonths: 12, shariahDeclaration: true })).rejects.toBeInstanceOf(ForbiddenException);
+    prisma.assetLease.findFirst.mockResolvedValueOnce(lease({ status: 'APPROVED', awaiting: 'NONE' }));
+    prisma.organisation.findUnique.mockResolvedValueOnce({ kybStatus: 'APPROVED' });
+    prisma.assetLease.findMany.mockResolvedValueOnce([{ id: 'LEASE-MYS-RENEW01', status: 'PROPOSED', renewsLeaseId: 'LEASE-MYS-0000001' }]);
+    await expect(service.renewLease(tenant, 'LEASE-MYS-0000001', { termMonths: 12, shariahDeclaration: true })).rejects.toBeInstanceOf(ConflictException);
+    prisma.assetLease.findFirst.mockResolvedValueOnce(lease({ status: 'PROPOSED' }));
+    await expect(service.renewLease(tenant, 'LEASE-MYS-0000001', { termMonths: 12, shariahDeclaration: true })).rejects.toThrow(/running approved lease/);
+    expect(prisma.assetLease.create).not.toHaveBeenCalled();
   });
 
   it('lets only the side whose turn it is respond, and accepting needs confirmation', async () => {

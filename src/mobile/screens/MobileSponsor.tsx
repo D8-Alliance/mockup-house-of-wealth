@@ -99,7 +99,7 @@ export const MobileSponsor: React.FC = () => {
 };
 
 const ProjectDetail: React.FC<{ project: BackendProject; pools: BackendPool[]; onBack: () => void }> = ({ project, pools, onBack }) => {
-  const { t, locale } = useT();
+  const { t, locale, serverText } = useT();
   const money = useMoney();
   const { currentRole } = useRBAC();
   const [lifecycle, setLifecycle] = useState<BackendProjectLifecycle | null>(null);
@@ -137,8 +137,8 @@ const ProjectDetail: React.FC<{ project: BackendProject; pools: BackendPool[]; o
           <h2 className="text-sm font-black">{t('Next steps')}</h2>
           {pending.slice(0, 4).map(step => (
             <div key={step.key} className="text-xs">
-              <p className="font-bold">{step.title} <span className="text-[10px] font-black text-amber-700 dark:text-amber-300">· {t(STEP_LABEL[step.status] ?? step.status)}</span></p>
-              <p className="text-[11px] text-slate-500">{step.detail}</p>
+              <p className="font-bold">{serverText(step.title)} <span className="text-[10px] font-black text-amber-700 dark:text-amber-300">· {t(STEP_LABEL[step.status] ?? step.status)}</span></p>
+              <p className="text-[11px] text-slate-500">{serverText(step.detail)}</p>
             </div>
           ))}
           <p className="text-[11px] text-slate-500">{t('These steps are done on the web portal.')}</p>
@@ -168,7 +168,7 @@ const ProjectDetail: React.FC<{ project: BackendProject; pools: BackendPool[]; o
           return (
             <div key={milestone.id} className="border-t border-slate-100 dark:border-slate-800 pt-2 first:border-0 first:pt-0 space-y-1">
               <div className="flex justify-between gap-2 text-xs">
-                <p className="font-bold min-w-0">{milestone.title}</p>
+                <p className="font-bold min-w-0">{serverText(milestone.title)}</p>
                 <p className="font-black shrink-0">{money(currency, num(milestone.disbursementAmount))}</p>
               </div>
               <p className="text-[11px] text-slate-500">{milestone.targetDate ? new Date(milestone.targetDate).toLocaleDateString(locale) : ''} · {t('{pct}% done', { pct: milestone.completionPct })}</p>

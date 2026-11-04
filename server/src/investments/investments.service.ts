@@ -199,7 +199,7 @@ export class InvestmentsService {
         settledAt: order.settledAt,
         createdAt: order.createdAt,
         investorProfitSharePct: order.akadTerms ? Number(order.akadTerms.investorProfitSharePct) : null,
-        pool: { poolName: order.pool.poolName, status: order.pool.status, currency: order.pool.currency, investmentStructure: order.pool.investmentStructure, indicativeExpectedReturn: Number(order.pool.indicativeExpectedReturn), projectName: order.pool.project.projectName, projectSuspendedReason: order.pool.project.suspendedAt ? order.pool.project.suspendedReason ?? 'Under review' : null },
+        pool: { poolName: order.pool.poolName, status: order.pool.status, currency: order.pool.currency, investmentStructure: order.pool.investmentStructure, indicativeExpectedReturn: Number(order.pool.indicativeExpectedReturn), projectName: order.pool.project.projectName, projectSuspended: !!order.pool.project.suspendedAt, projectSuspendedReason: order.pool.project.suspendedAt ? order.pool.project.suspendedReason ?? 'Under review' : null },
       })),
       new Map(totals.map((row) => [row.poolId ?? '', Number(row._sum.amount ?? 0)])),
       allocations.map((allocation) => ({ poolId: allocation.distribution.poolId ?? '', amount: Number(allocation.amount), paid: allocation.payoutInstruction?.status === 'SETTLED' })),

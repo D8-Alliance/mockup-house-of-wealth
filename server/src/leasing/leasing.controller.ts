@@ -4,7 +4,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { Roles } from '../auth/roles.decorator';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
-import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, RecordDepositDto, RecordRentPaymentDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto } from './leasing.dto';
+import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, RecordDepositDto, RecordRentPaymentDto, RenewLeaseDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto } from './leasing.dto';
 import { LeasingService } from './leasing.service';
 
 const OWNERS = ['Asset Owner', 'Asset Manager'] as const;
@@ -45,6 +45,10 @@ export class LeasingController {
   @Post('leases')
   @Roles(...TENANTS)
   create(@CurrentUser() actor: AuthenticatedUser, @Body() body: CreateLeaseDto) { return this.leasing.createLease(actor, body); }
+
+  @Post('leases/:id/renew')
+  @Roles(...TENANTS)
+  renew(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() body: RenewLeaseDto) { return this.leasing.renewLease(actor, id, body); }
 
   @Post('leases/:id/respond')
   @Roles(...OWNERS, ...TENANTS)

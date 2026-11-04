@@ -92,7 +92,7 @@ export const MobilePortfolio: React.FC<{ onOpenStatements: () => void; onOpenZak
       {positions?.map(position => (
         <article key={position.poolId} className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 space-y-2">
           <div>
-            <h2 className="text-sm font-black flex items-center gap-1.5"><Wallet className="w-4 h-4 text-emerald-600 shrink-0" />{position.poolName}</h2>
+            <h2 className="text-sm font-black flex items-center gap-1.5"><Wallet className="w-4 h-4 text-emerald-600 shrink-0" /><span className="min-w-0">{position.poolName}</span>{position.projectSuspended && <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black text-amber-700 dark:text-amber-300">{t('Suspended')}</span>}</h2>
             <p className="text-xs text-slate-500">{position.projectName} · {position.contract}</p>
           </div>
           <div className="grid grid-cols-2 gap-2 text-xs">
@@ -101,6 +101,7 @@ export const MobilePortfolio: React.FC<{ onOpenStatements: () => void; onOpenZak
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-2.5"><span className="block text-slate-500">{t('Profit earned')}</span><span className="font-bold">{money2(position.profitEarned, position.currency, locale)}</span></div>
             <div className="rounded-xl bg-slate-50 dark:bg-slate-800 p-2.5"><span className="block text-slate-500">{t('Return so far')}</span><span className="font-bold">{position.returnPct.toFixed(2)}%</span></div>
           </div>
+          {position.projectSuspended && <p className="rounded-xl bg-amber-50 dark:bg-amber-500/10 p-2.5 text-[11px] text-amber-800 dark:text-amber-200">{t('This project is suspended while an issue is looked into. No new investments are taken; your investment is unchanged and you will be told when it resumes.')}</p>}
           {position.pendingAmount > 0 && <p className="text-[11px] text-amber-700 dark:text-amber-300">{t('{amount} more waiting for Finance to confirm the transfer.', { amount: formatProjectMoney(position.pendingAmount, position.currency) })}</p>}
         </article>
       ))}

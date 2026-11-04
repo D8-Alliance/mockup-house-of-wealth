@@ -29,6 +29,12 @@ const secondary = 'w-full in-[.leasing-web]:w-auto in-[.leasing-web]:px-5 in-[.l
 const today = () => new Date().toISOString().slice(0, 10);
 const errorText = (cause: unknown, fallback: string) => (cause instanceof Error ? cause.message : fallback);
 
+/** An error, in Malay when the server's English wording is known. */
+const ErrorNote: React.FC<{ text: string }> = ({ text }) => {
+  const { serverText } = useT();
+  return <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{serverText(text)}</p>;
+};
+
 /** True on the web portal: the same screens laid out for a wide screen (title bar, summary, tables, two columns). */
 const WebLayout = React.createContext(false);
 const useWeb = () => React.useContext(WebLayout);
@@ -74,7 +80,7 @@ const LeasingScreens: React.FC = () => {
   const [openLease, setOpenLease] = useState<string | null>(null);
   const [renting, setRenting] = useState<AvailableUnit | null>(null);
 
-  if (openLease) return <LeaseDetail id={openLease} onBack={() => setOpenLease(null)} />;
+  if (openLease) return <LeaseDetail key={openLease} id={openLease} onBack={() => setOpenLease(null)} onOpen={setOpenLease} />;
   if (renting) return <RentRequest unit={renting} onBack={() => setRenting(null)} onSent={(lease) => { setRenting(null); setOpenLease(lease.id); }} />;
 
   return (
@@ -137,7 +143,7 @@ const OwnerUnits: React.FC = () => {
           {data.assets.length === 0 ? <p className="text-sm text-slate-500">{t('Only a verified asset can be leased out. Register your asset and have it verified on the web portal first.')}</p> : <span />}
           {data.assets.length > 0 && <button type="button" onClick={() => setAdding(true)} className={`${primary} flex items-center justify-center gap-1.5`}><Plus className="w-4 h-4" />{t('Add a unit for rent')}</button>}
         </div>
-        {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+        {error && <ErrorNote text={error} />}
         {data.units.length === 0 && data.assets.length > 0 && <p className="text-sm text-slate-500">{t('No unit listed yet. A unit can be a floor, a shop lot, a bay or the whole asset.')}</p>}
         {data.units.length > 0 && (
           <div className={table}>
@@ -173,7 +179,7 @@ const OwnerUnits: React.FC = () => {
   if ((adding || editing) && data) return <UnitForm assets={data.assets} unit={editing ?? undefined} onDone={(saved) => { setAdding(false); setEditing(null); if (saved) load(); }} />;
   return (
     <div className="space-y-3">
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
       {!data && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
       {data && (
         <>
@@ -288,7 +294,7 @@ const UnitForm: React.FC<{ assets: Array<{ id: string; name: string; assetType?:
       <label className="block text-xs font-bold text-slate-500">{t('Available from')}<input type="date" min={unit ? undefined : today()} value={form.availableFrom} onChange={set('availableFrom')} className={input} /></label>
       <label className="block text-xs font-bold text-slate-500">{kind === 'movable' ? t('Permitted use (e.g. earthworks, site clearing)') : kind === 'land' ? t('Permitted use (e.g. farming, storage yard)') : t('Permitted use (e.g. Office)')}<input maxLength={160} value={form.permittedUse} onChange={set('permittedUse')} className={input} /></label>
       <label className="block text-xs font-bold text-slate-500">{t('Description')}<textarea maxLength={2000} rows={3} value={form.description} onChange={set('description')} className={input} /></label>
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
       <button type="submit" disabled={saving} className={primary}>{saving ? t('Saving...') : unit ? t('Save') : t('List the unit')}</button>
     </form>
   );
@@ -302,7 +308,7 @@ const FindSpace: React.FC<{ onRent: (unit: AvailableUnit) => void }> = ({ onRent
   useEffect(() => { apiClient.getAvailableUnits().then(setUnits).catch((cause) => setError(errorText(cause, t('Units could not be loaded.')))); }, [t]);
   return (
     <div className="space-y-3">
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
       {!units && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
       {units?.length === 0 && <p className="text-xs text-slate-500">{t('No space is offered for rent in your country yet.')}</p>}
       <div className="space-y-3 in-[.leasing-web]:space-y-0 in-[.leasing-web]:grid in-[.leasing-web]:md:grid-cols-2 in-[.leasing-web]:xl:grid-cols-3 in-[.leasing-web]:gap-4">
@@ -377,7 +383,7 @@ const RentRequest: React.FC<{ unit: AvailableUnit; onBack: () => void; onSent: (
         <span>{t('I confirm that our business and our use of the space are Shariah-compliant (no alcohol, gambling, conventional lending or other prohibited activity).')}</span>
       </label>
       <p className="text-[11px] text-slate-500">{t('Your company must be verified (KYB). The owner answers, then Legal and Shariah approve the Ijarah before the lease starts.')}</p>
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
       <button type="submit" disabled={sending || !declared} className={primary}>{sending ? t('Sending...') : t('Send request')}</button>
     </form>
   );
@@ -397,7 +403,7 @@ const LeaseList: React.FC<{ filter?: (lease: AssetLeaseView) => boolean; empty: 
     return (
       <div className="space-y-4">
         <button type="button" onClick={load} className="flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400"><RefreshCw className="w-3.5 h-3.5" />{t('Refresh')}</button>
-        {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+        {error && <ErrorNote text={error} />}
         {!shown && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
         {shown?.length === 0 && <p className="text-sm text-slate-500">{empty}</p>}
         {shown && shown.length > 0 && (
@@ -430,7 +436,7 @@ const LeaseList: React.FC<{ filter?: (lease: AssetLeaseView) => boolean; empty: 
   return (
     <div className="space-y-3">
       <button type="button" onClick={load} className="flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400"><RefreshCw className="w-3.5 h-3.5" />{t('Refresh')}</button>
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
       {!shown && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
       {shown?.length === 0 && <p className="text-xs text-slate-500">{empty}</p>}
       {shown?.map(lease => (
@@ -458,19 +464,23 @@ const HISTORY_LABEL: Record<string, string> = {
   LEGAL_CHANGES_REQUESTED: 'Legal asked for changes', SHARIAH_CHANGES_REQUESTED: 'Shariah asked for changes',
 };
 
-const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack }) => {
+/** The day after a date (YYYY-MM-DD). */
+const nextDay = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: string) => void }> = ({ id, onBack, onOpen }) => {
   const { t, locale } = useT();
   const money = useMoney();
   const { currentRole } = useRBAC();
   const [lease, setLease] = useState<AssetLeaseView | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<'' | 'accept' | 'counter' | 'decline' | 'withdraw' | 'review' | 'end'>('');
+  const [mode, setMode] = useState<'' | 'accept' | 'counter' | 'decline' | 'withdraw' | 'review' | 'end' | 'renew'>('');
   const [note, setNote] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [counter, setCounter] = useState({ monthlyRent: '', depositAmount: '', utilityDepositAmount: '', renovationDepositAmount: '', startDate: '', termMonths: '' });
   const [track, setTrack] = useState<'LEGAL' | 'SHARIAH'>('LEGAL');
   const [paying, setPaying] = useState<string | null>(null);
+  const [renewal, setRenewal] = useState({ termMonths: '', monthlyRent: '' });
   const [payment, setPayment] = useState({ reference: '', paidAt: today() });
 
   const reload = useCallback(() => { apiClient.getLease(id).then(setLease).catch((cause) => setError(errorText(cause, t('The lease could not be loaded.')))); }, [id, t]);
@@ -480,6 +490,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
     setNote('');
     setConfirmed(false);
     setError('');
+    if (lease && next === 'renew') setRenewal({ termMonths: String(lease.termMonths), monthlyRent: String(lease.monthlyRent) });
     if (lease && next === 'counter') setCounter({ monthlyRent: String(lease.monthlyRent), depositAmount: String(lease.depositAmount), utilityDepositAmount: String(lease.utilityDepositAmount), renovationDepositAmount: String(lease.renovationDepositAmount), startDate: lease.startDate, termMonths: String(lease.termMonths) });
   };
   const act = async (call: () => Promise<AssetLeaseView>) => {
@@ -492,7 +503,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
     return (
       <div className="space-y-4">
         <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-emerald-700 dark:text-emerald-400"><ArrowLeft className="w-4 h-4" />{t('Leasing')}</button>
-        {error ? <p role="alert" className="text-xs font-bold text-rose-700">{error}</p> : <p className="text-sm text-slate-500">{t('Loading...')}</p>}
+        {error ? <ErrorNote text={error} /> : <p className="text-sm text-slate-500">{t('Loading...')}</p>}
       </div>
     );
   }
@@ -514,6 +525,13 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
         <p className="text-[11px] text-slate-500 font-mono">{lease.id}</p>
         <span className={`inline-block mt-1 text-[10px] font-black rounded-full px-2 py-0.5 ${STATUS_STYLE[lease.status]}`}>{t(STATUS_LABEL[lease.status])}</span>
       </div>
+      {lease.renewsLeaseId && (
+        <div className="rounded-xl bg-sky-50 dark:bg-sky-500/10 p-3 text-xs text-sky-900 dark:text-sky-100 space-y-1">
+          <p className="font-bold">{t('Renewal of')} <button type="button" onClick={() => onOpen(lease.renewsLeaseId!)} className="font-mono underline">{lease.renewsLeaseId}</button></p>
+          {lease.myParty === 'OWNER' && <p>{t('The deposits held under the earlier lease can carry over: record them as received here with that lease as the reference, and refund them there with this lease as the reference.')}</p>}
+        </div>
+      )}
+      {lease.renewal && <p className="rounded-xl bg-sky-50 dark:bg-sky-500/10 p-3 text-xs font-bold text-sky-900 dark:text-sky-100">{t('Renewal')}: <button type="button" onClick={() => onOpen(lease.renewal!.id)} className="font-mono underline">{lease.renewal.id}</button> · {t(STATUS_LABEL[lease.renewal.status])}</p>}
       {waitingText && <p className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-3 text-xs font-bold text-emerald-800 dark:text-emerald-200">{waitingText}</p>}
 
       <div className="space-y-4 in-[.leasing-web]:lg:grid in-[.leasing-web]:lg:grid-cols-2 in-[.leasing-web]:lg:gap-6 in-[.leasing-web]:lg:space-y-0 in-[.leasing-web]:lg:items-start">
@@ -537,15 +555,16 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
         {lease.shariahFlags && lease.shariahFlags.length > 0 && <p className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 p-3 text-xs font-bold text-amber-800 dark:text-amber-200">{t('Check the activity: it may involve {flags}.', { flags: lease.shariahFlags.join(', ') })}</p>}
       </section>
 
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
 
-      {!mode && (lease.canRespond || lease.canWithdraw || lease.canReview || lease.canEnd) && (
+      {!mode && (lease.canRespond || lease.canWithdraw || lease.canReview || lease.canEnd || lease.canRenew) && (
         <div className="grid grid-cols-2 gap-2">
           {lease.canRespond && <button type="button" onClick={() => open('accept')} className={primary}>{t('Accept')}</button>}
           {lease.canRespond && <button type="button" onClick={() => open('counter')} className={secondary}>{t('Propose other terms')}</button>}
           {lease.canRespond && <button type="button" onClick={() => open('decline')} className={secondary}>{t('Decline')}</button>}
           {lease.canWithdraw && <button type="button" onClick={() => open('withdraw')} className={secondary}>{t('Withdraw')}</button>}
           {lease.canReview && <button type="button" onClick={() => open('review')} className={`${primary} col-span-2`}>{t('Review')}</button>}
+          {lease.canRenew && <button type="button" onClick={() => open('renew')} className={`${primary} col-span-2`}>{t('Ask to renew')}</button>}
           {lease.canEnd && <button type="button" onClick={() => open('end')} className={`${secondary} col-span-2`}>{t('End the lease early')}</button>}
         </div>
       )}
@@ -582,6 +601,21 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
         <form className={`${card} space-y-3`} onSubmit={(event) => { event.preventDefault(); act(() => (mode === 'decline' ? apiClient.respondLease(lease.id, { action: 'DECLINE', note: note || undefined }) : mode === 'withdraw' ? apiClient.withdrawLease(lease.id, note || undefined) : apiClient.endLease(lease.id, note))); }}>
           {noteBox(mode === 'end', mode === 'end' ? t('Why the lease ends early, as both sides agreed') : t('Reason (optional)'))}
           <button type="submit" disabled={busy} className={primary}>{mode === 'decline' ? t('Decline') : mode === 'withdraw' ? t('Withdraw') : t('End the lease')}</button>
+          <button type="button" onClick={() => setMode('')} className={secondary}>{t('Cancel')}</button>
+        </form>
+      )}
+
+      {mode === 'renew' && (
+        <form className={`${card} space-y-3`} onSubmit={(event) => { event.preventDefault(); setBusy(true); setError(''); apiClient.renewLease(lease.id, { termMonths: Number(renewal.termMonths), ...(Number(renewal.monthlyRent) !== lease.monthlyRent ? { monthlyRent: Number(renewal.monthlyRent) } : {}), message: note || undefined, shariahDeclaration: true }).then((created) => onOpen(created.id)).catch((cause) => setError(errorText(cause, t('That did not go through.')))).finally(() => setBusy(false)); }}>
+          <h2 className="text-sm font-black">{t('Ask to renew')}</h2>
+          <p className="text-[11px] text-slate-500">{t('A new lease from {date}, the day after this one ends, with the same use and deposits. The owner answers, then Legal and Shariah review it and both sides sign a new agreement.', { date: nextDay(lease.endDate) })}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-xs font-bold text-slate-500">{t('Months')}<input required type="number" min={lease.unit.minTermMonths} max={360} value={renewal.termMonths} onChange={(event) => setRenewal(current => ({ ...current, termMonths: event.target.value }))} className={input} /></label>
+            <label className="block text-xs font-bold text-slate-500">{t('Rent a month (RM)')}<input required type="number" min={1} step="0.01" value={renewal.monthlyRent} onChange={(event) => setRenewal(current => ({ ...current, monthlyRent: event.target.value }))} className={input} /></label>
+          </div>
+          {noteBox(false, t('Message to the owner (optional)'))}
+          <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-0.5 w-4 h-4" /><span>{t('Our business and our use of the space remain Shariah-compliant.')}</span></label>
+          <button type="submit" disabled={busy || !confirmed} className={primary}>{t('Send the renewal request')}</button>
           <button type="button" onClick={() => setMode('')} className={secondary}>{t('Cancel')}</button>
         </form>
       )}
@@ -731,7 +765,7 @@ const LeaseAgreementCard: React.FC<{ lease: AssetLeaseView; onChanged: () => voi
           {status === 'EXECUTION' && <p className="text-[11px] text-slate-500">{t('Pay the stamp duty (LHDN STAMPS) within 30 days of signing.')}</p>}
         </>
       )}
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
     </section>
   );
 };
@@ -825,7 +859,7 @@ const DepositCard: React.FC<{ lease: AssetLeaseView; onChanged: (lease: AssetLea
           </div>
         </form>
       )}
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
     </section>
   );
 };
