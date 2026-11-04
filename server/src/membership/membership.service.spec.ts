@@ -79,7 +79,8 @@ describe('AI credit exemption', () => {
 
 describe('AI credit exempt role list', () => {
   it('covers every administrator, the whole Governance & Risk category and Customer Support, and no investor or other operations role', () => {
-    expect(AI_CREDIT_EXEMPT_ROLES.size).toBe(20);
+    expect(AI_CREDIT_EXEMPT_ROLES.size).toBe(21);
+    expect(AI_CREDIT_EXEMPT_ROLES.has('Estate Officer')).toBe(true);
     for (const role of ['Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office', 'Project Sponsor', 'Pool Manager', 'Finance Officer', 'Settlement Officer', 'Guest'] as const) expect(AI_CREDIT_EXEMPT_ROLES.has(role)).toBe(false);
   });
 });
