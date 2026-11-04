@@ -27,4 +27,9 @@ describe('investor positions', () => {
     ], new Map([['POOL-1', 200], ['POOL-2', 2000]]), []);
     expect(rows.map((row) => [row.poolId, row.capital, row.investorProfitSharePct])).toEqual([['POOL-2', 1000, 65], ['POOL-1', 200, 70]]);
   });
+
+  it('says when the project is suspended', () => {
+    expect(buildPositions([order({})], new Map(), [])[0].projectSuspended).toBe(false);
+    expect(buildPositions([order({ pool: { ...pool, projectSuspended: true } })], new Map(), [])[0].projectSuspended).toBe(true);
+  });
 });

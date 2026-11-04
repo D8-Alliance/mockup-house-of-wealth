@@ -16,7 +16,7 @@ export interface PositionOrder {
   createdAt: Date;
   /** The investor profit share (%) of the akad terms accepted with this order. */
   investorProfitSharePct: number | null;
-  pool: { poolName: string; status: string; currency: string; investmentStructure: string; indicativeExpectedReturn: number; projectName: string };
+  pool: { poolName: string; status: string; currency: string; investmentStructure: string; indicativeExpectedReturn: number; projectName: string; projectSuspended?: boolean };
 }
 
 export interface PositionAllocation {
@@ -30,6 +30,8 @@ export interface InvestorPosition {
   poolName: string;
   projectName: string;
   poolStatus: string;
+  /** The project is suspended by an administrator while an issue is looked into. */
+  projectSuspended: boolean;
   contract: string;
   currency: string;
   indicativeExpectedReturn: number;
@@ -68,6 +70,7 @@ export function buildPositions(orders: PositionOrder[], poolCapital: Map<string,
       poolName: pool.poolName,
       projectName: pool.projectName,
       poolStatus: pool.status,
+      projectSuspended: pool.projectSuspended ?? false,
       contract: pool.investmentStructure,
       currency: pool.currency,
       indicativeExpectedReturn: pool.indicativeExpectedReturn,

@@ -29,6 +29,12 @@ const secondary = 'w-full in-[.leasing-web]:w-auto in-[.leasing-web]:px-5 in-[.l
 const today = () => new Date().toISOString().slice(0, 10);
 const errorText = (cause: unknown, fallback: string) => (cause instanceof Error ? cause.message : fallback);
 
+/** An error, in Malay when the server's English wording is known. */
+const ErrorNote: React.FC<{ text: string }> = ({ text }) => {
+  const { serverText } = useT();
+  return <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{serverText(text)}</p>;
+};
+
 /** True on the web portal: the same screens laid out for a wide screen (title bar, summary, tables, two columns). */
 const WebLayout = React.createContext(false);
 const useWeb = () => React.useContext(WebLayout);
@@ -137,7 +143,7 @@ const OwnerUnits: React.FC = () => {
           {data.assets.length === 0 ? <p className="text-sm text-slate-500">{t('Only a verified asset can be leased out. Register your asset and have it verified on the web portal first.')}</p> : <span />}
           {data.assets.length > 0 && <button type="button" onClick={() => setAdding(true)} className={`${primary} flex items-center justify-center gap-1.5`}><Plus className="w-4 h-4" />{t('Add a unit for rent')}</button>}
         </div>
-        {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+        {error && <ErrorNote text={error} />}
         {data.units.length === 0 && data.assets.length > 0 && <p className="text-sm text-slate-500">{t('No unit listed yet. A unit can be a floor, a shop lot, a bay or the whole asset.')}</p>}
         {data.units.length > 0 && (
           <div className={table}>
@@ -173,7 +179,7 @@ const OwnerUnits: React.FC = () => {
   if ((adding || editing) && data) return <UnitForm assets={data.assets} unit={editing ?? undefined} onDone={(saved) => { setAdding(false); setEditing(null); if (saved) load(); }} />;
   return (
     <div className="space-y-3">
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
       {!data && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
       {data && (
         <>
@@ -288,7 +294,7 @@ const UnitForm: React.FC<{ assets: Array<{ id: string; name: string; assetType?:
       <label className="block text-xs font-bold text-slate-500">{t('Available from')}<input type="date" min={unit ? undefined : today()} value={form.availableFrom} onChange={set('availableFrom')} className={input} /></label>
       <label className="block text-xs font-bold text-slate-500">{kind === 'movable' ? t('Permitted use (e.g. earthworks, site clearing)') : kind === 'land' ? t('Permitted use (e.g. farming, storage yard)') : t('Permitted use (e.g. Office)')}<input maxLength={160} value={form.permittedUse} onChange={set('permittedUse')} className={input} /></label>
       <label className="block text-xs font-bold text-slate-500">{t('Description')}<textarea maxLength={2000} rows={3} value={form.description} onChange={set('description')} className={input} /></label>
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
       <button type="submit" disabled={saving} className={primary}>{saving ? t('Saving...') : unit ? t('Save') : t('List the unit')}</button>
     </form>
   );
@@ -302,7 +308,7 @@ const FindSpace: React.FC<{ onRent: (unit: AvailableUnit) => void }> = ({ onRent
   useEffect(() => { apiClient.getAvailableUnits().then(setUnits).catch((cause) => setError(errorText(cause, t('Units could not be loaded.')))); }, [t]);
   return (
     <div className="space-y-3">
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
       {!units && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
       {units?.length === 0 && <p className="text-xs text-slate-500">{t('No space is offered for rent in your country yet.')}</p>}
       <div className="space-y-3 in-[.leasing-web]:space-y-0 in-[.leasing-web]:grid in-[.leasing-web]:md:grid-cols-2 in-[.leasing-web]:xl:grid-cols-3 in-[.leasing-web]:gap-4">
@@ -377,7 +383,7 @@ const RentRequest: React.FC<{ unit: AvailableUnit; onBack: () => void; onSent: (
         <span>{t('I confirm that our business and our use of the space are Shariah-compliant (no alcohol, gambling, conventional lending or other prohibited activity).')}</span>
       </label>
       <p className="text-[11px] text-slate-500">{t('Your company must be verified (KYB). The owner answers, then Legal and Shariah approve the Ijarah before the lease starts.')}</p>
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
       <button type="submit" disabled={sending || !declared} className={primary}>{sending ? t('Sending...') : t('Send request')}</button>
     </form>
   );
@@ -397,7 +403,7 @@ const LeaseList: React.FC<{ filter?: (lease: AssetLeaseView) => boolean; empty: 
     return (
       <div className="space-y-4">
         <button type="button" onClick={load} className="flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400"><RefreshCw className="w-3.5 h-3.5" />{t('Refresh')}</button>
-        {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+        {error && <ErrorNote text={error} />}
         {!shown && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
         {shown?.length === 0 && <p className="text-sm text-slate-500">{empty}</p>}
         {shown && shown.length > 0 && (
@@ -430,7 +436,7 @@ const LeaseList: React.FC<{ filter?: (lease: AssetLeaseView) => boolean; empty: 
   return (
     <div className="space-y-3">
       <button type="button" onClick={load} className="flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400"><RefreshCw className="w-3.5 h-3.5" />{t('Refresh')}</button>
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
       {!shown && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
       {shown?.length === 0 && <p className="text-xs text-slate-500">{empty}</p>}
       {shown?.map(lease => (
@@ -492,7 +498,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
     return (
       <div className="space-y-4">
         <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-emerald-700 dark:text-emerald-400"><ArrowLeft className="w-4 h-4" />{t('Leasing')}</button>
-        {error ? <p role="alert" className="text-xs font-bold text-rose-700">{error}</p> : <p className="text-sm text-slate-500">{t('Loading...')}</p>}
+        {error ? <ErrorNote text={error} /> : <p className="text-sm text-slate-500">{t('Loading...')}</p>}
       </div>
     );
   }
@@ -537,7 +543,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
         {lease.shariahFlags && lease.shariahFlags.length > 0 && <p className="mt-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 p-3 text-xs font-bold text-amber-800 dark:text-amber-200">{t('Check the activity: it may involve {flags}.', { flags: lease.shariahFlags.join(', ') })}</p>}
       </section>
 
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
 
       {!mode && (lease.canRespond || lease.canWithdraw || lease.canReview || lease.canEnd) && (
         <div className="grid grid-cols-2 gap-2">
@@ -731,7 +737,7 @@ const LeaseAgreementCard: React.FC<{ lease: AssetLeaseView; onChanged: () => voi
           {status === 'EXECUTION' && <p className="text-[11px] text-slate-500">{t('Pay the stamp duty (LHDN STAMPS) within 30 days of signing.')}</p>}
         </>
       )}
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
     </section>
   );
 };
@@ -825,7 +831,7 @@ const DepositCard: React.FC<{ lease: AssetLeaseView; onChanged: (lease: AssetLea
           </div>
         </form>
       )}
-      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+      {error && <ErrorNote text={error} />}
     </section>
   );
 };

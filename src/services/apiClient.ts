@@ -1703,6 +1703,8 @@ export interface InvestorPosition {
   poolName: string;
   projectName: string;
   poolStatus: string;
+  /** The project is suspended by an administrator while an issue is looked into. */
+  projectSuspended?: boolean;
   contract: string;
   currency: string;
   indicativeExpectedReturn: number;
@@ -1718,6 +1720,8 @@ export interface InvestorPosition {
 
 export interface BackendPool {
   poolId: string;
+  /** The project is suspended by an administrator while an issue is looked into. */
+  projectSuspended?: boolean;
   poolName: string;
   currency: string;
   investmentStructure: string;

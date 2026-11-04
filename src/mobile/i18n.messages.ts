@@ -1,3 +1,6 @@
+import { MS_LEASING_PATTERNS, MS_LEASING_TEXT } from './i18n.leasing';
+import { MS_ROADMAP_PATTERNS, MS_ROADMAP_TEXT } from './i18n.roadmap';
+
 /**
  * Notification texts the server writes in English with values filled in (amounts, names, dates, references),
  * and their Malay wording. The server keeps one language so the record stays the same for everyone; the
@@ -148,8 +151,9 @@ const MS_SERVER_TITLES: Record<string, string> = {
 
 /** The server's English notification title or message in Malay, when known; otherwise as written. */
 export function translateServerText(text: string): string {
-  if (MS_SERVER_TITLES[text]) return MS_SERVER_TITLES[text];
-  for (const [pattern, malay] of MS_SERVER_TEXT) {
+  const known = MS_SERVER_TITLES[text] ?? MS_ROADMAP_TEXT[text] ?? MS_LEASING_TEXT[text];
+  if (known) return known;
+  for (const [pattern, malay] of [...MS_SERVER_TEXT, ...MS_ROADMAP_PATTERNS, ...MS_LEASING_PATTERNS]) {
     const match = pattern.exec(text);
     if (match) return (typeof malay === 'function' ? malay(match) : malay.replace(/\$(\d)/g, (_, index: string) => match[Number(index)] ?? '')).trim();
   }

@@ -25,10 +25,10 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 17 | Modul aset | Sewa/untung pemilik aset, tandatangan, takaful, agensi luar, skrin demo | Boleh diteruskan |
 | 18 | Kunci API | Kunci untuk sistem luar | Tangguh sehingga perlu |
 | 19 | Pengurusan pengguna | Notis privasi rasmi, pelulus kedua untuk peranan admin, sebab tukar peranan | Butiran syarikat; peguam |
-| 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, Keycloak, terjemahan, semakan di telefon | Butiran bank; spesifikasi D8 Ideas |
+| 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, Keycloak, emel BM, semakan di telefon | Butiran bank; spesifikasi D8 Ideas |
 | 21 | Sewaan terus (Ijarah) | Semakan perjanjian di mini-app, label "Delivery partner", pembaharuan, caj utiliti, keputusan kutipan sewa dan cukai | Pemilik projek; peguam dan cukai |
 | 22 | Agihan keuntungan | Skrin web Kewangan, fail bayaran pukal bank, peringatan hasil lewat | Boleh dimulakan |
-| 23 | Projek bermasalah | Skrin web, label "Digantung", pulangan modal | Boleh dimulakan bila perlu |
+| 23 | Projek bermasalah | Skrin web, label "Digantung" di web, pulangan modal | Boleh dimulakan bila perlu |
 | 24 | Pangkalan pengetahuan dan Tanya | Tanda standard lama, model embedding di staging, Rebuild & embed, ujian jawapan | Shariah/Kewangan semak versi; tetapan staging |
 
 ---
@@ -236,9 +236,8 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 2. Log masuk (SSO) dan push melalui D8 Ideas: tunggu spesifikasi mereka.
 3. Uji dalam super app, terutamanya kamera dalam WebView.
 4. Keycloak: tambah `/m/*` dalam Valid redirect URIs, dan tetapkan emel (SMTP) untuk "Forgot password".
-5. Terjemahan: notifikasi utama sudah dalam BM (`src/mobile/i18n.messages.ts`). Mesej server yang baharu perlu ditambah ke situ, jika tidak ia keluar dalam bahasa Inggeris. Yang masih dalam bahasa Inggeris: sebahagian mesej ralat sewaan daripada server, kira-kira 20 teks dalam skrin kes pusaka, dan emel.
-6. Tab Projek untuk penaja: langkah seterusnya masih dalam bahasa Inggeris; penyediaan projek kekal di web.
-7. Semakan di telefon untuk KYC Officer dan penyemak Legal/Shariah: belum dibina; mereka guna portal web.
+5. Terjemahan: notifikasi utama sudah dalam BM (`src/mobile/i18n.messages.ts`). Mesej server yang baharu perlu ditambah ke situ, jika tidak ia keluar dalam bahasa Inggeris. Yang masih dalam bahasa Inggeris: emel.
+6. Semakan di telefon untuk KYC Officer dan penyemak Legal/Shariah: belum dibina; mereka guna portal web.
 
 ## 21. Sewaan terus (Ijarah) tanpa projek
 
@@ -269,7 +268,7 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 
 **Belum siap:**
 1. Skrin web untuk tindakan ini.
-2. Label "Digantung" pada portfolio dan pool untuk pelabur sedia ada.
+2. Label "Digantung" di portal web. (Mini-app sudah memaparkannya dalam Portfolio, dan server menghantar `projectSuspended` pada pool dan pegangan pelabur.)
 3. Aliran memulangkan modal kepada pelabur.
 
 ## 24. Pangkalan pengetahuan (AAOIFI) dan Tanya
