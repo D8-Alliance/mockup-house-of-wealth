@@ -31,6 +31,7 @@ import { canInvest, isDeliveryPartner } from '../rbac/menuVisibility';
 
 // The big screens load when their tab is first opened, so the first page loads faster.
 const AssetRegisterView = lazy(() => import('../assets/AssetRegisterView').then((m) => ({ default: m.AssetRegisterView })));
+const LeasingWebView = lazy(() => import('../leasing/LeasingWebView').then((m) => ({ default: m.LeasingWebView })));
 const AssetPartnershipsView = lazy(() => import('../asset-partnerships/AssetPartnershipsView').then((m) => ({ default: m.AssetPartnershipsView })));
 const AssetDiscoveryView = lazy(() => import('./AssetDiscoveryView').then((m) => ({ default: m.AssetDiscoveryView })));
 const PoolingView = lazy(() => import('./PoolingView').then((m) => ({ default: m.PoolingView })));
@@ -124,6 +125,12 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
       {currentTab === 'assets' && (
         <RoleGuard tab="assets">
           <AssetRegisterView startRegistering={assetRegisterRequested} onStartedRegistering={onAssetRegisterStarted} onOpenAgreement={() => setTab('ai-engine')} />
+        </RoleGuard>
+      )}
+
+      {currentTab === 'leasing' && (
+        <RoleGuard tab="leasing">
+          <LeasingWebView lang={lang} />
         </RoleGuard>
       )}
 

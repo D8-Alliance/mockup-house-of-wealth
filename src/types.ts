@@ -10,6 +10,7 @@ export type NavTab =
   | 'investments'
   | 'assets'
   | 'asset-partnerships'
+  | 'leasing'
   | 'contracts'
   | 'wallet'
   | 'financials'

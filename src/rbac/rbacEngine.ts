@@ -1,6 +1,7 @@
 import { UserRole, ResourceModule, PermissionAction } from './types';
 import { ROLE_DEFINITIONS } from './roleDefinitions';
 import { NavTab } from '../types';
+import { LEASING_ROLES } from '../mobile/mobileRoles';
 
 /**
  * Checks whether a given role has permission to perform an action on a resource module.
@@ -46,7 +47,9 @@ export function getAccessibleTabs(role: UserRole): NavTab[] {
   if (!roleDef) return [];
   const tabs = roleDef.accessibleTabs.filter((tab) => (tab !== 'assets' || ASSET_REGISTER_ROLES.has(role)) && readsPools(role, tab));
   if (ASSET_REGISTER_ROLES.has(role) && !tabs.includes('assets')) tabs.push('assets');
-  return ASSET_PARTNERSHIP_ROLES.has(role) ? [...tabs, 'asset-partnerships'] : tabs;
+  if (ASSET_PARTNERSHIP_ROLES.has(role)) tabs.push('asset-partnerships');
+  if (LEASING_ROLES.includes(role)) tabs.push('leasing');
+  return tabs;
 }
 
 /**
@@ -69,6 +72,8 @@ const NO_BILLING_ROLES: ReadonlySet<UserRole> = new Set<UserRole>(['Guest', 'Fin
 export function isTabAccessible(role: UserRole, tab: NavTab): boolean {
   if (tab === 'billing-transactions' || tab === 'membership') return !NO_BILLING_ROLES.has(role);
   if (tab === 'asset-partnerships') return ASSET_PARTNERSHIP_ROLES.has(role);
+  // Direct leasing: owners, companies looking for space and reviewers. Mirrors server/src/leasing/leasing.controller.ts.
+  if (tab === 'leasing') return LEASING_ROLES.includes(role);
   if (tab === 'assets') return ASSET_REGISTER_ROLES.has(role);
   if (!readsPools(role, tab)) return false;
   const roleDef = ROLE_DEFINITIONS[role];
