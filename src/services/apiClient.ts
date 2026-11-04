@@ -167,6 +167,12 @@ export interface SettlementQueueOrder extends BackendInvestmentOrder {
   pool: { poolName: string; project: { projectName: string } };
 }
 
+/** A settled order in a pool that missed its minimum, waiting for Finance to return the money. */
+export interface RefundQueueOrder extends BackendInvestmentOrder {
+  investorName: string | null;
+  pool: { poolName: string; minimumRaise: number | string | null; project: { projectName: string } };
+}
+
 export interface BackendPoolAkadTerms {
   id: string;
   version: number;
@@ -232,6 +238,8 @@ export const apiClient = {
   endLease: (id: string, note: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/end`, { method: 'POST', body: JSON.stringify({ note }) }),
   createInvestmentOrder: (input: { poolId: string; amount: number; currency: string; idempotencyKey: string; akadTermsId: string; acceptAkad: true }) => request<BackendInvestmentOrder>('/investments/orders', { method: 'POST', body: JSON.stringify(input) }),
   getSettlementQueue: () => request<SettlementQueueOrder[]>('/investments/settlement-queue'),
+  getRefundQueue: () => request<RefundQueueOrder[]>('/investments/refund-queue'),
+  refundInvestmentOrder: (id: string, paymentReference: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/refund`, { method: 'POST', body: JSON.stringify({ paymentReference }) }),
   settleInvestmentOrder: (id: string, paymentReference: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/settle`, { method: 'POST', body: JSON.stringify({ paymentReference }) }),
   cancelInvestmentOrder: (id: string, reason?: string) => request<BackendInvestmentOrder>(`/investments/orders/${encodeURIComponent(id)}/cancel`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
   getNotifications: () => request<BackendNotification[]>('/notifications'),
@@ -287,7 +295,7 @@ export const apiClient = {
   getPools: () => request<BackendPool[]>('/pools'),
   getPool: (poolId: string) => request<BackendPoolDetail>(`/pools/${encodeURIComponent(poolId)}`),
   setPoolStatus: (poolId: string, status: 'OPEN' | 'PAUSED' | 'FULL' | 'CLOSED', note?: string) => request<BackendPool>(`/pools/${encodeURIComponent(poolId)}/status`, { method: 'PATCH', body: JSON.stringify({ status, note }) }),
-  createPool: (input: { projectId: string; poolName: string; currency: string; indicativeExpectedReturn: number; organisationId: string; countryNodeId: string; akadType: 'MUDARABAH' | 'MUSHARAKAH' | 'WAKALAH' | 'IJARAH'; investorProfitSharePct: number }) => request<BackendPool>('/pools', { method: 'POST', body: JSON.stringify(input) }),
+  createPool: (input: { projectId: string; poolName: string; currency: string; indicativeExpectedReturn: number; organisationId: string; countryNodeId: string; akadType: 'MUDARABAH' | 'MUSHARAKAH' | 'WAKALAH' | 'IJARAH'; investorProfitSharePct: number; minimumRaise?: number; closesAt?: string }) => request<BackendPool>('/pools', { method: 'POST', body: JSON.stringify(input) }),
   /** One governance sign-off on a DRAFT pool; the fourth makes it APPROVED. */
   signOffPool: (poolId: string, step: PoolSignOffStep) => request<BackendPool>(`/pools/${encodeURIComponent(poolId)}/sign-offs/${step}`, { method: 'POST' }),
   /** Opens an APPROVED pool to investors. */
@@ -1703,6 +1711,8 @@ export interface InvestorPosition {
   poolName: string;
   projectName: string;
   poolStatus: string;
+  projectSuspended: boolean;
+  projectSuspendedReason: string | null;
   contract: string;
   currency: string;
   indicativeExpectedReturn: number;
@@ -1731,6 +1741,9 @@ export interface BackendPool {
   projectName?: string;
   targetAmount?: number;
   raisedAmount?: number;
+  /** Least the pool must raise by closesAt; below it investors are refunded in full. */
+  minimumRaise?: number | string | null;
+  closesAt?: string | null;
   /** Governance sign-offs; null until signed. */
   shariahApprovedBy?: string | null;
   shariahApprovedAt?: string | null;

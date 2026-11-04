@@ -24,6 +24,7 @@ function memory() {
     projectMilestone: { aggregate: jest.fn(async () => ({ _sum: { disbursementAmount: 0 } })) },
     userRoleAssignment: { findMany: jest.fn(async () => []), count: jest.fn(async () => 1) },
   };
+  Object.assign(prisma, { $transaction: jest.fn(async (work: (tx: unknown) => unknown) => work(prisma)) });
   return { prisma, commitments, policies };
 }
 
@@ -32,7 +33,8 @@ describe('sponsor capital and takaful cover', () => {
 
   it('takes the sponsor capital from pledge to deposit, decided by Finance of another organisation', async () => {
     const { prisma, commitments } = memory();
-    const service = new CapitalTakafulService(prisma as never, audit as never);
+    const ledger = { ensureAccountInTransaction: jest.fn(async (_tx, _actor, input: { accountCode: string }) => ({ id: input.accountCode })), postInTransaction: jest.fn(async () => ({ id: 'LTX-1' })) };
+    const service = new CapitalTakafulService(prisma as never, audit as never, undefined, ledger as never);
     let view = await service.pledge(umar, 'PRJ-1', { source: 'SPONSOR_CASH', partyName: 'FELCRA', amount: 205000 });
     expect(view.facts!.capital).toMatchObject({ required: 205000, pledged: 205000, evidenced: 0 });
     const id = String(commitments[0].id);
@@ -45,11 +47,17 @@ describe('sponsor capital and takaful cover', () => {
     view = await service.recordDeposit(finance, 'PRJ-1', id, 'MBB-20261101-0042');
     expect(view.facts!.capital).toMatchObject({ evidenced: 205000, deposited: 205000 });
     expect((commitments[0].history as Array<{ action: string }>).map((entry) => entry.action)).toEqual(['PLEDGED', 'EVIDENCE_SUBMITTED', 'EVIDENCED', 'DEPOSITED']);
+    // The deposit is posted once: project cash up, sponsor capital credited, in the project's books.
+    expect(ledger.postInTransaction).toHaveBeenCalledTimes(1);
+    expect(ledger.postInTransaction).toHaveBeenCalledWith(prisma, expect.objectContaining({ organisationId: 'ORG-FELCRA' }), expect.objectContaining({
+      transactionType: 'SPONSOR_CAPITAL', idempotencyKey: `sponsor-capital:${id}`,
+      entries: [expect.objectContaining({ accountId: 'PROJECT-PRJ-1-CASH-MYR', direction: 'DEBIT', amount: 205000 }), expect.objectContaining({ accountId: 'PROJECT-PRJ-1-SPONSOR-CAPITAL-MYR', direction: 'CREDIT', amount: 205000 })],
+    }));
   });
 
   it('accepts conventional insurance only with the Shariah adviser approval, and lets Risk verify cover', async () => {
     const { prisma, policies } = memory();
-    const service = new CapitalTakafulService(prisma as never, audit as never);
+    const service = new CapitalTakafulService(prisma as never, audit as never, undefined, {} as never);
     const base = { coverType: 'PUBLIC_LIABILITY' as const, provider: 'Takaful Contoh Berhad', policyNumber: 'PL-2026-001', sumCovered: 1000000, startDate: '2026-10-01', endDate: '2027-09-30', lossPayee: 'Project account', conventional: false };
     let view = await service.view(umar, 'PRJ-1');
     expect(view.facts!.cover.map((item) => item.state)).toEqual(['MISSING', 'MISSING']);

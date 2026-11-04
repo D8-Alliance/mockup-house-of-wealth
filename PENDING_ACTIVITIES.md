@@ -27,8 +27,8 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 19 | Pengurusan pengguna | Notis privasi rasmi, pelulus kedua untuk peranan admin, sebab tukar peranan | Butiran syarikat; peguam |
 | 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, Keycloak, terjemahan, semakan di telefon | Butiran bank; spesifikasi D8 Ideas |
 | 21 | Sewaan terus (Ijarah) | Semakan perjanjian di mini-app, label "Delivery partner", pembaharuan, caj utiliti, keputusan kutipan sewa dan cukai | Pemilik projek; peguam dan cukai |
-| 22 | Agihan keuntungan | Skrin web Kewangan, fail bayaran pukal bank, peringatan hasil lewat | Boleh dimulakan |
-| 23 | Projek bermasalah | Skrin web, label "Digantung", pulangan modal | Boleh dimulakan bila perlu |
+| 22 | Agihan keuntungan | Fail bayaran pukal bank, padanan penyata, peringatan hasil lewat | Format fail bank; jadual hasil projek |
+| 23 | Projek bermasalah | Pulangan modal kepada pelabur | Kewangan dan penasihat Shariah |
 | 24 | Pangkalan pengetahuan dan Tanya | Tanda standard lama, model embedding di staging, Rebuild & embed, ujian jawapan | Shariah/Kewangan semak versi; tetapan staging |
 
 ---
@@ -194,7 +194,7 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 3. Skor tawaran oleh AI: ditangguhkan, kerana model sekarang tidak konsisten.
 4. Hidupkan peranan Legal dan Shariah di staging jika mahu penyemak sebenar.
 
-**Modal penaja dan takaful:** setoran belum direkod dalam lejar; skrin untuk pemilik aset muat naik takaful sendiri; sasaran minimum, tarikh tutup dan pulangan wang pool.
+**Modal penaja dan takaful:** siap 4 November 2026 (setoran modal penaja direkod dalam lejar; pemilik aset muat naik takaful sendiri dari skrin perkongsian; sasaran minimum, tarikh tutup dan pulangan wang pool). Yang tinggal: penasihat Shariah sahkan bahawa pool yang tidak capai minimum memulangkan modal penuh.
 
 **Tandatangan elektronik:**
 1. Sijil meterai daripada pihak yang dipercayai Adobe untuk production.
@@ -205,15 +205,16 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 6. Hidupkan `SIGNING_REQUIRE_VERIFIED_IDENTITY=true` di production.
 7. Templat perjanjian Musharakah dan Ijarah disemak peguam dan penasihat Shariah.
 
-**Rekod dan semakan:** PDF sejarah perjanjian; rekod siapa sudah melihat perjanjian; paparkan fail dokumen aset dalam skrin semakan; senarai aktiviti haram ke tetapan negara; semakan automatik nombor SSM.
+**Rekod dan semakan:** PDF sejarah perjanjian; rekod siapa sudah melihat perjanjian; senarai aktiviti haram ke tetapan negara; semakan automatik nombor SSM (perlu akses data SSM).
 
 **Pendaftaran aset:**
 1. Sambungan dengan e-Tanah, JPJ, JKKP (perlu perjanjian dengan agensi).
 2. Pautan ke peta lot negeri.
-3. Amaran jika nilai yang diisi jauh berbeza daripada laporan penilaian.
-4. Cara kemas kini nilai atau tarik balik aset yang sudah disahkan.
-5. Skrin demo masih guna senarai aset contoh.
-6. Pantau masa jawapan penasihat AI di staging.
+3. Cara kemas kini nilai atau tarik balik aset yang sudah disahkan.
+4. Skrin demo masih guna senarai aset contoh.
+5. Pantau masa jawapan penasihat AI di staging.
+
+(Amaran nilai berbanding laporan penilaian siap 4 November 2026: semakan dokumen membaca nilai pasaran dalam laporan dan menanda jika nilai yang diisi berbeza lebih 20%.)
 
 ## 18. Kunci API
 
@@ -256,21 +257,20 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 
 ## 22. Agihan keuntungan (Settlement Officer)
 
-- **Keadaan:** aliran agihan berjalan di mini-app (tab Agihan): rekod hasil projek, pratonton bahagian setiap pelabur, pelulus kedua, bayaran dan rekod rujukan bank.
+- **Keadaan:** aliran agihan berjalan di mini-app (tab Agihan) dan di web (Financials › Profit distribution, untuk Settlement Officer dan Super Admin, 4 November 2026): rekod hasil projek, pratonton bahagian setiap pelabur, pelulus kedua, bayaran dan rekod rujukan bank.
 
 **Belum siap:**
-1. Skrin web untuk Kewangan, termasuk fail bayaran pukal bank (DuitNow Bulk atau IBG) dan padanan penyata bank.
-2. Peringatan jika hasil projek lewat masuk.
-3. Kira akhir pool dan rugi yang belum pulih (item 10).
+1. **Fail bayaran pukal bank** (DuitNow Bulk atau IBG): perlu format fail bank yang digunakan. Fail ini perlu nombor akaun penuh, jadi server perlu membuka nombor yang disulitkan dengan kawalan ketat.
+2. **Padanan penyata bank:** sekarang setiap bayaran disahkan satu demi satu.
+3. **Peringatan hasil lewat:** perlu jadual bila hasil projek dijangka masuk (belum direkod dalam sistem).
+4. Kira akhir pool dan rugi yang belum pulih (item 10).
 
 ## 23. Projek bermasalah: arkib dan gantung
 
-- **Keadaan:** Arkib, Pulihkan, Gantung dan Sambung semula boleh dibuat di mini-app (Utama › Urus projek), dengan sebab wajib dan log audit. Projek ujian juga boleh dibuang dengan skrip `server/scripts/delete-test-project.ts`.
+- **Keadaan:** Arkib, Pulihkan, Gantung dan Sambung semula boleh dibuat di mini-app (Utama › Urus projek) dan di web (Admin Center › Problem Projects), dengan sebab wajib dan log audit. Pelabur nampak label "Suspended" dan sebabnya dalam Investments (4 November 2026). Projek ujian juga boleh dibuang dengan skrip `server/scripts/delete-test-project.ts`.
 
 **Belum siap:**
-1. Skrin web untuk tindakan ini.
-2. Label "Digantung" pada portfolio dan pool untuk pelabur sedia ada.
-3. Aliran memulangkan modal kepada pelabur.
+1. **Pulangan modal kepada pelabur** bila projek tidak diteruskan: berapa yang dipulangkan (penuh atau tolak rugi), siapa meluluskan, dan catatan dalam lejar. Perlu keputusan Kewangan dan penasihat Shariah.
 
 ## 24. Pangkalan pengetahuan (AAOIFI) dan Tanya
 

@@ -30,8 +30,11 @@ import {
   Newspaper,
   MapPin,
   Users,
-  Power
+  Power,
+  FolderX
 } from 'lucide-react';
+import { ProblemProjectsSection } from './admin/ProblemProjectsSection';
+import { RefundQueuePanel } from './finance/RefundQueuePanel';
 import { AdminModuleSection, NavTab } from '../types';
 import { NetworkDashboardWidgets } from './dashboards/NetworkDashboardWidgets';
 import { LiveAuditLog } from './admin/LiveAuditLog';
@@ -136,6 +139,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
       items: [
         { id: 'risk_register', label: 'Risk Register', icon: <AlertTriangle className="w-4 h-4" /> },
         { id: 'risk_incidents', label: 'Incident Management', icon: <Activity className="w-4 h-4" /> },
+        { id: 'risk_projects', label: 'Problem Projects', icon: <FolderX className="w-4 h-4" /> },
         { id: 'sys_auditlogs', label: 'Audit Logs Ledger', icon: <FileSpreadsheet className="w-4 h-4" /> },
         { id: 'analytics_monitoring', label: 'System Monitoring', icon: <Cpu className="w-4 h-4" /> }
       ]
@@ -298,6 +302,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
 
           {/* Investor payments waiting for Finance, and tranche releases: the same queue as on the dashboard. */}
           {live && activeSection === 'fin_settlement' && <FundingReviewQueue role={currentRole} />}
+          {live && activeSection === 'fin_settlement' && ['Super Admin', 'Finance Officer', 'Settlement Officer', 'Portfolio Manager'].includes(currentRole) && <div className="mt-4"><RefundQueuePanel hideWhenEmpty /></div>}
 
           {activeSection === 'scoped_dashboard' && renderScopedDashboard()}
 
@@ -319,6 +324,8 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
 
           {activeSection === 'sys_role_availability' && <RoleAvailabilityPanel />}
 
+          {activeSection === 'risk_projects' && <ProblemProjectsSection />}
+
           {['content_about', 'content_members', 'content_news', 'content_contact'].includes(activeSection) && (
             <AdminPageContentManager />
           )}
@@ -338,7 +345,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
             />
           )}
 
-          {activeSection !== 'scoped_dashboard' && !(activeSection in ORGANISATION_VERIFICATION) && activeSection !== 'fin_payout_verification' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'sys_modules' && activeSection !== 'sys_role_availability' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && !LiveSection && !(live && activeSection === 'fin_settlement') && (
+          {activeSection !== 'scoped_dashboard' && !(activeSection in ORGANISATION_VERIFICATION) && activeSection !== 'fin_payout_verification' && activeSection !== 'pdp_country_config' && activeSection !== 'fin_marketplace_monetisation' && activeSection !== 'fin_ai_monetisation' && activeSection !== 'shariah_governance' && activeSection !== 'sys_modules' && activeSection !== 'sys_role_availability' && activeSection !== 'risk_projects' && activeSection !== 'content_about' && activeSection !== 'content_members' && activeSection !== 'content_news' && activeSection !== 'content_contact' && !dashboardSections.includes(activeSection) && !complianceRiskSections.includes(activeSection) && !systemSecuritySections.includes(activeSection) && !LiveSection && !(live && activeSection === 'fin_settlement') && (
             <AdminFinanceTemplates section={activeSection as any} />
           )}
         </div>

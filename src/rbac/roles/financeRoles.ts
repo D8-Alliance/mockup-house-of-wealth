@@ -84,7 +84,7 @@ export const FINANCE_ROLES: Record<string, RoleDefinition> = {
     category: 'Operational Management',
     description: 'Executes Delivery-versus-Payment (DvP) trade settlements, and asset transfer title deeds.',
     badgeColor: 'bg-teal-600/10 text-teal-700 dark:text-teal-300 border-teal-600/30',
-    accessibleTabs: ['dashboard', 'contracts', 'wallet', 'ledger', 'profile'],
+    accessibleTabs: ['dashboard', 'contracts', 'wallet', 'financials', 'ledger', 'profile'],
     permissions: {
       dashboard: ['read'],
       assets: ['read', 'update'],

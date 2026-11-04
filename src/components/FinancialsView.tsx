@@ -23,6 +23,7 @@ import { TaxStatementPanel } from './financials/TaxStatementPanel';
 import { useRBAC } from '../rbac/RBACContext';
 import { canInvest } from '../rbac/menuVisibility';
 import { apiClient, BackendInvestmentOrder } from '../services/apiClient';
+import { ProfitDistributionPanel } from './finance/ProfitDistributionPanel';
 
 interface FinancialTransaction {
   id: string;
@@ -40,11 +41,13 @@ const money = (value: number, currency = 'USD') => `${currency === 'MYR' ? 'RM '
 const words = (code: string) => code.toLowerCase().split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
 export const FinancialsView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'transactions' | 'statements' | 'profit' | 'zakat' | 'settlement'>('transactions');
+  const [activeTab, setActiveTab] = useState<'transactions' | 'statements' | 'profit' | 'zakat' | 'settlement' | 'distribution'>('transactions');
   const [searchTerm, setSearchTerm] = useState('');
   const { authMode, currentRole } = useRBAC();
   const live = authMode !== 'DEMO';
   const investor = canInvest(currentRole);
+  // The distribution endpoints accept these two roles only.
+  const distributes = live && (currentRole === 'Super Admin' || currentRole === 'Settlement Officer');
   // Outside the demo: the double-entry ledger and the investor orders, from the server.
   const [ledgerRows, setLedgerRows] = useState<FinancialTransaction[] | null>(null);
   const [orders, setOrders] = useState<BackendInvestmentOrder[] | null>(null);
@@ -209,6 +212,16 @@ export const FinancialsView: React.FC = () => {
         >
           {live ? 'Settlement' : 'SWIFT Clearance Queue'}
         </button>
+        {distributes && (
+          <button
+            onClick={() => setActiveTab('distribution')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === 'distribution' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+            }`}
+          >
+            Profit distribution
+          </button>
+        )}
         <button
           onClick={() => setActiveTab('statements')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
@@ -298,6 +311,8 @@ export const FinancialsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {activeTab === 'distribution' && distributes && <ProfitDistributionPanel />}
 
       {activeTab === 'settlement' && live && (
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-sm space-y-4">

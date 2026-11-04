@@ -208,6 +208,9 @@ export interface CheckedAsset {
   /** Where the owner says it is, for comparing with an assessment bill. */
   location?: string;
   details: AssetDetails | null;
+  /** The value the owner entered, for comparing with the valuation report. */
+  estimatedValue?: number;
+  currency?: string;
 }
 
 const LABELS: Record<string, string> = {
@@ -415,5 +418,41 @@ export function checkAssetDocuments(asset: CheckedAsset, documents: CheckedDocum
       findings.push({ source: label('SITE_PHOTO'), field: 'Photo location', result: km <= 2 ? 'MATCH' : 'MISMATCH', entered: 'Within 2 km of the map pin', found: km < 1 ? `${Math.round(km * 1000)} m from the pin` : `${km.toFixed(1)} km from the pin` });
     }
   }
+
+  // The value the owner entered against the market value in the valuation report.
+  const valuationText = asset.estimatedValue ? textOf('VALUATION') : null;
+  if (valuationText && asset.estimatedValue) {
+    const reported = valuationOnReport(valuationText);
+    const entered = formatValue(asset.estimatedValue, asset.currency);
+    if (reported === null) {
+      findings.push({ source: 'valuation report', field: 'Market value', result: 'NOT_FOUND', entered, note: 'No market value could be read from the report. Compare it with the value entered by eye.' });
+    } else {
+      const gap = Math.abs(asset.estimatedValue - reported) / reported;
+      findings.push({ source: 'valuation report', field: 'Market value', result: gap > VALUATION_TOLERANCE ? 'MISMATCH' : 'MATCH', entered, found: formatValue(reported, asset.currency), ...(gap > VALUATION_TOLERANCE ? { note: `The value entered is ${Math.round(gap * 100)}% ${asset.estimatedValue > reported ? 'above' : 'below'} the valuer's market value. Use the report's value, or ask the owner why it differs.` } : {}) });
+    }
+  }
   return findings;
 }
+
+/** How far the entered value may be from the valuer's market value before it is flagged (20%). */
+export const VALUATION_TOLERANCE = 0.2;
+const MARKET_VALUE = /(market value|nilai pasaran|open market value|valued at|nilai semasa)/i;
+const AMOUNT = /(?:RM|MYR)\s*([0-9]{1,3}(?:[,\s][0-9]{3})+|[0-9]+)(?:\.([0-9]{2}))?/gi;
+
+/**
+ * The market value stated in a valuation report: an RM amount on (or the line after) a line that says
+ * "market value" or "nilai pasaran"; otherwise the largest RM amount in the report. Null when none is read.
+ */
+export function valuationOnReport(text: string): number | null {
+  const amounts = (chunk: string) => [...chunk.matchAll(AMOUNT)].map((match) => Number(`${match[1].replace(/[,\s]/g, '')}.${match[2] ?? '00'}`)).filter((value) => value > 0);
+  const lines = text.split(/\r?\n/);
+  for (const [index, line] of lines.entries()) {
+    if (!MARKET_VALUE.test(line)) continue;
+    const found = amounts(`${line}\n${lines[index + 1] ?? ''}`);
+    if (found.length) return found[0];
+  }
+  const all = amounts(text);
+  return all.length ? Math.max(...all) : null;
+}
+
+const formatValue = (value: number, currency = 'MYR') => `${currency === 'MYR' ? 'RM' : currency} ${value.toLocaleString('en-MY', { maximumFractionDigits: 2 })}`;

@@ -3,11 +3,13 @@ import { Prisma, UserRole as PrismaUserRole } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
+import { FinancialLedgerService } from '../financial/financial-ledger.service';
 import { detectDocumentType } from '../kyc/kyc.service';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { inspectDocument } from '../projects/document-integrity';
 import { isProjectLocked } from '../projects/project-lock';
+import { postingOnBehalfOf } from '../tenancy/tenant-scope';
 import { CapitalPledgeDto, ProjectRiskFlagsDto, SAFEGUARD_DECISIONS, TakafulPolicyDto } from './capital-takaful.dto';
 import { safeguardFacts } from './safeguard-facts';
 import { EXPIRY_REMINDER_DAYS } from './safeguard-rules';
@@ -36,7 +38,12 @@ const POLICY_SELECT = { id: true, coverType: true, assetId: true, provider: true
  */
 @Injectable()
 export class CapitalTakafulService {
-  constructor(private readonly prisma: PrismaService, private readonly audit: AuditService, @Optional() private readonly notifications?: NotificationService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+    @Optional() private readonly notifications: NotificationService | undefined,
+    private readonly ledger: FinancialLedgerService,
+  ) {}
 
   async view(actor: AuthenticatedUser, projectId: string) {
     const { project, access } = await this.load(actor, projectId);
@@ -118,12 +125,26 @@ export class CapitalTakafulService {
     const { project } = await this.load(actor, projectId, 'review-capital');
     const commitment = await this.commitment(projectId, commitmentId);
     if (commitment.status !== 'EVIDENCED') throw new ConflictException('Only proved capital can be recorded as deposited.');
-    const claimed = await this.prisma.projectCapitalCommitment.updateMany({
-      where: { id: commitmentId, status: 'EVIDENCED' },
-      data: { status: 'DEPOSITED', depositReference: reference, depositedBy: actor.userId, depositedAt: new Date(), history: [...this.history(commitment), this.entry(actor, 'DEPOSITED', reference)] as unknown as Prisma.InputJsonValue },
+    const amount = Number(commitment.amount);
+    // The deposit and its ledger entry are saved together: the project's cash goes up by the sponsor's capital.
+    const ledgerTransactionId = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.projectCapitalCommitment.updateMany({
+        where: { id: commitmentId, status: 'EVIDENCED' },
+        data: { status: 'DEPOSITED', depositReference: reference, depositedBy: actor.userId, depositedAt: new Date(), history: [...this.history(commitment), this.entry(actor, 'DEPOSITED', reference)] as unknown as Prisma.InputJsonValue },
+      });
+      if (!claimed.count) throw new ConflictException('Someone else recorded it first. Reload.');
+      const books = postingOnBehalfOf(actor, project);
+      const owner = { ownerType: 'PROJECT', ownerId: projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, currency: commitment.currency };
+      const cash = await this.ledger.ensureAccountInTransaction(tx, books, { ...owner, accountCode: `PROJECT-${projectId}-CASH-${commitment.currency}`, accountType: 'ASSET' });
+      const capital = await this.ledger.ensureAccountInTransaction(tx, books, { ...owner, accountCode: `PROJECT-${projectId}-SPONSOR-CAPITAL-${commitment.currency}`, accountType: 'EQUITY' });
+      const posted = await this.ledger.postInTransaction(tx, books, {
+        transactionType: 'SPONSOR_CAPITAL', referenceType: 'ProjectCapitalCommitment', referenceId: commitmentId, currency: commitment.currency,
+        description: `Sponsor capital from ${commitment.partyName}, ref ${reference}`, idempotencyKey: `sponsor-capital:${commitmentId}`,
+        entries: [{ accountId: cash.id, direction: 'DEBIT', amount, description: 'Sponsor capital received' }, { accountId: capital.id, direction: 'CREDIT', amount, description: 'Sponsor capital contributed' }],
+      });
+      return posted.id;
     });
-    if (!claimed.count) throw new ConflictException('Someone else recorded it first. Reload.');
-    await this.record(actor, 'capital.deposited', projectId, project, { commitmentId, reference, amount: Number(commitment.amount) });
+    await this.record(actor, 'capital.deposited', projectId, project, { commitmentId, reference, amount, ledgerTransactionId });
     await this.notifyProject(project, 'Capital deposited', `${commitment.partyName}: ${commitment.currency} ${Number(commitment.amount).toLocaleString('en-MY')} recorded as deposited (${reference}).`, `capital-deposit:${commitmentId}`);
     return this.view(actor, projectId);
   }

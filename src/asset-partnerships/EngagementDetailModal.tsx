@@ -11,6 +11,7 @@ import { ReviewChecksPanel } from './ReviewChecksPanel';
 import { TermsConfirm } from './TermsConfirm';
 import { draftChanges, draftStore, draftWarnings, lastReviewFlags } from './termsReview';
 import { useRBAC } from '../rbac/RBACContext';
+import { ProjectSafeguardsPanel } from '../components/sponsor/ProjectSafeguardsPanel';
 
 const DETAIL_LABELS: Record<string, string> = {
   manufacturer: 'Manufacturer', make: 'Make', model: 'Model', yearOfManufacture: 'Year', operatingHours: 'Operating hours', category: 'Category', requiresDoshCertificate: 'Needs JKKP certificate',
@@ -40,6 +41,7 @@ const AGREEMENT_STEP: Record<string, string> = { DRAFT: 'draft, waiting for both
 export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmin, onChanged, onClose, onOpenAgreement, onOpenContracts }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCover, setShowCover] = useState(false);
   const [note, setNote] = useState('');
   const [countering, setCountering] = useState(false);
   const [draft, setDraft] = useState<EngagementDraft>({ akad: engagement.akad, terms: { ...engagement.terms }, startDate: engagement.startDate, endDate: engagement.endDate });
@@ -267,6 +269,15 @@ export const EngagementDetailModal: React.FC<Props> = ({ engagement, isSuperAdmi
               )}
             </span>
           </div>
+        )}
+        {engagement.myParty === 'OWNER' && ['ACCEPTED', 'APPROVED'].includes(engagement.status) && (
+          <section className="p-3 rounded-xl border border-amber-300/60 dark:border-amber-500/30 text-xs space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-slate-600 dark:text-slate-300">The project's money is released only while the asset's takaful is in force. Upload your own policy for this asset; Risk verifies it.</span>
+              <button type="button" onClick={() => setShowCover((value) => !value)} className="px-4 py-2 rounded-xl border border-amber-500 text-amber-700 dark:text-amber-300 font-bold flex items-center gap-1.5 cursor-pointer"><ShieldCheck className="w-3.5 h-3.5" />{showCover ? 'Hide takaful' : 'Takaful for this asset'}</button>
+            </div>
+            {showCover && <ProjectSafeguardsPanel projectId={engagement.project.projectId} />}
+          </section>
         )}
         {error && <p className="p-3 rounded-xl bg-rose-500/10 text-rose-600 text-xs font-bold">{error}</p>}
       </div>

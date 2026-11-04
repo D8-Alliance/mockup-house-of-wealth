@@ -42,6 +42,8 @@ export const PDPPoolCreationModal: React.FC<PDPPoolCreationModalProps> = ({ isOp
   const [akadType, setAkadType] = useState<PoolAkad>('MUSHARAKAH');
   const [investorShare, setInvestorShare] = useState('70');
   const [expectedReturn, setExpectedReturn] = useState('');
+  const [minimumRaise, setMinimumRaise] = useState('');
+  const [closesAt, setClosesAt] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [created, setCreated] = useState<BackendPool | null>(null);
@@ -77,14 +79,19 @@ export const PDPPoolCreationModal: React.FC<PDPPoolCreationModalProps> = ({ isOp
     ...(safeguards?.facts?.blockers.pool ?? []),
   ];
   const currency = project?.countryNode?.currency || pdpApplication?.bankInfo?.currency || 'MYR';
-  const canLaunch = Boolean(project) && !blockers.length && !shareProblem && poolName.trim().length >= 3 && expectedReturn !== '' && Number(expectedReturn) >= 0;
+  const today = new Date().toISOString().slice(0, 10);
+  // Mirrors the server's check (pool-fundraising.ts): a minimum needs a date and cannot exceed the funding required.
+  const windowProblem = minimumRaise && project && Number(minimumRaise) > Number(project.fundingRequired) ? 'The minimum cannot be more than the funding the project needs.'
+    : minimumRaise && !closesAt ? 'Give a closing date with the minimum: the minimum is checked on that date.'
+    : closesAt && closesAt < today ? 'The closing date must be today or later.' : '';
+  const canLaunch = Boolean(project) && !blockers.length && !shareProblem && !windowProblem && poolName.trim().length >= 3 && expectedReturn !== '' && Number(expectedReturn) >= 0;
 
   const launch = async () => {
     if (!project) return;
     setBusy(true);
     setError('');
     try {
-      const pool = await apiClient.createPool({ projectId: project.projectId, poolName: poolName.trim(), currency, indicativeExpectedReturn: Number(expectedReturn), organisationId: project.organisationId, countryNodeId: project.countryNodeId, akadType, investorProfitSharePct: share });
+      const pool = await apiClient.createPool({ projectId: project.projectId, poolName: poolName.trim(), currency, indicativeExpectedReturn: Number(expectedReturn), organisationId: project.organisationId, countryNodeId: project.countryNodeId, akadType, investorProfitSharePct: share, ...(minimumRaise ? { minimumRaise: Number(minimumRaise) } : {}), ...(closesAt ? { closesAt } : {}) });
       setCreated(pool);
       onCreated?.(pool);
     } catch (cause) {
@@ -151,7 +158,16 @@ export const PDPPoolCreationModal: React.FC<PDPPoolCreationModalProps> = ({ isOp
                 <input type="number" min={0} max={100} step="0.01" value={expectedReturn} onChange={(event) => setExpectedReturn(event.target.value)} className={`${INPUT} mt-1`} />
                 <span className="font-normal text-slate-500">From the project; a projection shown to investors, not a promise.</span>
               </label>
+              <label className={LABEL}>Minimum to raise ({currency}, optional)
+                <input type="number" min={0.01} step="0.01" value={minimumRaise} onChange={(event) => setMinimumRaise(event.target.value)} className={`${INPUT} mt-1`} />
+                <span className="font-normal text-slate-500">If the pool has less than this on the closing date, it does not go ahead and every investor is refunded in full.</span>
+              </label>
+              <label className={LABEL}>Closing date{minimumRaise ? '' : ' (optional)'}
+                <input type="date" min={today} value={closesAt} onChange={(event) => setClosesAt(event.target.value)} className={`${INPUT} mt-1`} />
+                <span className="font-normal text-slate-500">Last day investors can invest. Unpaid orders are cancelled after it.</span>
+              </label>
             </div>
+            {windowProblem && <p className="text-amber-700 dark:text-amber-300 font-bold">{windowProblem}</p>}
 
             {error && <p className="p-3 rounded-xl bg-rose-500/10 text-rose-600 font-bold">{error}</p>}
             <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">

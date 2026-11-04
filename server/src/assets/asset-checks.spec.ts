@@ -1,4 +1,4 @@
-import { assetIdentityKey, checkAssetDocuments, CheckedAsset, detailGaps, distanceKm, landGaps, landIdentityKey, requiredDocuments } from './asset-checks';
+import { assetIdentityKey, checkAssetDocuments, CheckedAsset, detailGaps, distanceKm, landGaps, landIdentityKey, requiredDocuments, valuationOnReport } from './asset-checks';
 
 const now = new Date('2026-10-16T00:00:00Z');
 const land = { titleType: 'GRN', titleNumber: '56789', lotNumber: '1234', mukim: 'Semenyih', district: 'Hulu Langat', state: 'Selangor', areaValue: 2, areaUnit: 'HECTARE', landUseCategory: 'AGRICULTURE', tenure: 'FREEHOLD' };
@@ -143,5 +143,23 @@ describe('buildings', () => {
     expect(find(findings, 'CCC', 'Certificate number')?.result).toBe('MATCH');
     expect(find(findings, 'cukai pintu', 'Year')?.result).toBe('MISMATCH');
     expect(find(findings, 'details entered', "Tenants' business")?.result).toBe('MISMATCH');
+  });
+});
+
+describe('valuation report', () => {
+  const report = 'LAPORAN PENILAIAN\nTarikh penilaian: 01/09/2026\nKos penggantian RM 2,100,000.00\nNilai pasaran (market value):\nRM 1,850,000.00';
+
+  it('reads the market value, not the largest amount, from the report', () => {
+    expect(valuationOnReport(report)).toBe(1850000);
+    expect(valuationOnReport('Valued at RM950000')).toBe(950000);
+    expect(valuationOnReport('No amounts here')).toBeNull();
+  });
+
+  it('flags a value entered more than 20% away from the valuer', () => {
+    const close = checkAssetDocuments({ ...asset, estimatedValue: 2000000, currency: 'MYR' }, [{ documentType: 'VALUATION', text: text(report) }], now);
+    expect(find(close, 'valuation report', 'Market value')?.result).toBe('MATCH');
+    const far = checkAssetDocuments({ ...asset, estimatedValue: 2400000, currency: 'MYR' }, [{ documentType: 'VALUATION', text: text(report) }], now);
+    expect(find(far, 'valuation report', 'Market value')).toMatchObject({ result: 'MISMATCH', found: 'RM 1,850,000' });
+    expect(find(far, 'valuation report', 'Market value')?.note).toContain('30% above');
   });
 });

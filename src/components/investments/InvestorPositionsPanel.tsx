@@ -72,7 +72,16 @@ export const InvestorPositionsPanel: React.FC = () => {
                 {positions.map((position) => (
                   <tr key={position.poolId} className="border-t border-slate-100 dark:border-slate-700/60 align-top">
                     <td className="p-2">
-                      <span className="font-black text-slate-900 dark:text-white block">{position.poolName}</span>
+                      <span className="font-black text-slate-900 dark:text-white block">
+                        {position.poolName}
+                        {position.projectSuspended && <span className="ml-1.5 align-middle text-[10px] font-black rounded-full px-2 py-0.5 bg-rose-500/10 text-rose-700 dark:text-rose-300">Suspended</span>}
+                      </span>
+                      {position.poolStatus === 'UNDERSUBSCRIBED' && (
+                        <span className="block text-amber-700 dark:text-amber-300 font-semibold">This pool did not reach its minimum by the closing date, so it will not go ahead. Finance is returning your money in full to your bank account.</span>
+                      )}
+                      {position.projectSuspended && (
+                        <span className="block text-rose-600 dark:text-rose-300 font-semibold">Project suspended while a problem is looked into: {position.projectSuspendedReason}. No new investments are taken; your capital is unchanged.</span>
+                      )}
                       <span className="text-slate-500">
                         {position.projectName} · {position.contract}{position.investorProfitSharePct !== null ? ` · your side ${position.investorProfitSharePct}%` : ''} · pool {position.poolStatus.toLowerCase()}
                       </span>

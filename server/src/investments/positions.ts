@@ -16,7 +16,7 @@ export interface PositionOrder {
   createdAt: Date;
   /** The investor profit share (%) of the akad terms accepted with this order. */
   investorProfitSharePct: number | null;
-  pool: { poolName: string; status: string; currency: string; investmentStructure: string; indicativeExpectedReturn: number; projectName: string };
+  pool: { poolName: string; status: string; currency: string; investmentStructure: string; indicativeExpectedReturn: number; projectName: string; /** Set while an administrator has the project suspended (project-admin). */ projectSuspendedReason?: string | null };
 }
 
 export interface PositionAllocation {
@@ -30,6 +30,9 @@ export interface InvestorPosition {
   poolName: string;
   projectName: string;
   poolStatus: string;
+  /** The project is suspended while a problem is looked into; the reason is the one investors were told. */
+  projectSuspended: boolean;
+  projectSuspendedReason: string | null;
   contract: string;
   currency: string;
   indicativeExpectedReturn: number;
@@ -52,7 +55,8 @@ export function buildPositions(orders: PositionOrder[], poolCapital: Map<string,
   for (const order of orders) byPool.set(order.poolId, [...(byPool.get(order.poolId) ?? []), order]);
 
   return [...byPool.entries()].map(([poolId, poolOrders]) => {
-    const settled = poolOrders.filter((order) => order.status === 'SETTLED');
+    // Money waiting to be returned (the pool missed its minimum) is still the investor's capital until it is sent.
+    const settled = poolOrders.filter((order) => order.status === 'SETTLED' || order.status === 'REFUND_DUE');
     const capital = round2(settled.reduce((sum, order) => sum + order.amount, 0));
     const pendingAmount = round2(poolOrders.filter((order) => order.status === 'PENDING').reduce((sum, order) => sum + order.amount, 0));
     const mine = allocations.filter((allocation) => allocation.poolId === poolId);
@@ -68,6 +72,8 @@ export function buildPositions(orders: PositionOrder[], poolCapital: Map<string,
       poolName: pool.poolName,
       projectName: pool.projectName,
       poolStatus: pool.status,
+      projectSuspended: Boolean(pool.projectSuspendedReason),
+      projectSuspendedReason: pool.projectSuspendedReason ?? null,
       contract: pool.investmentStructure,
       currency: pool.currency,
       indicativeExpectedReturn: pool.indicativeExpectedReturn,

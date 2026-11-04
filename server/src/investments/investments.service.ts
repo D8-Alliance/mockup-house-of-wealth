@@ -65,6 +65,7 @@ export class InvestmentsService {
     const kyc = await this.prisma.kycApplication.findFirst({ where: { userId: actor.userId, status: 'APPROVED' }, select: { id: true, kycLevel: true } });
     if (!kyc) throw new ForbiddenException('Complete identity verification (KYC) before investing. Your KYC must be approved first.');
     if (pool.status !== 'OPEN') throw new BadRequestException('Only OPEN pools accept investment orders.');
+    if (pool.closesAt && pool.closesAt < new Date()) throw new BadRequestException('This pool closed for new investment on ' + pool.closesAt.toISOString().slice(0, 10) + '.');
     if (pool.currency.toUpperCase() !== input.currency.toUpperCase()) throw new BadRequestException('Investment currency does not match the pool currency.');
     const currency = input.currency.toUpperCase();
     let cap: number | null;
@@ -175,10 +176,10 @@ export class InvestmentsService {
   async positions(actor: AuthenticatedUser): Promise<InvestorPosition[]> {
     if (!INVESTOR_ROLES.has(actor.role)) throw new ForbiddenException('Positions are for investor accounts.');
     const orders = await this.prisma.investmentOrder.findMany({
-      where: { investorUserId: actor.userId, status: { in: ['PENDING', 'SETTLED'] } },
+      where: { investorUserId: actor.userId, status: { in: ['PENDING', 'SETTLED', 'REFUND_DUE'] } },
       include: {
         akadTerms: { select: { investorProfitSharePct: true } },
-        pool: { select: { poolName: true, status: true, currency: true, investmentStructure: true, indicativeExpectedReturn: true, project: { select: { projectName: true } } } },
+        pool: { select: { poolName: true, status: true, currency: true, investmentStructure: true, indicativeExpectedReturn: true, project: { select: { projectName: true, suspendedAt: true, suspendedReason: true } } } },
       },
     });
     if (!orders.length) return [];
@@ -198,11 +199,56 @@ export class InvestmentsService {
         settledAt: order.settledAt,
         createdAt: order.createdAt,
         investorProfitSharePct: order.akadTerms ? Number(order.akadTerms.investorProfitSharePct) : null,
-        pool: { poolName: order.pool.poolName, status: order.pool.status, currency: order.pool.currency, investmentStructure: order.pool.investmentStructure, indicativeExpectedReturn: Number(order.pool.indicativeExpectedReturn), projectName: order.pool.project.projectName },
+        pool: { poolName: order.pool.poolName, status: order.pool.status, currency: order.pool.currency, investmentStructure: order.pool.investmentStructure, indicativeExpectedReturn: Number(order.pool.indicativeExpectedReturn), projectName: order.pool.project.projectName, projectSuspendedReason: order.pool.project.suspendedAt ? order.pool.project.suspendedReason ?? 'Under review' : null },
       })),
       new Map(totals.map((row) => [row.poolId ?? '', Number(row._sum.amount ?? 0)])),
       allocations.map((allocation) => ({ poolId: allocation.distribution.poolId ?? '', amount: Number(allocation.amount), paid: allocation.payoutInstruction?.status === 'SETTLED' })),
     );
+  }
+
+  /** Settled orders in pools that missed their minimum (pool-fundraising.service.ts), waiting for Finance to return the money. */
+  async refundQueue(actor: AuthenticatedUser) {
+    if (!SETTLEMENT_ROLES.has(actor.role)) throw new ForbiddenException('Only settlement staff return investor money.');
+    const scope = actor.role === 'Super Admin' ? {} : COUNTRY_SETTLEMENT_ROLES.has(actor.role) ? { countryNodeId: actor.countryNodeId } : tenantScopeFilter(actor);
+    const orders = await this.prisma.investmentOrder.findMany({ where: { ...scope, status: 'REFUND_DUE' }, orderBy: { settledAt: 'asc' }, take: 200, include: { pool: { select: { poolName: true, minimumRaise: true, project: { select: { projectName: true } } } } } });
+    const investors = await this.prisma.user.findMany({ where: { id: { in: [...new Set(orders.map((order) => order.investorUserId))] } }, select: { id: true, name: true } });
+    const names = new Map(investors.map((investor) => [investor.id, investor.name]));
+    return orders.map((order) => ({ ...order, investorName: names.get(order.investorUserId) ?? null }));
+  }
+
+  /**
+   * Finance has sent the investor's money back (the pool missed its minimum): record the bank reference,
+   * take the capital out of the pool in the ledger, and mark the order and its contribution REFUNDED.
+   */
+  async refund(actor: AuthenticatedUser, id: string, refundReference?: string) {
+    if (!SETTLEMENT_ROLES.has(actor.role)) throw new ForbiddenException('Only settlement staff return investor money.');
+    const order = await this.getOrder(actor, id);
+    if (order.investorUserId === actor.userId) throw new ForbiddenException('You cannot record a refund of your own investment.');
+    if (order.status !== 'REFUND_DUE') throw new BadRequestException(`Only orders waiting for a refund can be refunded; this one is ${order.status}.`);
+    const reference = refundReference?.trim() ?? '';
+    if (reference.length < 4) throw new BadRequestException('Enter the bank reference of the refund transfer (at least 4 characters).');
+    const books = COUNTRY_SETTLEMENT_ROLES.has(actor.role) ? postingOnBehalfOf(actor, order) : actor;
+    const amount = Number(order.amount);
+    const refunded = await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.investmentOrder.updateMany({ where: { id, status: 'REFUND_DUE' }, data: { status: 'REFUNDED', refundReference: reference, refundedAt: new Date(), refundedBy: actor.userId } });
+      if (!claimed.count) throw new BadRequestException('Someone else recorded this refund first. Reload.');
+      const poolAccount = await this.ledger.ensureAccountInTransaction(tx, books, { accountCode: `POOL-${order.poolId}-CASH-${order.currency}`, accountType: 'ASSET', ownerType: 'POOL', ownerId: order.poolId, organisationId: order.organisationId, countryNodeId: order.countryNodeId, currency: order.currency });
+      const investorAccount = await this.ledger.ensureAccountInTransaction(tx, books, await investorCashAccount(tx, order.investorUserId, order.organisationId, order.countryNodeId, order.currency));
+      const posted = await this.ledger.postInTransaction(tx, books, {
+        transactionType: 'INVESTMENT_REFUND', referenceType: 'InvestmentOrder', referenceId: order.id, currency: order.currency, idempotencyKey: `investment-refund:${order.id}`,
+        description: `Refund of ${order.orderNumber}: pool missed its minimum, ref ${reference}`,
+        entries: [{ accountId: investorAccount.id, direction: 'DEBIT', amount, description: 'Investor capital returned' }, { accountId: poolAccount.id, direction: 'CREDIT', amount, description: 'Pool cash paid back' }],
+      });
+      await tx.investmentContribution.updateMany({ where: { orderId: order.id, status: 'POSTED' }, data: { status: 'REFUNDED' } });
+      await this.audit.recordActor(actor, { action: 'investment.order.refund', resourceType: 'InvestmentOrder', resourceId: order.id, organisationId: order.organisationId, countryNodeId: order.countryNodeId, metadata: { amount, refundReference: reference, ledgerTransactionId: posted.id } }, tx);
+      return tx.investmentOrder.findUniqueOrThrow({ where: { id: order.id } });
+    });
+    await this.notifications?.notifyUsers([order.investorUserId], {
+      type: 'INVESTMENT', title: 'Money returned',
+      message: `Finance sent back ${formatAmount(order.amount, order.currency)} for order ${order.orderNumber} (bank reference ${reference}), because ${order.pool.poolName} did not reach its minimum.`,
+      resourceType: 'InvestmentOrder', resourceId: order.id, dedupeKey: `investment-refunded:${order.id}`,
+    });
+    return refunded;
   }
 
   async getOrder(actor: AuthenticatedUser, id: string) {

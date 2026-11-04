@@ -624,6 +624,11 @@ model WealthPool {
   riskApprovedAt           DateTime?
   authorisedApprovedBy     String?
   authorisedApprovedAt     DateTime?
+  /// Least the pool must raise by closesAt; below it the pool is UNDERSUBSCRIBED and investors are refunded in full.
+  minimumRaise             Decimal?  @db.Decimal(18, 2)
+  /// Last day for new investment; the daily check ends fundraising after it.
+  closesAt                 DateTime?
+  fundraisingEndedAt       DateTime?
 
   project          Project           @relation(fields: [projectId], references: [projectId])
   organisation     Organisation      @relation(fields: [organisationId, countryNodeId], references: [id, countryNodeId])
@@ -1154,6 +1159,10 @@ model InvestmentOrder {
   /// The bank reference Finance matched the investor's transfer to, and who confirmed it.
   paymentReference String?
   settledBy        String?
+  /// Set when the pool missed its minimum and Finance returned the money (status REFUND_DUE, then REFUNDED).
+  refundReference  String?
+  refundedAt       DateTime?
+  refundedBy       String?
   /// The investor's organisation is in the same corporate group as the organisation running the project.
   relatedParty     Boolean   @default(false)
   /// The estate case that moved this holding: on the deceased's order (status TRANSFERRED) and on each heir's new order.

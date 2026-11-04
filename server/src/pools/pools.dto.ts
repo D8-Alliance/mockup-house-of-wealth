@@ -1,4 +1,4 @@
-import { IsIn, IsNumber, IsOptional, IsString, Length, Max, MaxLength, Min } from 'class-validator';
+import { IsDateString, IsIn, IsNumber, IsOptional, IsString, Length, Max, MaxLength, Min } from 'class-validator';
 import { POOL_AKAD_TYPES, PoolAkadType } from './akad-terms';
 
 export class CreatePoolDto {
@@ -12,6 +12,10 @@ export class CreatePoolDto {
   @IsString() countryNodeId!: string;
   @IsIn(POOL_AKAD_TYPES) akadType!: PoolAkadType;
   @IsNumber({ maxDecimalPlaces: 2 }) investorProfitSharePct!: number;
+  /** Least the pool must raise by closesAt; below it, investors are refunded in full. */
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) minimumRaise?: number;
+  /** Last day for new investment (a date, YYYY-MM-DD). */
+  @IsOptional() @IsDateString() closesAt?: string;
 }
 
 export class UpdatePoolStatusDto {

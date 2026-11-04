@@ -11,6 +11,7 @@ import { assertTenantScope } from '../tenancy/tenant-scope';
 import { assertCanViewPool, poolVisibilityFilter } from './pool-access';
 import { FUNDABLE_PROJECT_STATUSES, hasCurrentFinalApproval } from '../projects/project-lock';
 import { safeguardFacts } from '../capital-takaful/safeguard-facts';
+import { endOfDay, fundraisingWindowProblems } from './pool-fundraising';
 
 export const POOL_SIGN_OFF_STEPS = ['shariah', 'compliance', 'risk', 'authorised'] as const;
 export type PoolSignOffStep = (typeof POOL_SIGN_OFF_STEPS)[number];
@@ -162,7 +163,7 @@ export class PoolsService {
       }),
       this.prisma.project.findUnique({
         where: { projectId: dto.projectId },
-        select: { projectId: true, projectName: true, organisationId: true, countryNodeId: true, status: true },
+        select: { projectId: true, projectName: true, organisationId: true, countryNodeId: true, status: true, fundingRequired: true },
       }),
     ]);
     if (!organisation) {
@@ -178,6 +179,8 @@ export class PoolsService {
     if (!pdp) throw new BadRequestException(`${organisation.name ?? 'The organisation'} must be an approved delivery partner (PDP) before it launches a pool.`);
     const safeguards = await safeguardFacts(this.prisma, project.projectId);
     if (safeguards?.blockers.pool.length) throw new BadRequestException(safeguards.blockers.pool.join(' '));
+    const windowProblems = fundraisingWindowProblems({ minimumRaise: dto.minimumRaise, closesAt: dto.closesAt, fundingRequired: Number(project.fundingRequired) });
+    if (windowProblems.length) throw new BadRequestException(windowProblems.join(' '));
 
     const pool = await this.prisma.$transaction(async (tx) => {
       const created = await tx.wealthPool.create({
@@ -191,6 +194,8 @@ export class PoolsService {
           projectId: dto.projectId,
           organisationId: dto.organisationId,
           countryNodeId: dto.countryNodeId,
+          minimumRaise: dto.minimumRaise ?? null,
+          closesAt: dto.closesAt ? endOfDay(dto.closesAt) : null,
         },
       });
       // The akad is fixed before the pool takes any investment.

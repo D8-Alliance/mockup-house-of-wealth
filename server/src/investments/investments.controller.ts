@@ -44,6 +44,15 @@ export class InvestmentsController {
   @Roles('Super Admin', 'Settlement Officer', 'Portfolio Manager', 'Finance Officer')
   settle(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: SettleInvestmentOrderDto) { return this.investments.settle(actor, id, input.paymentReference); }
 
+  /** Settled orders in pools that missed their minimum: Finance returns each one in full. */
+  @Get('refund-queue')
+  @Roles('Super Admin', 'Settlement Officer', 'Portfolio Manager', 'Finance Officer')
+  refundQueue(@CurrentUser() actor: AuthenticatedUser) { return this.investments.refundQueue(actor); }
+
+  @Post('orders/:id/refund')
+  @Roles('Super Admin', 'Settlement Officer', 'Portfolio Manager', 'Finance Officer')
+  refund(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: SettleInvestmentOrderDto) { return this.investments.refund(actor, id, input.paymentReference); }
+
   @Patch('orders/:id/cancel')
   cancel(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: CancelInvestmentOrderDto) { return this.investments.cancel(actor, id, input.reason); }
 }

@@ -32,7 +32,7 @@ const DOCUMENT_LABELS: Record<string, string> = {
   COMPLETION_CERT: 'the completion certificate (CCC or certificate of fitness)',
 };
 /** Documents whose text is read for the checks. */
-const READABLE_DOCUMENTS = new Set(['OWNERSHIP', 'OFFICIAL_SEARCH', 'QUIT_RENT', 'SERIAL_PLATE', 'DOSH_CERTIFICATE', 'INSPECTION', 'ASSESSMENT', 'COMPLETION_CERT']);
+const READABLE_DOCUMENTS = new Set(['OWNERSHIP', 'OFFICIAL_SEARCH', 'QUIT_RENT', 'SERIAL_PLATE', 'DOSH_CERTIFICATE', 'INSPECTION', 'ASSESSMENT', 'COMPLETION_CERT', 'VALUATION']);
 const TYPE_NAMES: Record<string, string> = { LAND: 'land', VEHICLE: 'vehicle', MACHINERY: 'machine', EQUIPMENT: 'equipment', BUILDING: 'building' };
 
 /** The details sent for this asset's type (land, vehicle, machine or building). */
@@ -209,7 +209,7 @@ export class AssetsService {
     }
     // Personal organisations are named "<person> (individual)"; the title shows the person.
     const ownerName = (organisation?.name ?? '').replace(/\s*\((individual|asset owner|individual investor)\)\s*$/i, '');
-    const findings = checkAssetDocuments({ assetType: asset.assetType, ownerName, isEncumbered: asset.isEncumbered, latitude: asset.latitude, longitude: asset.longitude, location: asset.location, details: asset.details as AssetDetails | null }, documents);
+    const findings = checkAssetDocuments({ assetType: asset.assetType, ownerName, isEncumbered: asset.isEncumbered, latitude: asset.latitude, longitude: asset.longitude, location: asset.location, details: asset.details as AssetDetails | null, estimatedValue: Number(asset.estimatedValue), currency: asset.currency }, documents);
     return this.prisma.asset.update({ where: { id }, data: { checkFindings: findings as unknown as Prisma.InputJsonValue, checkedAt: new Date() }, include: { documents: { select: DOCUMENT_SELECT } } });
   }
 

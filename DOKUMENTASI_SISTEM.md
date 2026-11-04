@@ -183,6 +183,7 @@ Super Admin boleh hidupkan atau matikan peranan untuk seluruh platform di **Admi
 ### 5.4 Pool, akad dan pelaburan (`/pools`, `/investments`)
 - Pool dicipta untuk projek yang sudah dapat keputusan akhir feasibility, bersama **terma akad versi 1**. Yang boleh mencipta: Super Admin, Country Admin, Organization Admin, Pool Manager, Project Sponsor, Project Manager.
 - Pool bermula sebagai **DRAFT** dan perlu **empat tandatangan** (Shariah, Compliance, Risk, Authorised) sebelum dibuka (OPEN). Pengurus pool boleh Pause, Mark full dan Close.
+- **Minimum dan tarikh tutup** (pilihan, semasa pool dicipta): selepas tarikh tutup, pesanan baharu ditolak. Semakan harian (`PoolFundraisingService`) membatalkan pesanan yang belum dibayar. Jika jumlah yang disahkan kurang daripada minimum, pool menjadi **UNDERSUBSCRIBED** dan setiap pesanan yang dibayar menjadi `REFUND_DUE`; jika tidak, pool menjadi CLOSED. Kewangan memulangkan wang penuh dan merekod rujukan bank di senarai **Refunds** (Admin Center › Settlement Clearing, atau Financials › Profit distribution). Lejar merekod pulangan (`INVESTMENT_REFUND`), pesanan menjadi `REFUNDED`, dan pelabur dimaklumkan.
 - **Terma akad** setiap pool: jenis akad, **nisbah bahagi untung (PSR)**, teks dan hash. Terma ada versi, tidak boleh diubah (append-only), dan **dikunci selepas pelabur menerimanya**.
 - **Ijab dan qabul:** pesanan mesti menerima versi terma yang terkini. Sistem simpan id terma, hash dan masa diterima. Pelabur boleh lihat terma yang diterima di Investments › My agreements.
 - Peraturan setiap akad (`server/src/pools/akad-terms.ts`):
@@ -212,7 +213,7 @@ Super Admin boleh hidupkan atau matikan peranan untuk seluruh platform di **Admi
   - status: QUEUED → SUBMITTED → SETTLED / FAILED / REVERSED;
   - webhook dengan tandatangan HMAC, dan padanan (reconciliation) berjadual;
   - penyedia bank atau DuitNow belum dipilih (sekarang fail bank manual).
-- Aliran agihan untuk Settlement Officer ada di mini-app (tab Agihan).
+- Aliran agihan untuk Settlement Officer ada di mini-app (tab Agihan) dan di web (Financials › Profit distribution: Pools, Approve, Pay out, All periods). Akaun bank pelabur disahkan di Admin Center › Payout Account Verification.
 
 ### 5.6 Lejar kewangan dan integriti (`/financial`, `/admin/audit/integrity`)
 - Lejar dua belah: setiap transaksi mesti seimbang (disemak oleh trigger database). Jadual lejar tidak boleh diubah.
@@ -376,7 +377,7 @@ Logik "kontrak" (agihan ikut nisbah akad, tolak rugi, kunci terma) **sudah dibin
   - Bukti hak milik wajib. PDF/JPG/PNG disemak jenis sebenar, SHA-256 dan tanda pernah diubah.
   - Borang dan dokumen wajib ikut jenis aset: geran dan Carian Rasmi untuk tanah, VOC JPJ untuk kenderaan, invois dan plat siri untuk mesin, CCC untuk bangunan.
   - Pin peta dan gambar tapak dengan GPS.
-- **Bacaan teks (OCR)** untuk geran, Carian Rasmi, cukai tanah, VOC, PUSPAKOM, invois dan sijil JKKP. Aset yang sama dikesan melalui no. hak milik/lot, casis atau siri.
+- **Bacaan teks (OCR)** untuk geran, Carian Rasmi, cukai tanah, VOC, PUSPAKOM, invois, sijil JKKP dan laporan penilaian. Aset yang sama dikesan melalui no. hak milik/lot, casis atau siri. Jika nilai yang diisi berbeza lebih 20% daripada nilai pasaran dalam laporan penilaian, semakan menanda perbezaan itu untuk penyemak.
 - **Pengesahan:** Country Admin atau Legal Officer negara itu sahkan, minta perubahan atau tolak. Mereka tidak boleh menyemak organisasi sendiri.
 - **Struktur Shariah:** cadangan akad (Ijarah, Musharakah, Murabahah) dari peraturan (`asset-structuring.ts`) dan penasihat AI (20 kredit).
 - **Peringatan tarikh luput** cukai jalan, insurans, PUSPAKOM, sijil JKKP (jika perlu) dan pajakan, kepada pemilik dan Asset Manager organisasi.
@@ -393,13 +394,13 @@ Logik "kontrak" (agihan ikut nisbah akad, tolak rugi, kunci terma) **sudah dibin
 - **Pihak berkaitan:** pesanan dari organisasi lain dalam kumpulan yang sama dengan organisasi projek ditanda. Staf nampak label "Related party", dan pelabur nampak berapa banyak wang dalam pool datang dari pihak berkaitan. Kumpulan hanya untuk pendedahan; ia tidak memberi akses bersama.
 
 ### 5.18 Modal penaja dan takaful (`/projects/:id/safeguards`, `/safeguards/queue`)
-- Penaja berjanji memberi modal (sekurang-kurangnya 10% kos projek; boleh ditukar ikut negara dengan `MIN_SPONSOR_CONTRIBUTION_PCT`) dan muat naik penyata bank. Finance Officer sahkan dan rekod setoran.
+- Penaja berjanji memberi modal (sekurang-kurangnya 10% kos projek; boleh ditukar ikut negara dengan `MIN_SPONSOR_CONTRIBUTION_PCT`) dan muat naik penyata bank. Finance Officer sahkan dan rekod setoran. Setoran direkod dalam lejar sekali gus (`SPONSOR_CAPITAL`: tunai projek bertambah, modal penaja dikreditkan).
 - Syarat:
   - projek hanya boleh dihantar jika modal minimum sudah dijanjikan;
   - pool hanya boleh dibuka jika modal sudah dibuktikan;
   - wang hanya dikeluarkan jika modal sudah disetor dan semua takaful wajib berkuat kuasa.
   Setiap pengeluaran merekod bahagian penaja dan pelabur ikut nisbah.
-- Takaful wajib dijana sendiri ikut projek. Risk Officer (atau Compliance) mengesahkan. Insurans konvensional hanya dibenarkan dengan kelulusan bertulis penasihat Shariah.
+- Takaful wajib dijana sendiri ikut projek. Pemilik aset boleh muat naik takaful untuk aset sendiri dari skrin perkongsian aset (butang "Takaful for this asset"). Risk Officer (atau Compliance) mengesahkan. Insurans konvensional hanya dibenarkan dengan kelulusan bertulis penasihat Shariah.
 
 ### 5.19 Benefisiari dan pusaka (`/estate/beneficiaries`)
 - Untuk individu (Retail, HNWI, Family Office) dan Asset Owner sahaja. Pemilik pilih cara Islam (faraid, Hibah Amanah, wasiyyah) atau sivil (wasiat). Pilihan disimpan dalam akaun.
@@ -432,6 +433,7 @@ Logik "kontrak" (agihan ikut nisbah akad, tolak rugi, kunci terma) **sudah dibin
 - **Risk Register, Incidents, Fatwa Repository:** rekod sebenar dengan sejarah dan audit (`RiskItem`, `Incident`, `FatwaResolution`).
 - **Approval Matrix, Platform Fee Schedule, PDP Country Rules:** baca sahaja, dari nilai yang sama yang digunakan oleh kod.
 - **AML, PEP dan Sanctions:** memaparkan nota bahawa penyedia saringan belum dipilih.
+- **Problem Projects** (`/project-admin`; Super Admin, dan Country Admin dalam negaranya): arkib projek yang belum ada wang pelabur yang disahkan (pesanan belum bayar dibatalkan, pool ditutup), atau gantung projek semasa masalah disiasat (pool OPEN dijadikan PAUSED). Kedua-duanya boleh dibatalkan. Sebab wajib; penaja dan pelabur dimaklumkan, dan pelabur nampak label "Suspended" dengan sebabnya dalam Investments. Sama seperti Urus projek di mini-app.
 - Juga ada: User Directory, Organisations, Country Nodes, Role Management, Permission Matrix, Workflow Pipelines, Revenue, Promotions, System Status, Settlement Clearing, Payout Account Verification, kandungan laman awam, dan Shariah Governance (`/site-content`).
 
 ### 5.23 Laporan prestasi projek (`/performance-reports`)
@@ -446,7 +448,7 @@ Logik "kontrak" (agihan ikut nisbah akad, tolak rugi, kunci terma) **sudah dibin
 
 ## 6. Database
 
-- **98 model** dan **80 migration** (`server/prisma/migrations/`).
+- **102 model** dan **88 migration** (`server/prisma/migrations/`).
 - **Jadual yang tidak boleh diubah** (UPDATE dan DELETE ditolak oleh trigger): `AuditEvent`, `LedgerTransaction`, `LedgerEntry`, `HashChainLink`, `PoolAkadTerms`.
 - **Peraturan penting dalam database:**
   - baki lejar mesti seimbang;
@@ -518,12 +520,12 @@ Logik "kontrak" (agihan ikut nisbah akad, tolak rugi, kunci terma) **sudah dibin
 |---|---|
 | Dashboard setiap peranan, My reviews | Data sebenar |
 | Wealth Pooling (projek, pool, kitaran 17 langkah, tandatangan, buka pool) | Data sebenar |
-| Investments: pelabur (pelaburan, keuntungan, perjanjian, laporan prestasi, pool OPEN, arahan bayaran); staf (pesanan) | Data sebenar |
+| Investments: pelabur (pelaburan, label projek digantung, keuntungan, perjanjian, laporan prestasi, pool OPEN, arahan bayaran); staf (pesanan) | Data sebenar |
 | Asset Register, Asset Partnerships, perjanjian dan tandatangan | Data sebenar |
 | Sponsor Portal (projek, KYB, modal dan takaful, kempen, penyata, laporan prestasi, keahlian) | Data sebenar |
 | KYC, KYB dan semakan | Data sebenar |
 | AI Wealth Engine (ciri AI dan alat analisis) | Data sebenar |
-| Financials: transaksi, penyata, zakat, cukai, settlement | Data sebenar (pelabur hanya nampak pesanan dan keuntungan sendiri) |
+| Financials: transaksi, penyata, zakat, cukai, settlement, agihan keuntungan (Settlement Officer, Super Admin) | Data sebenar (pelabur hanya nampak pesanan dan keuntungan sendiri) |
 | Ledger dan Audit Logs | Data sebenar |
 | Document Vault | Data sebenar: dokumen projek; dokumen aset (pemilik, Asset Manager, Legal); dokumen KYB (KYB, Compliance); laporan untuk disahkan (Auditor) |
 | Membership, bil, kredit AI | Data sebenar (backend + ToyyibPay) |
