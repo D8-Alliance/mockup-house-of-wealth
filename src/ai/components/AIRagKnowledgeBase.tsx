@@ -48,7 +48,8 @@ export function titleFromFileName(name: string): string {
   return (words || name).replace(/^Financial Accounting Standard No\.? ?/i, 'FAS ').replace(/^Financial Accounting Standard /i, 'FAS ');
 }
 
-interface BulkItem { file: File; title: string; state: 'waiting' | 'uploading' | 'done' | 'failed'; note?: string }
+/** `exists`: the same document is already in the knowledge base at this level, so nothing was added. */
+interface BulkItem { file: File; title: string; state: 'waiting' | 'uploading' | 'done' | 'exists' | 'failed'; note?: string }
 
 export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole = '' }) => {
   const allowedScopes = (Object.keys(SCOPE_MANAGERS) as RagScope[]).filter((scope) => SCOPE_MANAGERS[scope].includes(userRole));
@@ -179,6 +180,7 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
     setBusy(true);
     setMessage('');
     let done = 0;
+    let skipped = 0;
     for (let index = 0; index < bulk.length; index += 1) {
       const item = bulk[index];
       if (item.state !== 'waiting') continue;
@@ -188,11 +190,14 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
         done += 1;
         setBulk((current) => current.map((row, i) => (i === index ? { ...row, state: 'done', note: `${document.chunkCount ?? 0} chunks` } : row)));
       } catch (error) {
-        setBulk((current) => current.map((row, i) => (i === index ? { ...row, state: 'failed', note: error instanceof Error ? error.message : 'Upload failed.' } : row)));
+        const reason = error instanceof Error ? error.message : 'Upload failed.';
+        const exists = /already exists/i.test(reason);
+        if (exists) skipped += 1;
+        setBulk((current) => current.map((row, i) => (i === index ? { ...row, state: exists ? 'exists' : 'failed', note: exists ? 'Already in the knowledge base; nothing added.' : reason } : row)));
       }
     }
     setBusy(false);
-    setMessage(`${done} PDF(s) saved as DRAFT. A different person marks them reviewed, and another approves them, before the AI uses them.`);
+    setMessage(`${done} PDF(s) saved as DRAFT.${skipped ? ` ${skipped} were already in the knowledge base and were skipped.` : ''} A different person marks new documents reviewed, and another approves them, before the AI uses them.`);
     loadDocuments();
   };
 
@@ -330,7 +335,7 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
                 {bulk.map((item, index) => <li key={`${item.file.name}-${index}`} className="flex flex-wrap items-center gap-2 text-xs">
                   <input value={item.title} disabled={item.state !== 'waiting'} onChange={(event) => setBulk((current) => current.map((row, i) => (i === index ? { ...row, title: event.target.value } : row)))} className={`min-w-0 flex-1 ${inputClass}`} />
                   <span className="w-16 text-right text-slate-500">{(item.file.size / 1024 / 1024).toFixed(1)} MB</span>
-                  <span className={`w-24 rounded-full px-2 py-0.5 text-center font-bold ${item.state === 'done' ? 'bg-emerald-100 text-emerald-800' : item.state === 'failed' ? 'bg-rose-100 text-rose-800' : item.state === 'uploading' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>{item.state === 'done' ? 'Saved' : item.state === 'failed' ? 'Failed' : item.state === 'uploading' ? 'Uploading...' : 'Waiting'}</span>
+                  <span className={`w-24 rounded-full px-2 py-0.5 text-center font-bold ${item.state === 'done' ? 'bg-emerald-100 text-emerald-800' : item.state === 'failed' ? 'bg-rose-100 text-rose-800' : item.state === 'uploading' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>{item.state === 'done' ? 'Saved' : item.state === 'exists' ? 'Already there' : item.state === 'failed' ? 'Failed' : item.state === 'uploading' ? 'Uploading...' : 'Waiting'}</span>
                   {item.note && <span className={`w-full text-[11px] ${item.state === 'failed' ? 'text-rose-700' : 'text-slate-500'}`}>{item.note}</span>}
                 </li>)}
               </ul>
