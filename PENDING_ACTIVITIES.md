@@ -26,7 +26,7 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 18 | Kunci API | Kunci untuk sistem luar | Tangguh sehingga perlu |
 | 19 | Pengurusan pengguna | Notis privasi rasmi, pelulus kedua untuk peranan admin, sebab tukar peranan | Butiran syarikat; peguam |
 | 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, Keycloak, emel BM, semakan di telefon | Butiran bank; spesifikasi D8 Ideas |
-| 21 | Sewaan terus (Ijarah) | Semakan perjanjian di mini-app, label "Delivery partner", pembaharuan, caj utiliti, keputusan kutipan sewa dan cukai | Pemilik projek; peguam dan cukai |
+| 21 | Sewaan terus (Ijarah) | Semakan perjanjian di mini-app, label "Delivery partner", caj utiliti, keputusan kutipan sewa dan cukai | Pemilik projek; peguam dan cukai |
 | 22 | Agihan keuntungan | Skrin web Kewangan, fail bayaran pukal bank, peringatan hasil lewat | Boleh dimulakan |
 | 23 | Projek bermasalah | Skrin web, label "Digantung" di web, pulangan modal | Boleh dimulakan bila perlu |
 | 24 | Pangkalan pengetahuan dan Tanya | Tanda standard lama, model embedding di staging, Rebuild & embed, ujian jawapan | Shariah/Kewangan semak versi; tetapan staging |
@@ -143,7 +143,7 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 1. **Had pelaburan ikut tahap KYC:** nilai sementara ditulis dalam `server/.env.production.example` (Tahap 1: RM 10,000; Tahap 2: RM 100,000; Tahap 3: tiada had). Compliance perlu sahkan atau tukar, kemudian salin ke `/opt/how/server/.env`.
 2. **Laporan kepada regulator:** setuju format laporan (SC, BNM, LHDN) dengan Compliance.
 3. **Tetapan production:** semua baris di Admin Center › Security Dashboard mesti "Yes" sebelum pilot.
-4. **Peranan Auditor:** hidupkan di Admin Center › Role Availability (kini dimatikan), supaya juruaudit boleh mengesahkan laporan prestasi projek.
+4. **Peranan Auditor:** hidupkan di Admin Center › Role Availability (kini dimatikan), supaya juruaudit boleh mengesahkan laporan prestasi projek. Pengguna ujian `umar_audit@gmail.com` (Wealth Pooling Malaysia) sudah didaftarkan dan menunggu peranan ini dihidupkan.
 
 ## 12. Keputusan kecil
 
@@ -184,7 +184,6 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 1. **Semakan Shariah dan undang-undang (wajib sebelum pilot):** seluruh aliran kes pusaka (lapor kematian, bekukan akaun, dokumen mahkamah, pelan, pindahan pelaburan), persetujuan waris, qabul hibah, teks panduan dan surat amanah. Perlu penasihat Shariah, peguam dan pemegang amanah.
 2. **Pewaris tanpa akaun:** pewaris mesti daftar sebagai pelabur dan lulus KYC sebelum boleh menerima pelaburan. Jika pewaris tidak mahu menyertai platform, perlu cara lain (contohnya bayar tunai kepada pentadbir).
 3. **Aset dan sewaan** (bukan pelaburan dalam pool): pindahan selepas kematian belum dibina.
-4. **Mini-app:** borang benefisiari di mini-app belum ada pilihan "perlu persetujuan waris". Gunakan portal web untuk wasiyyah seperti itu.
 
 ## 17. Modul aset
 
@@ -247,7 +246,7 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 **Belum siap:**
 1. Penyemak belum boleh menyemak perjanjian sewaan di mini-app (guna web).
 2. Skrin web Contracts (`src/ai/features/contract/AgreementReviewPanel.tsx`) masih memanggil penyewa "Delivery partner".
-3. Pembaharuan sewaan (sekarang penyewa perlu mohon sewaan baharu).
+3. **Pembaharuan:** penyewa sudah boleh memohon pembaharuan (sewaan baharu bermula sehari selepas tamat, dipautkan kepada sewaan lama). Belum siap: deposit dipindahkan secara automatik (kini pemilik merekod sendiri dengan rujukan sewaan lama), dan pemilik menawarkan pembaharuan dahulu.
 4. Rekod caj utiliti bulanan jika pemilik yang bayar bil; tetapan bulan deposit utiliti ikut negeri.
 5. **Keputusan pemilik projek:** platform kutip sewa atau rekod sahaja; komisen atau yuran (semak Akta 242); duti setem; cukai perkhidmatan atas sewa komersial.
 6. Fasa kemudian: pool pelaburan daripada hasil sewa.
