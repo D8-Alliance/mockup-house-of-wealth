@@ -167,3 +167,23 @@ body {
 .form-feedback--success { color: var(--green-700); background: rgba(0, 165, 118, .08); border: 1px solid rgba(0, 165, 118, .2); }
 .form-feedback--info { color: #1d4ed8; background: rgba(29, 78, 216, .08); border: 1px solid rgba(29, 78, 216, .2); }
 .field-error { display: block; margin-top: 4px; color: #c0392b; font-size: 10.5px; font-weight: 600; }
+
+/* One-time code pages (login-otp.ftl, login-config-totp.ftl). */
+.otp-form { margin-top: 30px; }
+.input-wrap--otp input { font-size: 18px; font-weight: 700; letter-spacing: .4em; color: var(--ink); }
+.input-wrap--otp input::placeholder { color: #c3cedb; }
+.otp-devices { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.otp-device { display: flex; align-items: center; gap: 7px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: #52627b; font-size: 11px; font-weight: 700; cursor: pointer; }
+.otp-device:has(input:checked) { border-color: #47bf98; color: var(--green-700); background: var(--green-100); }
+.otp-device input { margin: 0; accent-color: var(--green-600); }
+.secondary-button { min-height: 42px; border: 1px solid var(--line); border-radius: 11px; color: #52627b; background: #fff; font-size: 12px; font-weight: 750; }
+.secondary-button:hover { border-color: #b9c7d6; color: var(--ink); }
+.form-note a { font-size: 11px; text-decoration: none; }
+.setup-steps { display: grid; gap: 12px; margin: 30px 0 0; padding: 0; list-style: none; counter-reset: step; }
+.setup-steps > li { position: relative; padding: 14px 14px 14px 52px; border: 1px solid var(--line); border-radius: 12px; background: #fff; counter-increment: step; color: #43526b; font-size: 12px; line-height: 1.5; }
+.setup-steps > li::before { content: counter(step); position: absolute; left: 14px; top: 13px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; color: var(--green-700); background: var(--green-100); font-size: 12px; font-weight: 800; }
+.setup-steps p { margin: 0; }
+.app-list { margin: 8px 0 0; padding-left: 16px; color: var(--muted); font-size: 11px; }
+.qr-box { display: grid; place-items: center; width: 172px; margin: 12px 0 8px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.qr-box img { display: block; width: 150px; height: 150px; }
+.secret-key { margin: 10px 0 8px !important; padding: 10px 12px; border-radius: 10px; background: #eaf0f5; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; font-weight: 700; letter-spacing: .08em; word-break: break-all; }

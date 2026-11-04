@@ -375,6 +375,16 @@ cd server && npm ci && npm run prisma:generate && npm run build && npm run prism
 npm ci && npx vite build --outDir /opt/how-web --emptyOutDir
 ```
 
+Jika fail dalam `server/keycloak/themes/` (halaman log masuk dan daftar) berubah, cipta semula container Keycloak juga. Jangan guna `restart` sahaja: Keycloak menyimpan salinan fail CSS dan JS yang dimampatkan (gzip) dalam container, dan salinan itu tidak dipadam bila Keycloak dimulakan semula. Pelayar akan terus menerima CSS lama.
+
+```bash
+cd /opt/how/server/keycloak
+docker compose -f docker-compose.staging.yml up -d --force-recreate keycloak
+docker compose -f docker-compose.staging.yml logs -f keycloak
+```
+
+Tunggu sehingga log memaparkan baris seperti `Keycloak 26.0.8 ... started in ...`, kemudian tekan Ctrl+C (Keycloak terus berjalan). Buka halaman log masuk dalam tetingkap peribadi (incognito).
+
 Plesk (demo statik awam) dikemas kini seperti biasa: **Pull Updates**, kemudian `run build:demo`.
 
 ## Penyelesaian masalah
