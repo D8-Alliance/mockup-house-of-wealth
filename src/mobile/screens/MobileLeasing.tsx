@@ -135,12 +135,34 @@ const OwnerUnits: React.FC = () => {
   );
 };
 
+/**
+ * What is rented out decides the form: space in a building (a floor, a lot) has a floor area, utility and
+ * renovation deposits and bills; land has an area only; a vehicle, machine or piece of equipment is rented whole.
+ */
+type LeaseKind = 'space' | 'land' | 'movable';
+const leaseKind = (assetType: string | undefined): LeaseKind => (assetType === 'BUILDING' ? 'space' : assetType === 'LAND' ? 'land' : 'movable');
+
 /** Adds a unit, or with `unit` changes its terms; leases already requested keep the terms they were made on. */
-const UnitForm: React.FC<{ assets: Array<{ id: string; name: string }>; unit?: MyLeasableUnit; onDone: (saved: boolean) => void }> = ({ assets, unit, onDone }) => {
+const UnitForm: React.FC<{ assets: Array<{ id: string; name: string; assetType?: string }>; unit?: MyLeasableUnit; onDone: (saved: boolean) => void }> = ({ assets, unit, onDone }) => {
   const { t } = useT();
+  const firstKind = leaseKind(assets[0]?.assetType);
   const [form, setForm] = useState(unit
     ? { assetId: unit.assetId, label: unit.label, floorArea: unit.floorArea ? String(unit.floorArea) : '', floorAreaUnit: unit.floorAreaUnit, monthlyRent: String(unit.monthlyRent), depositMonths: String(unit.depositMonths), utilityDepositMonths: String(unit.utilityDepositMonths), renovationDeposit: String(unit.renovationDeposit), utilitiesPaidBy: unit.utilitiesPaidBy as string, minTermMonths: String(unit.minTermMonths), availableFrom: unit.availableFrom ?? '', permittedUse: unit.permittedUse, description: unit.description }
-    : { assetId: assets[0]?.id ?? '', label: '', floorArea: '', floorAreaUnit: 'SQFT', monthlyRent: '', depositMonths: '2', utilityDepositMonths: '1', renovationDeposit: '0', utilitiesPaidBy: 'TENANT_DIRECT', minTermMonths: '12', availableFrom: '', permittedUse: '', description: '' });
+    : { assetId: assets[0]?.id ?? '', label: firstKind === 'movable' ? assets[0]?.name ?? '' : '', floorArea: '', floorAreaUnit: firstKind === 'land' ? 'SQM' : 'SQFT', monthlyRent: '', depositMonths: '2', utilityDepositMonths: firstKind === 'space' ? '1' : '0', renovationDeposit: '0', utilitiesPaidBy: 'TENANT_DIRECT', minTermMonths: firstKind === 'movable' ? '1' : '12', availableFrom: '', permittedUse: '', description: '' });
+  const asset = assets.find(item => item.id === form.assetId);
+  const kind = leaseKind(unit ? unit.asset.assetType : asset?.assetType);
+  // A new asset picked: start from that kind's defaults, and a movable asset is rented whole under its own name.
+  const pickAsset = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const next = assets.find(item => item.id === event.target.value);
+    const nextKind = leaseKind(next?.assetType);
+    setForm(current => ({
+      ...current, assetId: event.target.value,
+      label: nextKind === 'movable' ? next?.name ?? '' : kind === 'movable' ? '' : current.label,
+      floorArea: nextKind === 'movable' ? '' : current.floorArea, floorAreaUnit: nextKind === 'land' ? 'SQM' : current.floorAreaUnit,
+      utilityDepositMonths: nextKind === 'space' ? (kind === 'space' ? current.utilityDepositMonths : '1') : '0',
+      renovationDeposit: nextKind === 'space' ? current.renovationDeposit : '0', utilitiesPaidBy: nextKind === 'space' ? current.utilitiesPaidBy : 'TENANT_DIRECT',
+    }));
+  };
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const set = (key: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm(current => ({ ...current, [key]: event.target.value }));
@@ -167,24 +189,32 @@ const UnitForm: React.FC<{ assets: Array<{ id: string; name: string }>; unit?: M
       <button type="button" onClick={() => onDone(false)} className="flex items-center gap-1 text-sm font-bold text-emerald-700 dark:text-emerald-400"><ArrowLeft className="w-4 h-4" />{t('My units')}</button>
       <h2 className="text-base font-black">{unit ? t('Edit {unit}', { unit: unit.label }) : t('Add a unit for rent')}</h2>
       {unit && <p className="text-[11px] text-slate-500">{t('New terms apply to new requests. Leases already requested keep the terms they were made on.')}</p>}
-      <label className="block text-xs font-bold text-slate-500">{t('Asset')}<select required disabled={!!unit} value={form.assetId} onChange={set('assetId')} className={input}>{assets.map(asset => <option key={asset.id} value={asset.id}>{asset.name}</option>)}</select></label>
-      <label className="block text-xs font-bold text-slate-500">{t('Unit name (e.g. Floor 7, Lot G-03, whole building)')}<input required minLength={2} maxLength={80} value={form.label} onChange={set('label')} className={input} /></label>
-      <div className="grid grid-cols-[1fr_auto] gap-2">
-        <label className="block text-xs font-bold text-slate-500">{t('Floor area')}<input type="number" min={1} inputMode="decimal" value={form.floorArea} onChange={set('floorArea')} className={input} /></label>
-        <label className="block text-xs font-bold text-slate-500">{t('Unit')}<select value={form.floorAreaUnit} onChange={set('floorAreaUnit')} className={input}><option value="SQFT">{t('sq ft')}</option><option value="SQM">{t('sq m')}</option></select></label>
-      </div>
+      <label className="block text-xs font-bold text-slate-500">{t('Asset')}<select required disabled={!!unit} value={form.assetId} onChange={pickAsset} className={input}>{assets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      {kind === 'movable'
+        ? <p className="text-[11px] text-slate-500">{t('A vehicle, machine or equipment is rented out whole, under its own name.')}</p>
+        : <label className="block text-xs font-bold text-slate-500">{kind === 'land' ? t('Plot name (e.g. Lot 1203, whole land)') : t('Unit name (e.g. Floor 7, Lot G-03, whole building)')}<input required minLength={2} maxLength={80} value={form.label} onChange={set('label')} className={input} /></label>}
+      {kind !== 'movable' && (
+        <div className="grid grid-cols-[1fr_auto] gap-2">
+          <label className="block text-xs font-bold text-slate-500">{kind === 'land' ? t('Area') : t('Floor area')}<input type="number" min={1} inputMode="decimal" value={form.floorArea} onChange={set('floorArea')} className={input} /></label>
+          <label className="block text-xs font-bold text-slate-500">{t('Unit')}<select value={form.floorAreaUnit} onChange={set('floorAreaUnit')} className={input}><option value="SQFT">{t('sq ft')}</option><option value="SQM">{t('sq m')}</option></select></label>
+        </div>
+      )}
       <label className="block text-xs font-bold text-slate-500">{t('Asking rent a month (RM)')}<input required type="number" min={1} step="0.01" inputMode="decimal" value={form.monthlyRent} onChange={set('monthlyRent')} className={input} /></label>
       <div className="grid grid-cols-2 gap-2">
         <label className="block text-xs font-bold text-slate-500">{t('Deposit (months of rent)')}<input required type="number" min={0} max={12} step="0.5" value={form.depositMonths} onChange={set('depositMonths')} className={input} /></label>
         <label className="block text-xs font-bold text-slate-500">{t('Shortest lease (months)')}<input required type="number" min={1} max={360} value={form.minTermMonths} onChange={set('minTermMonths')} className={input} /></label>
       </div>
-      <div className="grid grid-cols-2 gap-2">
-        <label className="block text-xs font-bold text-slate-500">{t('Utility deposit (months of rent)')}<input required type="number" min={0} max={12} step="0.5" value={form.utilityDepositMonths} onChange={set('utilityDepositMonths')} className={input} /></label>
-        <label className="block text-xs font-bold text-slate-500">{t('Renovation deposit (RM)')}<input required type="number" min={0} step="0.01" value={form.renovationDeposit} onChange={set('renovationDeposit')} className={input} /></label>
-      </div>
-      <label className="block text-xs font-bold text-slate-500">{t('Electricity and water')}<select value={form.utilitiesPaidBy} onChange={set('utilitiesPaidBy')} className={input}><option value="TENANT_DIRECT">{t('Tenant pays TNB and water directly')}</option><option value="OWNER_RECHARGE">{t('Owner pays and bills the tenant at cost')}</option></select></label>
+      {kind === 'space' && (
+        <>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-xs font-bold text-slate-500">{t('Utility deposit (months of rent)')}<input required type="number" min={0} max={12} step="0.5" value={form.utilityDepositMonths} onChange={set('utilityDepositMonths')} className={input} /></label>
+            <label className="block text-xs font-bold text-slate-500">{t('Renovation deposit (RM)')}<input required type="number" min={0} step="0.01" value={form.renovationDeposit} onChange={set('renovationDeposit')} className={input} /></label>
+          </div>
+          <label className="block text-xs font-bold text-slate-500">{t('Electricity and water')}<select value={form.utilitiesPaidBy} onChange={set('utilitiesPaidBy')} className={input}><option value="TENANT_DIRECT">{t('Tenant pays TNB and water directly')}</option><option value="OWNER_RECHARGE">{t('Owner pays and bills the tenant at cost')}</option></select></label>
+        </>
+      )}
       <label className="block text-xs font-bold text-slate-500">{t('Available from')}<input type="date" min={unit ? undefined : today()} value={form.availableFrom} onChange={set('availableFrom')} className={input} /></label>
-      <label className="block text-xs font-bold text-slate-500">{t('Permitted use (e.g. Office)')}<input maxLength={160} value={form.permittedUse} onChange={set('permittedUse')} className={input} /></label>
+      <label className="block text-xs font-bold text-slate-500">{kind === 'movable' ? t('Permitted use (e.g. earthworks, site clearing)') : kind === 'land' ? t('Permitted use (e.g. farming, storage yard)') : t('Permitted use (e.g. Office)')}<input maxLength={160} value={form.permittedUse} onChange={set('permittedUse')} className={input} /></label>
       <label className="block text-xs font-bold text-slate-500">{t('Description')}<textarea maxLength={2000} rows={3} value={form.description} onChange={set('description')} className={input} /></label>
       {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
       <button type="submit" disabled={saving} className={primary}>{saving ? t('Saving...') : unit ? t('Save') : t('List the unit')}</button>
@@ -229,7 +259,7 @@ const UnitDeposits: React.FC<{ unit: LeasableUnitView; rent?: number }> = ({ uni
     ...(rent ? [t('Security deposit {amount}', { amount: money(unit.currency, Math.round(rent * unit.depositMonths * 100) / 100) })] : []),
     ...(unit.utilityDepositMonths > 0 ? [rent ? t('Utility deposit {amount}', { amount: money(unit.currency, Math.round(rent * unit.utilityDepositMonths * 100) / 100) }) : t('utility deposit {months} months', { months: unit.utilityDepositMonths })] : []),
     ...(unit.renovationDeposit > 0 ? [t('Renovation deposit {amount}', { amount: money(unit.currency, unit.renovationDeposit) })] : []),
-    unit.utilitiesPaidBy === 'OWNER_RECHARGE' ? t('Owner pays, billed at cost') : t('Tenant pays directly'),
+    ...(leaseKind(unit.asset.assetType) === 'space' ? [unit.utilitiesPaidBy === 'OWNER_RECHARGE' ? t('Owner pays, billed at cost') : t('Tenant pays directly')] : []),
   ];
   return <p className="text-[11px] text-slate-500">{parts.join(' · ')}</p>;
 };
@@ -385,7 +415,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
           {row(t('Security deposit'), money(lease.currency, lease.depositAmount))}
           {lease.utilityDepositAmount > 0 && row(t('Utility deposit'), money(lease.currency, lease.utilityDepositAmount))}
           {lease.renovationDepositAmount > 0 && row(t('Renovation deposit'), money(lease.currency, lease.renovationDepositAmount))}
-          {row(t('Electricity and water'), lease.utilitiesPaidBy === 'OWNER_RECHARGE' ? t('Owner pays, billed at cost') : t('Tenant pays directly'))}
+          {leaseKind(lease.asset.assetType) === 'space' && row(t('Electricity and water'), lease.utilitiesPaidBy === 'OWNER_RECHARGE' ? t('Owner pays, billed at cost') : t('Tenant pays directly'))}
           {row(t('Period'), `${lease.startDate} – ${lease.endDate}`)}
           {row(t('Months'), lease.termMonths)}
           {row(t('Use'), lease.intendedUse)}

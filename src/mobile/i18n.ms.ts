@@ -1140,4 +1140,9 @@ export const MS: Record<string, string> = {
   "Edit terms": "Ubah terma",
   "Edit {unit}": "Ubah {unit}",
   "New terms apply to new requests. Leases already requested keep the terms they were made on.": "Terma baharu terpakai kepada permohonan baharu. Sewaan yang sudah dimohon kekal dengan terma asalnya.",
+  // Unit form by asset type
+  "A vehicle, machine or equipment is rented out whole, under its own name.": "Kenderaan, jentera atau peralatan disewakan secara keseluruhan, menggunakan namanya sendiri.",
+  "Plot name (e.g. Lot 1203, whole land)": "Nama plot (cth. Lot 1203, keseluruhan tanah)",
+  "Permitted use (e.g. earthworks, site clearing)": "Kegunaan dibenarkan (cth. kerja tanah, pembersihan tapak)",
+  "Permitted use (e.g. farming, storage yard)": "Kegunaan dibenarkan (cth. pertanian, tempat simpanan)",
 };

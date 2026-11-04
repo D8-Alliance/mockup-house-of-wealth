@@ -41,7 +41,7 @@ export interface PartnershipDeal {
   assetName: string;
   approvedOn: string | null;
   /** A direct lease of a unit to a company, without a project (src/leasing). */
-  lease?: { leaseId: string; depositAmount: number; utilityDepositAmount?: number; renovationDepositAmount?: number; utilitiesPaidBy?: string; intendedUse: string; tenantActivity: string };
+  lease?: { leaseId: string; depositAmount: number; utilityDepositAmount?: number; renovationDepositAmount?: number; utilitiesPaidBy?: string; /** Space in a building, with utility accounts; false for land, vehicles and machines. */ premises?: boolean; intendedUse: string; tenantActivity: string };
 }
 
 export interface AgreementInput {
@@ -129,7 +129,7 @@ function recitalsFor(input: AgreementInput, first: string, second: string): stri
     'The Parties wish to carry out the Project together as a Musharakah, sharing profit by an agreed ratio and loss by their capital, on the terms of this Agreement.',
   ];
   if (input.contractType === 'IJARAH' && deal?.lease) return [
-    `${cap(first)} is the owner of the premises described in Schedule 1 (the "Asset").`,
+    `${cap(first)} is the owner of the ${deal.lease.premises === false ? 'property' : 'premises'} described in Schedule 1 (the "Asset").`,
     `${cap(second)} carries on business as ${deal.lease.tenantActivity} and needs the Asset for ${deal.lease.intendedUse} (the "Permitted Use").`,
     `The Parties negotiated the lease on the Wealth Pooling platform under lease ${deal.lease.leaseId}, and its terms were approved after Legal and Shariah review${deal.approvedOn ? ` on ${deal.approvedOn}` : ''}.`,
     `${cap(first)} has agreed to lease the Asset to ${second} by way of Ijarah, for a known rent and period, on the terms of this Agreement.`,
@@ -269,7 +269,7 @@ function ijarah(input: AgreementInput, w: (key: string) => string, first: string
         : `The Rent is ${rent ? `${rent} ${deal?.terms.rentFrequency === 'WHOLE_PERIOD' ? 'for the whole Lease Period' : 'a month'}` : w('rentalAmount')}, payable ${w('rentalFrequency')}.`,
       ...(lease ? [`On signing this Agreement ${second} pays ${first} a Security Deposit of ${deposit}. ${cap(first)} holds it in trust (amanah) and may not treat it as Rent or income. Within 30 days after the lease ends and the Asset is returned, ${first} refunds it, less only Rent then unpaid and the actual cost of repairing damage beyond fair wear and tear, with an itemised statement of any deduction.`] : []),
       ...(lease?.utilityDepositAmount ? [`On signing this Agreement ${second} also pays ${first} a Utility Deposit of ${money(lease.utilityDepositAmount, deal?.terms.currency)} as security for electricity, water and sewerage charges. ${cap(first)} holds it in trust (amanah) on the same terms as the Security Deposit, and may deduct from it only charges for the Lease Period that remain unpaid.`] : []),
-      ...(lease ? [lease.utilitiesPaidBy === 'OWNER_RECHARGE'
+      ...(lease && lease.premises !== false ? [lease.utilitiesPaidBy === 'OWNER_RECHARGE'
         ? `${cap(first)} pays the electricity, water and sewerage charges of the Asset and recovers from ${second} the charges for the Lease Period at cost, as metered, without mark-up, with copies of the bills.`
         : `${cap(second)} opens the electricity, water and sewerage accounts for the Asset in its own name and pays those charges directly to the providers for the Lease Period.`] : []),
       ...(lease?.renovationDepositAmount ? [`Before starting any fit-out or renovation, ${second} pays ${first} a Renovation Deposit of ${money(lease.renovationDepositAmount, deal?.terms.currency)} and obtains ${first}'s written approval of the plans. ${cap(first)} holds it in trust (amanah) and refunds it within 30 days after the works are completed and inspected, less only the actual cost of making good damage caused by the works, with an itemised statement.`] : []),
@@ -392,7 +392,7 @@ function schedule1(input: AgreementInput, w: (key: string) => string, first: str
     lines.push(`Security Deposit: ${money(deal.lease.depositAmount, deal.terms.currency) ?? '-'}`);
     if (deal.lease.utilityDepositAmount) lines.push(`Utility Deposit: ${money(deal.lease.utilityDepositAmount, deal.terms.currency)}`);
     if (deal.lease.renovationDepositAmount) lines.push(`Renovation Deposit: ${money(deal.lease.renovationDepositAmount, deal.terms.currency)}`);
-    lines.push(`Electricity and water: ${deal.lease.utilitiesPaidBy === 'OWNER_RECHARGE' ? `paid by ${first} and recovered from ${second} at cost` : `paid by ${second} directly to the providers`}`);
+    if (deal.lease.premises !== false) lines.push(`Electricity and water: ${deal.lease.utilitiesPaidBy === 'OWNER_RECHARGE' ? `paid by ${first} and recovered from ${second} at cost` : `paid by ${second} directly to the providers`}`);
     lines.push(`Day-to-day upkeep: ${deal.terms.upkeepBy === 'OWNER' ? first : second}`);
     lines.push(`Stamp duty: borne by ${second}`);
     lines.push(`Platform reference: lease ${deal.lease.leaseId}`);

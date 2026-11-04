@@ -18,8 +18,8 @@ const completeDetails = { fullName: 'Applicant One', dateOfBirth: new Date('1990
 
 describe('KYC workflow rules', () => {
   it('requires front and back for a national ID, or the passport page for a passport', () => {
-    expect(requiredKycDocuments('NATIONAL_ID')).toEqual(['ID_FRONT', 'ID_BACK', 'SELFIE', 'PROOF_OF_ADDRESS']);
-    expect(requiredKycDocuments('PASSPORT')).toEqual(['PASSPORT', 'SELFIE', 'PROOF_OF_ADDRESS']);
+    expect(requiredKycDocuments('NATIONAL_ID')).toEqual(['ID_FRONT', 'ID_BACK', 'PROOF_OF_ADDRESS']);
+    expect(requiredKycDocuments('PASSPORT')).toEqual(['PASSPORT', 'PROOF_OF_ADDRESS']);
   });
 
   it('reports nothing missing for a complete application', () => {
@@ -28,7 +28,7 @@ describe('KYC workflow rules', () => {
 
   it('lists missing fields and documents', () => {
     const gaps = kycSubmissionGaps({ ...completeDetails, nationality: ' ' }, ['ID_FRONT']);
-    expect(gaps).toEqual(['Nationality', 'Document: ID_BACK', 'Document: SELFIE', 'Document: PROOF_OF_ADDRESS']);
+    expect(gaps).toEqual(['Nationality', 'Document: ID_BACK', 'Document: PROOF_OF_ADDRESS']);
   });
 
   it('rejects applicants under 18, counting the birthday exactly', () => {

@@ -59,6 +59,14 @@ describe('the utility and renovation deposits in a lease agreement', () => {
     expect(words).not.toContain('Utility Deposit');
     expect(words).toContain('opens the electricity, water and sewerage accounts for the Asset in its own name');
   });
+
+  it('says nothing of electricity and water when a machine or vehicle is leased', () => {
+    const machine = { ...deal, lease: { ...deal.lease, premises: false } };
+    const { front, sections: rented } = buildAgreement({ contractType: 'IJARAH', title: 'Ijarah Agreement', projectName: 'Jentolak Komatsu PC200-8', jurisdiction: 'Malaysia', wizardData: wizard, parties, deal: machine }, [], []);
+    const words = JSON.stringify(front) + rented.map((section) => section.paragraphs.join(' ')).join(' ');
+    expect(words).not.toMatch(/electricity|premises/i);
+    expect(words).toContain('the owner of the property described in Schedule 1');
+  });
 });
 
 describe('the tenant side of a lease agreement', () => {

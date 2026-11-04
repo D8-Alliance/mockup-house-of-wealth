@@ -52,7 +52,7 @@ export const KYC_ID_DOCUMENT_LABELS: Record<KycIdDocumentType, string> = {
 // Mirrors requiredKycDocuments in server/src/kyc/kyc-workflow.ts.
 export function requiredKycDocuments(idDocumentType: string): KycDocumentType[] {
   const identity: KycDocumentType[] = idDocumentType === 'PASSPORT' ? ['PASSPORT'] : ['ID_FRONT', 'ID_BACK'];
-  return [...identity, 'SELFIE', 'PROOF_OF_ADDRESS'];
+  return [...identity, 'PROOF_OF_ADDRESS'];
 }
 
 // Mirrors NATIONAL_ID_EXPIRY_RULES / idDocumentHasExpiry in server/src/kyc/kyc-workflow.ts.

@@ -65,10 +65,13 @@ export interface KycApplicantDetails {
   residentialAddress: string;
 }
 
-/** Documents required before submission; depends on which identity document the applicant uses. */
+/**
+ * Documents required before submission; depends on which identity document the applicant uses. No selfie
+ * upload: the camera face check (liveness) matches the live face to the ID photo and reads the card itself.
+ */
 export function requiredKycDocuments(idDocumentType: string): KycDocumentType[] {
   const identity: KycDocumentType[] = idDocumentType === 'PASSPORT' ? ['PASSPORT'] : ['ID_FRONT', 'ID_BACK'];
-  return [...identity, 'SELFIE', 'PROOF_OF_ADDRESS'];
+  return [...identity, 'PROOF_OF_ADDRESS'];
 }
 
 function ageInYears(dateOfBirth: Date, now: Date): number {
