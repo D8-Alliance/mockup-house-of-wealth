@@ -46,8 +46,10 @@ const LanguageContext = createContext<LanguageContextValue>({
   locale: 'en-MY',
 });
 
-export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>(initialLanguage);
+/** `fixed` sets the language from outside (the web portal's own language switch) instead of the mini-app's. */
+export const LanguageProvider: React.FC<{ children: React.ReactNode; fixed?: Language }> = ({ children, fixed }) => {
+  const [chosen, setLanguageState] = useState<Language>(initialLanguage);
+  const language = fixed ?? chosen;
   const setLanguage = useCallback((next: Language, options?: { saveToAccount?: boolean }) => {
     setLanguageState(next);
     try { localStorage.setItem(STORAGE_KEY, next); } catch { /* the choice lasts for this visit only */ }

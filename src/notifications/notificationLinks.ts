@@ -5,6 +5,8 @@ export const TAB_FOR_RESOURCE: Record<string, NavTab> = {
   AssetEngagement: 'asset-partnerships',
   ProjectAssetNeed: 'asset-partnerships',
   Asset: 'assets',
+  AssetLease: 'leasing',
+  LeasableUnit: 'leasing',
   Project: 'sponsor-portal',
   ProjectDocument: 'sponsor-portal',
   Contract: 'contracts',
