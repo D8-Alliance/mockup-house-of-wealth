@@ -8,7 +8,7 @@ import { openPartnership } from '../../asset-partnerships/partnershipNavigation'
 import { openAdminSection } from '../adminNavigation';
 import { formatDateTime } from '../../utils/platformTime';
 
-type Kind = 'Asset partnership' | 'Agreement' | 'PDP application (KYB)' | 'Organisation (KYB)' | 'Capital / takaful' | 'Asset verification' | 'KYC' | 'Project (Shariah board)';
+type Kind = 'Asset partnership' | 'Agreement' | 'PDP application (KYB)' | 'Organisation (KYB)' | 'Capital / takaful' | 'Asset verification' | 'KYC' | 'Project (Shariah board)' | 'Performance report';
 interface ReviewItem { key: string; kind: Kind; title: string; detail: string; at?: string; open: () => void }
 
 const has = (role: string, roles: string[]) => roles.includes(role);
@@ -18,8 +18,10 @@ const KYB_REVIEWERS = ['Super Admin', 'Country Admin', 'KYB Officer', 'Complianc
 const ASSET_VERIFIERS = ['Super Admin', 'Country Admin', 'Legal Officer'];
 const KYC_REVIEWERS = ['Super Admin', 'Country Admin', 'KYC Officer', 'Compliance Officer'];
 const SAFEGUARD_REVIEWERS = ['Super Admin', 'Country Admin', 'Finance Officer', 'Risk Officer', 'Compliance Officer'];
+/** Auditors verify the quarterly performance reports; their queue is on their Documents tab. */
+const REPORT_AUDITORS = ['Auditor'];
 const SHARIAH_BOARD = ['Super Admin', 'Country Admin', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'];
-export const MY_REVIEWS_ROLES = [...new Set([...PARTNERSHIP_REVIEWERS, ...AGREEMENT_REVIEWERS, ...KYB_REVIEWERS, ...ASSET_VERIFIERS, ...KYC_REVIEWERS, ...SHARIAH_BOARD, ...SAFEGUARD_REVIEWERS])];
+export const MY_REVIEWS_ROLES = [...new Set([...PARTNERSHIP_REVIEWERS, ...AGREEMENT_REVIEWERS, ...KYB_REVIEWERS, ...ASSET_VERIFIERS, ...KYC_REVIEWERS, ...SHARIAH_BOARD, ...SAFEGUARD_REVIEWERS, ...REPORT_AUDITORS])];
 
 /**
  * Everything waiting for this reviewer's decision, from every queue the role can act on, in one list
@@ -66,6 +68,10 @@ export const MyReviewsPanel: React.FC<{ setTab: (tab: NavTab) => void }> = ({ se
     if (has(role, SHARIAH_BOARD)) queues.push(apiClient.getCentralMalaysiaShariahReviews().then((list) => list.filter((item) => item.status === 'PROPOSED' || item.status === 'UNDER_REVIEW').map((item) => ({
       key: `shr-${item.id}`, kind: 'Project (Shariah board)' as Kind, title: item.projectId, detail: `${item.proposedContract} · ${item.status.toLowerCase().replace('_', ' ')}`,
       open: () => { openAiEngineSection('shariah-board'); setTab('ai-engine'); },
+    }))));
+    if (has(role, REPORT_AUDITORS)) queues.push(apiClient.getPerformanceReportQueue().then((list) => list.map((item) => ({
+      key: `rpt-${item.id}`, kind: 'Performance report' as Kind, title: item.projectName ?? item.projectId, detail: `Q${item.quarter} ${item.year}: verify or return it to the sponsor`,
+      at: item.submittedAt ?? undefined, open: () => setTab('documents'),
     }))));
     const results = await Promise.all(queues.map((queue) => queue.catch(() => [] as ReviewItem[])));
     setItems(results.flat().sort((a, b) => (a.at ?? '') < (b.at ?? '') ? -1 : 1));
