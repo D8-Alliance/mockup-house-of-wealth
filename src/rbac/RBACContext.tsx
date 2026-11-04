@@ -96,6 +96,8 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
         role: access.role as UserRole,
         organization: access.organisationId,
         organizationName: access.organisationId,
+        // The picture saved in Profile & Settings, so the navbar shows the same one.
+        ...(typeof user.profile?.avatarUrl === 'string' && user.profile.avatarUrl ? { avatarUrl: user.profile.avatarUrl } : {}),
       });
     });
 
@@ -148,7 +150,7 @@ export const RBACProvider: React.FC<RBACProviderProps> = ({
           name: newRoleDef.demoUser.name,
           email: newRoleDef.demoUser.email,
           organization: newRoleDef.demoUser.organization,
-          avatarUrl: newRoleDef.demoUser.avatarUrl
+          avatarUrl: (typeof backendUser?.profile?.avatarUrl === 'string' && backendUser.profile.avatarUrl) || newRoleDef.demoUser.avatarUrl
         };
         onUserRoleChange(updatedUser);
       }

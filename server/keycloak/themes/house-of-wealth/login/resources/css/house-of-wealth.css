@@ -1,307 +1,169 @@
-/*
- * Wealth Pooling D-8 sign-in: deep green and gold, as in the app. Applies on top of Keycloak's
- * login theme (login.css), so it only restyles what Keycloak already renders.
- */
 :root {
-  --how-green-900: #002d24;
-  --how-green-700: #0e5a43;
-  --how-emerald: #059669;
-  --how-emerald-dark: #047857;
-  --how-gold: #d7a735;
-  --how-gold-soft: #f2cf70;
-  --how-ink: #0f172a;
-  --how-muted: #64748b;
-  --how-line: #e2e8f0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #17233d;
+  background: #eef3f7;
+  font-synthesis: none;
+  --navy-950: #081326;
+  --navy-900: #0d1b33;
+  --navy-800: #122743;
+  --ink: #17233d;
+  --muted: #71809a;
+  --line: #dbe4ee;
+  --green-700: #008d67;
+  --green-600: #00a576;
+  --green-100: #e6f6f0;
 }
 
-/* Page: green depth with a faint eight-point star lattice, the platform's Islamic geometry. */
-.login-pf body {
-  background-color: var(--how-green-900);
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%23d7a735' stroke-opacity='0.06' stroke-width='1.2'%3E%3Cpath d='M60 18l12 30 30 12-30 12-12 30-12-30-30-12 30-12z'/%3E%3Cpath d='M30 30h60v60H30z' transform='rotate(45 60 60)'/%3E%3Cpath d='M30 30h60v60H30z'/%3E%3C/g%3E%3C/svg%3E"),
-    radial-gradient(1100px 600px at 15% 0%, rgba(215, 167, 53, 0.16), transparent 60%),
-    radial-gradient(900px 700px at 100% 100%, rgba(5, 150, 105, 0.28), transparent 60%),
-    linear-gradient(160deg, #003a2e 0%, var(--how-green-900) 45%, #06141c 100%);
-  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
-  background-size: 120px 120px, auto, auto, auto;
-  background-attachment: fixed;
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
-  min-height: 100%;
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+
+/*
+ * Neutralize the base "keycloak" theme's own header/card chrome.
+ * We only override login.ftl, not template.ftl (the outer page shell),
+ * so Keycloak still renders its realm-name header bar and wraps our
+ * content in its own padded, max-width "card-pf" card. Hide/reset that
+ * so our .auth-shell is the only visible layout, full-bleed.
+ */
+#kc-header,
+#kc-locale,
+.login-pf-header {
+  display: none !important;
 }
 
-.login-pf-page {
-  padding: 32px 16px 48px;
-}
-
-/* Header: the logo and the platform's name in place of the realm name. */
-#kc-header {
-  color: #fff;
-}
-
-#kc-header-wrapper {
-  font-size: 0;
-  letter-spacing: normal;
-  text-transform: none;
-  padding: 28px 10px 24px;
-  text-align: center;
-}
-
-#kc-header-wrapper::before {
-  content: "";
-  display: block;
-  /* A light badge, so the logo's deep green crescent stands out from the green page. */
-  width: 104px;
-  height: 104px;
-  margin: 0 auto 16px;
-  border-radius: 50%;
-  border: 2px solid rgba(215, 167, 53, 0.55);
-  background: url("../img/logo.svg") center / 82% no-repeat, radial-gradient(circle at 35% 30%, #ffffff, #f6efdc);
-  box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.55), 0 0 0 6px rgba(215, 167, 53, 0.08);
-}
-
-#kc-header-wrapper::after {
-  content: "Wealth Pooling D-8";
-  display: block;
-  font-size: 26px;
-  font-weight: 800;
-  line-height: 1.2;
-  color: #fff;
-}
-
-/* The tagline, smaller and in gold. */
-#kc-header::after {
-  content: "Islamic Circular Economy Platform";
-  display: block;
-  margin: -14px 0 22px;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
-  color: var(--how-gold-soft);
-}
-
-/* Card */
+html,
+body,
+.login-pf-page,
+.login-pf,
+.container,
+#kc-content,
+#kc-content-wrapper,
 .card-pf {
-  max-width: 440px;
-  margin: 0 auto;
-  padding: 8px 32px 28px;
-  border: 0;
-  border-top: 4px solid var(--how-gold);
-  border-radius: 22px;
-  background: #fff;
-  box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  margin: 0 !important;
+  padding: 0 !important;
+  max-width: none !important;
+  width: 100%;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0 !important;
 }
 
-.login-pf-page .login-pf-header {
-  margin-bottom: 18px;
+html,
+body {
+  min-height: 100vh;
 }
 
-.login-pf-page .login-pf-header h1,
-#kc-page-title {
-  font-size: 22px;
-  font-weight: 800;
-  color: var(--how-ink);
-  text-align: center;
-  padding-top: 18px;
+.card-pf { display: flex; flex-direction: column; }
+
+.auth-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(440px, .92fr) minmax(520px, 1.08fr); background: #fff; }
+
+/* Lock both panels to exactly the viewport height on desktop, so the
+   brand panel never stretches/shrinks depending on how long the form
+   is (login vs. the longer register form) — the form side scrolls on
+   its own if its fields don't fit, instead of resizing the whole page. */
+@media (min-width: 861px) {
+  .auth-shell { height: 100vh; overflow: hidden; }
+  .form-panel { height: 100vh; overflow-y: auto; }
+}
+.brand-panel { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: space-between; padding: 52px clamp(42px, 7vw, 112px); color: #fff; background: linear-gradient(145deg, #09152a 0%, #10243e 57%, #084d48 100%); }
+.brand-panel::after { content: ""; position: absolute; inset: auto -16% -23% 18%; height: 66%; border: 1px solid rgba(94, 210, 178, .13); border-radius: 50%; transform: rotate(-18deg); box-shadow: 0 0 0 34px rgba(94, 210, 178, .035), 0 0 0 68px rgba(94, 210, 178, .025); }
+.brand-panel__glow { position: absolute; border-radius: 50%; filter: blur(10px); pointer-events: none; }
+.brand-panel__glow--top { width: 300px; height: 300px; right: -140px; top: -110px; background: rgba(21, 183, 143, .18); }
+.brand-panel__glow--bottom { width: 260px; height: 260px; left: -170px; bottom: -140px; background: rgba(20, 76, 125, .35); }
+.brand-header, .brand-copy, .brand-footer { position: relative; z-index: 1; }
+.brand-header { display: flex; justify-content: space-between; align-items: center; }
+.brand-mark { display: inline-flex; align-items: center; gap: 11px; color: #fff; text-decoration: none; font-size: 18px; letter-spacing: -.04em; }
+.brand-mark strong { font-weight: 800; }
+.brand-mark__icon { display: grid; place-items: center; width: 37px; height: 37px; border: 1px solid rgba(93, 221, 179, .6); border-radius: 11px; color: #36c995; font-size: 11px; font-weight: 900; letter-spacing: -.08em; }
+.brand-mark__icon svg { width: 23px; height: 23px; }
+.brand-badge { color: #3be0a2; font-size: 10px; font-weight: 800; letter-spacing: .14em; }
+.brand-copy { max-width: 490px; margin: auto 0; padding: 70px 0; }
+.eyebrow, .form-heading__kicker { margin: 0 0 20px; color: #3be0a2; font-size: 10px; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+.brand-copy h1 { max-width: 500px; margin: 0; font-size: clamp(38px, 4.1vw, 64px); line-height: 1.07; letter-spacing: -.055em; font-weight: 780; }
+.brand-copy h1 span { color: #9be8ca; }
+.brand-copy__description { max-width: 360px; margin: 28px 0 0; color: #b8c7d8; font-size: 15px; line-height: 1.7; }
+.brand-footer { display: flex; align-items: center; gap: 10px; color: #aebed1; font-size: 11px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: #38d39f; box-shadow: 0 0 0 4px rgba(56, 211, 159, .14); }
+.brand-footer__separator { width: 1px; height: 14px; margin: 0 7px; background: rgba(184, 199, 216, .25); }
+.form-panel { display: grid; place-items: center; padding: 48px 38px; background: #f8fafc; }
+.form-wrap { width: min(100%, 425px); }
+.mobile-brand { display: none; }
+.form-heading__kicker { margin-bottom: 12px; color: var(--green-700); }
+.form-heading h2 { margin: 0; color: var(--ink); font-size: 30px; line-height: 1.2; letter-spacing: -.04em; font-weight: 800; }
+.form-heading p { margin: 12px 0 0; color: var(--muted); font-size: 13px; }
+.auth-tabs { display: flex; gap: 4px; margin: 34px 0 30px; padding: 4px; border-radius: 12px; background: #eaf0f5; }
+.auth-tab { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; padding: 10px; border: 0; border-radius: 9px; color: #73839d; background: transparent; font-size: 12px; font-weight: 750; text-decoration: none; }
+.auth-tab--active { color: var(--green-700); background: #fff; box-shadow: 0 2px 8px rgba(26, 55, 85, .1); }
+.login-form { display: grid; gap: 10px; }
+.field-label { display: flex; justify-content: space-between; margin-top: 7px; color: #52627b; font-size: 10px; font-weight: 800; letter-spacing: .025em; text-transform: uppercase; }
+.field-label span { color: var(--green-600); font-size: 9px; }
+.select-wrap, .input-wrap { position: relative; display: flex; align-items: center; min-height: 44px; border: 1px solid var(--line); border-radius: 11px; background: #fff; transition: border-color .2s, box-shadow .2s; }
+.select-wrap:focus-within, .input-wrap:focus-within { border-color: #47bf98; box-shadow: 0 0 0 3px rgba(0, 165, 118, .1); }
+.select-wrap select, .input-wrap input { width: 100%; min-width: 0; border: 0; outline: 0; color: #43526b; background: transparent; font-size: 12px; }
+.select-wrap select { appearance: none; padding: 0 38px 0 13px; }
+.select-wrap > svg { position: absolute; right: 13px; width: 16px; color: #8da1ba; pointer-events: none; }
+.select-wrap > svg:first-child { right: auto; left: 12px; }
+.select-wrap:has(> svg:first-child) select { padding-left: 38px; }
+.input-wrap { padding: 0 12px; gap: 9px; }
+.input-wrap > svg { flex: 0 0 auto; width: 16px; color: #8ba2bb; }
+.input-wrap input { padding: 0; }
+.icon-button { display: grid; place-items: center; flex: 0 0 auto; padding: 0; border: 0; color: #8ba2bb; background: transparent; }
+.icon-button svg { width: 17px; }
+.field-row { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; }
+.field-row--password { margin-top: 13px; }
+.text-button { padding: 0; border: 0; color: var(--green-700); background: transparent; font-size: 10px; font-weight: 800; }
+.text-button:hover { color: #006d51; text-decoration: underline; }
+.submit-button { display: flex; justify-content: center; align-items: center; gap: 11px; min-height: 46px; margin-top: 3px; border: 0; border-radius: 11px; color: #fff; background: linear-gradient(100deg, #00966c, #00aa79); box-shadow: 0 9px 18px rgba(0, 158, 111, .2); font-size: 12px; font-weight: 800; transition: transform .2s, box-shadow .2s, background .2s; }
+.submit-button span { font-size: 19px; font-weight: 400; line-height: 0; }
+.submit-button:hover { background: #008d67; box-shadow: 0 12px 23px rgba(0, 158, 111, .3); transform: translateY(-1px); }
+.register-form { gap: 7px; }
+.register-form .field-label { margin-top: 6px; }
+.demo-note { margin: -1px 0 7px; color: #7f91ac; font-size: 9px; line-height: 1.45; }
+.terms-row { display: flex; align-items: flex-start; gap: 8px; margin: 3px 0 8px; color: #52627b; font-size: 10px; line-height: 1.45; }
+.terms-row input { flex: 0 0 auto; width: 15px; height: 15px; margin: 0; accent-color: #087cf0; }
+.form-note { margin: 10px 0 0; color: #8997aa; text-align: center; font-size: 10px; }
+.form-feedback { min-height: 16px; margin: 3px 0 0; color: var(--green-700); text-align: center; font-size: 10px; opacity: 0; transition: opacity .2s; }
+.form-feedback--visible { opacity: 1; }
+.security-note { display: flex; justify-content: center; gap: 7px; margin: 54px 0 0; color: #9aa8ba; font-size: 10px; }
+.security-note span { color: var(--green-600); font-size: 14px; line-height: 10px; }
+
+@media (max-width: 860px) {
+  .auth-shell { grid-template-columns: 1fr; }
+  .brand-panel { min-height: 335px; padding: 30px 32px; }
+  .brand-copy { padding: 45px 0 28px; }
+  .brand-copy h1 { font-size: clamp(35px, 8vw, 54px); }
+  .brand-copy__description { margin-top: 15px; }
+  .form-panel { padding: 54px 24px 64px; }
+  .form-wrap { max-width: 440px; }
 }
 
-/* Fields */
-.pf-c-form__label-text,
-.login-pf-page label {
-  font-size: 13px;
-  font-weight: 700;
-  color: #334155;
+@media (max-width: 520px) {
+  .brand-panel { display: none; }
+  .form-panel { min-height: 100vh; padding: 32px 20px; background: #fff; }
+  .mobile-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 64px; color: var(--ink); font-size: 17px; letter-spacing: -.04em; }
+  .mobile-brand .brand-mark__icon { width: 34px; height: 34px; }
+  .form-heading h2 { font-size: 27px; }
+  .auth-tabs { margin-top: 29px; }
+  .security-note { margin-top: 42px; }
 }
 
-.pf-c-form-control,
-.login-pf-page .form-control,
-#kc-form-login input[type="text"],
-#kc-form-login input[type="password"],
-#kc-form-login input[type="email"] {
-  height: 44px;
-  padding: 10px 14px;
-  border: 1px solid var(--how-line);
-  border-radius: 12px;
-  background: #f8fafc;
-  font-size: 14px;
-  color: var(--how-ink);
-  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+/*
+ * Additions for login.ftl's real Keycloak error/warning messages
+ * (message.type is 'error' on a failed login) — keeps your .form-feedback
+ * base styling but makes errors read as errors instead of green text,
+ * and makes the message actually visible as a block instead of relying
+ * on opacity-only (login.ftl doesn't have JS toggling a class per field,
+ * it conditionally renders the element only when there's a real message).
+ */
+.form-feedback {
+  padding: 10px 12px;
+  border-radius: 10px;
 }
-
-.pf-c-form-control:hover {
-  border-color: #cbd5e1;
-}
-
-.pf-c-form-control:focus,
-.login-pf-page .form-control:focus {
-  outline: none;
-  border-color: var(--how-emerald);
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.18);
-}
-
-/* Keycloak draws the input's bottom line with ::after; the rounded border replaces it. */
-.pf-c-form-control::after,
-.pf-c-input-group::after {
-  display: none;
-}
-
-.pf-c-input-group {
-  border-radius: 12px;
-}
-
-.pf-c-input-group .pf-c-form-control {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.pf-c-input-group .pf-c-button.pf-m-control {
-  border: 1px solid var(--how-line);
-  border-left: 0;
-  border-radius: 0 12px 12px 0;
-  background: #f8fafc;
-}
-
-.pf-c-input-group .pf-c-button.pf-m-control::after {
-  display: none;
-}
-
-/* Primary button */
-.pf-c-button.pf-m-primary,
-#kc-login {
-  height: 46px;
-  border: 0;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--how-green-700), var(--how-emerald));
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.2px;
-  box-shadow: 0 10px 20px -10px rgba(5, 150, 105, 0.7);
-  transition: transform 0.1s, box-shadow 0.15s, filter 0.15s;
-}
-
-.pf-c-button.pf-m-primary:hover,
-#kc-login:hover {
-  filter: brightness(1.06);
-  box-shadow: 0 14px 24px -10px rgba(5, 150, 105, 0.8);
-}
-
-.pf-c-button.pf-m-primary:active,
-#kc-login:active {
-  transform: translateY(1px);
-}
-
-.pf-c-button.pf-m-primary:focus-visible,
-#kc-login:focus-visible {
-  outline: 3px solid rgba(215, 167, 53, 0.6);
-  outline-offset: 2px;
-}
-
-#kc-form-buttons {
-  margin-top: 22px;
-}
-
-/* Links and options */
-.login-pf-page a,
-#kc-form-options a,
-#kc-info a {
-  color: var(--how-emerald-dark);
-  font-weight: 700;
-}
-
-.login-pf-page a:hover {
-  color: var(--how-green-700);
-  text-decoration: underline;
-}
-
-#kc-form-options .checkbox label,
-.kc-form-options-wrapper {
-  font-size: 13px;
-  color: var(--how-muted);
-}
-
-#kc-info {
-  border-top: 1px solid var(--how-line);
-  margin-top: 22px;
-  padding-top: 16px;
-  background: transparent;
-}
-
-#kc-info-wrapper {
-  background: transparent;
-  font-size: 13px;
-  color: var(--how-muted);
-  padding: 0;
-  text-align: center;
-}
-
-/* Messages: rounded and in the page's palette. */
-.pf-c-alert,
-.alert {
-  border-radius: 12px;
-  border: 0;
-  box-shadow: none;
-  font-size: 13px;
-}
-
-.alert-error,
-.pf-c-alert.pf-m-danger {
-  background: #fef2f2;
-  color: #991b1b;
-}
-
-.alert-warning,
-.pf-c-alert.pf-m-warning {
-  background: #fffbeb;
-  color: #92400e;
-}
-
-.alert-success,
-.pf-c-alert.pf-m-success {
-  background: #ecfdf5;
-  color: #065f46;
-}
-
-.alert-info,
-.pf-c-alert.pf-m-info {
-  background: #eff6ff;
-  color: #1e40af;
-}
-
-/* Error pages ("We are sorry..."): the message reads as text, the way back stands out. */
-#kc-error-message .instruction {
-  font-size: 14px;
-  color: #334155;
-  text-align: center;
-}
-
-#kc-error-message #backToApplication {
-  display: inline-block;
-  margin-top: 14px;
-}
-
-/* Under the card: who runs the platform. */
-.login-pf-page::after {
-  content: "Shariah-compliant wealth pooling for D-8 member nations";
-  display: block;
-  margin-top: 26px;
-  text-align: center;
-  font-size: 12px;
-  letter-spacing: 0.3px;
-  color: rgba(242, 207, 112, 0.75);
-}
-
-@media (max-width: 767px) {
-  .login-pf-page {
-    padding-top: 12px;
-  }
-
-  .card-pf {
-    padding: 4px 20px 22px;
-    border-radius: 18px;
-  }
-
-  #kc-header-wrapper::after {
-    font-size: 21px;
-  }
-}
+.form-feedback--error { color: #b91c1c; background: rgba(239, 68, 68, .08); border: 1px solid rgba(239, 68, 68, .2); }
+.form-feedback--warning { color: #92400e; background: rgba(217, 119, 6, .08); border: 1px solid rgba(217, 119, 6, .2); }
+.form-feedback--success { color: var(--green-700); background: rgba(0, 165, 118, .08); border: 1px solid rgba(0, 165, 118, .2); }
+.form-feedback--info { color: #1d4ed8; background: rgba(29, 78, 216, .08); border: 1px solid rgba(29, 78, 216, .2); }
+.field-error { display: block; margin-top: 4px; color: #c0392b; font-size: 10.5px; font-weight: 600; }
