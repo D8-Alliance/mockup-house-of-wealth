@@ -1173,6 +1173,10 @@ export const MS: Record<string, string> = {
   "Insufficient AI Credits. Please upgrade plan or purchase credits.": "Kredit AI tidak mencukupi. Sila naik taraf pelan atau beli kredit.",
   "This AI capability is not included in the current subscription plan. Please upgrade plan or purchase credits.": "Ciri AI ini tidak termasuk dalam pelan langganan semasa. Sila naik taraf pelan atau beli kredit.",
   "AI provider is unavailable. Check that the configured Ollama or OpenAI endpoint is running.": "Perkhidmatan AI tidak tersedia buat masa ini. Cuba sebentar lagi.",
+  // Wasiyyah that needs the heirs' consent (Beneficiaries)
+  "Needs the heirs' consent after your death": "Perlu persetujuan waris selepas kematian anda",
+  "Without their consent this part follows faraid. The estate officer records each heir's answer after your death.": "Tanpa persetujuan mereka, bahagian ini mengikut faraid. Pegawai pusaka merekod jawapan setiap waris selepas kematian anda.",
+  "I understand: keep it, subject to the heirs' consent.": "Saya faham: kekalkan, tertakluk kepada persetujuan waris.",
   // Suspended projects (Portfolio)
   "This project is suspended while an issue is looked into. No new investments are taken; your investment is unchanged and you will be told when it resumes.": "Projek ini digantung sementara satu isu disiasat. Tiada pelaburan baharu diterima; pelaburan anda tidak berubah dan anda akan dimaklumkan apabila ia disambung semula.",
   // Report a death (DeathReportPage)
