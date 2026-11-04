@@ -38,6 +38,18 @@ const pageLabel = (result: BackendRagSearchResult) => !result.pageStart ? '' : r
 
 const inputClass = 'rounded-xl border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900';
 
+const MAX_PDF_BYTES = 10 * 1024 * 1024;
+
+/** A readable title from a publisher's file name: "FAS-32-Ijarah-Formatted-2021-clean-April-2023-1.pdf" → "FAS 32 Ijarah". */
+export function titleFromFileName(name: string): string {
+  const words = name.replace(/\.pdf$/i, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim()
+    .replace(/\b(formatted|clean|final|format|updated|for issuance)\b.*$/i, '').trim()
+    .replace(/\s+v\d+$/i, '').replace(/([a-z])\s+\d$/i, '$1');
+  return (words || name).replace(/^Financial Accounting Standard No\.? ?/i, 'FAS ').replace(/^Financial Accounting Standard /i, 'FAS ');
+}
+
+interface BulkItem { file: File; title: string; state: 'waiting' | 'uploading' | 'done' | 'failed'; note?: string }
+
 export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole = '' }) => {
   const allowedScopes = (Object.keys(SCOPE_MANAGERS) as RagScope[]).filter((scope) => SCOPE_MANAGERS[scope].includes(userRole));
   const canManageCorpus = allowedScopes.length > 0;
@@ -60,6 +72,8 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
   const [replacementFor, setReplacementFor] = useState<Record<string, string>>({});
   const [content, setContent] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [bulk, setBulk] = useState<BulkItem[]>([]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const [documents, setDocuments] = useState<BackendRagDocument[]>([]);
   const [listScope, setListScope] = useState<RagScope | ''>('');
@@ -140,6 +154,65 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
     } finally {
       setBusy(false);
     }
+  };
+
+  /** Settings for a set of AAOIFI standards: global, international, authority AAOIFI. */
+  const useAaoifiPreset = () => {
+    if (allowedScopes.includes('GLOBAL')) setScope('GLOBAL');
+    setSourceType('AAOIFI_STANDARD');
+    setDocumentCategory('AAOIFI Standard');
+    setAuthority('AAOIFI');
+    setJurisdiction('International');
+    setContractType('');
+    setMessage(allowedScopes.includes('GLOBAL') ? 'AAOIFI settings applied: Global, AAOIFI Standard, authority AAOIFI.' : 'AAOIFI settings applied. Only a Super Admin or AI Administrator can save to the Global level; these will be saved at your country level.');
+  };
+
+  const chooseBulk = (files: FileList | null) => {
+    setBulk(Array.from(files ?? []).map((item) => item.size > MAX_PDF_BYTES
+      ? { file: item, title: titleFromFileName(item.name), state: 'failed', note: 'Larger than 10 MB: split it or compress it first.' }
+      : { file: item, title: titleFromFileName(item.name), state: 'waiting' }));
+  };
+
+  /** Uploads the chosen PDFs one after another with the settings above; each becomes a DRAFT for review. */
+  const uploadBulk = async () => {
+    if (!scopeReady()) return;
+    setBusy(true);
+    setMessage('');
+    let done = 0;
+    for (let index = 0; index < bulk.length; index += 1) {
+      const item = bulk[index];
+      if (item.state !== 'waiting') continue;
+      setBulk((current) => current.map((row, i) => (i === index ? { ...row, state: 'uploading' } : row)));
+      try {
+        const document = await apiClient.uploadRagPdf(item.file, { ...metadata(), title: item.title.trim() || titleFromFileName(item.file.name) });
+        done += 1;
+        setBulk((current) => current.map((row, i) => (i === index ? { ...row, state: 'done', note: `${document.chunkCount ?? 0} chunks` } : row)));
+      } catch (error) {
+        setBulk((current) => current.map((row, i) => (i === index ? { ...row, state: 'failed', note: error instanceof Error ? error.message : 'Upload failed.' } : row)));
+      }
+    }
+    setBusy(false);
+    setMessage(`${done} PDF(s) saved as DRAFT. A different person marks them reviewed, and another approves them, before the AI uses them.`);
+    loadDocuments();
+  };
+
+  const reviewable = documents.filter((document) => ['DRAFT', 'REVIEWED'].includes(document.approvalStatus));
+  const toggleSelected = (id: string) => setSelected((current) => { const next = new Set(current); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+
+  /** Applies one decision to every selected document; the server still enforces who may review and approve each. */
+  const reviewSelected = async (decision: 'REVIEWED' | 'APPROVED') => {
+    const targets = reviewable.filter((document) => selected.has(document.id) && document.approvalStatus === (decision === 'REVIEWED' ? 'DRAFT' : 'REVIEWED'));
+    if (!targets.length) { setMessage(decision === 'REVIEWED' ? 'Select DRAFT documents to mark reviewed.' : 'Select REVIEWED documents to approve.'); return; }
+    setBusy(true);
+    setMessage('');
+    const failures: string[] = [];
+    for (const document of targets) {
+      try { await apiClient.reviewRagDocument(document.id, { decision }); } catch (error) { failures.push(`${document.title}: ${error instanceof Error ? error.message : 'failed'}`); }
+    }
+    setBusy(false);
+    setSelected(new Set());
+    setMessage(`${targets.length - failures.length} of ${targets.length} document(s) ${decision === 'REVIEWED' ? 'marked reviewed' : 'approved'}.${failures.length ? ` Not done: ${failures.join(' · ')}` : ''}`);
+    loadDocuments();
   };
 
   const review = async (document: BackendRagDocument, decision: 'REVIEWED' | 'APPROVED' | 'REJECTED') => {
@@ -245,6 +318,25 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
               </select>
             </label>}
           </div>
+          <div className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50 p-4 dark:bg-emerald-950/20">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-xs font-bold text-emerald-900 dark:text-emerald-200">Upload many PDFs at once</label>
+              <button type="button" onClick={useAaoifiPreset} disabled={busy} className="rounded-lg border border-emerald-400 px-2 py-1 text-[11px] font-bold text-emerald-800 disabled:opacity-50 dark:text-emerald-200">Use AAOIFI settings</button>
+            </div>
+            <input type="file" multiple accept="application/pdf,.pdf" onChange={(event) => chooseBulk(event.target.files)} className="mt-2 block w-full text-sm" />
+            <p className="mt-1 text-[11px] text-emerald-800 dark:text-emerald-300">Uses the access level above and the category, authority, jurisdiction and source type below. Titles come from the file names; edit them before uploading. Upload only the current version of each standard.</p>
+            {bulk.length > 0 && <>
+              <ul className="mt-3 space-y-1.5">
+                {bulk.map((item, index) => <li key={`${item.file.name}-${index}`} className="flex flex-wrap items-center gap-2 text-xs">
+                  <input value={item.title} disabled={item.state !== 'waiting'} onChange={(event) => setBulk((current) => current.map((row, i) => (i === index ? { ...row, title: event.target.value } : row)))} className={`min-w-0 flex-1 ${inputClass}`} />
+                  <span className="w-16 text-right text-slate-500">{(item.file.size / 1024 / 1024).toFixed(1)} MB</span>
+                  <span className={`w-24 rounded-full px-2 py-0.5 text-center font-bold ${item.state === 'done' ? 'bg-emerald-100 text-emerald-800' : item.state === 'failed' ? 'bg-rose-100 text-rose-800' : item.state === 'uploading' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'}`}>{item.state === 'done' ? 'Saved' : item.state === 'failed' ? 'Failed' : item.state === 'uploading' ? 'Uploading...' : 'Waiting'}</span>
+                  {item.note && <span className={`w-full text-[11px] ${item.state === 'failed' ? 'text-rose-700' : 'text-slate-500'}`}>{item.note}</span>}
+                </li>)}
+              </ul>
+              <button onClick={() => void uploadBulk()} disabled={busy || !bulk.some((item) => item.state === 'waiting')} className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><Upload className="h-4 w-4" /> Upload {bulk.filter((item) => item.state === 'waiting').length} PDF(s) to {SCOPE_INFO[scope].label}</button>
+            </>}
+          </div>
           <div className="rounded-xl border border-dashed border-purple-300 bg-purple-50 p-4 dark:bg-purple-950/20">
             <label className="text-xs font-bold text-purple-900 dark:text-purple-200">Upload PDF document</label>
             <input type="file" accept="application/pdf,.pdf" onChange={(event) => setFile(event.target.files?.[0] || null)} className="mt-2 block w-full text-sm" />
@@ -283,10 +375,20 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
           </select>
         </div>
         <p className="mt-1 text-xs text-slate-500">DRAFT → REVIEWED → APPROVED. The uploader cannot review, and the approver must differ from the reviewer.</p>
+        {reviewable.length > 0 && <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-2 text-xs dark:bg-slate-900">
+          <span className="font-bold text-slate-600 dark:text-slate-300">{selected.size} selected</span>
+          <button type="button" onClick={() => setSelected(new Set(reviewable.filter((document) => document.approvalStatus === 'DRAFT').map((document) => document.id)))} className="rounded-lg border border-slate-300 px-2 py-1 font-bold">Select all DRAFT</button>
+          <button type="button" onClick={() => setSelected(new Set(reviewable.filter((document) => document.approvalStatus === 'REVIEWED').map((document) => document.id)))} className="rounded-lg border border-slate-300 px-2 py-1 font-bold">Select all REVIEWED</button>
+          {selected.size > 0 && <button type="button" onClick={() => setSelected(new Set())} className="rounded-lg px-2 py-1 font-bold text-slate-500">Clear</button>}
+          <span className="flex-1" />
+          <button type="button" onClick={() => void reviewSelected('REVIEWED')} disabled={busy || selected.size === 0} className="rounded-xl bg-amber-500 px-3 py-2 font-bold text-white disabled:opacity-50">Mark selected reviewed</button>
+          <button type="button" onClick={() => void reviewSelected('APPROVED')} disabled={busy || selected.size === 0} className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-3 py-2 font-bold text-white disabled:opacity-50"><CheckCircle2 className="h-3.5 w-3.5" />Approve selected</button>
+        </div>}
         <div className="mt-4 space-y-3">
           {documents.length === 0 && <p className="text-xs text-slate-500">No documents at this level yet.</p>}
           {documents.map((document) => <article key={document.id} className="rounded-xl border border-slate-200 p-3 text-xs dark:border-slate-700">
             <div className="flex flex-wrap items-center gap-2">
+              {['DRAFT', 'REVIEWED'].includes(document.approvalStatus) && <input type="checkbox" aria-label={`Select ${document.title}`} checked={selected.has(document.id)} onChange={() => toggleSelected(document.id)} className="h-4 w-4" />}
               <strong className="text-slate-900 dark:text-white">{document.title}</strong>
               <span className={`rounded-full px-2 py-0.5 font-bold ${SCOPE_INFO[document.scope].badge}`}>{document.scope === 'GLOBAL' ? 'GLOBAL · D-8' : document.scope === 'COUNTRY' ? `COUNTRY · ${countryName(document.countryNodeId)}` : `PROJECT · ${projectName(document.projectId)}`}</span>
               <span className={`rounded-full px-2 py-0.5 font-bold ${APPROVAL_BADGE[document.approvalStatus] || APPROVAL_BADGE.DRAFT}`}>{document.approvalStatus}</span>

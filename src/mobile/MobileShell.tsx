@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../services/apiClient';
-import { Bell, Building2, FolderKanban, HandCoins, HeartHandshake, Landmark, Home, Layers, UserRound, Users, Wallet } from 'lucide-react';
+import { Bell, Building2, FolderKanban, HandCoins, HeartHandshake, Landmark, Home, Layers, Sparkles, UserRound, Users, Wallet } from 'lucide-react';
 import { useRBAC } from '../rbac/RBACContext';
 import { canInvest } from '../rbac/menuVisibility';
 import { MobileHome } from './screens/MobileHome';
@@ -17,12 +17,13 @@ import { MobileLeasing } from './screens/MobileLeasing';
 import { MobileAssets } from './screens/MobileAssets';
 import { MobileProjectsAdmin } from './screens/MobileProjectsAdmin';
 import { MobileSponsor } from './screens/MobileSponsor';
+import { MobileAssistant } from './screens/MobileAssistant';
 import { MobileSettlement } from './screens/MobileSettlement';
 import { ASSET_OWNER_ROLES, ESTATE_ROLES, LEASING_ROLES, POOL_VIEW_ROLES, SETTLEMENT_ROLES, SPONSOR_ROLES, USER_ADMIN_ROLES } from './mobileRoles';
 import { LanguageToggle, useT } from './i18n';
 
 export type MobileTab = 'home' | 'beneficiaries' | 'pools' | 'portfolio' | 'projects' | 'assets' | 'leasing' | 'settlement' | 'users' | 'account';
-type Overlay = 'kyc' | 'notifications' | 'statements' | 'zakat' | 'projects';
+type Overlay = 'kyc' | 'notifications' | 'statements' | 'zakat' | 'projects' | 'assistant';
 
 const TABS: Array<{ id: MobileTab; label: string; icon: React.ReactNode; investorsOnly?: boolean; adminsOnly?: boolean; estateOnly?: boolean; leasingOnly?: boolean; settlementOnly?: boolean; assetOwnersOnly?: boolean; sponsorsOnly?: boolean; poolViewersOnly?: boolean }> = [
   { id: 'home', label: 'Home', icon: <Home className="w-5 h-5" /> },
@@ -77,10 +78,13 @@ export const MobileShell: React.FC = () => {
       <header className="sticky top-0 z-20 flex items-center gap-2.5 px-4 py-3 bg-emerald-950 text-white shadow">
         <img src="/wealth-pooling-logo.svg" alt="" className="w-8 h-8 rounded-full bg-white p-0.5" />
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black leading-tight">Wealth Pooling D-8</p>
+          <p className="text-sm font-black leading-tight truncate">Wealth Pooling D-8</p>
           <p className="text-[11px] text-emerald-100/80 truncate">{activeUser.name}</p>
         </div>
         <LanguageToggle saveToAccount />
+        <button type="button" onClick={() => setOverlay('assistant')} aria-label={t('Ask')} className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center hover:bg-white/10">
+          <Sparkles className="w-5 h-5 text-amber-300" />
+        </button>
         <button type="button" onClick={() => setOverlay('notifications')} aria-label={unread ? t('Notifications, {count} unread', { count: unread }) : t('Notifications')} className="relative w-9 h-9 shrink-0 rounded-full flex items-center justify-center hover:bg-white/10">
           <Bell className="w-5 h-5" />
           {unread > 0 && <span aria-hidden className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-400 text-emerald-950 text-[10px] font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>}
@@ -96,6 +100,7 @@ export const MobileShell: React.FC = () => {
         {overlay === 'statements' && <MobileStatements onBack={() => openTab('portfolio')} />}
         {overlay === 'zakat' && <MobileZakat onBack={() => openTab('portfolio')} />}
         {overlay === 'projects' && <MobileProjectsAdmin onBack={() => openTab('home')} />}
+        {overlay === 'assistant' && <MobileAssistant onBack={() => setOverlay(null)} />}
         {!overlayOpen && tab === 'home' && <MobileHome onOpen={openTab} onOpenKyc={openKyc} onOpenProjects={() => setOverlay('projects')} />}
         {!overlayOpen && tab === 'beneficiaries' && <MobileBeneficiaries />}
         {!overlayOpen && tab === 'pools' && <MobilePools onOpenPortfolio={() => openTab('portfolio')} onOpenKyc={openKyc} />}
