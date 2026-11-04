@@ -122,7 +122,7 @@ export const INITIAL_APP_USERS: AppUser[] = [
     fullName: 'Ahmad bin Razak',
     email: 'ahmad.admin@wealthpooling.my',
     phone: '+60 12 345 6789',
-    department: 'Asset Tokenization & Treasury',
+    department: 'Asset Registry & Treasury',
     jobTitle: 'Managing Director & Country Admin',
     organisationId: 'ORG-MYS-P2-CAP',
     countryNodeId: 'CN-MYS',

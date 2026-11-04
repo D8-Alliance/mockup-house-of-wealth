@@ -24,7 +24,7 @@ export type PoolCategory =
   | 'Agriculture' 
   | 'Property / Logistics' 
   | 'Green Sukuk' 
-  | 'Tokenized RWA' 
+  | 'Asset-Backed RWA' 
   | 'Waqf / Social Impact' 
   | 'Technology Accelerator';
 

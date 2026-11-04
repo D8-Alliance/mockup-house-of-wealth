@@ -114,7 +114,7 @@ export const ExecutiveDashboardWidgets: React.FC<ExecutiveDashboardWidgetsProps>
             <div className="space-y-3">
               <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-700/60 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div>
-                  <h4 className="text-xs font-black text-slate-900 dark:text-white">Kuala Lumpur Logistics Hub Tokenization ($12,500,000)</h4>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white">Kuala Lumpur Logistics Hub Pool ($12,500,000)</h4>
                   <p className="text-[11px] text-slate-500">Requested by Indus Logistics Group • Shariah Screened</p>
                 </div>
                 <button onClick={() => onQuickApprove("Kuala Lumpur Logistics Hub")} className="px-3 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer">

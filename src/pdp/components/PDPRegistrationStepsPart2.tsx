@@ -428,7 +428,7 @@ export const Step9Compliance: React.FC<StepProps> = ({ formData, setFormData }) 
     {
       key: 'sourceOfFundsDeclaration' as const,
       title: 'Legitimate Source of Capital & Assets',
-      desc: 'All assets, capital contributions, and underlying projects submitted for tokenization originate from lawful commercial activities.'
+      desc: 'All assets, capital contributions, and underlying projects submitted for pooling originate from lawful commercial activities.'
     },
     {
       key: 'beneficialOwnershipAccurate' as const,

@@ -110,7 +110,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               Become a Pool / Product / Project Delivery Partner (PDP)
             </h3>
             <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-              Complete corporate KYB accreditation to tokenize institutional infrastructure, originate real-world projects, and issue Shariah wealth pools across D-8 member nations.
+              Complete corporate KYB accreditation to register real-world projects and issue Shariah wealth pools across D-8 member nations.
             </p>
           </div>
         </div>

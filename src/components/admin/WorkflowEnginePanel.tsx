@@ -31,7 +31,7 @@ interface WorkflowTemplate {
 const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
   {
     id: 'WF-POOL-01',
-    name: '17-Stage Shariah Wealth Pooling & Asset Tokenization',
+    name: '17-Stage Shariah Wealth Pooling',
     category: 'Core Capital Rail',
     description: 'End-to-end lifecycle from asset onboarding, AAOIFI Shariah vetting, multi-sig governance to smart pool funding, profit distribution & maturity.',
     totalSteps: 17,
@@ -47,7 +47,7 @@ const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       { stepNo: 4, title: 'AAOIFI Shariah Board Review', actor: 'Shariah Board', type: 'HUMAN_APPROVAL', description: 'Fatwa structuring (Mudarabah/Ijarah/Musharakah), Riba screening, and contract certification.', slaHours: 24 },
       { stepNo: 5, title: 'AML & Regulatory Clearance', actor: 'Compliance Officer', type: 'COMPLIANCE_CHECK', description: 'PEP checks, sanction watchlist scans, and jurisdiction limit verification.', slaHours: 8 },
       { stepNo: 6, title: 'Actuarial Risk Assessment', actor: 'Risk Officer', type: 'AUTOMATED', description: 'Automated credit score calculation, FX sensitivity stress test, and loan-to-value checks.', slaHours: 12 },
-      { stepNo: 7, title: 'Executive Committee Sign-Off', actor: 'Executive Approver', type: 'HUMAN_APPROVAL', description: 'Final multi-sig quorum approval to unlock tokenization rights.', slaHours: 24 },
+      { stepNo: 7, title: 'Executive Committee Sign-Off', actor: 'Executive Approver', type: 'HUMAN_APPROVAL', description: 'Final committee approval before the pool opens to investors.', slaHours: 24 },
       { stepNo: 8, title: 'Pool Structuring & Tranche Config', actor: 'Pool Manager', type: 'AUTOMATED', description: 'Tranche limits, expected profit rate, and maturity horizons locked into smart contract.', slaHours: 6 },
       { stepNo: 9, title: 'Smart Contract Minting & Registry', actor: 'System Administrator', type: 'SMART_CONTRACT', description: 'Asset-backed digital certificates minted on sovereign country ledger.', slaHours: 1 },
       { stepNo: 10, title: 'Marketplace Pool Opening', actor: 'System / Automated', type: 'AUTOMATED', description: 'Pool listed on Wealth Pooling discovery portal for investor subscriptions.', slaHours: 1 },

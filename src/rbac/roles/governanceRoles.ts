@@ -23,7 +23,7 @@ export const GOVERNANCE_ROLES: Record<string, RoleDefinition> = {
       reports: ['read', 'export']
     },
     approvalRights: [
-      'Regional Asset Tokenization Approval',
+      'Regional Asset Verification Approval',
       'Local Currency Liquidity Pool Deployment',
       'Organization Onboarding Sign-Off',
       'Regional Profit Distribution Schedule'
@@ -35,7 +35,7 @@ export const GOVERNANCE_ROLES: Record<string, RoleDefinition> = {
       'Jurisdiction Compliance Filing'
     ],
     notifications: [
-      '3 New Real Estate Assets pending regional tokenization',
+      '3 New Real Estate Assets pending regional verification',
       'Monthly regional Waqf pool distribution ready for approval',
       'Compliance update required for Central Bank regulation'
     ],
@@ -127,7 +127,7 @@ export const GOVERNANCE_ROLES: Record<string, RoleDefinition> = {
     role: 'Auditor',
     title: 'External Independent Auditor',
     category: 'Governance & Risk',
-    description: 'Read-only access to immutable blockchain transaction hashes, smart contract code reviews, and financial statements for independent reporting.',
+    description: 'Read-only access to the audit trail with its hash-chain check, the ledger and financial statements, and verifies project performance reports.',
     badgeColor: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/30',
     accessibleTabs: ['dashboard', 'marketplace', 'pooling', 'investments', 'assets', 'contracts', 'wallet', 'financials', 'documents', 'ledger', 'profile'],
     permissions: {
@@ -152,7 +152,7 @@ export const GOVERNANCE_ROLES: Record<string, RoleDefinition> = {
     ],
     notifications: [
       'Q2 External Audit Period opened',
-      '1,240 Blockchain transaction hashes ready for verification'
+      'Ledger hash chain ready for verification'
     ],
     demoUser: {
       name: 'Sarah Jenkins, CPA',

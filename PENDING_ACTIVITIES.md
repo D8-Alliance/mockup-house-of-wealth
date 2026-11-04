@@ -1,307 +1,269 @@
-# Pending Activities
+# Kerja Yang Belum Siap
 
-Kerja yang belum siap sahaja. Kerja yang sudah siap dibuang daripada senarai ini (penerangan sistem semasa ada dalam [DOKUMENTASI_SISTEM.md](DOKUMENTASI_SISTEM.md)). Item dinomborkan semula pada 2026-11-02.
+Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap dibuang. Penerangan sistem yang sudah ada ditulis dalam [DOKUMENTASI_SISTEM.md](DOKUMENTASI_SISTEM.md).
 
-## Ringkasan (disemak dengan kod 2026-11-02)
+## Ringkasan (disemak dengan kod pada 4 November 2026)
 
-| # | Item | Baki | Langkah seterusnya / menunggu |
+| # | Perkara | Apa yang belum siap | Sedang tunggu apa |
 |---|---|---|---|
-| 1 | Tamper detection | PAdES, OCR lawan lapisan teks, semakan dengan pengeluar | Bina bila diminta |
-| 2 | Penyedia eKYC dan saringan luar | Anti-spoofing, pemalsuan dokumen, REGISTRY, AML/PEP/sanksi | Pilih penyedia; semak BNM e-KYC dengan compliance |
-| 3 | Liveness | Penalaan peranti, kelip mata/senyum, kad fizikal, jalan alternatif | Uji lebih banyak telefon; sediakan jalan alternatif sebelum `KYC_REQUIRE_LIVENESS=true` |
-| 4 | Data biometrik (PDPA) | Tempoh simpanan, pemadaman automatik, rekod persetujuan | Keputusan tempoh simpanan |
-| 5 | Contract Advisory/Agreement ikut projek | `projectId` pada `Contract`, versi v2/v3, wizard pilih projek | Bina bila diminta (kerja besar) |
-| 6 | Pembayaran | Ujian sandbox di staging, kredit bonus, go-live ToyyibPay | Uji di staging; akaun ToyyibPay live |
-| 7 | Payout provider | Adapter bank/DuitNow, validation sebelum SETTLED, dual approval | Pilihan provider; nilai had amaun |
-| 8 | Notifikasi dan background jobs | Rekod DNS Resend, TLS Redis, integration test dalam CI | Tambah rekod DNS `notify.alhidayahgroup.com.my` |
-| 9 | Blockchain | Fasa 2 anchoring; Fasa 3 tokenisasi; teks "tokenization" dalam skrin demo | Keputusan rangkaian; nasihat SC dan Shariah |
-| 10 | Akad, zakat, cukai dan akaun pelabur | Nisab 3 negeri; cukai pegangan/perkhidmatan, e-Invois; perkiraan akhir pool; dompet pelabur | Penasihat cukai dan Shariah; Kewangan |
-| 11 | Keselamatan dan compliance sebelum pilot | Sahkan nilai had KYC sementara; format laporan regulator; tetapan production; hidupkan peranan Auditor | Compliance; pemilik projek |
-| 12 | Keputusan kecil | Organization Admin dan kredit AI; tarikh tamat kad 9 negara; data ujian Anuar | Keputusan pemilik projek |
-| 13 | Pembantu dokumen AI | Fasa A smart upload, Fasa B chatbot tahu status, Fasa C lampiran | Keputusan; model AI lebih kuat |
-| 14 | DigitalOcean | Fail ke Spaces, model AI di staging, tetapan Keycloak, sandaran, pilot production | Bajet; lokasi data |
-| 15 | Entiti berasingan dan pihak berkaitan | Semakan nama kumpulan oleh KYB, paparan dalam skrin semakan, sumbangan modal penaja | Keputusan Shariah (sumbangan modal) |
-| 16 | Benefisiari dan pusaka | Semakan Shariah dan undang-undang aliran pusaka; pewaris tanpa akaun; maklum balas kepada pelapor; mini-app; aset bukan pool | Penasihat Shariah, peguam dan pemegang amanah |
-| 17 | Modul aset | Aliran tunai sewa/untung, baki tandatangan dan takaful, Fasa C agensi, skrin demo | Boleh diteruskan |
-| 18 | Kunci API | Kunci API untuk sistem luar | Ditangguhkan sehingga ada keperluan |
-| 19 | Pengurusan pengguna | Notis privasi rasmi; RoleGrantRequest dan sebab perubahan peranan; Fasa 3–4; penguatkuasaan PDPA di server | Butiran syarikat dan semakan peguam |
-| 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO/push D8 Ideas, ujian super app, Keycloak, terjemahan | Butiran bank; spesifikasi D8 Ideas |
-| 21 | Sewaan terus (Ijarah) tanpa projek | Skrin web, pembaharuan sewaan, keputusan pungutan sewa, komisen dan cukai | Keputusan pemilik projek; nasihat peguam dan cukai |
-| 22 | Agihan keuntungan (Settlement Officer) | Skrin web, fail bayaran pukal bank, peringatan hasil projek lewat | Boleh dimulakan |
-| 23 | Projek bermasalah: arkib dan gantung | Skrin web; label "Digantung" untuk pelabur; aliran pulangan modal | Boleh dimulakan bila diperlukan |
+| 1 | Kesan dokumen palsu | Semak tandatangan digital PDF, bandingkan teks PDF dengan imbasan, semak dengan SSM atau pejabat tanah | Boleh dibuat bila diminta |
+| 2 | Penyedia eKYC luar | Kesan muka palsu, dokumen palsu, semakan rekod kerajaan, senarai AML/PEP/sekatan | Pilih penyedia; semak garis panduan BNM dengan Compliance |
+| 3 | Semakan wajah (liveness) | Uji di lebih banyak telefon, kelip mata/senyum, semak kad fizikal, jalan lain jika kamera gagal | Ujian telefon; jalan lain sebelum dihidupkan |
+| 4 | Data biometrik (PDPA) | Berapa lama gambar wajah disimpan dan bila dipadam | Keputusan tempoh simpanan |
+| 5 | Perjanjian ikut projek | Perjanjian dipautkan kepada projek, ada versi 2, 3 | Boleh dibuat bila diminta (kerja besar) |
+| 6 | Pembayaran ToyyibPay | Uji di staging, kredit bonus, buka akaun live | Ujian staging; akaun ToyyibPay live |
+| 7 | Bayaran keluar ke bank | Sambungan bank/DuitNow, semakan sebelum selesai, dua pelulus ikut amaun | Pilih penyedia; had amaun |
+| 8 | Notifikasi | Rekod DNS untuk emel Resend, Redis TLS untuk production | Tambah rekod DNS |
+| 9 | Blockchain | Fasa 2 (simpan cap hash di blockchain awam), Fasa 3 (token) | Pilih rangkaian; nasihat SC dan Shariah |
+| 10 | Akad, zakat, cukai, dompet pelabur | Nisab 3 negeri, cukai, e-Invois, kira akhir pool, dompet pelabur | Penasihat cukai dan Shariah; Kewangan |
+| 11 | Keselamatan sebelum pilot | Sahkan had KYC, format laporan regulator, tetapan production, hidupkan peranan Auditor | Compliance; pemilik projek |
+| 12 | Keputusan kecil | Organization Admin dan kredit AI, tarikh tamat kad 9 negara, data ujian Anuar | Pemilik projek |
+| 13 | Pembantu dokumen AI | Muat naik pintar, chatbot tahu status, lampiran dalam chat | Keputusan; model AI lebih kuat |
+| 14 | DigitalOcean | Fail ke Spaces, model AI di staging, tetapan Keycloak, sandaran, production | Bajet; lokasi data |
+| 15 | Kumpulan syarikat (pihak berkaitan) | Senarai nama kumpulan oleh admin, modal penaja Musharakah | Keputusan Shariah |
+| 16 | Benefisiari dan pusaka | Semakan Shariah dan undang-undang, pewaris tanpa akaun, aset bukan pool | Penasihat Shariah, peguam, pemegang amanah |
+| 17 | Modul aset | Sewa/untung pemilik aset, tandatangan, takaful, agensi luar, skrin demo | Boleh diteruskan |
+| 18 | Kunci API | Kunci untuk sistem luar | Tangguh sehingga perlu |
+| 19 | Pengurusan pengguna | Notis privasi rasmi, pelulus kedua untuk peranan admin, sebab tukar peranan | Butiran syarikat; peguam |
+| 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, Keycloak, terjemahan | Butiran bank; spesifikasi D8 Ideas |
+| 21 | Sewaan terus (Ijarah) | Pembaharuan sewaan, caj utiliti, keputusan kutipan sewa dan cukai | Pemilik projek; peguam dan cukai |
+| 22 | Agihan keuntungan | Skrin web Kewangan, fail bayaran pukal bank, peringatan hasil lewat | Boleh dimulakan |
+| 23 | Projek bermasalah | Skrin web, label "Digantung", pulangan modal | Boleh dimulakan bila perlu |
 
-## 1. Tamper detection dokumen bukti projek
+---
 
-- **Kawasan:** `server/src/projects/document-integrity.ts`, `analyzeProjectDocument` dalam `server/src/ai/ai.service.ts`
+## 1. Kesan dokumen bukti yang diubah
 
-**Baki:**
-1. Sahkan tandatangan digital PDF (PAdES) jika ada.
-2. Bandingkan lapisan teks dengan OCR imej halaman (teks tersembunyi atau ditindih).
-3. Semak silang dengan pengeluar dokumen (SSM, pejabat tanah).
+- **Fail:** `server/src/projects/document-integrity.ts`, `server/src/ai/ai.service.ts`
 
-**Nota:** metadata dalam object stream termampat (PDF 1.5+) tidak dibaca. PDF yang disimpan semula oleh Word boleh ditanda INCREMENTAL_UPDATE.
+**Belum siap:**
+1. Semak tandatangan digital dalam PDF (PAdES), jika ada.
+2. Bandingkan teks dalam PDF dengan teks yang dibaca daripada gambar halaman (OCR). Ini untuk kesan teks yang disembunyikan atau ditutup.
+3. Semak dengan pihak yang mengeluarkan dokumen, contohnya SSM atau pejabat tanah.
 
-## 2. Keputusan: penyedia eKYC dan saringan luar
+**Nota:** sistem belum boleh membaca maklumat dalam sesetengah PDF baharu (object stream termampat). PDF yang disimpan semula oleh Word kadang-kadang ditanda sebagai "diubah" walaupun tidak.
 
-- **Kawasan:** `server/src/kyc/checks`, `server/src/kyc/liveness`, `src/components/admin/AdminGovernanceLive.tsx` (`ScreeningNotAvailable`)
+## 2. Penyedia eKYC dan saringan luar
 
-**Baki (memerlukan penyedia bertauliah):** passive anti-spoofing (rakaman skrin, topeng, deepfake, kamera maya); pengesanan pemalsuan dokumen; REGISTRY; AML (pemantauan transaksi), PEP dan saringan sanksi. Sehingga penyedia dipilih, Compliance menyemak secara manual semasa KYC/KYB.
+- **Fail:** `server/src/kyc/checks`, `server/src/kyc/liveness`
 
-**Langkah seterusnya:** pilih penyedia (kos, kontrak, lokasi data) dan semak Policy Document e-KYC BNM bersama compliance. Penyedia boleh dipasang melalui `KYC_ROUTING_JSON` / adapter `http-vendor` tanpa mengubah UI.
+**Belum siap (perlu penyedia yang bertauliah):**
+- kesan muka palsu (rakaman skrin, topeng, deepfake, kamera palsu);
+- kesan dokumen palsu;
+- semak dengan rekod kerajaan;
+- saringan AML (transaksi mencurigakan), PEP (orang politik) dan senarai sekatan.
 
-## 3. Liveness: penalaan dan pelancaran
+Buat masa ini, Compliance menyemak sendiri semasa KYC dan KYB. Skrin AML, PEP dan Sanctions di Admin Center menyatakan "belum tersedia".
 
-- **Kawasan:** `server/src/kyc/liveness/`, `src/kyc/KycLivenessCapture.tsx`, `server/src/kyc/liveness/card-quality.ts`
+**Langkah seterusnya:** pilih penyedia (kos, kontrak, di mana data disimpan) dan semak garis panduan e-KYC Bank Negara bersama Compliance. Penyedia boleh disambung kemudian tanpa mengubah skrin.
 
-**Baki:**
-1. Tala ambang dengan kamera sebenar pada pelbagai peranti dan cahaya (`turnYaw` 0.22, `lookUpPitch` 0.06, face match 0.363, ambang kualiti kad).
-2. Kelip mata dan senyum (perlu model titik muka lebih lengkap).
-3. Semakan kad fizikal (condong kad untuk hologram, kesan kad di skrin).
-4. Uji lebih banyak telefon dan putaran skrin.
-5. **Pelancaran:** sediakan jalan alternatif (semakan manual atau panggilan video) untuk pengguna tanpa kamera atau yang gagal berulang kali, kemudian `KYC_REQUIRE_LIVENESS=true` (kini `false`).
+## 3. Semakan wajah (liveness)
+
+- **Fail:** `server/src/kyc/liveness/`, `src/kyc/KycLivenessCapture.tsx`
+
+**Belum siap:**
+1. Laraskan tahap semakan dengan kamera sebenar, pada banyak jenis telefon dan keadaan cahaya.
+2. Arahan kelip mata dan senyum (perlu model wajah yang lebih lengkap).
+3. Semak kad sebenar (condongkan kad untuk lihat hologram; kesan kad yang ditunjuk pada skrin).
+4. Uji pada lebih banyak telefon dan bila skrin dipusing.
+5. **Sebelum dihidupkan** (`KYC_REQUIRE_LIVENESS=true`, kini `false`): sediakan jalan lain untuk orang yang tiada kamera atau asyik gagal, contohnya semakan manual atau panggilan video.
 
 ## 4. Data biometrik (PDPA 2010)
 
-- **Kawasan:** jadual `KycLivenessFrame`, `KycDocument`
+Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
+- berapa lama disimpan, dan dipadam secara automatik selepas itu;
+- rekod persetujuan yang lebih lengkap (versi teks, masa, alamat IP);
+- sama ada data wajah dipadam selepas semakan selesai.
 
-Bingkai kamera dan dokumen KYC masih disimpan tanpa had masa. **Perlu keputusan:** tempoh simpanan dan pemadaman automatik; rekod persetujuan formal (versi teks, masa, IP); sama ada embedding wajah dipadam selepas sesi.
+## 5. Perjanjian ikut projek
 
-## 5. Contract Advisory dan Agreement Generation mengikut projek
+- **Fail:** `server/src/ai/ai.service.ts`, `server/src/contract-intelligence/`, `src/ai/features/contract/`
 
-- **Kawasan:** `server/src/ai/ai.service.ts` (`contractAdvisor`), `server/src/contract-intelligence/`, `src/ai/features/contract/`
+**Masalah sekarang:** nasihat kontrak AI boleh dijana berulang kali dan hilang bila tukar halaman. Perjanjian yang dijana sentiasa versi 1 dan tidak dipautkan kepada projek.
 
-**Masalah sekarang:** Advisory boleh dijana tanpa had dan hilang bila tukar halaman; Agreement Generation sentiasa versi 1 tanpa pautan projek (model `Contract` tiada `projectId`).
+**Cadangan:** simpan nasihat bagi setiap projek; pautkan perjanjian kepada projek; jana semula = versi baharu; selepas diluluskan hanya boleh dipinda; pilih projek daripada senarai.
 
-**Langkah:** simpan Advisory sebagai revision setiap projek; tambah `projectId` pada `Contract` (satu perjanjian aktif setiap projek dan jenis); jana semula = versi baharu; selepas APPROVED hanya melalui pindaan; wizard pilih projek dari senarai.
+## 6. Pembayaran ToyyibPay
 
-## 6. Pembayaran
+1. **Uji di staging:** selepas bayar dalam sandbox, status mesti bertukar kepada PAID dan pelan diaktifkan. Uji juga tambah kredit AI.
+2. **Kredit bonus:** kini dikira sama seperti kredit yang dibeli. Putuskan sama ada bonus patut dikira kredit percuma.
+3. **Buka akaun live:** guna akaun, kunci dan kategori live, alamat `https://toyyibpay.com/`, mod production dan log masuk Keycloak. Buat satu bayaran kecil dahulu untuk uji.
+4. **Data lama:** bersihkan kredit ujian sebelum uji baki. Jika ada akaun lama `SYSTEM-TOYYIBPAY-CASH-MYR`, baca bersama akaun baharu atau pindahkan bakinya.
 
-1. **Sahkan di staging:** selepas bayaran sandbox, "Check status" atau callback mesti menukar status kepada PAID dan mengaktifkan pelan; uji juga tambah nilai kredit AI.
-2. **Kredit bonus:** kini sama seperti kredit dibeli. Putuskan sama ada bonus dikira kredit percuma.
-3. **Go-live ToyyibPay:** akaun live, kunci dan kategori live, `TOYYIBPAY_BASE_URL=https://toyyibpay.com/`, `NODE_ENV=production`, sign-in Keycloak. `TOYYIBPAY_RETURN_URL` sama origin dengan app; `TOYYIBPAY_CALLBACK_URL` domain sebenar. Buat satu bayaran kecil dahulu.
-4. **Data lama:** bersihkan kredit simulasi pengguna ujian sebelum ujian baki tepat. Jika database ada akaun lama `SYSTEM-TOYYIBPAY-CASH-MYR`, baca bersama akaun baharu atau pindahkan bakinya dengan entri pelarasan.
+## 7. Bayaran keluar ke bank (payout)
 
-## 7. Payout provider production
+- **Fail:** `server/src/distribution/`
 
-- **Kawasan:** `server/src/distribution/`
+**Belum siap:**
+1. Pilih penyedia pindahan bank atau DuitNow, dan sambungkan. Sekarang hanya fail bank manual.
+2. Semak amaun, mata wang, rujukan dan penerima dengan penyedia sebelum bayaran dikira selesai.
+3. Dua pelulus bagi amaun besar. Perlu nilai had daripada pemilik projek.
 
-**Baki:**
-1. Pilih provider bank transfer/DuitNow dan bina adapter `PayoutProvider` (kini rail manual bank-file sahaja).
-2. Validation pihak provider (amaun, mata wang, rujukan, benefisiari) sebelum `SETTLED`.
-3. Dual approval ikut had amaun dan pengasingan kumpulan pelulus. Perlu nilai had daripada pemilik projek.
+## 8. Notifikasi
 
-## 8. Notifikasi dan background jobs
+- **Keputusan 30 Oktober 2026:** notifikasi hanya dalam aplikasi dan emel. Tiada push (Firebase) dan tiada SMS (Twilio).
 
-- **Keputusan 2026-10-30:** dalam aplikasi dan emel sahaja (tiada Firebase, tiada Twilio). Emel melalui Resend, domain `notify.alhidayahgroup.com.my` (jangan guna `mail.alhidayahgroup.com.my`).
-- **Kawasan:** `server/src/notifications/`, `server/src/jobs/`
-
-**Baki:**
-1. **Resend:** tambah rekod DNS domain di MSC Hosting (log masuk Plesk "IT Executive" tiada DNS Settings; tanya Anuar atau MSC). Kemudian set `NOTIFICATION_EMAIL_PROVIDER=resend`, `RESEND_API_KEY` dan `NOTIFICATION_EMAIL_FROM` dalam `/opt/how/server/.env` di staging. Ini juga menghidupkan emel peringatan membership, aset, takaful dan OTP tandatangan.
-2. **Redis TLS production:** sediakan `ca.crt`, `redis.crt`, `redis.key` (`server/ops/redis/README.md`); password Redis dalam secret manager.
-3. **CI:** jalankan integration suite (`RUN_INTEGRATION_TESTS=true`) dalam GitHub Actions dan pastikan lulus.
+**Belum siap:**
+1. **Emel (Resend):** tambah rekod DNS untuk domain `notify.alhidayahgroup.com.my` di MSC Hosting. Log masuk Plesk "IT Executive" tiada menu DNS, jadi tanya Anuar atau MSC. Selepas itu isi `NOTIFICATION_EMAIL_PROVIDER=resend`, `RESEND_API_KEY` dan `NOTIFICATION_EMAIL_FROM` dalam `/opt/how/server/.env` di staging. Jangan guna `mail.alhidayahgroup.com.my`. Bila emel hidup, emel peringatan, kod OTP tandatangan dan emel kepada pelapor kematian juga akan dihantar.
+2. **Redis untuk production:** sediakan sijil TLS (`ca.crt`, `redis.crt`, `redis.key`) dan simpan kata laluan Redis di tempat rahsia (lihat `server/ops/redis/README.md`).
 
 ## 9. Blockchain dan smart contract
 
-- **Kawasan:** `server/src/audit/hash-chain.service.ts`, `server/src/zakat/`
+- **Fasa 2 (belum mula):** setiap hari, simpan cap hash rekod audit, lejar dan zakat di blockchain awam yang murah. Buat halaman awam "Ketelusan Zakat" dan butang "Sahkan bayaran saya". **Perlu:** pilih rangkaian, dompet, cara simpan kunci, dan bajet yuran.
+- **Fasa 3 (tunggu nasihat undang-undang dan Shariah):** token bagi bahagian pool hampir pasti dikira sebagai sekuriti oleh SC. Dapatkan nasihat dahulu. Lihat `DOKUMENTASI_SISTEM.md` bahagian 5.14.
+- **Teks dalam skrin:** perkataan "tokenization" dan hash palsu sudah dibuang (4 November 2026). Yang tinggal hanya satu yuran masa depan dalam data contoh yang ditanda "Fasa 3, perlu semakan regulator".
 
-**Fasa 2 (belum dimulakan):** anchor hash kepala rantai AUDIT/LEDGER atau Merkle root zakat setiap hari ke blockchain awam murah; halaman awam Ketelusan Zakat; butang "Sahkan bayaran saya". **Perlu:** pilihan rangkaian, dompet dan simpanan kunci, bajet yuran.
+## 10. Akad, zakat, cukai dan dompet pelabur
 
-**Fasa 3 (menunggu undang-undang dan Shariah):** token bahagian pool hampir pasti sekuriti (SC). Dapatkan nasihat dahulu; rujuk `DOKUMENTASI_SISTEM.md` bahagian 5.14.
+**⚠️ Zakat:** memungut zakat tanpa dilantik oleh Majlis Agama Islam Negeri ialah kesalahan. Sistem sekarang hanya mengira zakat dan menghantar pengguna ke portal rasmi pusat zakat.
 
-**Baki teks:** "tokenization/tokenized" dan hash palsu masih dalam skrin mod DEMO (`WorkflowEnginePanel`, `AdminGovernanceDashboards`, `AdminComplianceRisk`, `ApprovalMatrixPanel`, `ExecutiveDashboardWidgets`, `DashboardView` dan lain-lain). Buang atau kemas kini selepas keputusan Fasa 3.
+**Perlu penasihat Shariah:**
+1. Bagaimana kerugian dikurangkan daripada modal pelabur dalam lejar.
+2. Kira akhir pool semasa pool ditutup.
+3. Proses jika pengurus cuai (pengurus menanggung rugi).
+4. Bahagian rugi rakan kongsi pengurus dalam Musharakah.
 
-## 10. Akad, zakat, cukai dan akaun pelabur
-
-- **Kawasan:** `server/src/distribution/`, `server/src/zakat/`, `server/src/tax/`, `server/src/statements/`
-
-**⚠️ Zakat:** memungut zakat tanpa pelantikan Majlis Agama Islam Negeri ialah kesalahan syariah; sistem kini hanya mengira dan menghantar ke portal rasmi.
-
-**Baki: penasihat Shariah (Fasa D):**
-1. Caj kerugian ke atas modal pelabur dalam lejar.
-2. Perkiraan akhir pool (tanzid/qismah) semasa pool ditutup.
-3. Proses kecuaian pengurus (mudarib/wakil).
-4. Bahagian kerugian rakan kongsi pengurus dalam Musharakah.
-
-**Baki: penasihat cukai (Fasa C):**
-1. Cukai pegangan bukan pemastautin (kadar, potongan semasa agihan, akaun lejar, remitan LHDN). Jenis cukai bergantung pada struktur pool (ECF, P2P, dana Mudarabah).
-2. Cukai perkhidmatan 8% ke atas yuran platform jika terpakai.
+**Perlu penasihat cukai:**
+1. Cukai pegangan bagi pelabur bukan pemastautin (kadar, potongan semasa agihan, bayaran kepada LHDN). Jenis cukai bergantung pada struktur pool.
+2. Cukai perkhidmatan 8% atas yuran platform, jika terpakai.
 3. e-Invois MyInvois bila jualan melebihi RM1 juta.
-4. Peraturan negara D-8 lain dan DTA.
-5. Penyata platform: hasil yuran, imbangan duga, lejar am.
+4. Peraturan cukai negara D-8 lain.
+5. Penyata kewangan platform (hasil yuran, imbangan duga, lejar am).
 
-**Baki: lain-lain:**
-1. Nisab Kedah, Pahang dan Perak belum direkod; Sarawak hanya September 2026. Admin perlu merekod nilai rasmi berkala.
-2. Keputusan pengurusan: memohon pelantikan sebagai ejen kutipan zakat atau tidak (rujukan pelantikan masuk ke `ZAKAT_COLLECTION_APPOINTMENT_REF`).
-3. **Dompet pelabur (Multi-Wallet):** wang pelabur direkod dalam akaun pool semasa settlement, bukan akaun pelabur. Reka akaun lejar pelabur bersama Kewangan, kemudian bina baki sebenar bagi setiap mata wang.
+**Lain-lain:**
+1. Nisab Kedah, Pahang dan Perak belum direkod; Sarawak hanya September 2026. Admin perlu masukkan nilai rasmi dari masa ke masa.
+2. Pengurusan perlu putuskan sama ada mahu memohon dilantik sebagai ejen kutipan zakat.
+3. **Dompet pelabur:** wang pelabur direkod dalam akaun pool, bukan akaun pelabur. Reka akaun pelabur bersama Kewangan dahulu, kemudian tunjuk baki sebenar.
 
-## 11. Keselamatan dan compliance sebelum pilot
+## 11. Keselamatan sebelum pilot
 
-1. **Had pelaburan:** nilai sementara dalam `server/.env.production.example` (LEVEL_1 RM 10,000, LEVEL_2 RM 100,000, LEVEL_3 tiada had). Compliance perlu mengesahkan atau menukar nilai ini, kemudian salin `KYC_INVESTMENT_LIMITS` ke `/opt/how/server/.env` di staging dan production.
-2. **Laporan regulator:** persetujui format pemfailan setiap regulator (SC, BNM, LHDN) dengan Compliance.
-3. **Tetapan production:** pastikan semua baris di Admin Center › Security Dashboard menunjukkan "Yes" sebelum pilot.
-4. **Peranan Auditor:** hidupkan dalam Admin Center › Role Availability (kini dimatikan) supaya juruaudit boleh mengesahkan laporan prestasi projek suku tahunan.
+1. **Had pelaburan ikut tahap KYC:** nilai sementara ditulis dalam `server/.env.production.example` (Tahap 1: RM 10,000; Tahap 2: RM 100,000; Tahap 3: tiada had). Compliance perlu sahkan atau tukar, kemudian salin ke `/opt/how/server/.env`.
+2. **Laporan kepada regulator:** setuju format laporan (SC, BNM, LHDN) dengan Compliance.
+3. **Tetapan production:** semua baris di Admin Center › Security Dashboard mesti "Yes" sebelum pilot.
+4. **Peranan Auditor:** hidupkan di Admin Center › Role Availability (kini dimatikan), supaya juruaudit boleh mengesahkan laporan prestasi projek.
 
 ## 12. Keputusan kecil
 
-1. **Organization Admin dalam pengecualian kredit AI** (`server/src/membership/ai-credit-exemption.ts`): kekal atau buang.
-2. **Jadual tarikh tamat kad pengenalan 9 negara** (`server/src/kyc/kyc-workflow.ts`): sahkan setiap negara sebelum dipindah ke Country Policy.
-3. **Data ujian dalam database local Anuar:** akaun `claude.check1/2/6@test.local`, aset `ASSET-MYS-JZW65Y19` dan AiRun ujian; bersihkan jika tidak diperlukan.
+1. Organization Admin tidak perlu bayar kredit AI sekarang. Kekal atau buang?
+2. Jadual tarikh tamat kad pengenalan 9 negara: sahkan setiap satu.
+3. Data ujian dalam database Anuar (`claude.check1/2/6@test.local`, aset `ASSET-MYS-JZW65Y19`): bersihkan jika tidak perlu.
 
 ## 13. Pembantu dokumen AI (KYC, KYB, PDP)
 
-- **Kawasan:** `server/src/kyc/checks/document-text-reader.ts`, `server/src/pdp/`, `server/src/ai/ai.service.ts`, `src/ai/components/AIAssistant.tsx`
+**Cadangan:**
+1. **Fasa A:** pengguna muat naik beberapa fail sekali gus; sistem kenal jenis dokumen, isi borang, dan beri amaran awal (kabur, tamat tempoh, nama tidak sama). Tanpa AI luar.
+2. **Fasa B:** chatbot tahu dokumen apa yang belum lengkap dan kenapa permohonan dikembalikan.
+3. **Fasa C:** hantar fail dalam chat; perlu model AI yang lebih kuat.
 
-**Baki (cadangan fasa):**
-1. **Fasa A:** smart upload: kenal pasti jenis dokumen, isi medan borang, semakan awal (kabur, tamat tempoh, nama tidak sepadan). OCR dan peraturan, tanpa LLM.
-2. **Fasa B:** chatbot tahu status pengguna (dokumen belum lengkap, sebab dikembalikan, pautan ke borang).
-3. **Fasa C:** lampiran fail dalam chat; perlu model vision atau model lebih besar.
+**Prinsip:** AI hanya mencadang; pengguna yang sahkan. AI tidak meluluskan KYC. Gambar IC dan pasport tidak dihantar ke AI luar.
 
-**Prinsip:** AI mencadangkan, pengguna mengesahkan; AI tidak meluluskan KYC/KYB; imej IC/passport tidak ke AI luar (PDPA); bantuan onboarding dikecualikan kredit AI.
+## 14. DigitalOcean (staging berjalan sejak 15 Oktober 2026)
 
-## 14. DigitalOcean (staging berjalan sejak 2026-10-15)
+**Belum siap:**
+1. **Simpan fail di DigitalOcean Spaces**, bukan dalam database. Fail KYC mesti peribadi.
+2. **Staging:** pastikan `OPENAI_API_KEY` diisi (tanpanya jawapan AI hanya contoh); tetapan Keycloak oleh pemilik; sandaran berjadual; kemas kini panduan staging.
+3. **Satu folder `deploy/`** untuk semua tetapan Docker. Dibuat selepas Anuar berhenti.
+4. **Production pilot:** pelayan 8 GB, database dengan sandaran, Redis.
 
-- **Kawasan:** `server/prisma/schema.prisma` (lajur `Bytes`), `PANDUAN_STAGING_DIGITALOCEAN.md`
+**Perlu diputuskan:** bajet bulanan; lokasi data (DigitalOcean tiada di Malaysia, yang paling dekat Singapura; sahkan dengan Compliance).
 
-**Baki:**
-1. **Fail ke DigitalOcean Spaces:** database simpan kunci objek, SHA-256 dan metadata sahaja; skrip pindah fail sedia ada; fail KYC peribadi dengan URL bertandatangan singkat.
-2. **Staging:** sahkan `OPENAI_API_KEY` diisi supaya semua ciri AI guna model sebenar (tanpanya penyedia sandbox digunakan); tetapan Keycloak oleh pemilik (Unmanaged attributes = "Only administrators can edit"; Max Age 36000 pada OTP Form dan Username Password Form); sandaran berjadual dan ujian pemulihan; kemas kini panduan staging (arahan sebagai `how`, `.env` disalin dengan tangan).
-3. **Konfigurasi deploy:** satu folder `deploy/` (compose + override setiap persekitaran), secret di luar Git. Dibuat selepas Anuar berhenti.
-4. **Pilot production:** Droplet 8 GB, PostgreSQL HA, Redis, sandaran.
+## 15. Kumpulan syarikat (pihak berkaitan)
 
-**Keputusan diperlukan:** bajet bulanan; lokasi data (tiada region Malaysia, terdekat Singapura; sahkan dengan compliance); LLM serverless untuk teks.
-
-## 15. Entiti berasingan dan transaksi pihak berkaitan
-
-- **Kawasan:** model `Organisation`, `server/src/organisation-kyb/`, `server/src/investments/investments.service.ts`
-
-**Baki:**
-1. **Nama kumpulan diisi sendiri oleh organisasi:** KYB Officer perlu menyemaknya dengan profil SSM (pemegang saham) sebelum meluluskan; jika ejaan berbeza, padanan terlepas. Pertimbangkan senarai kumpulan yang diurus admin.
-2. Paparkan jenis entiti dan kumpulan dalam skrin semakan KYB dan direktori organisasi Admin Center.
-3. **Sumbangan modal penaja Musharakah** (pilihan) sebagai sumbangan berasingan dalam terma akad.
+**Belum siap:**
+1. Nama kumpulan diisi sendiri oleh organisasi. Jika ejaan berbeza, sistem tidak dapat padankan. Pertimbangkan senarai nama kumpulan yang diurus oleh admin. (Skrin semakan KYB kini memaparkan jenis entiti dan kumpulan, dengan peringatan supaya disemak dengan profil SSM.)
+2. **Modal penaja dalam Musharakah** (pilihan): sebagai sumbangan berasingan dalam terma akad, dengan semakan Shariah.
 
 ## 16. Benefisiari dan pusaka
 
-- **Kawasan:** `server/src/estate/`, `src/estate/EstateCasesView.tsx`, `src/components/BeneficiariesView.tsx`, `src/mobile/DeathReportPage.tsx`
+- **Fail:** `server/src/estate/`, `src/estate/EstateCasesView.tsx`, `src/components/BeneficiariesView.tsx`
 
-**Baki:**
-1. **Semakan Shariah dan undang-undang (wajib sebelum pilot):** aliran kes pusaka (lapor, bekukan, dokumen mahkamah, pelan, pindahan pegangan), persetujuan waris selepas kematian, qabul oleh wali dan melalui pautan, teks panduan, akad hibah dan surat ikatan amanah. Perlu penasihat Shariah, peguam dan pemegang amanah.
-2. **Pewaris tanpa akaun:** penerima pegangan mesti mendaftar sebagai pelabur dan lulus KYC sebelum pelan boleh dihantar. Pertimbangkan pembayaran tunai kepada pentadbir jika pewaris tidak mahu menyertai platform (perlu cara menebus unit pool).
-3. **Maklum balas kepada pelapor:** pelapor (wasi atau benefisiari tanpa akaun) belum menerima emel tentang kemajuan kes; pegawai menghubungi mereka sendiri.
-4. **Mini-app:** borang benefisiari mini-app belum menyokong pengesahan persetujuan waris; pegawai pusaka hanya di web.
-5. **Hak milik aset** (bukan pegangan pool) dan sewaan: pindahan selepas kematian belum dibina.
+**Belum siap:**
+1. **Semakan Shariah dan undang-undang (wajib sebelum pilot):** seluruh aliran kes pusaka (lapor kematian, bekukan akaun, dokumen mahkamah, pelan, pindahan pelaburan), persetujuan waris, qabul hibah, teks panduan dan surat amanah. Perlu penasihat Shariah, peguam dan pemegang amanah.
+2. **Pewaris tanpa akaun:** pewaris mesti daftar sebagai pelabur dan lulus KYC sebelum boleh menerima pelaburan. Jika pewaris tidak mahu menyertai platform, perlu cara lain (contohnya bayar tunai kepada pentadbir).
+3. **Aset dan sewaan** (bukan pelaburan dalam pool): pindahan selepas kematian belum dibina.
+4. **Mini-app:** borang benefisiari di mini-app belum ada pilihan "perlu persetujuan waris". Gunakan portal web untuk wasiyyah seperti itu.
 
 ## 17. Modul aset
 
-- **Kawasan:** `server/src/assets/`, `server/src/asset-partnerships/`, `src/assets/`, `src/asset-partnerships/`
+**Wang dan perkongsian:**
+1. Sewa atau bahagian untung pemilik aset dalam agihan projek.
+2. Organisasi menggunakan aset sendiri dalam projek sendiri (kini ditolak).
+3. Skor tawaran oleh AI: ditangguhkan, kerana model sekarang tidak konsisten.
+4. Hidupkan peranan Legal dan Shariah di staging jika mahu penyemak sebenar.
 
-**Baki: aliran wang dan perkongsian:**
-1. Sewa atau bahagian untung Asset Owner dalam aliran tunai dan agihan projek.
-2. Organisasi yang menggunakan aset sendiri dalam projek sendiri (kini ditolak).
-3. Skor tawaran oleh AI sendiri: ditangguhkan (qwen2.5:7b tidak konsisten); perlu model 14B/32B dan ujian konsistensi.
-4. Hidupkan Legal Officer dan peranan Shariah dalam Role Availability di staging jika mahu penyemak sebenar.
+**Modal penaja dan takaful:** setoran belum direkod dalam lejar; skrin untuk pemilik aset muat naik takaful sendiri; sasaran minimum, tarikh tutup dan pulangan wang pool.
 
-**Baki: modal sponsor dan takaful:** setoran dalam ledger (menunggu akaun amanah, Fasa 2); skrin pemilik aset untuk muat naik takaful sendiri; sasaran minimum, tarikh tutup dan pulangan wang pool; pengeluaran pro-rata sebenar dari dua akaun.
-
-**Baki: tandatangan elektronik:**
-1. Sijil meterai daripada CA dipercayai Adobe untuk production.
-2. Resend untuk OTP emel (item 8).
-3. Cap masa dalam meterai (PAdES-T) dan pengesahan tandatangan TSA.
-4. Fasa 2: penyedia tandatangan digital berlesen (MSC Trustgate / Pos Digicert) untuk nilai tinggi.
-5. Pendapat peguam tentang kecukupan tandatangan elektronik dan duti setem.
+**Tandatangan elektronik:**
+1. Sijil meterai daripada pihak yang dipercayai Adobe untuk production.
+2. Emel OTP (perlu Resend, item 8).
+3. Cap masa dalam meterai.
+4. Penyedia tandatangan berlesen (MSC Trustgate / Pos Digicert) untuk perjanjian bernilai tinggi.
+5. Pendapat peguam tentang tandatangan elektronik dan duti setem.
 6. Hidupkan `SIGNING_REQUIRE_VERIFIED_IDENTITY=true` di production.
-7. Teks templat perjanjian (Musharakah, Ijarah) disemak peguam dan penasihat Shariah.
+7. Templat perjanjian Musharakah dan Ijarah disemak peguam dan penasihat Shariah.
 
-**Baki: log dan semakan:** PDF garis masa untuk perjanjian; rekod "Dilihat" untuk perjanjian; IP/peranti (perlu keputusan PDPA); paparkan fail dokumen aset dalam skrin semakan perkongsian; senarai aktiviti haram dan julat hasil sewa ke Country Policy (sahkan dengan Shariah); semakan automatik SSM (API SSM / MyData) dan OCR dokumen KYB.
+**Rekod dan semakan:** PDF sejarah perjanjian; rekod siapa sudah melihat perjanjian; paparkan fail dokumen aset dalam skrin semakan; senarai aktiviti haram ke tetapan negara; semakan automatik nombor SSM.
 
-**Baki: pendaftaran aset:**
-1. Fasa C: integrasi e-Tanah, JPJ, JKKP (perlu perjanjian agensi).
-2. Pautan peta lot negeri untuk tanah.
-3. Amaran jika nilai dimasukkan jauh berbeza daripada laporan penilaian.
-4. Cara mengemas kini nilai atau menarik balik aset VERIFIED (kini melalui Country Admin).
-5. Asset Marketplace (mod DEMO) dan dashboard eksekutif masih guna `INITIAL_ASSETS`.
-6. Penasihat AI di staging (Ollama qwen2.5:7b): pantau masa jawapan dan kualiti.
+**Pendaftaran aset:**
+1. Sambungan dengan e-Tanah, JPJ, JKKP (perlu perjanjian dengan agensi).
+2. Pautan ke peta lot negeri.
+3. Amaran jika nilai yang diisi jauh berbeza daripada laporan penilaian.
+4. Cara kemas kini nilai atau tarik balik aset yang sudah disahkan.
+5. Skrin demo masih guna senarai aset contoh.
+6. Pantau masa jawapan penasihat AI di staging.
 
-## 18. Kunci API untuk integrasi luar
+## 18. Kunci API
 
-**Baki:** apabila sistem luar perlu membaca data platform, bina kunci API (dicipta di server, disimpan sebagai hash dan dipaparkan sekali, boleh dibatalkan, skop terhad seperti `pools:read`, log audit). Ditangguhkan sehingga ada keperluan (keputusan 2026-11-03).
+Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, boleh dibatalkan, akses terhad, direkod dalam log). Ditangguhkan sehingga perlu (keputusan 3 November 2026).
 
-## 19. Pendaftaran dan pengurusan pengguna
+## 19. Pengurusan pengguna
 
-- **Kawasan:** `server/src/users/`, `src/legal/`, `server/src/auth/identity.service.ts`
-
-**Baki:**
-1. **Notis privasi:** deraf `MYS-2026-10-DRAFT-1` perlu peguam; isi nama syarikat, SSM, pegawai perlindungan data, lokasi data, tempoh simpanan; terbitkan versi baharu.
-2. **Fasa 2:** `RoleGrantRequest` (pemohon dan pelulus berbeza) untuk peranan admin, dan sebab wajib semasa menambah atau membuang peranan. (Gantung/aktifkan akaun, pindah organisasi, cipta dan gantung organisasi serta negara sudah ada di Admin Center.)
-3. **Fasa 3:** daftar sendiri melalui Keycloak; pengguna dicipta pada log masuk pertama.
-4. **Fasa 4:** model organisasi lengkap (item 15); penyulitan medan KYC.
-5. **Penguatkuasaan PDPA di server:** sekat API (kecuali log masuk dan notis) sehingga persetujuan direkod.
-6. **`COUNTRY_NODE_ID=CN-MYS`** di production Malaysia.
+**Belum siap:**
+1. **Notis privasi:** deraf perlu disemak peguam. Isi nama syarikat, nombor SSM, pegawai perlindungan data, lokasi data dan tempoh simpanan, kemudian terbitkan.
+2. **Pelulus kedua** bagi peranan admin, dan **sebab wajib** bila menambah atau membuang peranan. (Gantung akaun, pindah organisasi, cipta dan gantung organisasi serta negara sudah ada di Admin Center.)
+3. **Daftar sendiri** melalui Keycloak.
+4. Sulitkan medan KYC dalam database.
+5. Sekat penggunaan sistem sehingga pengguna bersetuju dengan notis privasi (kini disemak di skrin sahaja).
+6. Tetapkan `COUNTRY_NODE_ID=CN-MYS` di production Malaysia.
 
 ## 20. Mini-app D8 Ideas
 
-**Baki:**
+**Belum siap:**
 1. Isi akaun amanah sebenar setiap negara (bank, nama akaun, nombor, SWIFT) di Admin Center › Country Nodes sebelum pelabur sebenar membuat pesanan.
-2. SSO dan push melalui D8 Ideas: menunggu spesifikasi mereka.
-3. Uji dalam sandbox super app, terutamanya kebenaran kamera dalam WebView.
-4. Keycloak: `/m/*` dalam Valid redirect URIs, dan SMTP (Realm settings › Email) untuk "Forgot password".
-5. Notifikasi dalam BM: tajuk dan mesej notifikasi utama (pelaburan, KYC, keuntungan, akaun bank, keahlian, KYB, tarikh tamat aset, sewaan, perkongsian aset) diterjemah dalam mini-app melalui `src/mobile/i18n.messages.ts`. Notis privasi mengikut bahasa mini-app. Mesej server baharu perlu ditambah ke jadual itu, jika tidak ia dipaparkan dalam bahasa Inggeris. Emel dan push masih dalam bahasa Inggeris.
-6. Tab Projek untuk penaja (Project Sponsor, Project Manager, Organization Admin), siap 2026-11-03: status projek, kemajuan pool, tranche dan permohonan pelepasan, serta laporan prestasi suku tahunan (isi, simpan, hantar kepada juruaudit). Baki: langkah seterusnya (roadmap) dipaparkan dalam bahasa Inggeris dari server, dan penyediaan projek kekal di web.
-7. Semakan di telefon untuk KYC Officer dan penyemak Legal/Shariah (KYC, aset, sewaan, perjanjian): belum dibina; penyemak menggunakan portal web.
+2. Log masuk (SSO) dan push melalui D8 Ideas: tunggu spesifikasi mereka.
+3. Uji dalam super app, terutamanya kamera dalam WebView.
+4. Keycloak: tambah `/m/*` dalam Valid redirect URIs, dan tetapkan emel (SMTP) untuk "Forgot password".
+5. Terjemahan: notifikasi utama sudah dalam BM (`src/mobile/i18n.messages.ts`). Mesej server yang baharu perlu ditambah ke situ, jika tidak ia keluar dalam bahasa Inggeris. Emel masih dalam bahasa Inggeris.
+6. Tab Projek untuk penaja: langkah seterusnya masih dalam bahasa Inggeris; penyediaan projek kekal di web.
+7. Semakan di telefon untuk KYC Officer dan penyemak Legal/Shariah: belum dibina; mereka guna portal web.
 
 ## 21. Sewaan terus (Ijarah) tanpa projek
 
-- **Status:** Fasa 1 dalam mini-app (tab Sewaan) dan API `/leasing`: penyenaraian unit, permohonan dan rundingan, kelulusan Legal dan Shariah, jadual sewa dan rekod bayaran.
-- **Kawasan:** `server/src/leasing/`, model `LeasableUnit`, `AssetLease`, `LeaseRentPayment` (migration `20261102090000_direct_leases`), `src/mobile/screens/MobileLeasing.tsx`
+- **Keadaan:** berjalan di mini-app dan web (tab Sewaan): senarai unit, mohon dan runding, kelulusan Legal dan Shariah, perjanjian Ijarah dengan tandatangan OTP, jadual sewa, rekod bayaran, peringatan, dan tiga jenis deposit.
+- **Keputusan sementara (perlu disahkan):** penyewa membayar sewa **terus ke akaun bank pemilik**. Platform hanya merekod, tidak memegang wang, dan tiada komisen buat masa ini.
 
-**Keputusan sementara (perlu disahkan):** sewa dibayar oleh penyewa **terus ke akaun bank pemilik**. Platform hanya merekod dan tidak memegang wang, jadi tiada isu wang pihak ketiga. Tiada komisen dikenakan buat masa ini.
-
-**Baki:**
-1. Perjanjian Ijarah: siap 2026-11-03 (`Contract.leaseId`, `POST /contract-intelligence/agreements/lease-drafts`). Pemilik menyediakan perjanjian daripada terma sewaan yang diluluskan; teks khusus sewaan terus (kegunaan dibenarkan, deposit sebagai amanah dan dipulangkan dalam 30 hari, sewa bulanan di awal bulan). Penyewa bersetuju, pemilik menghantar untuk semakan Legal dan Shariah (penyemak di portal web), kemudian kedua-dua pihak menandatangani dengan OTP di mini-app. Baki: penyemak belum boleh menyemak di mini-app; skrin web Contracts masih menamakan penyewa sebagai "delivery partner".
-2. Skrin web: siap 2026-11-04. Tab **Leasing** (BM: Sewaan) dalam portal web menggunakan skrin yang sama dengan mini-app: pemilik (unit, ubah terma, permohonan, jadual sewa, deposit, laporan), penyewa (cari ruang, mohon sewa) dan penyemak Legal/Shariah (semakan). Notifikasi sewaan membuka tab ini. Baki: susun atur khusus skrin lebar (sekarang satu lajur di tengah); skrin web Contracts masih menamakan penyewa sebagai "delivery partner".
-3. Peringatan: siap 2026-11-03 (`LeaseReminderSweeper`, sekali sehari). Sewa 3 hari sebelum dan pada hari perlu bayar; tertunggak 1, 7, 14 dan 30 hari (pemilik juga dimaklumkan); sewaan tamat dalam 60 dan 30 hari; pemulangan deposit hampir atau lewat tarikh akhir. Baki: pembaharuan sewaan (sekarang penyewa memohon sewaan baharu).
-4. Deposit: siap 2026-11-03. Pemilik merekod deposit diterima; selepas sewaan tamat, pemilik memulangkannya dengan potongan dan sebab bagi setiap potongan, dalam 30 hari seperti dalam perjanjian. Dikemas kini 2026-11-04 (migration `20261104090000_lease_deposits`) kepada tiga deposit:
-   - deposit sekuriti (bulan sewa);
-   - deposit utiliti elektrik dan air (bulan sewa, lalai 1 bulan bagi unit baharu; unit sedia ada 0);
-   - deposit ubah suai (amaun tetap, boleh dipulangkan sebaik kerja ubah suai siap diperiksa, sebelum sewaan tamat).
-   Unit juga menyatakan siapa membayar bil: penyewa terus (TNB/air atas nama penyewa) atau pemilik bayar dan caj penyewa pada kos sebenar. Setiap deposit dipulangkan berasingan dengan potongan sendiri; perjanjian Ijarah memuatkan ketiga-tiganya. Baki: rekod caj semula utiliti bulanan bagi pilihan "pemilik bayar"; tetapan bulan deposit utiliti mengikut negeri (contoh 2–3 bulan bagi kedai makan).
-5. Keputusan pemilik projek:
-   - sama ada platform memungut sewa (melalui akaun amanah) atau rekod sahaja;
-   - komisen atau yuran langganan (semak Akta 242, ejen harta tanah);
-   - duti setem perjanjian sewa;
-   - cukai perkhidmatan ke atas sewa komersial.
-6. Fasa kemudian: pool pelaburan daripada hasil sewa (pelabur membiayai pengubahsuaian, berkongsi hasil sewa).
+**Belum siap:**
+1. Penyemak belum boleh menyemak perjanjian sewaan di mini-app. Skrin web Contracts masih memanggil penyewa "delivery partner".
+2. Skrin web sewaan masih satu lajur di tengah (belum disusun untuk skrin lebar).
+3. Pembaharuan sewaan (sekarang penyewa perlu mohon sewaan baharu).
+4. Rekod caj utiliti bulanan jika pemilik yang bayar bil; tetapan bulan deposit utiliti ikut negeri.
+5. **Keputusan pemilik projek:** platform kutip sewa atau rekod sahaja; komisen atau yuran (semak Akta 242); duti setem; cukai perkhidmatan atas sewa komersial.
+6. Fasa kemudian: pool pelaburan daripada hasil sewa.
 
 ## 22. Agihan keuntungan (Settlement Officer)
 
-- **Status:** aliran agihan berjalan dalam mini-app (tab **Agihan**) untuk Settlement Officer dan Super Admin.
-- **Kawasan:** `server/src/distribution/`, `src/mobile/screens/MobileSettlement.tsx`
+- **Keadaan:** aliran agihan berjalan di mini-app (tab Agihan): rekod hasil projek, pratonton bahagian setiap pelabur, pelulus kedua, bayaran dan rekod rujukan bank.
 
-**Sudah ada:**
-- **Skop:** Settlement Officer bertindak bagi semua pool di negaranya. Pool milik organisasi penaja, dan pelabur berada dalam organisasi peribadi masing-masing.
-- **Rekod hasil projek** yang masuk ke akaun amanah (`POST /distributions/pool-income`), sekali bagi setiap rujukan bank. Keuntungan hanya dibayar daripada hasil yang direkod, tidak sekali-kali daripada modal pelabur.
-- **Pratonton oleh server** (`POST /distributions/preview`):
-  - keputusan bersih dan rugi terdahulu yang dipulihkan dahulu;
-  - bahagian pelabur mengikut akad;
-  - bahagian setiap pelabur mengikut modal;
-  - akaun bank utama yang disahkan, dengan tanda bagi pelabur yang belum ada akaun disahkan.
-- **Aliran agihan:** cipta dan hantar, kemudian pegawai lain meluluskan (pencipta tidak boleh meluluskan). Selepas itu proses bayaran, rekod rujukan bank bagi setiap pelabur, kemudian rekod "wang diterima", atau "gagal" dan cuba semula. Rugi atau keuntungan yang diserap direkod tanpa bayaran.
-- **Pengesahan akaun bank pelabur.**
-- **Akaun lejar pelabur:** pelabur yang ada pool di bawah dua organisasi kini mendapat akaun lejar berasingan bagi setiap organisasi, bukan lagi ralat.
-
-**Baki:**
-1. Skrin web untuk Kewangan, termasuk fail bayaran pukal bank (DuitNow Bulk atau IBG) dan penyesuaian penyata bank.
-2. Peringatan jika hasil projek tidak masuk mengikut jadual.
-3. Perkiraan akhir pool (tanzid) dan caj rugi yang belum pulih terhadap modal (item 10).
+**Belum siap:**
+1. Skrin web untuk Kewangan, termasuk fail bayaran pukal bank (DuitNow Bulk atau IBG) dan padanan penyata bank.
+2. Peringatan jika hasil projek lewat masuk.
+3. Kira akhir pool dan rugi yang belum pulih (item 10).
 
 ## 23. Projek bermasalah: arkib dan gantung
 
-- **Status:** Separa siap (2026-11-02). Projek boleh diarkibkan atau dipadam melalui skrip `server/scripts/delete-test-project.ts` sahaja. Skrip ini ditulis untuk membuang data ujian (Temerloh Biochar dan MD2 Pineapple).
-- **Cara skrip berfungsi:**
-  - Projek tanpa rekod *append-only* dipadam terus.
-  - Projek yang ada terma akad atau transaksi lejar diarkibkan (`Project.archivedAt`): pesanan PENDING dibatalkan, pool ditutup, dan projek hilang daripada senarai projek, pool, Agihan dan papan pemuka. Rekod dan log audit kekal.
-  - Pencetus *append-only* (lejar, terma akad, audit) tidak pernah dimatikan.
+- **Keadaan:** Arkib, Pulihkan, Gantung dan Sambung semula boleh dibuat di mini-app (Utama › Urus projek), dengan sebab wajib dan log audit. Projek ujian juga boleh dibuang dengan skrip `server/scripts/delete-test-project.ts`.
 
 **Belum siap:**
-1. Arkib, Pulihkan, Gantung dan Sambung semula: siap 2026-11-03 di mini-app (Utama › Urus projek, `/project-admin`). Setiap tindakan wajib dengan sebab dan direkod dalam log audit; pelabur dan penaja dimaklumkan. Arkib ditolak jika ada wang pelabur yang sudah diselesaikan. Gantung menjeda pool yang dibuka tanpa membatalkan pesanan belum dibayar; Sambung semula membuka semula pool itu. Baki: skrin web.
-2. Label "Digantung" pada portfolio dan pool untuk pelabur sedia ada (sekarang pool kelihatan sebagai dijeda dan pelabur menerima notifikasi).
-3. Aliran pulangan modal kepada pelabur (lejar dan arahan bayaran).
+1. Skrin web untuk tindakan ini.
+2. Label "Digantung" pada portfolio dan pool untuk pelabur sedia ada.
+3. Aliran memulangkan modal kepada pelabur.

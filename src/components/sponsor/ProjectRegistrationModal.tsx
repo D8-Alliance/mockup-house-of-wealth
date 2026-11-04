@@ -113,7 +113,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
           </div>
           <div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-white">{editing ? 'Edit Draft Project' : 'Register New Sponsor Project'}</h3>
-            <p className="text-xs text-slate-500">{editing ? 'Correct the details while the project is a draft. Changes are recorded in the audit trail.' : 'Submit capital project for D-8 Shariah tokenization & investor pooling'}</p>
+            <p className="text-xs text-slate-500">{editing ? 'Correct the details while the project is a draft. Changes are recorded in the audit trail.' : 'Submit a project for Shariah review and investor pooling'}</p>
             {fixedByPartnership && <p className="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400">Asset partnership {editing?.partnershipIds?.join(', ')} was agreed on this project, so its title, category, Shariah contract and location are fixed. Register a new project for a different venture.</p>}
           </div>
         </div>

@@ -7,6 +7,7 @@ import { PayoutDestinationService } from '../distribution/payout-destination.ser
 import { CreatePayoutDestinationDto } from '../distribution/payout-destination.dto';
 import { FinancialLedgerService, investorCashAccount } from '../financial/financial-ledger.service';
 import { detectDocumentType } from '../kyc/kyc.service';
+import { NotificationDeliveryService } from '../notifications/notification-delivery.service';
 import { NotificationService } from '../notifications/notification.service';
 import { EARNED_DISTRIBUTION_STATUSES } from '../investments/positions';
 import { INVESTOR_ROLES } from '../pools/pool-access';
@@ -48,7 +49,17 @@ export class EstateCasesService {
     private readonly ledger: FinancialLedgerService,
     private readonly payoutAccounts: PayoutDestinationService,
     @Optional() private readonly notifications?: NotificationService,
+    @Optional() private readonly delivery?: NotificationDeliveryService,
   ) {}
+
+  /**
+   * The person who reported the death usually has no account, so they hear about the case by email when it
+   * moves on (if they gave an address and email is set up). A failure to send never stops the case.
+   */
+  private async tellReporter(row: { caseNumber: string; reporterEmail: string | null; reporterName: string }, title: string, message: string) {
+    if (!row.reporterEmail || !this.delivery) return;
+    await this.delivery.deliverEach({ channels: 'EMAIL', recipientEmail: row.reporterEmail, title: `${title} (case ${row.caseNumber})`, message: `Dear ${row.reporterName}, ${message} Quote case ${row.caseNumber} if you contact us.` }).catch(() => undefined);
+  }
 
   // ---- The report, without signing in ----
 
@@ -189,6 +200,7 @@ export class EstateCasesService {
     if (row.status !== 'REPORTED') throw new BadRequestException('Only a new report is verified or rejected.');
     if (decision === 'REJECT') {
       await this.step(actor, row, ['REPORTED'], { status: 'REJECTED', rejectedReason: note }, 'REJECTED', note);
+      await this.tellReporter(row, 'Death report not accepted', `we could not accept the death report you sent: ${note}. You may send a new report with a clearer death certificate.`);
       return this.get(actor, id);
     }
     await this.prisma.$transaction(async (tx) => {
@@ -198,6 +210,7 @@ export class EstateCasesService {
       const suspended = await tx.payoutDestination.updateMany({ where: { ownerUserId: row.deceasedUserId, status: { in: ['VERIFIED', 'PENDING_VERIFICATION'] } }, data: { status: 'SUSPENDED', isDefault: false } });
       await this.audit.recordActor(actor, { action: 'estate.account.frozen', resourceType: 'User', resourceId: row.deceasedUserId, countryNodeId: row.countryNodeId, metadata: { caseNumber: row.caseNumber, ordersCancelled: cancelled.count, payoutAccountsSuspended: suspended.count } }, tx);
     });
+    await this.tellReporter(row, 'Death report verified', 'we have verified the death certificate and frozen the account. Next we need the faraid certificate (Sijil Faraid) from the Syariah court, or the grant of probate or letters of administration. Please send it to the estate officer when you have it.');
     return this.get(actor, id);
   }
 
@@ -228,6 +241,7 @@ export class EstateCasesService {
     if (row.status !== 'DEATH_VERIFIED') throw new BadRequestException('Verify the death first.');
     if (!row.documents.some((document) => COURT_DOCUMENTS.includes(document.documentType))) throw new BadRequestException('Upload the faraid certificate (Sijil Faraid), the grant of probate or the letters of administration first.');
     await this.step(actor, row, ['DEATH_VERIFIED'], { status: 'DOCUMENTS_VERIFIED', documentsVerifiedBy: actor.userId, documentsVerifiedAt: new Date() }, 'DOCUMENTS_VERIFIED', note);
+    await this.tellReporter(row, 'Court documents verified', 'we have verified the court documents. The estate officer is now preparing how the investments pass to the heirs. Each heir who receives a holding needs a verified investor account; we will contact them.');
     return this.get(actor, id);
   }
 
@@ -355,6 +369,7 @@ export class EstateCasesService {
         resourceType: 'EstateCase', resourceId: row.id, dedupeKey: `estate-inherited:${row.id}:${item.poolId}:${item.userId}`,
       });
     }
+    await this.tellReporter(row, 'Estate settled', 'the investments held on the platform have now passed to the heirs named in the settlement plan, and each of them has been told. Any profit still due is paid to the estate bank account.');
     return this.get(actor, id);
   }
 }

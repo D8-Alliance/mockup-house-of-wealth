@@ -33,7 +33,7 @@ export const AdminComplianceRisk: React.FC<AdminComplianceRiskProps> = ({ sectio
 
   // Sanctions Matches State
   const [sanctionsList, setSanctionsList] = useState([
-    { id: 'SNC-881', entityName: 'Bosphorus Marine Holdings Ltd', listSource: 'OFAC SDN List', matchPct: 94, reason: 'Identical Name Match & Registered Address', status: 'Asset Tokenization Frozen' },
+    { id: 'SNC-881', entityName: 'Bosphorus Marine Holdings Ltd', listSource: 'OFAC SDN List', matchPct: 94, reason: 'Identical Name Match & Registered Address', status: 'Asset Listing Frozen' },
     { id: 'SNC-880', entityName: 'Al-Baraka Trading FZE (Historical)', listSource: 'UN Security Council List', matchPct: 12, reason: 'Low Fuzzy Score False Positive', status: 'Whitelisted' }
   ]);
 

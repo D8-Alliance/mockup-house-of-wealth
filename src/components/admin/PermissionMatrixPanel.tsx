@@ -15,7 +15,7 @@ import { useRBAC } from '../../rbac/RBACContext';
 
 const ALL_MODULES: { key: ResourceModule; label: string; iconDesc: string }[] = [
   { key: 'dashboard', label: 'Executive Dashboard', iconDesc: 'Analytics & KPIs' },
-  { key: 'assets', label: 'Asset Management', iconDesc: 'Tokenization & Registry' },
+  { key: 'assets', label: 'Asset Management', iconDesc: 'Asset Registry' },
   { key: 'contracts', label: 'Smart Contracts', iconDesc: 'AAOIFI Legal Structuring' },
   { key: 'marketplace', label: 'Marketplace', iconDesc: 'Secondary & Discoveries' },
   { key: 'pooling', label: 'Wealth Pools', iconDesc: 'Capital Aggregation' },

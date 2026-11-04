@@ -16,7 +16,7 @@ export const AdminFinanceTemplates: React.FC<AdminFinanceTemplatesProps> = ({ se
 
   // Fee Structure State
   const [feeSchedules, setFeeSchedules] = useState([
-    { id: 'FEE-01', name: 'Asset Origination & Tokenization Fee', rate: '1.25%', basis: 'On Asset Valuation at Listing', destination: 'Platform Operational Treasury', status: 'Active' },
+    { id: 'FEE-01', name: 'Asset Origination & Listing Fee', rate: '1.25%', basis: 'On Asset Valuation at Listing', destination: 'Platform Operational Treasury', status: 'Active' },
     { id: 'FEE-02', name: 'Annual Asset Management Fee', rate: '0.75%', basis: 'Per Annum on AUM', destination: 'Pool Custodian & Node Operator', status: 'Active' },
     { id: 'FEE-03', name: 'Profit Share Performance Incentive Fee', rate: '10.00%', basis: 'On Yield Exceeding Target Benchmark', destination: 'Mudarib / Asset Manager', status: 'Active' },
     { id: 'FEE-04', name: 'Shariah Purification Fee', rate: '0.50%', basis: 'On Non-Compliant Residual Revenue', destination: 'Verified Waqf & Zakat Foundation', status: 'Active' }
@@ -30,13 +30,13 @@ export const AdminFinanceTemplates: React.FC<AdminFinanceTemplatesProps> = ({ se
 
   // Fatwa Certificates State
   const [fatwas] = useState([
-    { id: 'FTW-2026-01', title: 'AAOIFI Shariah Compliance Fatwa for Fractional Sukuk Tokenization', scholars: 'Sheikh Prof. Imran Usmani & Dr. Mohamed Ali Elgari', contractType: 'Musharakah Mutanaqisah', aaoifiStandard: 'AAOIFI Standard No. 17 (Investment Sukuk)', date: '2026-01-15' },
+    { id: 'FTW-2026-01', title: 'AAOIFI Shariah Compliance Fatwa for Sukuk-Backed Investment Pools', scholars: 'Sheikh Prof. Imran Usmani & Dr. Mohamed Ali Elgari', contractType: 'Musharakah Mutanaqisah', aaoifiStandard: 'AAOIFI Standard No. 17 (Investment Sukuk)', date: '2026-01-15' },
     { id: 'FTW-2026-02', title: 'Fatwa on Cross-Border Multi-Currency Waqf Liquidity Pools', scholars: 'Dr. Nizam Yaquby & Dr. Bashir Al-Hassani', contractType: 'Wakalah bil-Istithmar', aaoifiStandard: 'AAOIFI Standard No. 33 (Waqf)', date: '2026-03-22' }
   ]);
 
   // Document Templates State
   const [docTemplates] = useState([
-    { id: 'TPL-DOC-01', title: 'Standardized Asset Tokenization Prospectus', tags: ['{{asset_title}}', '{{total_value}}', '{{sponsor_name}}', '{{expected_yield}}'], category: 'Legal & Offering' },
+    { id: 'TPL-DOC-01', title: 'Standardized Investment Pool Prospectus', tags: ['{{asset_title}}', '{{total_value}}', '{{sponsor_name}}', '{{expected_yield}}'], category: 'Legal & Offering' },
     { id: 'TPL-DOC-02', title: 'Waqf Asset Trust Deed Agreement', tags: ['{{waqf_beneficiary}}', '{{custodian_name}}', '{{purification_rate}}'], category: 'Waqf & Estate' }
   ]);
 

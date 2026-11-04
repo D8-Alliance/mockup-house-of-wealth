@@ -270,7 +270,7 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
           </div>
           <h1 className="text-2xl font-black text-white tracking-tight">D-8 Capital & Asset Originator Portal</h1>
           <p className="text-xs text-slate-300 mt-1 max-w-2xl">
-            Register as a verified PDP, tokenize infrastructure assets, and structure high-yield Shariah wealth pools across D-8 member nations.
+            Register as a verified PDP, submit projects, and raise funding through Shariah wealth pools across D-8 member nations.
           </p>
         </div>
 

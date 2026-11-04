@@ -77,7 +77,7 @@ export const INITIAL_CREDIT_TRANSACTIONS: CreditTransaction[] = [
 export const INITIAL_PREMIUM_REPORTS: PremiumReportItem[] = [
   {
     id: 'REP-01',
-    title: 'FELDA Smart Agri-Estate Tokenization Feasibility & Yield Analysis',
+    title: 'FELDA Smart Agri-Estate Feasibility & Yield Analysis',
     category: 'AI Project Intelligence',
     targetEntity: 'FELDA Technoplant Sdn Bhd (Malaysia)',
     summary: 'Comprehensive AI intelligence report analyzing 5,000 hectares automated palm oil replanting yields, Sukuk Ijarah cashflow structure, and 14.8% projected return.',

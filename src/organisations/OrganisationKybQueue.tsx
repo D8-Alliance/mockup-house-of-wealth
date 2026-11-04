@@ -4,7 +4,8 @@ import { apiClient, apiErrorMessage, OrganisationKyb, OrganisationKybStatus } fr
 import { formatDateTimeWithZone } from '../utils/platformTime';
 import { KYB_DOCUMENT_LABELS, KYB_STATUS } from './organisationKybLabels';
 
-const FILTERS: Array<OrganisationKybStatus | 'ALL'> = ['SUBMITTED', 'CHANGES_REQUESTED', 'APPROVED', 'REJECTED', 'ALL'];
+const ENTITY_LABELS: Record<string, string> = { GLC: 'Government-linked company (GLC)', COMPANY: 'Company', INSTITUTION: 'Institution', INDIVIDUAL: 'Individual / sole proprietor' };
+const FILTERS: Array<OrganisationKybStatus | 'ALL'> =['SUBMITTED', 'CHANGES_REQUESTED', 'APPROVED', 'REJECTED', 'ALL'];
 
 /** KYB reviewers check an organisation's registration number, address and SSM documents, then decide. */
 export const OrganisationKybQueue: React.FC = () => {
@@ -70,7 +71,10 @@ export const OrganisationKybQueue: React.FC = () => {
           <div className="grid sm:grid-cols-2 gap-2">
             <p><span className="text-slate-400">Registration number:</span> <strong className="font-mono">{selected.registrationNumber ?? '-'}</strong></p>
             <p><span className="text-slate-400">Registered address:</span> {selected.registeredAddress ?? '-'}</p>
+            <p><span className="text-slate-400">Entity type:</span> <strong>{selected.entityType ? ENTITY_LABELS[selected.entityType] ?? selected.entityType : '-'}</strong></p>
+            <p><span className="text-slate-400">Corporate group:</span> <strong>{selected.groupName ?? 'None declared'}</strong></p>
           </div>
+          {selected.groupName && <p className="p-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200">Check the group name against the shareholders in the SSM company profile before verifying: investments between organisations of the same group are flagged as related-party only when the names match.</p>}
           <div className="space-y-1">
             {selected.kybDocuments.map((document) => (
               <button key={document.id} type="button" onClick={() => void apiClient.downloadOrganisationKybDocument(selected.id, document.id)} className="w-full flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-900/50 hover:bg-slate-100 cursor-pointer text-left">

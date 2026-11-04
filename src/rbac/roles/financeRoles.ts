@@ -82,7 +82,7 @@ export const FINANCE_ROLES: Record<string, RoleDefinition> = {
     role: 'Settlement Officer',
     title: 'Trade Execution & Asset Delivery Settlement Manager',
     category: 'Operational Management',
-    description: 'Executes Delivery-versus-Payment (DvP) trade settlements, asset transfer title deeds, and atomic blockchain swaps.',
+    description: 'Executes Delivery-versus-Payment (DvP) trade settlements, and asset transfer title deeds.',
     badgeColor: 'bg-teal-600/10 text-teal-700 dark:text-teal-300 border-teal-600/30',
     accessibleTabs: ['dashboard', 'contracts', 'wallet', 'ledger', 'profile'],
     permissions: {
@@ -112,9 +112,9 @@ export const FINANCE_ROLES: Record<string, RoleDefinition> = {
 
   'Reconciliation Officer': {
     role: 'Reconciliation Officer',
-    title: 'Bank Ledger & On-Chain Reconciliation Specialist',
+    title: 'Bank Ledger Reconciliation Specialist',
     category: 'Operational Management',
-    description: 'Compares real-time bank SWIFT MT940 statements against on-chain ledger hashes to guarantee zero balance discrepancy.',
+    description: 'Compares real-time bank SWIFT MT940 statements against the platform ledger to find any balance difference.',
     badgeColor: 'bg-slate-600/10 text-slate-700 dark:text-slate-300 border-slate-600/30',
     accessibleTabs: ['dashboard', 'financials', 'ledger', 'profile'],
     permissions: {
@@ -132,7 +132,7 @@ export const FINANCE_ROLES: Record<string, RoleDefinition> = {
       reports: ['create', 'read', 'export']
     },
     approvalRights: ['Reconciliation Discrepancy Adjustment Sign-Off'],
-    reportsAvailable: ['Daily Bank vs On-Chain Reconciliation Matrix', 'Unmatched Transaction Exception Log'],
+    reportsAvailable: ['Daily Bank vs Ledger Reconciliation', 'Unmatched Transaction Exception Log'],
     notifications: ['Daily reconciliation complete (0 unmatched records)', 'Bank feed synced'],
     demoUser: {
       name: 'Hamza Al-Zahrani',

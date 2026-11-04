@@ -94,7 +94,7 @@ export const INITIAL_ORGANISATIONS: Organisation[] = [
     website: 'https://mycapital.my',
     logoUrl: 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?auto=format&fit=crop&w=200&q=80',
     industry: 'Private Equity & Real Estate Investment',
-    description: 'SECP & SBP-regulated Shariah investment manager focused on multi-asset liquidity, agritech, and Sukuk tokenization.',
+    description: 'SECP & SBP-regulated Shariah investment manager focused on multi-asset liquidity, agritech, and Sukuk-backed poolingtion.',
     status: 'ACTIVE',
     verificationStatus: 'VERIFIED',
     activeUsersCount: 14,

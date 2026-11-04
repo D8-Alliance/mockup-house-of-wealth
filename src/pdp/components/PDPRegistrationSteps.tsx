@@ -154,7 +154,7 @@ export const Step2PDPType: React.FC<StepProps> = ({ formData, setFormData }) => 
     {
       type: 'Company',
       title: 'Private / Public Limited Company (Sdn Bhd / PT / A.Ş. / Ltd / Plc)',
-      desc: 'Incorporated corporate enterprise with audited financial track record seeking asset tokenization or project pooling.',
+      desc: 'Incorporated corporate enterprise with audited financial track record seeking project funding through investor pools.',
       icon: Building2
     },
     {

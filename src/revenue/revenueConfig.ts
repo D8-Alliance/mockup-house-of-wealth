@@ -85,7 +85,7 @@ export const MEMBERSHIP_PLANS_CONFIG: MembershipPlan[] = [
       'Cross-Border Currency Hedging & Clearing Insights',
       'Dedicated Account Officer'
     ],
-    projectAccess: 'Priority Syndicate & Pre-IPO / Tokenized Sukuk tranches',
+    projectAccess: 'Priority Syndicate & Pre-IPO / Sukuk-backed pool tranches',
     reportsAccess: 'Unlimited AI Risk, Feasibility & Regulatory reports',
     analyticsAccess: 'Full multi-factor Islamic macroeconomic modeling',
     alertsAccess: 'Instant high-priority signals & AML watchlist flags',

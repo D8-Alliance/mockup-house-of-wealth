@@ -248,7 +248,7 @@ export interface AIDueDiligenceReport {
   marketFeasibilityScore: number;
   riskRating: string;
   managementEvaluation: string;
-  finalRecommendation: 'APPROVED FOR TOKENIZATION' | 'CONDITIONAL APPROVAL' | 'REJECTED';
+  finalRecommendation: 'APPROVED FOR POOLING' | 'CONDITIONAL APPROVAL' | 'REJECTED';
 }
 
 export interface AIRiskScoreDetail {

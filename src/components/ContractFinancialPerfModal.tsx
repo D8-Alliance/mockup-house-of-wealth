@@ -67,7 +67,7 @@ export const ContractFinancialPerfModal: React.FC<ContractFinancialPerfModalProp
           <p><strong>Counterparty:</strong> ${escapeHtml(contract.counterparty)}</p>
           <p><strong>Status:</strong> ${escapeHtml(contract.status)}</p>
           <p><strong>Maturity Date:</strong> ${escapeHtml(contract.maturityDate)}</p>
-          <div class="verified">This report reflects the current MVP financial performance data. Independent audit and on-chain verification are not connected.</div>
+          <div class="verified">This report reflects the current MVP financial performance data. Independent audit verification is not connected.</div>
           <script>window.onload = function () { window.print(); };</script>
         </body>
       </html>

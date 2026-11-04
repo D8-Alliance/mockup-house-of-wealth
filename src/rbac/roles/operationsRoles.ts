@@ -105,7 +105,7 @@ export const OPERATIONS_ROLES: Record<string, RoleDefinition> = {
       'Asset Revenue Distribution History'
     ],
     notifications: [
-      'Asset "Kuala Lumpur Port Logistics Hub" approved for tokenization',
+      'Asset "Kuala Lumpur Port Logistics Hub" verified for partnership',
       'Quarterly asset appraisal valuation update due'
     ],
     demoUser: {

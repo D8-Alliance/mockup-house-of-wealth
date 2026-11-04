@@ -68,7 +68,7 @@ const APPROVAL_TIERS: ApprovalTierRule[] = [
 interface PendingApprovalItem {
   id: string;
   title: string;
-  category: 'ASSET_TOKENIZATION' | 'POOL_LAUNCH' | 'MILESTONE_PAYOUT' | 'SHARIAH_FATWA' | 'EMERGENCY_FREEZE';
+  category: 'ASSET_LISTING' | 'POOL_LAUNCH' | 'MILESTONE_PAYOUT' | 'SHARIAH_FATWA' | 'EMERGENCY_FREEZE';
   entity: string;
   countryNode: string;
   amountUsd: number;
@@ -125,8 +125,8 @@ const INITIAL_APPROVAL_ITEMS: PendingApprovalItem[] = [
   },
   {
     id: 'APPR-MYS-204',
-    title: 'FELDA Smart Palm Agritech IoT & Solar Irrigation Asset Tokenization',
-    category: 'ASSET_TOKENIZATION',
+    title: 'FELDA Smart Palm Agritech IoT & Solar Irrigation Asset Pool',
+    category: 'ASSET_LISTING',
     entity: 'FELDA Malaysia Agritech',
     countryNode: 'CN-MYS',
     amountUsd: 1200000,

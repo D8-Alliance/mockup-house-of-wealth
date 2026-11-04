@@ -48,10 +48,10 @@ export const AdminGovernanceDashboards: React.FC<AdminGovernanceDashboardsProps>
 
   // Audit Logs Data
   const [auditLogs] = useState([
-    { id: 'LOG-88091', timestamp: '2026-08-05 18:42:10', actor: 'Dr. Tariq Al-Hashimi (Super Admin)', role: 'Super Admin', action: 'Approved Tokenization Pool #104 (Kuala Lumpur Port Logistics)', hash: '0x88f21...90ab', status: 'Immutable Hash Certified' },
-    { id: 'LOG-88090', timestamp: '2026-08-05 17:15:33', actor: 'Sheikh Prof. Imran Usmani (Shariah Board)', role: 'Shariah Scholar', action: 'Issued Fatwa Certificate #FTW-2026-04', hash: '0x3c71a...88e1', status: 'Immutable Hash Certified' },
-    { id: 'LOG-88089', timestamp: '2026-08-05 15:02:18', actor: 'Compliance Officer Amina Bello', role: 'Compliance Admin', action: 'Whitelisted PEP Match False Positive (Ref #AML-991)', hash: '0x11e99...44a2', status: 'Immutable Hash Certified' },
-    { id: 'LOG-88088', timestamp: '2026-08-05 12:40:01', actor: 'System Auto-Engine', role: 'System Cron', action: 'Automated Zakat Purification Distribution to Waqf Pool', hash: '0x99a22...77c1', status: 'Immutable Hash Certified' },
+    { id: 'LOG-88091', timestamp: '2026-08-05 18:42:10', actor: 'Dr. Tariq Al-Hashimi (Super Admin)', role: 'Super Admin', action: 'Approved Pool #104 (Kuala Lumpur Port Logistics)', hash: '0x88f21...90ab', status: 'Hash-chain sealed' },
+    { id: 'LOG-88090', timestamp: '2026-08-05 17:15:33', actor: 'Sheikh Prof. Imran Usmani (Shariah Board)', role: 'Shariah Scholar', action: 'Issued Fatwa Certificate #FTW-2026-04', hash: '0x3c71a...88e1', status: 'Hash-chain sealed' },
+    { id: 'LOG-88089', timestamp: '2026-08-05 15:02:18', actor: 'Compliance Officer Amina Bello', role: 'Compliance Admin', action: 'Whitelisted PEP Match False Positive (Ref #AML-991)', hash: '0x11e99...44a2', status: 'Hash-chain sealed' },
+    { id: 'LOG-88088', timestamp: '2026-08-05 12:40:01', actor: 'System Auto-Engine', role: 'System Cron', action: 'Automated Zakat Purification Distribution to Waqf Pool', hash: '0x99a22...77c1', status: 'Hash-chain sealed' },
   ]);
 
   // Finance Dashboard Data
@@ -246,7 +246,7 @@ export const AdminGovernanceDashboards: React.FC<AdminGovernanceDashboardsProps>
             <div className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-2">
               <span className="text-[10px] font-bold text-slate-400 uppercase block">Platform Gross Revenue YTD</span>
               <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">${(financeStats.grossRevenueUSD / 1000000).toFixed(2)}M USD</span>
-              <span className="text-[11px] text-slate-500 block">Across 16 Tokenization & Waqf Pools</span>
+              <span className="text-[11px] text-slate-500 block">Across 16 Investment & Waqf Pools</span>
             </div>
 
             <div className="p-5 rounded-3xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-2">

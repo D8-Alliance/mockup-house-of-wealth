@@ -46,7 +46,7 @@ export const AssetDiscoveryView: React.FC<AssetDiscoveryViewProps> = ({
     'Sukuk',
     'Waqf',
     'Gold',
-    'Tokenized Assets'
+    'Asset-Backed Pools'
   ];
 
   const filtered = items.filter(item => {
