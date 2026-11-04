@@ -24,18 +24,41 @@ const RENT_STYLE: Record<string, string> = { DUE: 'text-slate-500', PAID: 'text-
 
 const card = 'rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4';
 const input = 'mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-3 text-sm font-bold text-slate-900 dark:text-white';
-const primary = 'w-full rounded-xl bg-emerald-600 py-3 text-sm font-black text-white disabled:opacity-50';
-const secondary = 'w-full rounded-xl border border-slate-300 dark:border-slate-600 py-3 text-sm font-black disabled:opacity-50';
+const primary = 'w-full in-[.leasing-web]:w-auto in-[.leasing-web]:px-5 in-[.leasing-web]:py-2.5 rounded-xl bg-emerald-600 py-3 text-sm font-black text-white disabled:opacity-50';
+const secondary = 'w-full in-[.leasing-web]:w-auto in-[.leasing-web]:px-5 in-[.leasing-web]:py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 py-3 text-sm font-black disabled:opacity-50';
 const today = () => new Date().toISOString().slice(0, 10);
 const errorText = (cause: unknown, fallback: string) => (cause instanceof Error ? cause.message : fallback);
+
+/** True on the web portal: the same screens laid out for a wide screen (title bar, summary, tables, two columns). */
+const WebLayout = React.createContext(false);
+const useWeb = () => React.useContext(WebLayout);
+const th = 'px-4 py-3';
+const td = 'px-4 py-3 align-top';
+const table = 'overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800';
+const headRow = 'text-left text-[11px] uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700';
+const bodyRow = 'border-b border-slate-100 dark:border-slate-700/60 last:border-0';
+const pill = (active: boolean) => `px-4 py-2 rounded-full text-xs font-bold border cursor-pointer ${active ? 'bg-emerald-600 text-white border-emerald-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`;
+const SummaryCards: React.FC<{ items: Array<[string, React.ReactNode]> }> = ({ items }) => (
+  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    {items.map(([label, value]) => (
+      <div key={label} className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
+        <div className="text-xl font-black text-slate-900 dark:text-white mt-1 break-words">{value}</div>
+      </div>
+    ))}
+  </div>
+);
 
 /**
  * Direct leasing without a project: an asset owner lists a unit of a verified asset (a floor, a shop lot, the
  * whole asset), a verified company asks to rent it, the two agree the rent, deposit and term, and Legal and
  * Shariah approve the Ijarah. The rent is paid to the owner's bank account and the owner records it here.
  */
-export const MobileLeasing: React.FC = () => {
+export const MobileLeasing: React.FC<{ web?: boolean }> = ({ web = false }) => <WebLayout.Provider value={web}><LeasingScreens /></WebLayout.Provider>;
+
+const LeasingScreens: React.FC = () => {
   const { t } = useT();
+  const web = useWeb();
   const { currentRole } = useRBAC();
   const isOwner = LEASE_OWNER_ROLES.includes(currentRole);
   const isTenant = LEASE_TENANT_ROLES.includes(currentRole);
@@ -55,12 +78,17 @@ export const MobileLeasing: React.FC = () => {
   if (renting) return <RentRequest unit={renting} onBack={() => setRenting(null)} onSent={(lease) => { setRenting(null); setOpenLease(lease.id); }} />;
 
   return (
-    <div className="space-y-4">
+    <div className={web ? 'space-y-6' : 'space-y-4'}>
       <div>
-        <h1 className="text-lg font-black">{t('Leasing')}</h1>
-        <p className="text-xs text-slate-500">{t('Rent space in a verified asset directly under Ijarah, without a project.')}</p>
+        <h1 className={web ? 'text-2xl md:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight' : 'text-lg font-black'}>{t('Leasing')}</h1>
+        <p className={web ? 'text-sm text-slate-500 dark:text-slate-400' : 'text-xs text-slate-500'}>{t('Rent space in a verified asset directly under Ijarah, without a project.')}</p>
       </div>
-      {sections.length > 1 && (
+      {web && sections.length > 1 && (
+        <div className="flex gap-1.5 flex-wrap" role="tablist">
+          {sections.map(([value, text]) => <button key={value} type="button" role="tab" aria-selected={section === value} onClick={() => setSection(value)} className={pill(section === value)}>{text}</button>)}
+        </div>
+      )}
+      {!web && sections.length > 1 && (
         <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${sections.length}, minmax(0, 1fr))` }} role="tablist">
           {sections.map(([value, text]) => (
             <button key={value} type="button" role="tab" aria-selected={section === value} onClick={() => setSection(value)} className={`py-2.5 px-1 rounded-xl text-xs font-black border ${section === value ? 'bg-emerald-600 text-white border-emerald-600' : 'border-slate-300 dark:border-slate-600'}`}>{text}</button>
@@ -98,6 +126,50 @@ const OwnerUnits: React.FC = () => {
     try { await apiClient.updateLeasableUnit(unit.id, { status: unit.status === 'LISTED' ? 'WITHDRAWN' : 'LISTED' }); load(); } catch (cause) { setError(errorText(cause, t('The unit could not be changed.'))); } finally { setBusy(''); }
   };
 
+  const web = useWeb();
+  if (web && data && !adding && !editing) {
+    const leased = data.units.filter(unit => unit.occupiedUntil).length;
+    const waiting = data.units.reduce((total, unit) => total + unit.requests, 0);
+    return (
+      <div className="space-y-6">
+        <SummaryCards items={[[t('Units'), data.units.length], [t('Listed'), data.units.filter(unit => unit.status === 'LISTED').length], [t('Leased'), leased], [t('Requests waiting'), waiting]]} />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {data.assets.length === 0 ? <p className="text-sm text-slate-500">{t('Only a verified asset can be leased out. Register your asset and have it verified on the web portal first.')}</p> : <span />}
+          {data.assets.length > 0 && <button type="button" onClick={() => setAdding(true)} className={`${primary} flex items-center justify-center gap-1.5`}><Plus className="w-4 h-4" />{t('Add a unit for rent')}</button>}
+        </div>
+        {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+        {data.units.length === 0 && data.assets.length > 0 && <p className="text-sm text-slate-500">{t('No unit listed yet. A unit can be a floor, a shop lot, a bay or the whole asset.')}</p>}
+        {data.units.length > 0 && (
+          <div className={table}>
+            <table className="w-full text-sm">
+              <thead><tr className={headRow}><th className={th}>{t('Unit')}</th><th className={`${th} text-right`}>{t('Rent a month')}</th><th className={th}>{t('Deposits')}</th><th className={th}>{t('Status')}</th><th className={th} /></tr></thead>
+              <tbody>
+                {data.units.map(unit => (
+                  <tr key={unit.id} className={bodyRow}>
+                    <td className={td}>
+                      <div className="font-bold text-slate-900 dark:text-white">{unit.label}</div>
+                      <div className="text-[11px] text-slate-400">{unit.asset.name}{unit.floorArea ? ` · ${unit.floorArea.toLocaleString()} ${unit.floorAreaUnit === 'SQM' ? t('sq m') : t('sq ft')}` : ''} · {t('at least {months} months', { months: unit.minTermMonths })}</div>
+                    </td>
+                    <td className={`${td} text-right font-bold whitespace-nowrap`}>{money(unit.currency, unit.monthlyRent)}</td>
+                    <td className={td}><div className="text-xs">{t('deposit {months} months', { months: unit.depositMonths })}</div><UnitDeposits unit={unit} /></td>
+                    <td className={td}>
+                      <span className={`text-[10px] font-black rounded-full px-2 py-0.5 whitespace-nowrap ${unit.status === 'LISTED' ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'bg-slate-500/10 text-slate-500'}`}>{unit.status === 'LISTED' ? t('Listed') : t('Not listed')}</span>
+                      {unit.occupiedUntil && <div className="mt-1 text-[11px] font-bold text-sky-700 dark:text-sky-300">{t('Leased until {date}', { date: unit.occupiedUntil })}</div>}
+                      {unit.requests > 0 && <div className="mt-1 text-[11px] font-bold text-amber-700 dark:text-amber-300">{t('{count} request(s) waiting for your answer: see Leases.', { count: unit.requests })}</div>}
+                    </td>
+                    <td className={`${td} text-right whitespace-nowrap`}>
+                      <button type="button" onClick={() => setEditing(unit)} className="text-xs font-black text-emerald-700 dark:text-emerald-400 mr-4">{t('Edit terms')}</button>
+                      <button type="button" disabled={busy === unit.id} onClick={() => toggle(unit)} className="text-xs font-black text-slate-500 disabled:opacity-50">{unit.status === 'LISTED' ? t('Stop listing') : t('List again')}</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
   if ((adding || editing) && data) return <UnitForm assets={data.assets} unit={editing ?? undefined} onDone={(saved) => { setAdding(false); setEditing(null); if (saved) load(); }} />;
   return (
     <div className="space-y-3">
@@ -185,7 +257,7 @@ const UnitForm: React.FC<{ assets: Array<{ id: string; name: string; assetType?:
     } catch (cause) { setError(errorText(cause, t('The unit could not be saved.'))); } finally { setSaving(false); }
   };
   return (
-    <form onSubmit={save} className="space-y-3">
+    <form onSubmit={save} className="space-y-3 in-[.leasing-web]:max-w-2xl">
       <button type="button" onClick={() => onDone(false)} className="flex items-center gap-1 text-sm font-bold text-emerald-700 dark:text-emerald-400"><ArrowLeft className="w-4 h-4" />{t('My units')}</button>
       <h2 className="text-base font-black">{unit ? t('Edit {unit}', { unit: unit.label }) : t('Add a unit for rent')}</h2>
       {unit && <p className="text-[11px] text-slate-500">{t('New terms apply to new requests. Leases already requested keep the terms they were made on.')}</p>}
@@ -233,6 +305,7 @@ const FindSpace: React.FC<{ onRent: (unit: AvailableUnit) => void }> = ({ onRent
       {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
       {!units && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
       {units?.length === 0 && <p className="text-xs text-slate-500">{t('No space is offered for rent in your country yet.')}</p>}
+      <div className="space-y-3 in-[.leasing-web]:space-y-0 in-[.leasing-web]:grid in-[.leasing-web]:md:grid-cols-2 in-[.leasing-web]:xl:grid-cols-3 in-[.leasing-web]:gap-4">
       {units?.map(unit => (
         <section key={unit.id} className={`${card} space-y-2`}>
           <div>
@@ -247,6 +320,7 @@ const FindSpace: React.FC<{ onRent: (unit: AvailableUnit) => void }> = ({ onRent
           <button type="button" onClick={() => onRent(unit)} className={primary}>{t('Ask to rent')}</button>
         </section>
       ))}
+      </div>
     </div>
   );
 };
@@ -317,6 +391,42 @@ const LeaseList: React.FC<{ filter?: (lease: AssetLeaseView) => boolean; empty: 
   const load = useCallback(() => { setError(''); apiClient.getLeases().then(setLeases).catch((cause) => setError(errorText(cause, t('Leases could not be loaded.')))); }, [t]);
   useEffect(load, [load]);
   const shown = leases ? (filter ? leases.filter(filter) : leases) : null;
+  const web = useWeb();
+  const counterparty = (lease: AssetLeaseView) => (lease.myParty === 'OWNER' ? lease.tenantOrganisationName : lease.myParty === 'TENANT' ? lease.ownerOrganisationName : `${lease.ownerOrganisationName} → ${lease.tenantOrganisationName}`);
+  if (web) {
+    return (
+      <div className="space-y-4">
+        <button type="button" onClick={load} className="flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400"><RefreshCw className="w-3.5 h-3.5" />{t('Refresh')}</button>
+        {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{error}</p>}
+        {!shown && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
+        {shown?.length === 0 && <p className="text-sm text-slate-500">{empty}</p>}
+        {shown && shown.length > 0 && (
+          <div className={table}>
+            <table className="w-full text-sm">
+              <thead><tr className={headRow}><th className={th}>{t('Lease')}</th><th className={th}>{t('Party')}</th><th className={`${th} text-right`}>{t('Rent a month')}</th><th className={th}>{t('Period')}</th><th className={th}>{t('Status')}</th></tr></thead>
+              <tbody>
+                {shown.map(lease => (
+                  <tr key={lease.id} onClick={() => onOpen(lease.id)} className={`${bodyRow} hover:bg-slate-50 dark:hover:bg-slate-900/40 cursor-pointer`}>
+                    <td className={td}><div className="font-bold text-slate-900 dark:text-white">{lease.unit.label} · {lease.asset.name}</div><div className="text-[11px] text-slate-400 font-mono">{lease.id}</div></td>
+                    <td className={`${td} text-slate-600 dark:text-slate-300`}>{counterparty(lease)}</td>
+                    <td className={`${td} text-right font-bold whitespace-nowrap`}>{money(lease.currency, lease.monthlyRent)}</td>
+                    <td className={`${td} whitespace-nowrap text-slate-600 dark:text-slate-300`}>{lease.startDate} – {lease.endDate}</td>
+                    <td className={td}>
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className={`text-[10px] font-black rounded-full px-2 py-0.5 whitespace-nowrap ${STATUS_STYLE[lease.status]}`}>{t(STATUS_LABEL[lease.status])}</span>
+                        {(lease.canRespond || lease.canReview) && <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-amber-400 text-emerald-950 whitespace-nowrap">{t('Your turn')}</span>}
+                        {lease.rent.overdue > 0 && <span className="text-[10px] font-black rounded-full px-2 py-0.5 bg-rose-500/10 text-rose-700 dark:text-rose-300 whitespace-nowrap">{t('{amount} overdue', { amount: money(lease.currency, lease.rent.overdue) })}</span>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="space-y-3">
       <button type="button" onClick={load} className="flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-400"><RefreshCw className="w-3.5 h-3.5" />{t('Refresh')}</button>
@@ -400,12 +510,14 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
     <div className="space-y-4">
       <button type="button" onClick={onBack} className="flex items-center gap-1 text-sm font-bold text-emerald-700 dark:text-emerald-400"><ArrowLeft className="w-4 h-4" />{t('Leasing')}</button>
       <div>
-        <h1 className="text-lg font-black">{lease.unit.label} · {lease.asset.name}</h1>
+        <h1 className="text-lg font-black in-[.leasing-web]:text-2xl in-[.leasing-web]:font-extrabold in-[.leasing-web]:tracking-tight">{lease.unit.label} · {lease.asset.name}</h1>
         <p className="text-[11px] text-slate-500 font-mono">{lease.id}</p>
         <span className={`inline-block mt-1 text-[10px] font-black rounded-full px-2 py-0.5 ${STATUS_STYLE[lease.status]}`}>{t(STATUS_LABEL[lease.status])}</span>
       </div>
       {waitingText && <p className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-3 text-xs font-bold text-emerald-800 dark:text-emerald-200">{waitingText}</p>}
 
+      <div className="space-y-4 in-[.leasing-web]:lg:grid in-[.leasing-web]:lg:grid-cols-2 in-[.leasing-web]:lg:gap-6 in-[.leasing-web]:lg:space-y-0 in-[.leasing-web]:lg:items-start">
+      <div className="space-y-4">
       <section className={card}>
         <dl className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
           {row(t('Owner'), lease.ownerOrganisationName)}
@@ -493,7 +605,9 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
 
       {['APPROVED', 'ENDED'].includes(lease.status) && lease.myParty && <LeaseAgreementCard lease={lease} onChanged={reload} />}
       {['APPROVED', 'ENDED'].includes(lease.status) && (lease.myParty || lease.deposit.receivedAt) && <DepositCard lease={lease} onChanged={setLease} />}
+      </div>
 
+      <div className="space-y-4">
       {lease.payments.length > 0 && (
         <section className={`${card} space-y-2`}>
           <h2 className="text-sm font-black">{t('Rent schedule')}</h2>
@@ -541,6 +655,8 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
           ))}
         </ol>
       </section>
+      </div>
+      </div>
     </div>
   );
 };

@@ -1145,4 +1145,9 @@ export const MS: Record<string, string> = {
   "Plot name (e.g. Lot 1203, whole land)": "Nama plot (cth. Lot 1203, keseluruhan tanah)",
   "Permitted use (e.g. earthworks, site clearing)": "Kegunaan dibenarkan (cth. kerja tanah, pembersihan tapak)",
   "Permitted use (e.g. farming, storage yard)": "Kegunaan dibenarkan (cth. pertanian, tempat simpanan)",
+  // Leasing on the web
+  "Units": "Unit",
+  "Leased": "Disewa",
+  "Requests waiting": "Permohonan menunggu",
+  "Party": "Pihak",
 };
