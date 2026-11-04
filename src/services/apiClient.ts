@@ -229,6 +229,7 @@ export const apiClient = {
   draftLeaseAgreement: (leaseId: string) => request<{ contract: { id: string; contractNumber: string } }>('/contract-intelligence/agreements/lease-drafts', { method: 'POST', body: JSON.stringify({ leaseId }) }),
   recordLeaseDeposit: (id: string, input: { reference: string; receivedAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/deposit`, { method: 'POST', body: JSON.stringify(input) }),
   refundLeaseDeposit: (id: string, input: { kind: DepositKind; deductions: Array<{ reason: string; amount: number }>; reference: string; paidAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/deposit/refund`, { method: 'POST', body: JSON.stringify(input) }),
+  renewLease: (id: string, input: { termMonths: number; monthlyRent?: number; message?: string; shariahDeclaration: true }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/renew`, { method: 'POST', body: JSON.stringify(input) }),
   endLease: (id: string, note: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/end`, { method: 'POST', body: JSON.stringify({ note }) }),
   createInvestmentOrder: (input: { poolId: string; amount: number; currency: string; idempotencyKey: string; akadTermsId: string; acceptAkad: true }) => request<BackendInvestmentOrder>('/investments/orders', { method: 'POST', body: JSON.stringify(input) }),
   getSettlementQueue: () => request<SettlementQueueOrder[]>('/investments/settlement-queue'),
@@ -2315,6 +2316,12 @@ export interface AssetLeaseView {
   canReview: boolean;
   canRecordPayment: boolean;
   canEnd: boolean;
+  /** The tenant may ask to renew: the lease is approved and running, and no renewal is under way. */
+  canRenew?: boolean;
+  /** The lease this one renews. */
+  renewsLeaseId?: string | null;
+  /** The renewal of this lease, under way or approved. */
+  renewal?: { id: string; status: LeaseStatus } | null;
   canRecordDeposit: boolean;
   canReturnDeposit: boolean;
   /**

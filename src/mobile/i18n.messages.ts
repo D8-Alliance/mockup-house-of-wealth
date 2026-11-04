@@ -156,6 +156,7 @@ const MS_SERVER_TITLES: Record<string, string> = {
   'Asset partnership withdrawn': 'Perkongsian aset ditarik balik',
   'Asset partnership approved': 'Perkongsian aset diluluskan',
   'Offer closed': 'Tawaran ditutup',
+  'A tenant asks to renew': 'Penyewa memohon pembaharuan sewaan',
 };
 
 /** The server's English notification title or message in Malay, when known; otherwise as written. */

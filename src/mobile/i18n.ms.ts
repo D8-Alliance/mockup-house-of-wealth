@@ -1177,6 +1177,14 @@ export const MS: Record<string, string> = {
   "Needs the heirs' consent after your death": "Perlu persetujuan waris selepas kematian anda",
   "Without their consent this part follows faraid. The estate officer records each heir's answer after your death.": "Tanpa persetujuan mereka, bahagian ini mengikut faraid. Pegawai pusaka merekod jawapan setiap waris selepas kematian anda.",
   "I understand: keep it, subject to the heirs' consent.": "Saya faham: kekalkan, tertakluk kepada persetujuan waris.",
+  // Lease renewal (Leasing)
+  "Ask to renew": "Mohon pembaharuan",
+  "Renewal of": "Pembaharuan bagi",
+  "Renewal": "Pembaharuan",
+  "The deposits held under the earlier lease can carry over: record them as received here with that lease as the reference, and refund them there with this lease as the reference.": "Deposit yang dipegang di bawah sewaan terdahulu boleh dipindahkan: rekodkannya sebagai diterima di sini dengan sewaan itu sebagai rujukan, dan pulangkannya di sana dengan sewaan ini sebagai rujukan.",
+  "A new lease from {date}, the day after this one ends, with the same use and deposits. The owner answers, then Legal and Shariah review it and both sides sign a new agreement.": "Sewaan baharu mulai {date}, sehari selepas sewaan ini tamat, dengan kegunaan dan deposit yang sama. Pemilik menjawab, kemudian Legal dan Shariah menyemaknya dan kedua-dua pihak menandatangani perjanjian baharu.",
+  "Our business and our use of the space remain Shariah-compliant.": "Perniagaan dan kegunaan ruang kami kekal patuh Shariah.",
+  "Send the renewal request": "Hantar permohonan pembaharuan",
   // Suspended projects (Portfolio)
   "This project is suspended while an issue is looked into. No new investments are taken; your investment is unchanged and you will be told when it resumes.": "Projek ini digantung sementara satu isu disiasat. Tiada pelaburan baharu diterima; pelaburan anda tidak berubah dan anda akan dimaklumkan apabila ia disambung semula.",
   // Report a death (DeathReportPage)

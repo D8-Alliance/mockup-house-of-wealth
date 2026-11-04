@@ -80,7 +80,7 @@ const LeasingScreens: React.FC = () => {
   const [openLease, setOpenLease] = useState<string | null>(null);
   const [renting, setRenting] = useState<AvailableUnit | null>(null);
 
-  if (openLease) return <LeaseDetail id={openLease} onBack={() => setOpenLease(null)} />;
+  if (openLease) return <LeaseDetail key={openLease} id={openLease} onBack={() => setOpenLease(null)} onOpen={setOpenLease} />;
   if (renting) return <RentRequest unit={renting} onBack={() => setRenting(null)} onSent={(lease) => { setRenting(null); setOpenLease(lease.id); }} />;
 
   return (
@@ -464,19 +464,23 @@ const HISTORY_LABEL: Record<string, string> = {
   LEGAL_CHANGES_REQUESTED: 'Legal asked for changes', SHARIAH_CHANGES_REQUESTED: 'Shariah asked for changes',
 };
 
-const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack }) => {
+/** The day after a date (YYYY-MM-DD). */
+const nextDay = (date: string) => new Date(Date.parse(`${date}T00:00:00Z`) + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: string) => void }> = ({ id, onBack, onOpen }) => {
   const { t, locale } = useT();
   const money = useMoney();
   const { currentRole } = useRBAC();
   const [lease, setLease] = useState<AssetLeaseView | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<'' | 'accept' | 'counter' | 'decline' | 'withdraw' | 'review' | 'end'>('');
+  const [mode, setMode] = useState<'' | 'accept' | 'counter' | 'decline' | 'withdraw' | 'review' | 'end' | 'renew'>('');
   const [note, setNote] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [counter, setCounter] = useState({ monthlyRent: '', depositAmount: '', utilityDepositAmount: '', renovationDepositAmount: '', startDate: '', termMonths: '' });
   const [track, setTrack] = useState<'LEGAL' | 'SHARIAH'>('LEGAL');
   const [paying, setPaying] = useState<string | null>(null);
+  const [renewal, setRenewal] = useState({ termMonths: '', monthlyRent: '' });
   const [payment, setPayment] = useState({ reference: '', paidAt: today() });
 
   const reload = useCallback(() => { apiClient.getLease(id).then(setLease).catch((cause) => setError(errorText(cause, t('The lease could not be loaded.')))); }, [id, t]);
@@ -486,6 +490,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
     setNote('');
     setConfirmed(false);
     setError('');
+    if (lease && next === 'renew') setRenewal({ termMonths: String(lease.termMonths), monthlyRent: String(lease.monthlyRent) });
     if (lease && next === 'counter') setCounter({ monthlyRent: String(lease.monthlyRent), depositAmount: String(lease.depositAmount), utilityDepositAmount: String(lease.utilityDepositAmount), renovationDepositAmount: String(lease.renovationDepositAmount), startDate: lease.startDate, termMonths: String(lease.termMonths) });
   };
   const act = async (call: () => Promise<AssetLeaseView>) => {
@@ -520,6 +525,13 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
         <p className="text-[11px] text-slate-500 font-mono">{lease.id}</p>
         <span className={`inline-block mt-1 text-[10px] font-black rounded-full px-2 py-0.5 ${STATUS_STYLE[lease.status]}`}>{t(STATUS_LABEL[lease.status])}</span>
       </div>
+      {lease.renewsLeaseId && (
+        <div className="rounded-xl bg-sky-50 dark:bg-sky-500/10 p-3 text-xs text-sky-900 dark:text-sky-100 space-y-1">
+          <p className="font-bold">{t('Renewal of')} <button type="button" onClick={() => onOpen(lease.renewsLeaseId!)} className="font-mono underline">{lease.renewsLeaseId}</button></p>
+          {lease.myParty === 'OWNER' && <p>{t('The deposits held under the earlier lease can carry over: record them as received here with that lease as the reference, and refund them there with this lease as the reference.')}</p>}
+        </div>
+      )}
+      {lease.renewal && <p className="rounded-xl bg-sky-50 dark:bg-sky-500/10 p-3 text-xs font-bold text-sky-900 dark:text-sky-100">{t('Renewal')}: <button type="button" onClick={() => onOpen(lease.renewal!.id)} className="font-mono underline">{lease.renewal.id}</button> · {t(STATUS_LABEL[lease.renewal.status])}</p>}
       {waitingText && <p className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 p-3 text-xs font-bold text-emerald-800 dark:text-emerald-200">{waitingText}</p>}
 
       <div className="space-y-4 in-[.leasing-web]:lg:grid in-[.leasing-web]:lg:grid-cols-2 in-[.leasing-web]:lg:gap-6 in-[.leasing-web]:lg:space-y-0 in-[.leasing-web]:lg:items-start">
@@ -545,13 +557,14 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
 
       {error && <ErrorNote text={error} />}
 
-      {!mode && (lease.canRespond || lease.canWithdraw || lease.canReview || lease.canEnd) && (
+      {!mode && (lease.canRespond || lease.canWithdraw || lease.canReview || lease.canEnd || lease.canRenew) && (
         <div className="grid grid-cols-2 gap-2">
           {lease.canRespond && <button type="button" onClick={() => open('accept')} className={primary}>{t('Accept')}</button>}
           {lease.canRespond && <button type="button" onClick={() => open('counter')} className={secondary}>{t('Propose other terms')}</button>}
           {lease.canRespond && <button type="button" onClick={() => open('decline')} className={secondary}>{t('Decline')}</button>}
           {lease.canWithdraw && <button type="button" onClick={() => open('withdraw')} className={secondary}>{t('Withdraw')}</button>}
           {lease.canReview && <button type="button" onClick={() => open('review')} className={`${primary} col-span-2`}>{t('Review')}</button>}
+          {lease.canRenew && <button type="button" onClick={() => open('renew')} className={`${primary} col-span-2`}>{t('Ask to renew')}</button>}
           {lease.canEnd && <button type="button" onClick={() => open('end')} className={`${secondary} col-span-2`}>{t('End the lease early')}</button>}
         </div>
       )}
@@ -588,6 +601,21 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack 
         <form className={`${card} space-y-3`} onSubmit={(event) => { event.preventDefault(); act(() => (mode === 'decline' ? apiClient.respondLease(lease.id, { action: 'DECLINE', note: note || undefined }) : mode === 'withdraw' ? apiClient.withdrawLease(lease.id, note || undefined) : apiClient.endLease(lease.id, note))); }}>
           {noteBox(mode === 'end', mode === 'end' ? t('Why the lease ends early, as both sides agreed') : t('Reason (optional)'))}
           <button type="submit" disabled={busy} className={primary}>{mode === 'decline' ? t('Decline') : mode === 'withdraw' ? t('Withdraw') : t('End the lease')}</button>
+          <button type="button" onClick={() => setMode('')} className={secondary}>{t('Cancel')}</button>
+        </form>
+      )}
+
+      {mode === 'renew' && (
+        <form className={`${card} space-y-3`} onSubmit={(event) => { event.preventDefault(); setBusy(true); setError(''); apiClient.renewLease(lease.id, { termMonths: Number(renewal.termMonths), ...(Number(renewal.monthlyRent) !== lease.monthlyRent ? { monthlyRent: Number(renewal.monthlyRent) } : {}), message: note || undefined, shariahDeclaration: true }).then((created) => onOpen(created.id)).catch((cause) => setError(errorText(cause, t('That did not go through.')))).finally(() => setBusy(false)); }}>
+          <h2 className="text-sm font-black">{t('Ask to renew')}</h2>
+          <p className="text-[11px] text-slate-500">{t('A new lease from {date}, the day after this one ends, with the same use and deposits. The owner answers, then Legal and Shariah review it and both sides sign a new agreement.', { date: nextDay(lease.endDate) })}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-xs font-bold text-slate-500">{t('Months')}<input required type="number" min={lease.unit.minTermMonths} max={360} value={renewal.termMonths} onChange={(event) => setRenewal(current => ({ ...current, termMonths: event.target.value }))} className={input} /></label>
+            <label className="block text-xs font-bold text-slate-500">{t('Rent a month (RM)')}<input required type="number" min={1} step="0.01" value={renewal.monthlyRent} onChange={(event) => setRenewal(current => ({ ...current, monthlyRent: event.target.value }))} className={input} /></label>
+          </div>
+          {noteBox(false, t('Message to the owner (optional)'))}
+          <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-0.5 w-4 h-4" /><span>{t('Our business and our use of the space remain Shariah-compliant.')}</span></label>
+          <button type="submit" disabled={busy || !confirmed} className={primary}>{t('Send the renewal request')}</button>
           <button type="button" onClick={() => setMode('')} className={secondary}>{t('Cancel')}</button>
         </form>
       )}

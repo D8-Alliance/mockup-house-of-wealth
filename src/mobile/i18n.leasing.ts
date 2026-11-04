@@ -43,6 +43,8 @@ export const MS_LEASING_TEXT: Record<string, string> = {
   'This request is no longer open for a response.': 'Permohonan ini tidak lagi terbuka untuk dijawab.',
   'This unit belongs to your own organisation.': 'Unit ini milik organisasi anda sendiri.',
   'This unit is not offered for rent.': 'Unit ini tidak ditawarkan untuk disewa.',
+  'Only the tenant can ask to renew.': 'Hanya penyewa boleh memohon pembaharuan.',
+  'Only a running approved lease can be renewed.': 'Hanya sewaan yang diluluskan dan masih berjalan boleh diperbaharui.',
   'Waiting for the other side to respond.': 'Menunggu pihak satu lagi menjawab.',
   'You cannot review a lease your own organisation is part of.': 'Anda tidak boleh menyemak sewaan yang melibatkan organisasi anda sendiri.',
   'Your company must pass business verification (KYB) before it can rent space.': 'Syarikat anda mesti lulus pengesahan perniagaan (KYB) sebelum boleh menyewa ruang.',
@@ -59,5 +61,6 @@ export const MS_LEASING_PATTERNS: Array<[RegExp, string | ((match: RegExpExecArr
   [/^The tenant's activity may involve (.+)\. Explain in the note why the lease is permissible\.$/, (match) => `Aktiviti penyewa mungkin melibatkan ${match[1].split(', ').map((item) => ACTIVITY_MS[item] ?? item).join(', ')}. Terangkan dalam nota kenapa sewaan ini dibenarkan.`],
   [/^The unit is already taken from (\S+) to (\S+)\. Choose other dates\.$/, 'Unit ini sudah disewa dari $1 hingga $2. Pilih tarikh lain.'],
   [/^This unit is available from (\S+)\.$/, 'Unit ini boleh disewa mulai $1.'],
+  [/^This lease is already being renewed \((.+)\)\.$/, 'Sewaan ini sudah dalam proses pembaharuan ($1).'],
   [/^Your company already has a request for this unit \((.+)\)\.$/, 'Syarikat anda sudah ada permohonan untuk unit ini ($1).'],
 ];
