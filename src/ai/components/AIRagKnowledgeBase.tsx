@@ -323,8 +323,8 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
               <label className="text-xs font-bold text-emerald-900 dark:text-emerald-200">Upload many PDFs at once</label>
               <button type="button" onClick={useAaoifiPreset} disabled={busy} className="rounded-lg border border-emerald-400 px-2 py-1 text-[11px] font-bold text-emerald-800 disabled:opacity-50 dark:text-emerald-200">Use AAOIFI settings</button>
             </div>
-            <input type="file" multiple accept="application/pdf,.pdf" onChange={(event) => chooseBulk(event.target.files)} className="mt-2 block w-full text-sm" />
-            <p className="mt-1 text-[11px] text-emerald-800 dark:text-emerald-300">Uses the access level above and the category, authority, jurisdiction and source type below. Titles come from the file names; edit them before uploading. Upload only the current version of each standard.</p>
+            <input type="file" multiple accept="application/pdf,.pdf" onChange={(event) => chooseBulk(event.target.files)} className="mt-2 block w-full cursor-pointer text-sm text-slate-600 file:mr-3 file:cursor-pointer file:rounded-xl file:border-0 file:bg-emerald-600 file:px-4 file:py-2 file:text-sm file:font-bold file:text-white hover:file:bg-emerald-700 dark:text-slate-300" />
+            <p className="mt-1 text-[11px] text-emerald-800 dark:text-emerald-300">Choose the PDFs (you can select many at once); the list and the Upload button then appear here. Uses the access level above and the category, authority, jurisdiction and source type below. Titles come from the file names; edit them before uploading. Upload only the current version of each standard.</p>
             {bulk.length > 0 && <>
               <ul className="mt-3 space-y-1.5">
                 {bulk.map((item, index) => <li key={`${item.file.name}-${index}`} className="flex flex-wrap items-center gap-2 text-xs">
@@ -339,7 +339,7 @@ export const AIRagKnowledgeBase: React.FC<{ userRole?: string }> = ({ userRole =
           </div>
           <div className="rounded-xl border border-dashed border-purple-300 bg-purple-50 p-4 dark:bg-purple-950/20">
             <label className="text-xs font-bold text-purple-900 dark:text-purple-200">Upload PDF document</label>
-            <input type="file" accept="application/pdf,.pdf" onChange={(event) => setFile(event.target.files?.[0] || null)} className="mt-2 block w-full text-sm" />
+            <input type="file" accept="application/pdf,.pdf" onChange={(event) => setFile(event.target.files?.[0] || null)} className="mt-2 block w-full cursor-pointer text-sm text-slate-600 file:mr-3 file:cursor-pointer file:rounded-xl file:border-0 file:bg-purple-600 file:px-4 file:py-2 file:text-sm file:font-bold file:text-white hover:file:bg-purple-700 dark:text-slate-300" />
             <button onClick={() => void uploadPdf()} disabled={busy || !file} className="mt-3 flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"><Upload className="h-4 w-4" /> Upload PDF</button>
             <p className="mt-2 text-[11px] text-purple-800 dark:text-purple-300">Maximum 10 MB. Text-based PDFs are supported; scanned PDFs require OCR.</p>
           </div>
