@@ -1199,6 +1199,16 @@ export const MS: Record<string, string> = {
   "These pools raised their target and take no new investment.": "Pool ini sudah mencapai sasaran dan tidak lagi menerima pelaburan baharu.",
   "Raised": "Terkumpul",
   "Target": "Sasaran",
+  // Sponsor home
+  "All clear": "Tiada tugasan",
+  "Nothing is waiting for you.": "Tiada apa-apa yang menunggu anda.",
+  "Tranche release turned down: {title}": "Permohonan pelepasan tranche ditolak: {title}",
+  "Quarterly report Q{quarter} {year} not sent yet": "Laporan suku tahunan Suku {quarter} {year} belum dihantar",
+  "Quarterly report Q{quarter} {year} returned by the auditor": "Laporan suku tahunan Suku {quarter} {year} dipulangkan oleh juruaudit",
+  "A lease request is waiting for your answer": "Permohonan sewa menunggu jawapan anda",
+  "And {count} more in your projects.": "Dan {count} lagi dalam projek anda.",
+  "Tranches released: {released} of {allocated}": "Tranche dilepaskan: {released} daripada {allocated}",
+  "Latest": "Terkini",
   // Lease renewal (Leasing)
   "Ask to renew": "Mohon pembaharuan",
   "Renewal of": "Pembaharuan bagi",

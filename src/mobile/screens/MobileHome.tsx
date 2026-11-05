@@ -7,16 +7,18 @@ import { KYC_STATUS_LABELS } from '../../kyc/kycLabels';
 import type { MobileTab } from '../MobileShell';
 import { MobileInvestorDashboard } from './MobileInvestorDashboard';
 import { MobileAssetOwnerDashboard } from './MobileAssetOwnerDashboard';
+import { MobileSponsorDashboard } from './MobileSponsorDashboard';
 import { ASSET_OWNER_ROLES, LEASING_ROLES, POOL_VIEW_ROLES, SETTLEMENT_ROLES, SPONSOR_ROLES, USER_ADMIN_ROLES } from '../mobileRoles';
 import { useT } from '../i18n';
 
 /** Home: who is signed in, whether they may invest yet (KYC), and the way to the pools. */
-export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc: () => void; onOpenProjects: () => void }> = ({ onOpen, onOpenKyc, onOpenProjects }) => {
+export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc: () => void; onOpenProjects: () => void; onOpenNotifications: () => void }> = ({ onOpen, onOpenKyc, onOpenProjects, onOpenNotifications }) => {
   const { t } = useT();
   const { activeUser, currentRole } = useRBAC();
   const investor = canInvest(currentRole);
   const userAdmin = USER_ADMIN_ROLES.includes(currentRole);
   const assetOwner = ASSET_OWNER_ROLES.includes(currentRole);
+  const sponsor = SPONSOR_ROLES.includes(currentRole);
   // Roles with nothing of their own in the mini-app yet are pointed to the website.
   const webOnly = !investor && ![...USER_ADMIN_ROLES, ...ASSET_OWNER_ROLES, ...SPONSOR_ROLES, ...LEASING_ROLES, ...SETTLEMENT_ROLES].includes(currentRole);
   const [kyc, setKyc] = useState<KycApplication | null | undefined>(undefined);
@@ -58,6 +60,8 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc:
 
       {assetOwner && <MobileAssetOwnerDashboard onOpen={onOpen} />}
 
+      {sponsor && <MobileSponsorDashboard onOpen={onOpen} onOpenNotifications={onOpenNotifications} />}
+
       {webOnly && (
         <section className="rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-500/10 p-4 text-sm space-y-2">
           <p className="font-bold flex items-center gap-2"><Monitor className="w-4 h-4" />{t('Your work is on the website')}</p>
@@ -90,7 +94,7 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc:
 
       {investor && <MobileInvestorDashboard onOpen={onOpen} />}
 
-      {POOL_VIEW_ROLES.includes(currentRole) && (
+      {POOL_VIEW_ROLES.includes(currentRole) && !sponsor && (
         <button type="button" onClick={() => onOpen('pools')} className="w-full flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 text-left">
           <span>
             <span className="block text-sm font-black">{t('Wealth pools')}</span>

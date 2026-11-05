@@ -101,7 +101,7 @@ export const MobileShell: React.FC = () => {
         {overlay === 'zakat' && <MobileZakat onBack={() => openTab('portfolio')} />}
         {overlay === 'projects' && <MobileProjectsAdmin onBack={() => openTab('home')} />}
         {overlay === 'assistant' && <MobileAssistant onBack={() => setOverlay(null)} />}
-        {!overlayOpen && tab === 'home' && <MobileHome onOpen={openTab} onOpenKyc={openKyc} onOpenProjects={() => setOverlay('projects')} />}
+        {!overlayOpen && tab === 'home' && <MobileHome onOpen={openTab} onOpenKyc={openKyc} onOpenProjects={() => setOverlay('projects')} onOpenNotifications={() => setOverlay('notifications')} />}
         {!overlayOpen && tab === 'beneficiaries' && <MobileBeneficiaries />}
         {!overlayOpen && tab === 'pools' && <MobilePools onOpenPortfolio={() => openTab('portfolio')} onOpenKyc={openKyc} />}
         {!overlayOpen && tab === 'portfolio' && <MobilePortfolio onOpenStatements={() => setOverlay('statements')} onOpenZakat={() => setOverlay('zakat')} />}
