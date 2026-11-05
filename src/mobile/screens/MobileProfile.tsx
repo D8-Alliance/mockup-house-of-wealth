@@ -3,10 +3,11 @@ import { Camera, ChevronRight, ExternalLink, FileText, KeyRound, LogOut, Monitor
 import { useRBAC } from '../../rbac/RBACContext';
 import { canInvest } from '../../rbac/menuVisibility';
 import { apiClient, apiErrorMessage, BackendUser, KycApplication } from '../../services/apiClient';
-import { KYC_DOCUMENT_LABELS, KYC_ID_DOCUMENT_LABELS, KYC_LEVEL_LABELS, KYC_STATUS_LABELS } from '../../kyc/kycLabels';
+import { KYC_DOCUMENT_LABELS, KYC_ID_DOCUMENT_LABELS, KYC_LEVEL_LABELS, KYC_STATUS_LABELS, roleNeedsKyc } from '../../kyc/kycLabels';
 import { accountConsoleUrl } from '../../auth/services/oidcAuthProvider';
 import { avatarFromPhoto } from '../avatarImage';
 import { LanguageToggle, useT } from '../i18n';
+import { MobilePayoutAccounts } from './MobilePayoutAccounts';
 
 const card = 'rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 space-y-3';
 const row = 'flex justify-between gap-3 text-xs';
@@ -160,6 +161,9 @@ export const MobileProfile: React.FC<{ onOpenKyc: () => void; onAvatarChange: (u
           )}
         </section>
       )}
+
+      {/* Roles that receive money keep the bank accounts it is paid into (as on the website's profile). */}
+      {roleNeedsKyc(currentRole) && <MobilePayoutAccounts />}
 
       {security.length > 0 && (
         <section className={card}>
