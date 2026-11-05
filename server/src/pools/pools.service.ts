@@ -34,20 +34,30 @@ export class PoolsService {
     // What each pool has raised: investor money Finance has settled (posted contributions).
     const raised = pools.length ? await this.prisma.investmentContribution.groupBy({ by: ['poolId'], where: { poolId: { in: pools.map((pool) => pool.poolId) }, status: 'POSTED' }, _sum: { amount: true } }) : [];
     const raisedByPool = new Map(raised.map((row) => [row.poolId, Number(row._sum.amount || 0)]));
-    return pools.map(({ project, ...pool }) => ({ ...pool, projectName: project.projectName, projectSuspended: !!project.suspendedAt, targetAmount: Number(project.fundingRequired), raisedAmount: raisedByPool.get(pool.poolId) ?? 0 }));
+    const investors = await this.investorCounts(pools.map((pool) => pool.poolId));
+    return pools.map(({ project, ...pool }) => ({ ...pool, projectName: project.projectName, projectSuspended: !!project.suspendedAt, investorCount: investors.get(pool.poolId) ?? 0, targetAmount: Number(project.fundingRequired), raisedAmount: raisedByPool.get(pool.poolId) ?? 0 }));
   }
 
   async get(id: string, user: AuthenticatedUser) {
     const pool = await this.prisma.wealthPool.findUnique({ where: { poolId: id }, include: { project: { select: { fundingRequired: true, suspendedAt: true } } } });
     if (!pool) throw new NotFoundException('Pool not found');
     assertCanViewPool(user, pool);
-    const [raised, akadTerms, related] = await Promise.all([
+    const [raised, akadTerms, related, investors] = await Promise.all([
       this.prisma.investmentContribution.aggregate({ _sum: { amount: true }, where: { poolId: id, status: 'POSTED' } }),
       this.currentTerms(this.prisma, id),
       // Disclosed to every investor: confirmed money from entities of the project organisation's own group.
       this.prisma.investmentOrder.aggregate({ _sum: { amount: true }, where: { poolId: id, status: 'SETTLED', relatedParty: true } }),
+      this.investorCounts([id]),
     ]);
-    return { ...pool, raisedAmount: Number(raised._sum.amount || 0), relatedPartyAmount: Number(related._sum.amount || 0), targetAmount: Number(pool.project.fundingRequired), projectSuspended: !!pool.project.suspendedAt, akadTerms };
+    return { ...pool, raisedAmount: Number(raised._sum.amount || 0), relatedPartyAmount: Number(related._sum.amount || 0), targetAmount: Number(pool.project.fundingRequired), projectSuspended: !!pool.project.suspendedAt, investorCount: investors.get(id) ?? 0, akadTerms };
+  }
+
+  /** How many investors hold confirmed capital in each pool: a total anyone who sees the pool may know, without who they are. */
+  private async investorCounts(poolIds: string[]) {
+    const rows = poolIds.length ? await this.prisma.investmentOrder.groupBy({ by: ['poolId', 'investorUserId'], where: { poolId: { in: poolIds }, status: 'SETTLED' } }) : [];
+    const counts = new Map<string, number>();
+    for (const row of rows) counts.set(row.poolId, (counts.get(row.poolId) ?? 0) + 1);
+    return counts;
   }
 
   async akadTerms(id: string, user: AuthenticatedUser) {

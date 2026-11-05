@@ -121,6 +121,12 @@ describe('InvestmentsService.createOrder: separate entities, KYC and own orders'
     await service.listOrders(investor());
     expect(prisma.investmentOrder.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { investorUserId: 'USR-INVESTOR' } }));
   });
+
+  it('keeps investor orders from the delivery partner, and shows them to finance for the whole country', async () => {
+    await expect(service.listOrders({ ...actor('Project Sponsor', 'USR-SPONSOR'), organisationId: 'ORG-PDP' } as AuthenticatedUser)).rejects.toThrow("platform's finance, settlement and compliance staff");
+    await service.listOrders({ ...actor('Finance Officer', 'USR-FIN'), organisationId: 'ORG-PLATFORM' } as AuthenticatedUser);
+    expect(prisma.investmentOrder.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { countryNodeId: 'CN-MYS' } }));
+  });
 });
 
 describe('InvestmentsService.createOrder: investment limits by KYC level', () => {
