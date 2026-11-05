@@ -141,3 +141,18 @@ export function availableActions(actor: AuthenticatedUser, agreement: AgreementF
     .filter(([action]) => reviewBlocker(actor, agreement, action) === null)
     .map(([action, transition]) => ({ action, label: transition.label }));
 }
+
+/**
+ * What drafting a project's agreement again does, given the status of its latest agreement of that type:
+ * NEW (none yet), REVISE (a draft or one sent back: add a version), WAIT (in review: refused until decided)
+ * or AMEND (approved or signed: only a separate amendment may change it).
+ */
+export type ProjectAgreementStep = 'NEW' | 'REVISE' | 'WAIT' | 'AMEND';
+
+export function projectAgreementStep(status: string | null | undefined): ProjectAgreementStep {
+  if (!status) return 'NEW';
+  if (status === 'DRAFT' || status === 'CHANGES_REQUESTED') return 'REVISE';
+  if (status === 'LEGAL_REVIEW' || status === 'SHARIAH_REVIEW') return 'WAIT';
+  if (status === 'APPROVED' || status === 'EXECUTION') return 'AMEND';
+  return 'NEW';
+}

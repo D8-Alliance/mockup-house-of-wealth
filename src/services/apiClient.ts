@@ -610,6 +610,8 @@ export const apiClient = {
     method: 'POST',
     body: JSON.stringify(input),
   }),
+  /** The project's saved contract advice, newest first; version 1 is the first analysis. */
+  getContractAdviceHistory: (projectId: string) => request<Array<BackendAiRun & { version: number }>>(`/ai/projects/${encodeURIComponent(projectId)}/contract-advice`),
   createAgreementDraft: (input: { contractType: string; projectName: string; jurisdiction: string; projectId?: string; engagementId?: string; wizardData: Record<string, unknown> }) => request<BackendAgreementDraft>('/contract-intelligence/agreements/drafts', { method: 'POST', body: JSON.stringify(input) }),
   listAgreements: () => request<AgreementSummary[]>('/contract-intelligence/agreements'),
   getAgreement: (id: string) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}`),
@@ -1230,7 +1232,7 @@ export interface DashboardSummary {
 }
 
 export interface BackendAgreementDraft {
-  contract: { id: string; contractNumber: string; contractType: string; status: string; title?: string };
+  contract: { id: string; contractNumber: string; contractType: string; status: string; title?: string; projectId?: string | null; amendsContractId?: string | null; versions?: Array<{ version: number }> };
   compliance: { status: string; checks: Array<{ label: string; pass: boolean; severity: string }> };
   sections: Array<{ number: string; title: string; paragraphs: string[] }>;
   variables: Record<string, string>;

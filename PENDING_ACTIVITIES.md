@@ -10,7 +10,7 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 2 | Penyedia eKYC luar | Kesan muka palsu, dokumen palsu, semakan rekod kerajaan, senarai AML/PEP/sekatan | Pilih penyedia; semak garis panduan BNM dengan Compliance |
 | 3 | Semakan wajah (liveness) | Uji di lebih banyak telefon, kelip mata/senyum, semak kad fizikal, jalan lain jika kamera gagal | Ujian telefon; jalan lain sebelum dihidupkan |
 | 4 | Data biometrik (PDPA) | Berapa lama gambar wajah disimpan dan bila dipadam | Keputusan tempoh simpanan |
-| 5 | Perjanjian ikut projek | Perjanjian dipautkan kepada projek, ada versi 2, 3 | Boleh dibuat bila diminta (kerja besar) |
+| 5 | Perjanjian ikut projek | Teks pindaan yang khusus (sekarang pindaan memuatkan perjanjian penuh) | Templat pindaan daripada peguam |
 | 6 | Pembayaran ToyyibPay | Uji di staging, kredit bonus, buka akaun live | Ujian staging; akaun ToyyibPay live |
 | 7 | Bayaran keluar ke bank | Sambungan bank/DuitNow, semakan sebelum selesai, dua pelulus ikut amaun | Pilih penyedia; had amaun |
 | 8 | Notifikasi | Rekod DNS untuk emel Resend, Redis TLS untuk production | Tambah rekod DNS |
@@ -82,9 +82,13 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 
 - **Fail:** `server/src/ai/ai.service.ts`, `server/src/contract-intelligence/`, `src/ai/features/contract/`
 
-**Masalah sekarang:** nasihat kontrak AI boleh dijana berulang kali dan hilang bila tukar halaman. Perjanjian yang dijana sentiasa versi 1 dan tidak dipautkan kepada projek.
+**Sudah siap (5 November 2026):**
+- Nasihat kontrak AI disimpan bagi setiap projek. Bila projek dipilih, nasihat terakhir dipaparkan; versi lama boleh dipilih. Analisis semula menambah versi baharu.
+- Perjanjian yang diisi daripada projek ("Fill from" › My projects) dipautkan kepada projek itu. Jana semula semasa draf = versi 2, 3 dan seterusnya. Semasa semakan Legal/Shariah, jana semula ditolak. Selepas diluluskan atau ditandatangani, jana semula mencipta **pindaan** (perjanjian baharu yang merujuk perjanjian asal).
 
-**Cadangan:** simpan nasihat bagi setiap projek; pautkan perjanjian kepada projek; jana semula = versi baharu; selepas diluluskan hanya boleh dipinda; pilih projek daripada senarai.
+**Belum siap:**
+1. Pindaan sekarang memuatkan teks perjanjian penuh dengan tajuk "Amendment to ...". Perlu templat pindaan yang hanya menyatakan perubahan, disediakan oleh peguam.
+2. Perjanjian yang tidak diisi daripada projek (bermula kosong) masih berdiri sendiri, tanpa versi.
 
 ## 6. Pembayaran ToyyibPay
 

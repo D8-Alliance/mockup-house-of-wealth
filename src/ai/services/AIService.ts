@@ -21,6 +21,15 @@ function mapBackendAiResponse<T>(run: BackendAiRun): AIResponse<T> | null {
   };
 }
 
+/** The project's saved contract advice as versions, newest first (the server keeps every analysis). */
+export async function loadContractAdviceHistory(projectId: string) {
+  const runs = await apiClient.getContractAdviceHistory(projectId);
+  return runs.flatMap((run) => {
+    const response = mapBackendAiResponse<ContractAdvisorRecommendation>(run);
+    return response ? [{ version: run.version, createdAt: run.createdAt, response }] : [];
+  });
+}
+
 export class AIService {
   public static async analyzeContract(project: ContractAdvisorProject, user: {
     id: string;

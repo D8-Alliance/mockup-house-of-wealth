@@ -301,7 +301,7 @@ Super Admin boleh hidupkan atau matikan peranan untuk seluruh platform di **Admi
   - selepas kedua-dua pihak tandatangan, PDF akhir dengan Sijil Penyempurnaan dimeterai platform (PAdES) dan dicap masa (RFC 3161);
   - keaslian disemak setiap 6 jam dan setiap kali dimuat turun;
   - `SIGNING_REQUIRE_VERIFIED_IDENTITY=true` mewajibkan KYC atau KYB bagi penandatangan.
-- Contract Advisory dan Agreement Generation umum belum dipautkan kepada projek (item 5 dalam fail pending).
+- **Ikut projek:** nasihat kontrak AI disimpan bagi setiap projek (`GET /ai/projects/:id/contract-advice`), dengan versi. Perjanjian yang diisi daripada projek dipautkan kepadanya (`Contract.projectId`): jana semula semasa draf menambah versi, semasa semakan ditolak, dan selepas diluluskan atau ditandatangani mencipta pindaan (`amendsContractId`). Teks pindaan khusus masih belum ada (item 5 dalam fail pending).
 
 ### 5.12 Notifikasi dan kerja latar belakang (`/notifications`, `server/src/jobs/`)
 - **Saluran:** dalam aplikasi (loceng) dan **emel** (Resend atau SMTP). Keputusan 30 Oktober 2026: push (Firebase) dan SMS (Twilio) tidak digunakan, tetapi kodnya kekal. Saluran asal `IN_APP,EMAIL`. Pengguna boleh matikan emel.
@@ -448,7 +448,7 @@ Logik "kontrak" (agihan ikut nisbah akad, tolak rugi, kunci terma) **sudah dibin
 
 ## 6. Database
 
-- **102 model** dan **88 migration** (`server/prisma/migrations/`).
+- **102 model** dan **90 migration** (`server/prisma/migrations/`).
 - **Jadual yang tidak boleh diubah** (UPDATE dan DELETE ditolak oleh trigger): `AuditEvent`, `LedgerTransaction`, `LedgerEntry`, `HashChainLink`, `PoolAkadTerms`.
 - **Peraturan penting dalam database:**
   - baki lejar mesti seimbang;

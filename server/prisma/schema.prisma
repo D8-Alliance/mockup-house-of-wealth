@@ -1683,6 +1683,10 @@ model Contract {
   engagementId     String?   @unique
   /// The direct lease (src/leasing) this Ijarah agreement documents; one agreement per lease.
   leaseId          String?   @unique
+  /// The project a general agreement (not a partnership or lease agreement) is drafted for; redrafting it adds a version.
+  projectId        String?
+  /// An amendment to an agreement that was already approved or signed.
+  amendsContractId String?
   organisationId   String
   countryNodeId    String
   createdBy        String
@@ -1701,6 +1705,7 @@ model Contract {
   @@index([organisationId, countryNodeId])
   @@index([status])
   @@index([contractType, status])
+  @@index([projectId, contractType])
 }
 
 /// A one-time code sent to a party's signer; the signature is accepted only with it.

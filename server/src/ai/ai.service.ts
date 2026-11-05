@@ -292,6 +292,16 @@ export class AiService {
     });
   }
 
+  /** Every completed contract advice for the project, newest first, numbered as versions (1 = the first). */
+  async contractAdviceHistory(actor: AuthenticatedUser, projectId: string) {
+    const project = await this.prisma.project.findUnique({ where: { projectId }, select: { projectId: true, organisationId: true, countryNodeId: true, status: true } });
+    if (!project) throw new NotFoundException('Project not found.');
+    assertProjectAccess(actor, project);
+    const where = { featureKey: 'contract_advisor', status: 'COMPLETED', input: { path: ['projectId'], equals: projectId } };
+    const [total, runs] = await Promise.all([this.prisma.aiRun.count({ where }), this.prisma.aiRun.findMany({ where, orderBy: { createdAt: 'desc' }, take: 50 })]);
+    return runs.map((run, index) => ({ ...run, version: total - index }));
+  }
+
   async contractDraft(actor: AuthenticatedUser, input: ContractDraftDto) {
     const project = await this.prisma.project.findUnique({
       where: { projectId: input.projectId },

@@ -1,5 +1,5 @@
 import { AuthenticatedUser } from '../auth/identity.service';
-import { AgreementForReview, AgreementParty, availableActions, canSeeAgreement, partyActions, reviewBlocker, agreementTypeBlocker } from './agreement-review-rules';
+import { AgreementForReview, AgreementParty, availableActions, canSeeAgreement, partyActions, projectAgreementStep, reviewBlocker, agreementTypeBlocker } from './agreement-review-rules';
 
 function actor(userId: string, role: AuthenticatedUser['role'], organisationId = 'ORG-FELDA', countryNodeId = 'CN-MYS'): AuthenticatedUser {
   return { userId, idpSubjectId: userId, email: `${userId}@example.test`, name: userId, role, countryNodeId, organisationId, assignedRoles: [role] };
@@ -131,5 +131,17 @@ describe('asset partnership agreements', () => {
     expect(reviewBlocker(pdp, approved, 'EXECUTION')).toMatch(/Each party signs/);
     expect(partyActions(pdp, approved)).toEqual([{ action: 'SIGN', label: 'Sign the agreement' }]);
     expect(partyActions(owner, approved)).toEqual([]);
+  });
+});
+
+describe('drafting a project agreement again', () => {
+  it('adds a version to a draft, waits during review and amends once approved', () => {
+    expect(projectAgreementStep(null)).toBe('NEW');
+    expect(projectAgreementStep('DRAFT')).toBe('REVISE');
+    expect(projectAgreementStep('CHANGES_REQUESTED')).toBe('REVISE');
+    expect(projectAgreementStep('LEGAL_REVIEW')).toBe('WAIT');
+    expect(projectAgreementStep('SHARIAH_REVIEW')).toBe('WAIT');
+    expect(projectAgreementStep('APPROVED')).toBe('AMEND');
+    expect(projectAgreementStep('EXECUTION')).toBe('AMEND');
   });
 });

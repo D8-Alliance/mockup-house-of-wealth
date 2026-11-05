@@ -11,7 +11,7 @@ import { PrismaService } from '../prisma.service';
 import { assertTenantScope, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { ContractClauseRetriever } from '../ai/contract-clause-retriever.service';
 import { AGREEMENT_TYPES, AgreementPartyActionDto, AgreementReviewDto, AgreementType, AgreementWizardDto, LeaseAgreementDto } from './agreement.dto';
-import { agreementTypeBlocker, availableActions, canSeeAgreement, DRAFTER_ROLES, isAgreementReviewer, partyActions, reviewBlocker } from './agreement-review-rules';
+import { agreementTypeBlocker, availableActions, canSeeAgreement, DRAFTER_ROLES, isAgreementReviewer, partyActions, projectAgreementStep, reviewBlocker } from './agreement-review-rules';
 import { NotificationService } from '../notifications/notification.service';
 import { UserRole as PrismaUserRole } from '@prisma/client';
 import { D8_JURISDICTIONS, getJurisdictionProfile } from './jurisdiction-profiles';
@@ -43,14 +43,49 @@ export class AgreementGenerationService {
     if (typeBlocked) throw new ForbiddenException(typeBlocked);
     if (input.engagementId) return this.draftForPartnership(actor, input, input.engagementId);
     if (input.leaseId) return this.draftForLease(actor, { leaseId: input.leaseId });
-    if (input.projectId) {
-      const project = await this.prisma.project.findUnique({ where: { projectId: input.projectId }, select: { organisationId: true, countryNodeId: true } });
-      if (!project) throw new NotFoundException('Project not found.');
-      assertTenantScope(actor, project, 'Project');
-    }
+    if (input.projectId) return this.draftForProject(actor, input, input.projectId);
     const { content, compliance, sections, clauses, rules, aiSkippedReason } = await this.compose(actor, input);
     const contract = await this.prisma.contract.create({ data: { ...this.scope(actor), contractNumber: this.newContractNumber(), contractType: input.contractType, title: labels[input.contractType], templateId: input.templateId, status: 'DRAFT', wizardData: input.wizardData as object, complianceReport: compliance as object, createdBy: actor.userId, versions: { create: { version: 1, content, status: 'DRAFT', createdBy: actor.userId } }, events: { create: { eventType: 'DRAFT_CREATED', toStatus: 'DRAFT', actorId: actor.userId, metadata: { contractType: input.contractType } } } }, include: { versions: true } });
     await this.auditRecord(actor, 'agreement.draft_created', contract.id, { contractType: input.contractType, complianceStatus: compliance.status, approvedClauseCount: clauses.length, aiSkippedReason });
+    return { contract, compliance, sections, variables: this.variables(input.wizardData), approvedClauses: clauses, shariahRules: rules };
+  }
+
+  /**
+   * A project's agreement of one type is one record. Drafting it again while it is a draft (or sent back for
+   * changes) adds a version; while it is in review it waits for the decision; once approved or signed it is
+   * changed only by an amendment, a new agreement that points to it.
+   */
+  private async draftForProject(actor: AuthenticatedUser, input: AgreementWizardDto, projectId: string) {
+    const project = await this.prisma.project.findUnique({ where: { projectId }, select: { organisationId: true, countryNodeId: true, projectName: true } });
+    if (!project) throw new NotFoundException('Project not found.');
+    assertTenantScope(actor, project, 'Project');
+    const existing = await this.prisma.contract.findFirst({ where: { projectId, contractType: input.contractType, engagementId: null, leaseId: null }, orderBy: { createdAt: 'desc' }, include: { versions: { orderBy: { version: 'desc' }, take: 1 } } });
+    const step = projectAgreementStep(existing?.status);
+    if (step === 'WAIT') throw new ConflictException(`The ${labels[input.contractType]} for ${project.projectName} (${existing!.contractNumber}) is in review. Wait for the reviewer's decision before drafting again.`);
+    const { content, compliance, sections, clauses, rules, aiSkippedReason } = await this.compose(actor, input);
+    let contractId: string;
+    let version = 1;
+    if (step === 'REVISE') {
+      version = (existing!.versions[0]?.version ?? 0) + 1;
+      contractId = existing!.id;
+      await this.prisma.$transaction(async (tx) => {
+        await tx.contractVersion.create({ data: { contractId, version, content, status: 'DRAFT', createdBy: actor.userId } });
+        await tx.contractEvent.create({ data: { contractId, eventType: 'REVISED', fromStatus: existing!.status, toStatus: existing!.status, actorId: actor.userId, metadata: { version, role: actor.role, byName: actor.name, note: `Version ${version}` } } });
+        await tx.contract.update({ where: { id: contractId }, data: { wizardData: input.wizardData as object, complianceReport: compliance as object, lastGeneratedAt: new Date() } });
+      });
+    } else {
+      const amends = step === 'AMEND' ? existing! : null;
+      const created = await this.prisma.contract.create({ data: {
+        ...this.scope(actor), projectId, amendsContractId: amends?.id ?? null, contractNumber: this.newContractNumber(), contractType: input.contractType,
+        title: amends ? `Amendment to ${labels[input.contractType]} ${amends.contractNumber}` : labels[input.contractType], templateId: input.templateId, status: 'DRAFT',
+        wizardData: input.wizardData as object, complianceReport: compliance as object, createdBy: actor.userId,
+        versions: { create: { version: 1, content, status: 'DRAFT', createdBy: actor.userId } },
+        events: { create: { eventType: 'DRAFT_CREATED', toStatus: 'DRAFT', actorId: actor.userId, metadata: { contractType: input.contractType, projectId, ...(amends ? { amends: amends.contractNumber, note: `Amendment to ${amends.contractNumber}` } : {}) } } },
+      } });
+      contractId = created.id;
+    }
+    await this.auditRecord(actor, step === 'REVISE' ? 'agreement.revised' : step === 'AMEND' ? 'agreement.amendment_drafted' : 'agreement.draft_created', contractId, { contractType: input.contractType, projectId, version, amends: step === 'AMEND' ? existing!.contractNumber : undefined, complianceStatus: compliance.status, approvedClauseCount: clauses.length, aiSkippedReason });
+    const contract = await this.prisma.contract.findUniqueOrThrow({ where: { id: contractId }, include: { versions: { orderBy: { version: 'desc' } } } });
     return { contract, compliance, sections, variables: this.variables(input.wizardData), approvedClauses: clauses, shariahRules: rules };
   }
 

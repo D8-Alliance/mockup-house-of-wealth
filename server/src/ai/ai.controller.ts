@@ -66,6 +66,11 @@ export class AiController {
   @Roles('Super Admin', 'AI Administrator', 'Shariah Reviewer', 'Shariah Advisor', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin')
   contractAdvisor(@CurrentUser() actor: AuthenticatedUser, @Body() input: ContractAdvisorDto) { return this.ai.contractAdvisor(actor, input); }
 
+  /** The project's saved contract advice, newest first: each analysis is kept as a version. */
+  @Get('projects/:id/contract-advice')
+  @Roles('Super Admin', 'AI Administrator', 'AI Model Reviewer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee', 'Legal Officer', 'Compliance Officer', 'Risk Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin')
+  contractAdviceHistory(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.ai.contractAdviceHistory(actor, id); }
+
   @Post('contract-drafts/generate')
   @Roles('Super Admin', 'AI Administrator', 'Shariah Reviewer', 'Legal Officer', 'Project Sponsor', 'Project Manager', 'Organization Admin', 'Retail Investor', 'HNWI Investor', 'Institutional Investor', 'Corporate Investor', 'Family Office')
   contractDraft(@CurrentUser() actor: AuthenticatedUser, @Body() input: ContractDraftDto) { return this.ai.contractDraft(actor, input); }

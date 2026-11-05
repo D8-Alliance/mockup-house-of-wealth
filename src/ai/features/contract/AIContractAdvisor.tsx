@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { pickAiProject } from '../../aiEngineNavigation';
 import { ProjectPartnershipsNote } from './ProjectPartnershipsNote';
-import { AIService } from '../../services/AIService';
+import { AIService, loadContractAdviceHistory } from '../../services/AIService';
 import { ContractAdvisorProject } from '../../types/aiCoreTypes';
 import { apiClient } from '../../../services/apiClient';
 import { isProjectLocked } from '../../../services/projectLock';
@@ -60,12 +60,35 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
 
   const project = projects.find((item) => item.projectId === selectedProjectId);
 
+  // Every analysis is saved with the project: show the latest on opening, and earlier ones on request.
+  const [history, setHistory] = useState<Awaited<ReturnType<typeof loadContractAdviceHistory>>>([]);
+  const [shownVersion, setShownVersion] = useState<number | null>(null);
+  const loadHistory = async (projectId: string) => {
+    const saved = await loadContractAdviceHistory(projectId).catch(() => []);
+    setHistory(saved);
+    setShownVersion(saved[0]?.version ?? null);
+    setAnalysis(saved[0]?.response ?? null);
+  };
+  useEffect(() => {
+    setHistory([]);
+    setShownVersion(null);
+    setAnalysis(null);
+    if (selectedProjectId) void loadHistory(selectedProjectId);
+  }, [selectedProjectId]);
+  const showVersion = (version: number) => {
+    const entry = history.find((item) => item.version === version);
+    if (!entry) return;
+    setShownVersion(version);
+    setAnalysis(entry.response);
+  };
+
   const handleAnalyze = async () => {
     if (!project) return;
     setLoading(true);
     setError('');
     try {
       setAnalysis(await AIService.analyzeContract(project, user));
+      await loadHistory(project.projectId);
     } catch (analysisError) {
       setError(analysisError instanceof Error ? analysisError.message : 'Unable to analyze the contract.');
     } finally {
@@ -97,7 +120,7 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
             className="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-lg shadow-emerald-600/20 flex items-center gap-2 cursor-pointer shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Sparkles className="w-4 h-4 text-emerald-200" />
-            {project && isProjectLocked(project.status) ? 'Locked after approval' : loading ? 'Evaluating Structure...' : 'Analyze Contract Structure'}
+            {project && isProjectLocked(project.status) ? 'Locked after approval' : loading ? 'Evaluating Structure...' : history.length ? `Analyze again (version ${history[0].version + 1})` : 'Analyze Contract Structure'}
           </button>
         </div>
 
@@ -106,7 +129,7 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
              <span>Project:</span>
              <select
                value={selectedProjectId}
-               onChange={(event) => { setSelectedProjectId(event.target.value); setAnalysis(null); }}
+               onChange={(event) => setSelectedProjectId(event.target.value)}
                disabled={loading || projects.length === 0}
                className="rounded-lg border border-slate-300 bg-white px-2 py-1 font-bold text-slate-900"
              >
@@ -120,6 +143,15 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
            </> : <span>No projects available for the current tenant.</span>}
          </div>
          {project && <ProjectPartnershipsNote projectId={project.projectId} financingStructure={project.proposedShariahContract} />}
+         {history.length > 0 && (
+           <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+             <span>Saved advice for this project:</span>
+             <select value={shownVersion ?? ''} onChange={(event) => showVersion(Number(event.target.value))} className="rounded-lg border border-slate-300 bg-white px-2 py-1 font-bold text-slate-900">
+               {history.map((item) => <option key={item.version} value={item.version}>Version {item.version} · {new Date(item.createdAt).toLocaleString()}{item.version === history[0].version ? ' (latest)' : ''}</option>)}
+             </select>
+             <span>Each analysis is kept; analysing again adds a new version.</span>
+           </div>
+         )}
       </div>
 
       {error && <p role="alert" className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">{error}</p>}
