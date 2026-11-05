@@ -7,11 +7,13 @@ const user = (role: AuthenticatedUser['role'], organisationId = 'ORG-INVESTOR', 
 describe('pool access', () => {
   const pool = (status: string, organisationId = 'ORG-PDP', countryNodeId = 'CN-MYS') => ({ status, organisationId, countryNodeId });
 
-  it('shows investors every OPEN pool in their country, and nothing else outside their organisation', () => {
+  it('shows investors every OPEN or fully funded pool in their country, and nothing else outside their organisation', () => {
     expect(() => assertCanViewPool(user('Retail Investor'), pool('OPEN'))).not.toThrow();
+    expect(() => assertCanViewPool(user('Retail Investor'), pool('FULL'))).not.toThrow();
     expect(() => assertCanViewPool(user('Retail Investor'), pool('DRAFT'))).toThrow(ForbiddenException);
+    expect(() => assertCanViewPool(user('Retail Investor'), pool('PAUSED'))).toThrow(ForbiddenException);
     expect(() => assertCanViewPool(user('Retail Investor', 'ORG-INVESTOR', 'CN-IDN'), pool('OPEN'))).toThrow(ForbiddenException);
-    expect(poolVisibilityFilter(user('Retail Investor'))).toEqual({ OR: [{ countryNodeId: 'CN-MYS', organisationId: 'ORG-INVESTOR' }, { countryNodeId: 'CN-MYS', status: 'OPEN' }] });
+    expect(poolVisibilityFilter(user('Retail Investor'))).toEqual({ OR: [{ countryNodeId: 'CN-MYS', organisationId: 'ORG-INVESTOR' }, { countryNodeId: 'CN-MYS', status: { in: ['OPEN', 'FULL', 'CLOSED'] } }] });
   });
 
   it('keeps other roles, such as a delivery partner, inside their own organisation', () => {

@@ -1194,6 +1194,11 @@ export const MS: Record<string, string> = {
   "Enter the full account number (at least 6 digits).": "Masukkan nombor akaun penuh (sekurang-kurangnya 6 digit).",
   "Payout account not found.": "Akaun bayaran tidak dijumpai.",
   "Payout accounts are for investors, PDPs and asset owners.": "Akaun bayaran hanya untuk pelabur, PDP dan pemilik aset.",
+  // Fully funded pools (Pools)
+  "Fully funded": "Dibiayai sepenuhnya",
+  "These pools raised their target and take no new investment.": "Pool ini sudah mencapai sasaran dan tidak lagi menerima pelaburan baharu.",
+  "Raised": "Terkumpul",
+  "Target": "Sasaran",
   // Lease renewal (Leasing)
   "Ask to renew": "Mohon pembaharuan",
   "Renewal of": "Pembaharuan bagi",
