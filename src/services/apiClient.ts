@@ -431,6 +431,8 @@ export const apiClient = {
   getServerPermissions: () => request<Array<{ role: string; permissions: Record<string, string[]> }>>('/dashboard/permissions'),
   getPlatformRevenue: () => request<PlatformRevenue>('/membership/admin/revenue'),
   getSiteContent: (editor: boolean) => request<Record<string, unknown>>(editor ? '/site-content/editor' : '/site-content'),
+  /** Public: each active country node with live counts, for the Member States and About pages. */
+  getPublicNetwork: () => request<Array<{ countryNodeId: string; countryName: string; currency: string; regulatoryProfile: string; status: string; flagUrl: string; activeOrganisationsCount: number; activeProjectsCount: number; activePoolsCount: number; activeUsersCount: number }>>('/public/network'),
   saveSiteContent: (entries: Record<string, unknown>) => request<Record<string, unknown>>('/site-content', { method: 'PUT', body: JSON.stringify({ entries }) }),
   getCountryNodeList: () => request<CountryNodeRow[]>('/country-nodes'),
   createCountryNode: (input: { code: string; name: string; currency: string; timezone: string; regulatoryProfile: string }) => request<CountryNodeRow>('/country-nodes', { method: 'POST', body: JSON.stringify(input) }),

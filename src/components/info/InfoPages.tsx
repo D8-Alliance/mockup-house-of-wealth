@@ -22,7 +22,7 @@ import {
   Users,
   Wallet
 } from 'lucide-react';
-import { INITIAL_COUNTRY_NODES } from '../../countryNodes/mockCountryNodes';
+import { useNetworkCountries } from './useNetworkCountries';
 import { useRBAC } from '../../rbac/RBACContext';
 import { ContentStatus } from '../../shariah/coreValuesTypes';
 import { shariahContentService } from '../../shariah/shariahContentService';
@@ -50,7 +50,6 @@ const NAV_LINKS: { id: PublicPageId; label: string }[] = [
   { id: 'contact', label: 'Contact' }
 ];
 
-const countries = INITIAL_COUNTRY_NODES;
 
 function SectionHeading({
   icon,
@@ -109,6 +108,7 @@ function InfoHeader({
   onNavigate: (page: PublicPageId) => void;
   onSignIn: () => void;
 }) {
+  const countries = useNetworkCountries();
   return (
     <>
       <div className="bg-slate-950 text-white border-b border-slate-800 py-2.5 px-4 sm:px-6 lg:px-8">
@@ -170,6 +170,7 @@ function InfoHeader({
 }
 
 export function InfoPageLayout({ children, pageId, onNavigate, onSignIn }: InfoPageLayoutProps) {
+  const countries = useNetworkCountries();
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-[#0f172a] text-slate-800 dark:text-slate-100 font-sans flex flex-col">
       <InfoHeader pageId={pageId} onNavigate={onNavigate} onSignIn={onSignIn} />
@@ -222,6 +223,7 @@ export function InfoPageLayout({ children, pageId, onNavigate, onSignIn }: InfoP
 /* About D-8                                                           */
 /* ------------------------------------------------------------------ */
 export function AboutD8Page() {
+  const countries = useNetworkCountries();
   const { content, status, canEdit, editorName, editorOpen, openEditor, closeEditor } = useEditablePageContent('about');
 
   const milestones = content.sections.milestones;
@@ -329,9 +331,10 @@ export function AboutD8Page() {
 /* Member States                                                       */
 /* ------------------------------------------------------------------ */
 export function MemberStatesPage() {
+  const countries = useNetworkCountries();
   const { content, status, canEdit, editorName, editorOpen, openEditor, closeEditor } = useEditablePageContent('members');
 
-  const featured = countries[5]; // CN-MYS default highlight
+  const featured = countries.find((c) => c.countryNodeId === 'CN-MYS') ?? countries[0]; // Malaysia highlighted first
   const [focus, setFocus] = React.useState<string>(featured.countryNodeId);
   const active = countries.find((c) => c.countryNodeId === focus) || featured;
 
