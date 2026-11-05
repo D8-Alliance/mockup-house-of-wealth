@@ -1209,6 +1209,16 @@ export const MS: Record<string, string> = {
   "And {count} more in your projects.": "Dan {count} lagi dalam projek anda.",
   "Tranches released: {released} of {allocated}": "Tranche dilepaskan: {released} daripada {allocated}",
   "Latest": "Terkini",
+  // Sponsor home: funding and see all
+  "Investor holdings": "Pegangan pelabur",
+  "See all ({count})": "Lihat semua ({count})",
+  "See more": "Lihat lagi",
+  "Pool funding": "Dana pool",
+  "{pct}% of the target": "{pct}% daripada sasaran",
+  "pools": "pool",
+  "with confirmed capital": "dengan modal disahkan",
+  "{count} investor(s)": "{count} pelabur",
+  "Totals only: who invested is kept by the platform.": "Jumlah sahaja: identiti pelabur disimpan oleh platform.",
   // Lease renewal (Leasing)
   "Ask to renew": "Mohon pembaharuan",
   "Renewal of": "Pembaharuan bagi",
