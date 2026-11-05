@@ -120,8 +120,11 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
   const [filterOrgType, setFilterOrgType] = useState<string>('ALL');
 
   useEffect(() => {
-    void apiClient.getProjects()
-      .then((backendProjects) => {
+    // Raised is the investor capital Finance has confirmed in the project's pools (the pool list carries it).
+    void Promise.all([apiClient.getProjects(), apiClient.getPools().catch(() => [])])
+      .then(([backendProjects, pools]) => {
+        const raisedByProject = new Map<string, number>();
+        for (const pool of pools) raisedByProject.set(pool.projectId, (raisedByProject.get(pool.projectId) ?? 0) + Number(pool.raisedAmount ?? 0));
         setProjectLoadError('');
         const projectsFromDatabase: SponsorProject[] = backendProjects.map((item) => ({
           id: item.projectId,
@@ -135,7 +138,7 @@ export const ProjectSponsorView: React.FC<ProjectSponsorViewProps> = ({ onNaviga
           category: mapProjectCategory(item.sector, item.projectName),
           shariahContract: mapShariahContract(item.proposedShariahContract),
           targetFunding: Number(item.fundingRequired),
-          raisedFunding: 0,
+          raisedFunding: raisedByProject.get(item.projectId) ?? 0,
           expectedYield: yieldLabel(item.expectedYieldPct),
           tenureMonths: item.tenureMonths ?? 0,
           location: item.location || item.countryNodeId,
