@@ -265,7 +265,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
       </div>
 
       {/* Scalable navigation: primary modules stay visible on desktop; secondary modules live in More. */}
-      <div className="hidden lg:flex items-center gap-2">
+      <div className="hidden lg:flex flex-wrap items-center gap-2">
         {primaryTabs.map(tab => {
           const isActive = activeTab === tab.id;
           return (

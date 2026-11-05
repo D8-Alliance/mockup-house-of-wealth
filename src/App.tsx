@@ -33,7 +33,6 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
   // Returning from ToyyibPay checkout lands on /membership?order_id=…; open that tab so the payment is confirmed.
   const [currentTab, setTab] = useState<NavTab>(() => new URLSearchParams(window.location.search).has('order_id') ? 'membership' : 'dashboard');
   const [lang, setLang] = useState<LanguageCode>('en');
-  const [darkMode, setDarkMode] = useState<boolean>(false);
 
   const { showLoginModal, setShowLoginModal, currentRole, canAccessTab, authMode, activeUser } = useRBAC();
 
@@ -77,13 +76,6 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
   const currentLangObj = LANGUAGES.find(l => l.code === lang) || LANGUAGES[0];
   const isRtl = currentLangObj.dir === 'rtl';
 
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
 
   const handleAddContract = (newContract: ContractItem) => {
     setContracts(prev => [newContract, ...prev]);
@@ -104,14 +96,12 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
         setTab={setTab}
         lang={lang}
         setLang={setLang}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
         user={user}
         onOpenCodeReview={() => setCodeReviewOpen(true)}
         onOpenPdpRegister={() => setPdpRegisterOpen(true)}
       />
 
-      <main className="flex-grow min-w-0 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-grow min-w-0 max-w-[2400px] w-full mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         {currentTab === 'dashboard' && <MembershipExpiryBanner onRenew={() => setTab('membership')} />}
         <MainTabViews
           currentTab={currentTab}

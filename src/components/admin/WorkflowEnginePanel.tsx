@@ -345,7 +345,7 @@ export const WorkflowEnginePanel: React.FC = () => {
           </div>
 
           {/* Right: Step-by-Step Flow Pipeline */}
-          <div className="lg:col-span-8 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-sm space-y-6">
+          <div className="lg:col-span-8 min-w-0 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-700/80 pb-4">
               <div>
                 <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider block">

@@ -10,8 +10,6 @@ import {
   Compass, 
   HandCoins, 
   Wallet, 
-  Sun, 
-  Moon, 
   CheckCircle2, 
   ChevronDown,
   Menu,
@@ -42,8 +40,6 @@ interface NavbarProps {
   setTab: (tab: NavTab) => void;
   lang: LanguageCode;
   setLang: (lang: LanguageCode) => void;
-  darkMode: boolean;
-  setDarkMode: (val: boolean) => void;
   user: UserProfile;
   onOpenCodeReview: () => void;
   onOpenPdpRegister: () => void;
@@ -54,8 +50,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   setTab,
   lang,
   setLang,
-  darkMode,
-  setDarkMode,
   user,
   onOpenCodeReview,
   onOpenPdpRegister
@@ -96,7 +90,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md transition-colors">
-      <div className="w-full max-w-full lg:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12">
         <div className="flex min-w-0 justify-between items-center h-16 gap-4">
           
           {/* Brand Logo */}
@@ -114,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {canSeePdpOnboarding(currentRole) && (
             <button
               onClick={onOpenPdpRegister}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-500 text-white shadow-sm shadow-purple-500/20 transition-all cursor-pointer shrink-0"
+              className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black bg-purple-600 hover:bg-purple-500 text-white shadow-sm shadow-purple-500/20 transition-all cursor-pointer shrink-0"
               title="Register as a Pool / Product / Project Delivery Partner (PDP)"
             >
               <Building2 className="w-3.5 h-3.5" />
@@ -126,7 +120,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {canSeeCodeReview(currentRole) && (
               <button
                 onClick={onOpenCodeReview}
-                className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition-all cursor-pointer shrink-0"
+                className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 transition-all cursor-pointer shrink-0"
               title="Open Architecture & Code Review Report"
             >
               <Code2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
@@ -177,15 +171,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               )}
             </div>
 
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="hidden lg:block p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-              title="Toggle theme"
-            >
-              {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
-            </button>
-
             {/* Notification Bell: the user's own notifications from the server */}
             <NotificationBell setTab={setTab} />
 
@@ -219,6 +204,19 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
 
                     <div className="py-1">
+                      {/* Below 1280px these two buttons leave the bar to make room, so they are offered here. */}
+                      {canSeePdpOnboarding(currentRole) && (
+                        <button onClick={() => { onOpenPdpRegister(); setUserMenuOpen(false); }} className="xl:hidden w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 cursor-pointer">
+                          <Building2 className="w-4 h-4 text-purple-600" />
+                          <span>PDP Onboarding</span>
+                        </button>
+                      )}
+                      {canSeeCodeReview(currentRole) && (
+                        <button onClick={() => { onOpenCodeReview(); setUserMenuOpen(false); }} className="xl:hidden w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 flex items-center gap-2 cursor-pointer">
+                          <Code2 className="w-4 h-4 text-emerald-600" />
+                          <span>{t.codeReview}</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           setTab('membership');

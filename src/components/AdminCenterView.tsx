@@ -297,7 +297,7 @@ export const AdminCenterView: React.FC<AdminCenterViewProps> = ({ onNavigate }) 
         </div>
 
         {/* Main Content Area */}
-        <div className="lg:col-span-9 space-y-6">
+        <div className="lg:col-span-9 min-w-0 space-y-6">
           {LiveSection && <LiveSection />}
 
           {/* Investor payments waiting for Finance, and tranche releases: the same queue as on the dashboard. */}

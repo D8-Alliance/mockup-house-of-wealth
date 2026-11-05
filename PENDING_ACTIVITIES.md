@@ -17,7 +17,7 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 9 | Blockchain | Fasa 2 (simpan cap hash di blockchain awam), Fasa 3 (token) | Pilih rangkaian; nasihat SC dan Shariah |
 | 10 | Akad, zakat, cukai, dompet pelabur | Nisab 3 negeri, cukai, e-Invois, kira akhir pool, dompet pelabur | Penasihat cukai dan Shariah; Kewangan |
 | 11 | Keselamatan sebelum pilot | Sahkan had KYC, format laporan regulator, tetapan production, hidupkan peranan Auditor | Compliance; pemilik projek |
-| 12 | Keputusan kecil | Organization Admin dan kredit AI, tarikh tamat kad 9 negara, data ujian Anuar | Pemilik projek |
+| 12 | Keputusan kecil | Organization Admin dan kredit AI, tarikh tamat kad 9 negara, data ujian "mockup" | Pemilik projek |
 | 13 | Pembantu dokumen AI | Muat naik pintar, chatbot tahu status, lampiran dalam chat | Keputusan; model AI lebih kuat |
 | 14 | DigitalOcean | Fail ke Spaces, model AI di staging, tetapan Keycloak, sandaran, production | Bajet; lokasi data |
 | 15 | Kumpulan syarikat (pihak berkaitan) | Senarai nama kumpulan oleh admin, modal penaja Musharakah | Keputusan Shariah |
@@ -111,7 +111,7 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 - **Keputusan 30 Oktober 2026:** notifikasi hanya dalam aplikasi dan emel. Tiada push (Firebase) dan tiada SMS (Twilio).
 
 **Belum siap:**
-1. **Emel (Resend):** tambah rekod DNS untuk domain `notify.alhidayahgroup.com.my` di MSC Hosting. Log masuk Plesk "IT Executive" tiada menu DNS, jadi tanya Anuar atau MSC. Selepas itu isi `NOTIFICATION_EMAIL_PROVIDER=resend`, `RESEND_API_KEY` dan `NOTIFICATION_EMAIL_FROM` dalam `/opt/how/server/.env` di staging. Jangan guna `mail.alhidayahgroup.com.my`. Bila emel hidup, emel peringatan, kod OTP tandatangan dan emel kepada pelapor kematian juga akan dihantar.
+1. **Emel (Resend):** tambah rekod DNS untuk domain `notify.alhidayahgroup.com.my` di MSC Hosting. Selepas itu isi `NOTIFICATION_EMAIL_PROVIDER=resend`, `RESEND_API_KEY` dan `NOTIFICATION_EMAIL_FROM` dalam `/opt/how/server/.env` di staging. Jangan guna `mail.alhidayahgroup.com.my`. Bila emel hidup, emel peringatan, kod OTP tandatangan dan emel kepada pelapor kematian juga akan dihantar.
 2. **Redis untuk production:** sediakan sijil TLS (`ca.crt`, `redis.crt`, `redis.key`) dan simpan kata laluan Redis di tempat rahsia (lihat `server/ops/redis/README.md`).
 
 ## 9. Blockchain dan smart contract
@@ -153,7 +153,7 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 
 1. Organization Admin tidak perlu bayar kredit AI sekarang. Kekal atau buang?
 2. Jadual tarikh tamat kad pengenalan 9 negara: sahkan setiap satu.
-3. Data ujian dalam database Anuar (`claude.check1/2/6@test.local`, aset `ASSET-MYS-JZW65Y19`): bersihkan jika tidak perlu.
+3. Data ujian dalam database "mockup" (`claude.check1/2/6@test.local`, aset `ASSET-MYS-JZW65Y19`): bersihkan jika tidak perlu.
 
 ## 13. Pembantu dokumen AI (KYC, KYB, PDP)
 
@@ -169,7 +169,7 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 **Belum siap:**
 1. **Simpan fail di DigitalOcean Spaces**, bukan dalam database. Fail KYC mesti peribadi.
 2. **Staging:** pastikan `OPENAI_API_KEY` diisi (tanpanya jawapan AI hanya contoh); tetapan Keycloak oleh pemilik; sandaran berjadual; kemas kini panduan staging.
-3. **Satu folder `deploy/`** untuk semua tetapan Docker. Dibuat selepas Anuar berhenti.
+3. **Satu folder `deploy/`** untuk semua tetapan Docker.
 4. **Production pilot:** pelayan 8 GB, database dengan sandaran, Redis.
 
 **Perlu diputuskan:** bajet bulanan; lokasi data (DigitalOcean tiada di Malaysia, yang paling dekat Singapura; sahkan dengan Compliance).

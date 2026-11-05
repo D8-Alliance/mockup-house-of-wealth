@@ -34,6 +34,8 @@ const MobileApp = lazy(loadScreens(() => import('./mobile/MobileApp')));
 installPlatformTimeZone();
 
 const mobile = isMobileApp();
+// Only the mini-app follows the phone's dark mode (see the dark variant in index.css); the web app stays light.
+if (mobile) document.documentElement.classList.add('mini-app');
 
 /** Instead of a blank screen when the mini-app fails: what went wrong and a way back in. Bilingual, as the language setting may not have loaded. */
 const MobileCrash = (error: Error | null) => (

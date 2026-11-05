@@ -11,7 +11,7 @@ export const Footer: React.FC<FooterProps> = ({ setTab }) => {
   const { canAccessTab } = useRBAC();
   return (
     <footer className="mt-auto border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 py-10 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-6">
+      <div className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex flex-col items-center md:items-start gap-1">
           <WealthPoolingLogo compact />
           <span className="text-xs text-slate-500 dark:text-slate-400">Wealth Pooling © 2026</span>

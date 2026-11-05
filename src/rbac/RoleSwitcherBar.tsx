@@ -40,7 +40,7 @@ export const RoleSwitcherBar: React.FC = () => {
 
   return (
     <div className="hidden lg:block relative z-50 w-full max-w-full bg-slate-950 text-white border-b border-slate-800 py-2.5 px-4 sm:px-6 lg:px-8 shadow-inner">
-      <div className="w-full max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+      <div className="w-full max-w-[2400px] mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-xs 2xl:px-4">
         
         {/* Left Info Pill */}
         <div className="flex items-center gap-2.5 flex-wrap">

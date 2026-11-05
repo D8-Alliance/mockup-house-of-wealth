@@ -153,7 +153,7 @@ export const AIInvestorAdvisorModule: React.FC = () => {
       </div>
 
       {/* Recommended Output Dashboard */}
-      <div className="lg:col-span-7 space-y-6">
+      <div className="lg:col-span-7 min-w-0 space-y-6">
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-sm space-y-6">
           
           <div className="flex flex-wrap items-center justify-between gap-2 pb-4 border-b border-slate-100 dark:border-slate-700">

@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* The web app has one light theme. dark: styles apply only in the mini-app (/m, marked .mini-app in main.tsx),
+   which follows the phone's own dark-mode setting. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(.mini-app, .mini-app *) {
+      @slot;
+    }
+  }
+}
+
 @layer base {
   *,
   *::before,
