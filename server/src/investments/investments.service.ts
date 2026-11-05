@@ -41,6 +41,14 @@ export const SETTLEMENT_ROLES = new Set(['Super Admin', 'Settlement Officer', 'P
 /** Settlement staff who confirm transfers for every organisation of their country, not only their own. */
 const COUNTRY_SETTLEMENT_ROLES = new Set(['Finance Officer']);
 
+/**
+ * Platform staff who may see individual investor orders (who invested, how much, the transfer): finance and
+ * settlement to confirm and pay, compliance and AML to screen, admins to support. Delivery partners and other roles
+ * see only their pool's totals: the investors contracted with the pool through the platform, and their identity
+ * stays with the platform (PDPA; the Recognized Markets guidelines put investor data on the operator).
+ */
+export const ORDER_DETAIL_ROLES: ReadonlySet<string> = new Set(['Super Admin', 'Country Admin', 'Finance Officer', 'Settlement Officer', 'Portfolio Manager', 'Compliance Officer', 'AML Officer']);
+
 /** Delivery-partner (PDP) roles. Someone running a project must not also invest in its pool. */
 const DELIVERY_PARTNER_ROLES: ReadonlySet<string> = new Set(['Project Sponsor', 'Project Manager']);
 
@@ -162,10 +170,12 @@ export class InvestmentsService {
     });
   }
 
-  listOrders(actor: AuthenticatedUser) {
+  async listOrders(actor: AuthenticatedUser) {
     // An investor sees only their own orders (they sit in the pool's organisation, not the investor's).
     const investor = INVESTOR_ROLES.has(actor.role);
-    const where = investor ? { investorUserId: actor.userId } : tenantScopeFilter(actor);
+    if (!investor && !ORDER_DETAIL_ROLES.has(actor.role)) throw new ForbiddenException("Investor orders are visible only to the platform's finance, settlement and compliance staff. Your pool's totals are shown with the pool.");
+    // Staff review orders for every organisation of their country (orders sit in the pool's organisation).
+    const where = investor ? { investorUserId: actor.userId } : actor.role === 'Super Admin' ? {} : { countryNodeId: actor.countryNodeId };
     // An investor also gets the akad terms they accepted with each order (ijab and qabul): a pool that has
     // filled up is no longer listed to them, but the agreement they made stays readable.
     const akadTerms = investor ? { select: { id: true, version: true, akadType: true, investorProfitSharePct: true, termsText: true, termsHash: true } } : false;

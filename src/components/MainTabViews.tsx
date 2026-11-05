@@ -12,6 +12,10 @@ import { InvestorPositionsPanel } from './investments/InvestorPositionsPanel';
 import { InvestorProfitHistoryPanel } from './investments/InvestorProfitHistoryPanel';
 import { InvestorAgreementsPanel } from './investments/InvestorAgreementsPanel';
 import { PlatformOrdersPanel } from './investments/PlatformOrdersPanel';
+import { PoolFundingSummaryPanel } from './investments/PoolFundingSummaryPanel';
+
+/** Staff who may see individual investor orders (server: ORDER_DETAIL_ROLES); everyone else sees pool totals. */
+const ORDER_DETAIL_ROLES = ['Super Admin', 'Country Admin', 'Finance Officer', 'Settlement Officer', 'Portfolio Manager', 'Compliance Officer', 'AML Officer'];
 import { LivePoolsPanel } from '../pooling/LivePoolsPanel';
 import { LiveDocumentVault } from './documents/LiveDocumentVault';
 import { RoleDocumentVault } from './documents/RoleDocumentVault';
@@ -208,7 +212,7 @@ export const MainTabViews: React.FC<MainTabViewsProps> = ({
               <InvestorPoolsPanel />
             </div>
           ) : authMode !== 'DEMO' ? (
-            <PlatformOrdersPanel />
+            ORDER_DETAIL_ROLES.includes(currentRole) ? <PlatformOrdersPanel /> : <PoolFundingSummaryPanel />
           ) : (
             <InvestmentsView
               lang={lang}

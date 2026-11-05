@@ -13,13 +13,14 @@ describe('PoolsService.list', () => {
         { poolId: 'P1', poolName: 'Gambang Pool', status: 'OPEN', project: { projectName: 'Kilang Baja', fundingRequired: '2400000.00' } },
         { poolId: 'P2', poolName: 'Durian Pool', status: 'FULL', project: { projectName: 'Ladang Durian', fundingRequired: '500000.00', suspendedAt: new Date('2026-11-01') } },
       ]) },
+      investmentOrder: { groupBy: jest.fn(async () => [{ poolId: 'P1', investorUserId: 'U1' }, { poolId: 'P1', investorUserId: 'U2' }]) },
       investmentContribution: { groupBy: jest.fn(async () => [{ poolId: 'P1', _sum: { amount: '150000.00' } }]) },
     };
     const service = new PoolsService(prisma as never, {} as never, { can: () => true } as never);
     const pools = await service.list(admin);
     expect(pools).toEqual([
-      { poolId: 'P1', poolName: 'Gambang Pool', status: 'OPEN', projectName: 'Kilang Baja', projectSuspended: false, targetAmount: 2400000, raisedAmount: 150000 },
-      { poolId: 'P2', poolName: 'Durian Pool', status: 'FULL', projectName: 'Ladang Durian', projectSuspended: true, targetAmount: 500000, raisedAmount: 0 },
+      { poolId: 'P1', poolName: 'Gambang Pool', status: 'OPEN', projectName: 'Kilang Baja', projectSuspended: false, investorCount: 2, targetAmount: 2400000, raisedAmount: 150000 },
+      { poolId: 'P2', poolName: 'Durian Pool', status: 'FULL', projectName: 'Ladang Durian', projectSuspended: true, investorCount: 0, targetAmount: 500000, raisedAmount: 0 },
     ]);
     expect(prisma.investmentContribution.groupBy).toHaveBeenCalledWith(expect.objectContaining({ where: { poolId: { in: ['P1', 'P2'] }, status: 'POSTED' } }));
   });

@@ -1753,6 +1753,8 @@ export interface BackendPool {
   /** Least the pool must raise by closesAt; below it investors are refunded in full. */
   minimumRaise?: number | string | null;
   closesAt?: string | null;
+  /** How many investors hold confirmed capital in the pool (a total; who they are stays with the platform). */
+  investorCount?: number;
   /** Governance sign-offs; null until signed. */
   shariahApprovedBy?: string | null;
   shariahApprovedAt?: string | null;
