@@ -1,0 +1,1 @@
+import{j as e}from"./index-CT59dLkt.js";import{aU as s}from"./beneficiaryApi-C6XicCTX.js";import{M as a}from"./MobileLeasing-BwJ_bu1A.js";const n=({lang:i})=>e.jsx(s,{fixed:i==="ms"?"ms":"en",children:e.jsx("div",{className:"leasing-web animate-fade-in text-slate-900 dark:text-white",children:e.jsx(a,{web:!0})})});export{n as LeasingWebView};

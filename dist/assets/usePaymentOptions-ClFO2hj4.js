@@ -1,0 +1,1 @@
+import{r as t}from"./index-CT59dLkt.js";import{h as o}from"./beneficiaryApi-C6XicCTX.js";function n(){const[a,s]=t.useState(!1);return t.useEffect(()=>{let e=!0;return o.getPaymentOptions().then(l=>{e&&s(l.simulatedPaymentsAllowed)}).catch(()=>{}),()=>{e=!1}},[]),a}export{n as u};
