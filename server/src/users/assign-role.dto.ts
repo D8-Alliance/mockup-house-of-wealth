@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { UserRole, USER_ROLES } from '../policy/permissions';
 
 export class AssignRoleDto {
@@ -14,4 +14,10 @@ export class AssignRoleDto {
   @IsNotEmpty()
   @MaxLength(16)
   countryNodeId!: string;
+
+  /** Why the role is given; kept in the audit log. The web asks for it; the mini-app does not send one yet. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
 }

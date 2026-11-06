@@ -209,7 +209,7 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 6. Hidupkan `SIGNING_REQUIRE_VERIFIED_IDENTITY=true` di production.
 7. Templat perjanjian Musharakah dan Ijarah disemak peguam dan penasihat Shariah.
 
-**Rekod dan semakan:** PDF sejarah perjanjian; rekod siapa sudah melihat perjanjian; senarai aktiviti haram ke tetapan negara; semakan automatik nombor SSM (perlu akses data SSM).
+**Rekod dan semakan:** senarai aktiviti haram ke tetapan negara; semakan automatik nombor SSM (perlu akses data SSM). (Siap 5 November 2026: PDF sejarah perjanjian, butang "History"; rekod siapa membuka perjanjian, dipaparkan "Opened by" dan dalam PDF itu.)
 
 **Pendaftaran aset:**
 1. Sambungan dengan e-Tanah, JPJ, JKKP (perlu perjanjian dengan agensi).
@@ -228,11 +228,12 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 
 **Belum siap:**
 1. **Notis privasi:** deraf perlu disemak peguam. Isi nama syarikat, nombor SSM, pegawai perlindungan data, lokasi data dan tempoh simpanan, kemudian terbitkan.
-2. **Pelulus kedua** bagi peranan admin, dan **sebab wajib** bila menambah atau membuang peranan. (Gantung akaun, pindah organisasi, cipta dan gantung organisasi serta negara sudah ada di Admin Center.)
+2. **Pelulus kedua** bagi peranan admin: perlu keputusan. Hanya Super Admin boleh memberi peranan admin, dan hanya ada seorang Super Admin, jadi siapa pelulus kedua? (Sebab tambah/buang peranan kini direkod dalam log audit dari web, 5 November 2026. Mini-app belum menghantar sebab.)
 3. **Daftar sendiri** melalui Keycloak.
 4. Sulitkan medan KYC dalam database.
-5. Sekat penggunaan sistem sehingga pengguna bersetuju dengan notis privasi (kini disemak di skrin sahaja).
-6. Tetapkan `COUNTRY_NODE_ID=CN-MYS` di production Malaysia.
+5. Tetapkan `COUNTRY_NODE_ID=CN-MYS` di production Malaysia.
+
+(Siap 5 November 2026: server menolak semua permintaan sehingga pengguna menerima notis privasi semasa, bila log masuk Keycloak digunakan.)
 
 ## 20. Mini-app D8 Ideas
 

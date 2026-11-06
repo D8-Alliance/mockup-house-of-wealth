@@ -76,10 +76,10 @@ export const RoleAssignmentModal: React.FC<RoleAssignmentModalProps> = ({
       await Promise.all([
         ...assignedRoles
           .filter(role => !currentRoles.includes(role))
-          .map(role => apiClient.assignRole(userId, role, organisationId, countryNodeId)),
+          .map(role => apiClient.assignRole(userId, role, organisationId, countryNodeId, reason)),
         ...currentRoles
           .filter(role => !assignedRoles.includes(role))
-          .map(role => apiClient.revokeRole(userId, role, organisationId, countryNodeId)),
+          .map(role => apiClient.revokeRole(userId, role, organisationId, countryNodeId, reason)),
       ]);
       onUpdated();
       onClose();

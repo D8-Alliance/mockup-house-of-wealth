@@ -12,7 +12,7 @@ describe('agreement review evidence', () => {
     versions: [{ id: 'V1', version: 1, content: { sections: [{ number: '3', title: 'Terms', paragraphs: ['Profit: owner 60%. FELCRA: [state its capital contribution].'] }], approvedClauseIds: ['C1'], shariahRuleIds: ['R1'] } }],
   };
   const tx = { contract: { updateMany: jest.fn().mockResolvedValue({ count: 1 }), findUniqueOrThrow: jest.fn().mockResolvedValue({ ...contract, status: 'SHARIAH_REVIEW', updatedAt: new Date() }) }, contractEvent: { create: jest.fn() }, contractApproval: { create: jest.fn() } };
-  const prisma = { contract: { findUnique: jest.fn().mockResolvedValue(contract) }, assetEngagement: { findUnique: jest.fn() }, aiRun: { findFirst: jest.fn() }, $transaction: jest.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)) };
+  const prisma = { contract: { findUnique: jest.fn().mockResolvedValue(contract) }, assetEngagement: { findUnique: jest.fn() }, aiRun: { findFirst: jest.fn() }, auditEvent: { findFirst: jest.fn().mockResolvedValue(null), findMany: jest.fn().mockResolvedValue([]) }, $transaction: jest.fn(async (fn: (client: typeof tx) => unknown) => fn(tx)) };
   const audit = { recordActor: jest.fn() };
   const service = new AgreementGenerationService(prisma as never, audit as never, {} as never, {} as never);
 

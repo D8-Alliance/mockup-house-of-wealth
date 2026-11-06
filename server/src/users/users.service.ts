@@ -162,6 +162,7 @@ export class UsersService {
     organisationId: string,
     countryNodeId: string,
     actor: AuthenticatedUser,
+    reason?: string,
   ): Promise<{ success: boolean; message: string }> {
     // Permission check: only Super Admin and Country Admin can assign roles
     if (actor.role !== 'Super Admin' && actor.role !== 'Country Admin') {
@@ -247,7 +248,7 @@ export class UsersService {
       resourceId: userId,
       organisationId,
       countryNodeId,
-      metadata: { role, targetUser: user.email },
+      metadata: { role, targetUser: user.email, reason: reason?.trim() || null },
     });
 
     return { success: true, message: `Role ${role} assigned to user ${user.email}` };
@@ -262,6 +263,7 @@ export class UsersService {
     organisationId: string,
     countryNodeId: string,
     actor: AuthenticatedUser,
+    reason?: string,
   ): Promise<{ success: boolean; message: string }> {
     // Permission check
     if (actor.role !== 'Super Admin' && actor.role !== 'Country Admin') {
@@ -314,7 +316,7 @@ export class UsersService {
       resourceId: userId,
       organisationId,
       countryNodeId,
-      metadata: { role, targetUser: user?.email },
+      metadata: { role, targetUser: user?.email, reason: reason?.trim() || null },
     });
 
     return { success: true, message: `Role ${role} revoked from user ${user?.email}` };

@@ -451,13 +451,14 @@ export const apiClient = {
     method: 'PATCH',
     body: JSON.stringify({ status }),
   }),
-  assignRole: (userId: string, role: string, organisationId: string, countryNodeId: string) =>
+  // The reason is kept in the audit log; the web asks for it, the mini-app does not send one yet.
+  assignRole: (userId: string, role: string, organisationId: string, countryNodeId: string, reason?: string) =>
     request(`/users/${userId}/roles`, {
       method: 'POST',
-      body: JSON.stringify({ role, organisationId, countryNodeId }),
+      body: JSON.stringify({ role, organisationId, countryNodeId, ...(reason ? { reason } : {}) }),
     }),
-  revokeRole: (userId: string, role: string, organisationId: string, countryNodeId: string) =>
-    request(`/users/${userId}/roles/${encodeURIComponent(role)}/orgs/${organisationId}/countries/${countryNodeId}`, {
+  revokeRole: (userId: string, role: string, organisationId: string, countryNodeId: string, reason?: string) =>
+    request(`/users/${userId}/roles/${encodeURIComponent(role)}/orgs/${organisationId}/countries/${countryNodeId}${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`, {
       method: 'DELETE',
     }),
   upgradeMembership: (input: { planId: string; billingInterval: 'monthly' | 'annual'; paymentMethod: string; creditsToApply?: number }) =>
@@ -624,6 +625,8 @@ export const apiClient = {
   createAgreementDraft: (input: { contractType: string; projectName: string; jurisdiction: string; projectId?: string; engagementId?: string; wizardData: Record<string, unknown> }) => request<BackendAgreementDraft>('/contract-intelligence/agreements/drafts', { method: 'POST', body: JSON.stringify(input) }),
   listAgreements: () => request<AgreementSummary[]>('/contract-intelligence/agreements'),
   getAgreement: (id: string) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}`),
+  /** The agreement's history as a PDF: versions, parties, every step and who opened it. */
+  downloadAgreementHistory: (id: string) => openAuthenticatedFile(`/contract-intelligence/agreements/${encodeURIComponent(id)}/history.pdf`),
   /** A party to a partnership agreement agrees to the latest draft, or signs with their typed full name. */
   /** Sends the signer a one-time code (in test mode the code comes back to show on screen). */
   requestSignCode: (id: string) => request<{ challengeId: string; channel: 'EMAIL' | 'TEST'; destination: string; expiresAt: string; testCode?: string }>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/sign-code`, { method: 'POST' }),
@@ -2271,6 +2274,8 @@ export interface AgreementSummary {
 }
 
 export interface AgreementDetail extends Omit<AgreementSummary, 'complianceStatus'> {
+  /** Everyone who has opened the agreement (counted at most once an hour per person), most recent first. */
+  viewedBy?: Array<{ userId: string; name: string; role: string; lastViewedAt: string; times: number }>;
   complianceReport: { status?: string; checks?: Array<{ key: string; label: string; pass: boolean; severity: string }> } | null;
   versions: Array<{ id: string; version: number; content: { sections?: Array<{ number: string; title: string; paragraphs: string[] }>; approvedClauseIds?: string[]; shariahRuleIds?: string[] } }>;
   events: Array<{ id: string; eventType: string; fromStatus: string | null; toStatus: string | null; actorId: string; createdAt: string; metadata: { note?: string | null; role?: string; byName?: string; version?: number; versionHash?: string | null; checks?: { fail: string[]; warn: string[] }; aiAssisted?: { runId: string }; override?: { grounds: string[]; reason: string } } | null }>;
