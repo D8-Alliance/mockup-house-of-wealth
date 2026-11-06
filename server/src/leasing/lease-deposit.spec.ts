@@ -55,12 +55,13 @@ describe('LeasingService deposit and reminders', () => {
     id: 'LEASE-1', unitId: 'UNIT-1', assetId: 'A1', countryNodeId: 'CN-MYS', ownerOrganisationId: 'ORG-AHG', tenantOrganisationId: 'ORG-TENANT', status: 'APPROVED', awaiting: 'NONE',
     monthlyRent: dec(25500), currency: 'MYR', depositAmount: dec(51000), startDate: at('2027-01-01'), endDate: at('2027-12-31'), intendedUse: 'Office', tenantActivity: 'Engineering',
     history: [], legalApprovedBy: null, legalApprovedAt: null, shariahApprovedBy: null, shariahApprovedAt: null, endedAt: null,
-    depositReceivedAt: null, depositReference: null, depositReturnedAt: null, depositRefunds: null, utilityDepositAmount: dec(25500), renovationDepositAmount: dec(10000), utilitiesPaidBy: 'TENANT_DIRECT', createdBy: 'USR-TN', createdAt: new Date(), updatedAt: new Date(), unit, payments: [],
+    depositReceivedAt: null, depositReference: null, depositReturnedAt: null, depositRefunds: null, utilityDepositAmount: dec(25500), renovationDepositAmount: dec(10000), utilitiesPaidBy: 'TENANT_DIRECT', createdBy: 'USR-TN', createdAt: new Date(), updatedAt: new Date(), unit, payments: [], utilityCharges: [],
     ...overrides,
   });
   const prisma = {
     assetLease: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), updateMany: jest.fn() },
     leaseRentPayment: { findMany: jest.fn().mockResolvedValue([]) },
+    leaseUtilityCharge: { findMany: jest.fn().mockResolvedValue([]) },
     organisation: { findMany: jest.fn().mockResolvedValue([{ id: 'ORG-TENANT', name: 'Teras Engineering' }]) },
     contract: { findMany: jest.fn().mockResolvedValue([]) },
     user: { findMany: jest.fn().mockResolvedValue([{ id: 'USR-TN', name: 'Hafiz Teras', email: 'hafiz@teras.my', profile: { phone: '+60123456789' } }, { id: 'USR-AO', name: 'Amran Zain', email: 'amran@ahg.my', profile: null }]) },

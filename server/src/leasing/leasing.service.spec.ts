@@ -26,7 +26,7 @@ const lease = (overrides: Record<string, unknown> = {}) => ({
   id: 'LEASE-MYS-0000001', unitId: unit.id, assetId: asset.id, countryNodeId: 'CN-MYS', ownerOrganisationId: 'ORG-AHG', tenantOrganisationId: 'ORG-TENANT',
   status: 'PROPOSED', awaiting: 'OWNER', monthlyRent: dec(25500), currency: 'MYR', depositAmount: dec(51000), utilityDepositAmount: dec(25500), renovationDepositAmount: dec(10000), utilitiesPaidBy: 'TENANT_DIRECT', depositRefunds: null, startDate: new Date(`${start}T00:00:00Z`), endDate: new Date(`${nextYear}-12-31T00:00:00Z`),
   intendedUse: 'Head office', tenantActivity: 'Engineering consultancy', history: [], legalApprovedBy: null, legalApprovedAt: null, shariahApprovedBy: null, shariahApprovedAt: null, endedAt: null,
-  createdBy: 'USR-TN', createdAt: new Date(), updatedAt: new Date(), unit, payments: [],
+  createdBy: 'USR-TN', createdAt: new Date(), updatedAt: new Date(), unit, payments: [], utilityCharges: [],
   ...overrides,
 });
 
@@ -64,6 +64,8 @@ describe('LeasingService', () => {
     leasableUnit: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn() },
     assetLease: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn() },
     leaseRentPayment: { createMany: jest.fn(), updateMany: jest.fn(), deleteMany: jest.fn() },
+    utilityDepositRule: { findMany: jest.fn().mockResolvedValue([]) },
+    leaseUtilityCharge: { findMany: jest.fn().mockResolvedValue([]) },
     userRoleAssignment: { findMany: jest.fn().mockResolvedValue([{ userId: 'USR-LEGAL', organisationId: 'ORG-PUBLIC' }]) },
     contract: { findMany: jest.fn().mockResolvedValue([]) },
     user: { findMany: jest.fn().mockResolvedValue([{ id: 'USR-TN', name: 'Hafiz Teras', email: 'hafiz@teras.my', profile: { phone: '+60123456789' } }, { id: 'USR-AO', name: 'Amran Zain', email: 'amran@ahg.my', profile: null }]) },

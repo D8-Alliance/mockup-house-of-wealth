@@ -8,8 +8,8 @@ import { publicDetails, regionOf } from '../asset-partnerships/asset-partnership
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { newCountryScopedId } from '../users/user-identity';
-import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, RecordDepositDto, RecordRentPaymentDto, RenewLeaseDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto } from './leasing.dto';
-import { daysUntil, DepositKind, DepositRefund, depositsOf, depositFor, depositRefund, depositRefundDueBy, refundableDeposits, endingReminder, HOLDING_LEASE_STATUSES, isOverdue, LeaseParty, leaseEndDate, leaseTermMonths, OPEN_LEASE_STATUSES, otherLeaseParty, rentReminder, rentSchedule, shariahFlags } from './leasing-rules';
+import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, LeaseUtilityChargeDto, OfferRenewalDto, RecordDepositDto, RecordRentPaymentDto, RenewLeaseDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto, UtilityDepositRuleDto } from './leasing.dto';
+import { daysUntil, DepositCarry, depositCarryOver, DepositKind, DepositRefund, depositsOf, depositFor, depositRefund, depositRefundDueBy, depositTotal, DEFAULT_UTILITY_DEPOSIT_MONTHS, heldDeposits, refundableDeposits, endingReminder, HOLDING_LEASE_STATUSES, isOverdue, LeaseParty, leaseEndDate, leaseTermMonths, OPEN_LEASE_STATUSES, otherLeaseParty, rentReminder, rentSchedule, shariahFlags, stateKey, utilityChargeDueDate, utilityDepositMonthsFor } from './leasing-rules';
 
 /** Roles that rent space for their company. */
 export const TENANT_ROLES: ReadonlySet<string> = new Set(['Organization Admin', 'Corporate Investor', 'Project Sponsor', 'Project Manager']);
@@ -18,6 +18,10 @@ const LEGAL_REVIEWERS: ReadonlySet<string> = new Set(['Legal Officer', 'Country 
 /** Shariah approval: the akad, and that the tenant's use is permissible. */
 const SHARIAH_REVIEWERS: ReadonlySet<string> = new Set(['Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee', 'Super Admin']);
 const REVIEWERS: ReadonlySet<string> = new Set([...LEGAL_REVIEWERS, ...SHARIAH_REVIEWERS]);
+
+/** The opening entry of a renewal the owner offered; the tenant has not declared anything yet. */
+const RENEWAL_OFFERED = 'RENEWAL_OFFERED';
+const SHARIAH_DECLARATION = 'Declared that its business and its use of the space are Shariah-compliant.';
 
 interface LeaseHistoryEntry {
   at: string;
@@ -34,6 +38,7 @@ const UNIT_ASSET = { select: { id: true, name: true, assetType: true, location: 
 const LEASE_INCLUDE = {
   unit: { include: { asset: UNIT_ASSET } },
   payments: { orderBy: { dueDate: 'asc' } },
+  utilityCharges: { orderBy: [{ period: 'asc' }, { kind: 'asc' }] },
 } satisfies Prisma.AssetLeaseInclude;
 type LeaseRow = Prisma.AssetLeaseGetPayload<{ include: typeof LEASE_INCLUDE }>;
 
@@ -62,12 +67,16 @@ export class LeasingService {
         orderBy: [{ assetId: 'asc' }, { label: 'asc' }],
         include: { asset: UNIT_ASSET, leases: { where: { status: { in: [...HOLDING_LEASE_STATUSES, 'PROPOSED'] } }, select: { id: true, status: true, awaiting: true, startDate: true, endDate: true, tenantOrganisationId: true } } },
       }),
-      this.prisma.asset.findMany({ where: { organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, status: 'VERIFIED' }, select: { id: true, name: true, assetType: true }, orderBy: { name: 'asc' } }),
+      this.prisma.asset.findMany({ where: { organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, status: 'VERIFIED' }, select: { id: true, name: true, assetType: true, details: true }, orderBy: { name: 'asc' } }),
     ]);
     const today = new Date();
+    const rules = await this.depositRules(actor.countryNodeId);
     return {
-      // The verified assets a unit can be added to.
-      assets,
+      // The verified assets a unit can be added to, with the utility deposit their state starts from.
+      assets: assets.map(({ details, ...asset }) => {
+        const state = (details as AssetDetails | null)?.state;
+        return { ...asset, state: state ?? null, utilityDepositMonths: utilityDepositMonthsFor(state, rules) };
+      }),
       units: units.map(({ leases, asset, ...unit }) => {
         const current = leases.find((lease) => lease.status === 'APPROVED' && lease.startDate <= today && lease.endDate >= today);
         return {
@@ -84,12 +93,13 @@ export class LeasingService {
     const asset = await this.prisma.asset.findFirst({ where: { id: input.assetId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId } });
     if (!asset) throw new NotFoundException('Asset not found.');
     if (asset.status !== 'VERIFIED') throw new BadRequestException('Only a verified asset can be leased out.');
+    const utilityDepositMonths = input.utilityDepositMonths ?? utilityDepositMonthsFor((asset.details as AssetDetails | null)?.state, await this.depositRules(asset.countryNodeId));
     const unit = await this.prisma.leasableUnit.create({
       data: {
         id: newCountryScopedId('UNIT', actor.countryNodeId), assetId: asset.id, organisationId: asset.organisationId, countryNodeId: asset.countryNodeId,
         label: input.label, description: input.description ?? '', floorArea: input.floorArea ?? null, floorAreaUnit: input.floorAreaUnit ?? 'SQFT',
         monthlyRent: input.monthlyRent, currency: input.currency, depositMonths: input.depositMonths ?? 2, minTermMonths: input.minTermMonths ?? 12,
-        utilityDepositMonths: input.utilityDepositMonths ?? 1, renovationDeposit: input.renovationDeposit ?? 0, utilitiesPaidBy: input.utilitiesPaidBy ?? 'TENANT_DIRECT',
+        utilityDepositMonths, renovationDeposit: input.renovationDeposit ?? 0, utilitiesPaidBy: input.utilitiesPaidBy ?? 'TENANT_DIRECT',
         availableFrom: input.availableFrom ? new Date(input.availableFrom) : null, permittedUse: input.permittedUse ?? '', createdBy: actor.userId,
       },
       include: { asset: UNIT_ASSET },
@@ -160,31 +170,55 @@ export class LeasingService {
   async renewLease(actor: AuthenticatedUser, id: string, input: RenewLeaseDto) {
     const lease = await this.findLease(actor, id);
     if (this.partyOf(actor, lease) !== 'TENANT') throw new ForbiddenException('Only the tenant can ask to renew.');
-    if (lease.status !== 'APPROVED' || day(lease.endDate)! < day(new Date())!) throw new BadRequestException('Only a running approved lease can be renewed.');
-    const organisation = await this.prisma.organisation.findUnique({ where: { id: actor.organisationId }, select: { kybStatus: true } });
-    if (organisation?.kybStatus !== 'APPROVED') throw new BadRequestException('Your company must pass business verification (KYB) before it can rent space.');
-    if (lease.unit.asset.status !== 'VERIFIED') throw new BadRequestException('Only a verified asset can be leased out.');
+    await this.assertRenewable(lease);
     if (input.termMonths < lease.unit.minTermMonths) throw new BadRequestException(`The owner leases this unit for at least ${lease.unit.minTermMonths} months.`);
+    const created = await this.openRenewal(actor, lease, input, 'TENANT', { action: 'PROPOSED', statement: `Renewal of ${lease.id}. ${SHARIAH_DECLARATION}`, createdBy: actor.userId });
+    await this.record(actor, 'asset_lease.renewal_request', created);
+    await this.notifyParty(created, 'OWNER', 'A tenant asks to renew', `${await this.tenantName(created)} asks to renew ${created.unit.label}, ${created.unit.asset.name}, from ${day(created.startDate)} for ${input.termMonths} months at ${money(created.currency, Number(created.monthlyRent))} a month (${created.id}, renewing ${lease.id}).`);
+    return this.getLease(actor, created.id);
+  }
+
+  /**
+   * The owner offers to renew before the tenant asks: the same kind of request, the other way round. The tenant
+   * then accepts, counters or declines it, declaring Shariah compliance as it would when asking itself.
+   */
+  async offerRenewal(actor: AuthenticatedUser, id: string, input: OfferRenewalDto) {
+    const lease = await this.findLease(actor, id);
+    if (this.partyOf(actor, lease) !== 'OWNER') throw new ForbiddenException('Only the owner can offer to renew.');
+    await this.assertRenewable(lease);
+    // The person who asked for the lease stays the tenant's contact, so the offer reaches them.
+    const created = await this.openRenewal(actor, lease, input, 'OWNER', { action: RENEWAL_OFFERED, statement: `Offered to renew ${lease.id}.`, createdBy: lease.createdBy });
+    await this.record(actor, 'asset_lease.renewal_offer', created);
+    await this.notifyParty(created, 'TENANT', 'The owner offers to renew', `${created.unit.label}, ${created.unit.asset.name}: the owner offers to renew from ${day(created.startDate)} for ${input.termMonths} months at ${money(created.currency, Number(created.monthlyRent))} a month (${created.id}, renewing ${lease.id}).`);
+    return this.getLease(actor, created.id);
+  }
+
+  private async assertRenewable(lease: LeaseRow) {
+    if (lease.status !== 'APPROVED' || day(lease.endDate)! < day(new Date())!) throw new BadRequestException('Only a running approved lease can be renewed.');
+    const organisation = await this.prisma.organisation.findUnique({ where: { id: lease.tenantOrganisationId }, select: { kybStatus: true } });
+    if (organisation?.kybStatus !== 'APPROVED') throw new BadRequestException('The tenant company must pass business verification (KYB) before it can rent space.');
+    if (lease.unit.asset.status !== 'VERIFIED') throw new BadRequestException('Only a verified asset can be leased out.');
     const existing = (await this.renewals([lease])).get(lease.id);
     if (existing) throw new ConflictException(`This lease is already being renewed (${existing.id}).`);
+  }
 
+  /** A new request for the same unit from the day after the lease ends; a renovation deposit already refunded is not asked for again. */
+  private async openRenewal(actor: AuthenticatedUser, lease: LeaseRow, input: { termMonths: number; monthlyRent?: number; message?: string }, by: LeaseParty, opening: { action: string; statement: string; createdBy: string }) {
     const start = new Date(lease.endDate.getTime() + 24 * 60 * 60 * 1000);
     const monthlyRent = input.monthlyRent ?? Number(lease.monthlyRent);
-    const terms = this.terms(start, input.termMonths, monthlyRent, Number(lease.depositAmount), Number(lease.utilityDepositAmount), Number(lease.renovationDepositAmount));
+    const renovation = this.refunds(lease).some((refund) => refund.kind === 'RENOVATION') ? 0 : Number(lease.renovationDepositAmount);
+    const terms = this.terms(start, input.termMonths, monthlyRent, Number(lease.depositAmount), Number(lease.utilityDepositAmount), renovation);
     await this.assertUnitFree({ id: '', unitId: lease.unitId, startDate: start, endDate: new Date(terms.endDate) });
-    const entry = { ...this.entry(actor, 'TENANT', 'PROPOSED', input.message), terms, statement: `Renewal of ${lease.id}. Declared that its business and its use of the space are Shariah-compliant.` };
-    const created = await this.prisma.assetLease.create({
+    const entry = { ...this.entry(actor, by, opening.action, input.message), terms, statement: opening.statement };
+    return this.prisma.assetLease.create({
       data: {
         id: newCountryScopedId('LEASE', lease.countryNodeId), unitId: lease.unitId, assetId: lease.assetId, countryNodeId: lease.countryNodeId,
-        ownerOrganisationId: lease.ownerOrganisationId, tenantOrganisationId: lease.tenantOrganisationId, status: 'PROPOSED', awaiting: 'OWNER', renewsLeaseId: lease.id,
+        ownerOrganisationId: lease.ownerOrganisationId, tenantOrganisationId: lease.tenantOrganisationId, status: 'PROPOSED', awaiting: otherLeaseParty(by), renewsLeaseId: lease.id,
         monthlyRent, currency: lease.currency, depositAmount: terms.depositAmount, utilityDepositAmount: terms.utilityDepositAmount, renovationDepositAmount: terms.renovationDepositAmount, utilitiesPaidBy: lease.utilitiesPaidBy, startDate: start, endDate: new Date(terms.endDate),
-        intendedUse: lease.intendedUse, tenantActivity: lease.tenantActivity, history: [entry] as unknown as Prisma.InputJsonValue, createdBy: actor.userId,
+        intendedUse: lease.intendedUse, tenantActivity: lease.tenantActivity, history: [entry] as unknown as Prisma.InputJsonValue, createdBy: opening.createdBy,
       },
       include: LEASE_INCLUDE,
     });
-    await this.record(actor, 'asset_lease.renewal_request', created);
-    await this.notifyParty(created, 'OWNER', 'A tenant asks to renew', `${await this.tenantName(created)} asks to renew ${created.unit.label}, ${created.unit.asset.name}, from ${terms.startDate} for ${terms.termMonths} months at ${money(created.currency, monthlyRent)} a month (${created.id}, renewing ${lease.id}).`);
-    return this.getLease(actor, created.id);
   }
 
   /** A company asks to rent a listed unit, from a start date for a number of months. */
@@ -231,12 +265,16 @@ export class LeasingService {
     let data: Prisma.AssetLeaseUpdateManyMutationInput;
     let notice: [string, string];
     const what = `${lease.unit.label}, ${lease.unit.asset.name}`;
+    // Agreeing to a renewal the owner offered, or countering it, is where the tenant makes the declaration.
+    const declares = party === 'TENANT' && input.action !== 'DECLINE' && this.awaitsDeclaration(history);
+    if (declares && input.shariahDeclaration !== true) throw new BadRequestException('Confirm that your business and your use of the space are Shariah-compliant.');
+    const declared = declares ? ` ${SHARIAH_DECLARATION}` : '';
 
     if (input.action === 'ACCEPT') {
       if (input.confirmed !== true) throw new BadRequestException('Confirm that you accept these terms on behalf of your organisation.');
       await this.assertUnitFree(lease);
       const organisation = party === 'OWNER' ? lease.unit.asset.organisation.name : await this.tenantName(lease);
-      data = { status: 'ACCEPTED', awaiting: 'REVIEW', history: [...history, { ...this.entry(actor, party, 'ACCEPTED', input.note), terms: current, statement: `Accepted these terms on behalf of ${organisation}.` }] as unknown as Prisma.InputJsonValue };
+      data = { status: 'ACCEPTED', awaiting: 'REVIEW', history: [...history, { ...this.entry(actor, party, 'ACCEPTED', input.note), terms: current, statement: `Accepted these terms on behalf of ${organisation}.${declared}` }] as unknown as Prisma.InputJsonValue };
       notice = ['Lease terms accepted', `${what}: the terms were accepted and now go to Legal and Shariah review.`];
     } else if (input.action === 'DECLINE') {
       data = { status: 'DECLINED', awaiting: 'NONE', history: [...history, this.entry(actor, party, 'DECLINED', input.note)] as unknown as Prisma.InputJsonValue };
@@ -255,7 +293,7 @@ export class LeasingService {
       if (JSON.stringify(terms) === JSON.stringify(current)) throw new BadRequestException('This counter-offer changes nothing. Change the terms, or accept or decline them.');
       data = {
         monthlyRent: terms.monthlyRent, depositAmount: terms.depositAmount, utilityDepositAmount: terms.utilityDepositAmount, renovationDepositAmount: terms.renovationDepositAmount, startDate: start, endDate: new Date(terms.endDate), awaiting: otherLeaseParty(party),
-        history: [...history, { ...this.entry(actor, party, 'COUNTERED', input.note), terms }] as unknown as Prisma.InputJsonValue,
+        history: [...history, { ...this.entry(actor, party, 'COUNTERED', input.note), terms, ...(declares ? { statement: SHARIAH_DECLARATION } : {}) }] as unknown as Prisma.InputJsonValue,
       };
       notice = ['New lease terms proposed', `${what}: ${money(lease.currency, terms.monthlyRent)} a month, deposit ${money(lease.currency, terms.depositAmount)}, ${terms.termMonths} months from ${terms.startDate}.${terms.utilityDepositAmount || terms.renovationDepositAmount ? ` Utility deposit ${money(lease.currency, terms.utilityDepositAmount)}, renovation deposit ${money(lease.currency, terms.renovationDepositAmount)}.` : ''}`];
     }
@@ -330,6 +368,7 @@ export class LeasingService {
     }
     const updated = await this.prisma.assetLease.findUniqueOrThrow({ where: { id }, include: LEASE_INCLUDE });
     await this.record(actor, `asset_lease.${track.toLowerCase()}_${input.decision.toLowerCase()}`, updated);
+    if (finished) await this.carryDeposits(actor, updated);
     const what = `${updated.unit.label}, ${updated.unit.asset.name}`;
     const [title, message] = input.decision === 'REJECT'
       ? [`Lease rejected by ${label}`, `${what}: ${input.note}`]
@@ -385,9 +424,13 @@ export class LeasingService {
     const claimed = await this.prisma.assetLease.updateMany({ where: { id, depositReceivedAt: null }, data: { depositReceivedAt: receivedAt, depositReference: input.reference } });
     if (!claimed.count) throw new ConflictException('The deposit is already recorded as received.');
     const amounts = this.depositAmounts(lease);
-    const total = amounts.SECURITY + amounts.UTILITY + amounts.RENOVATION;
+    // Only what is left to pay when part of it came over from the earlier lease.
+    const total = this.depositToCollect(lease);
     await this.audit.recordActor(actor, { action: 'asset_lease.deposit_received', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { amount: total, security: amounts.SECURITY, utility: amounts.UTILITY, renovation: amounts.RENOVATION, reference: input.reference, receivedAt: receivedAt.toISOString() } });
     await this.notifyParty(lease, 'TENANT', 'Deposit received', `${lease.unit.label}, ${lease.unit.asset.name}: the owner recorded your deposit of ${money(lease.currency, total)} as received (reference ${input.reference}).`);
+    // A renewal approved before this deposit was recorded now takes it over.
+    const renewal = await this.prisma.assetLease.findFirst({ where: { renewsLeaseId: id, status: 'APPROVED' }, include: LEASE_INCLUDE });
+    if (renewal) await this.carryDeposits(actor, renewal);
     return this.getLease(actor, id);
   }
 
@@ -399,10 +442,10 @@ export class LeasingService {
     const lease = await this.findLease(actor, id);
     if (this.partyOf(actor, lease) !== 'OWNER') throw new ForbiddenException('Only the owner refunds the deposit.');
     if (!lease.depositReceivedAt) throw new BadRequestException('Record the deposit as received first.');
-    const amounts = this.depositAmounts(lease);
     const refunds = this.refunds(lease);
-    if (!amounts[input.kind]) throw new BadRequestException('This lease holds no such deposit.');
     if (refunds.some((refund) => refund.kind === input.kind)) throw new ConflictException('This deposit is already recorded as refunded.');
+    const amounts = this.heldAmounts(lease);
+    if (!amounts[input.kind]) throw new BadRequestException('This lease holds no such deposit.');
     if (!refundableDeposits({ status: lease.status, endDate: lease.endDate, received: true, amounts, refunds }, new Date()).includes(input.kind)) throw new BadRequestException('The security and utility deposits are refunded after the lease ends.');
     const { amount, problem } = depositRefund(amounts[input.kind], input.deductions);
     if (problem) throw new BadRequestException(problem);
@@ -423,6 +466,133 @@ export class LeasingService {
 
   private depositAmounts(lease: { depositAmount: Prisma.Decimal; utilityDepositAmount: Prisma.Decimal; renovationDepositAmount: Prisma.Decimal }) {
     return depositsOf({ depositAmount: Number(lease.depositAmount), utilityDepositAmount: Number(lease.utilityDepositAmount), renovationDepositAmount: Number(lease.renovationDepositAmount) });
+  }
+
+  /**
+   * Once a renewal is approved, the deposits held under the earlier lease pass to it instead of being paid back and
+   * paid again: each kind up to what the renewal needs. Anything more stays refundable under the earlier lease;
+   * anything short is still to be paid. Deposits already received for the renewal stay as they are.
+   */
+  private async carryDeposits(actor: AuthenticatedUser, renewal: LeaseRow) {
+    if (!renewal.renewsLeaseId || renewal.depositReceivedAt || renewal.depositCarriedIn) return;
+    const earlier = await this.prisma.assetLease.findUnique({ where: { id: renewal.renewsLeaseId }, include: LEASE_INCLUDE });
+    if (!earlier?.depositReceivedAt || earlier.depositCarriedOut) return;
+    const required = this.depositAmounts(renewal);
+    const amounts = depositCarryOver(this.heldAmounts(earlier), required);
+    const carried = depositTotal(amounts);
+    if (!carried) return;
+    const now = new Date();
+    const left = Math.round((depositTotal(required) - carried) * 100) / 100;
+    const carriedOut: DepositCarry = { leaseId: renewal.id, at: now.toISOString(), amounts };
+    const nothingHeld = !depositTotal(heldDeposits(this.depositAmounts(earlier), this.refunds(earlier), carriedOut));
+    const moved = await this.prisma.$transaction(async (tx) => {
+      const out = await tx.assetLease.updateMany({ where: { id: earlier.id, updatedAt: earlier.updatedAt }, data: { depositCarriedOut: carriedOut as unknown as Prisma.InputJsonValue, ...(nothingHeld ? { depositReturnedAt: now } : {}) } });
+      if (!out.count) return false;
+      await tx.assetLease.update({ where: { id: renewal.id }, data: { depositCarriedIn: { ...carriedOut, leaseId: earlier.id } as unknown as Prisma.InputJsonValue, ...(left ? {} : { depositReceivedAt: now, depositReference: `Carried over from ${earlier.id}` }) } });
+      return true;
+    });
+    // Someone changed the earlier lease at this moment: its deposits stay there, for the owner to record by hand.
+    if (!moved) return;
+    await this.audit.recordActor(actor, { action: 'asset_lease.deposit_carried_over', resourceType: 'AssetLease', resourceId: renewal.id, organisationId: renewal.ownerOrganisationId, countryNodeId: renewal.countryNodeId, metadata: { fromLeaseId: earlier.id, ...amounts, stillToPay: left } });
+    const message = `${renewal.unit.label}, ${renewal.unit.asset.name}: ${money(renewal.currency, carried)} of the deposits held under ${earlier.id} carries over to ${renewal.id}.${left ? ` ${money(renewal.currency, left)} is still to be paid to the owner's bank account.` : ' Nothing more is to be paid.'}`;
+    await this.notifyParty(renewal, 'OWNER', 'Deposit carried over', message);
+    await this.notifyParty(renewal, 'TENANT', 'Deposit carried over', message);
+  }
+
+  private carried(value: Prisma.JsonValue): DepositCarry | null {
+    return value && typeof value === 'object' && !Array.isArray(value) ? (value as unknown as DepositCarry) : null;
+  }
+
+  /** What the owner still holds under this lease: not refunded, and not passed on to its renewal. */
+  private heldAmounts(lease: { depositAmount: Prisma.Decimal; utilityDepositAmount: Prisma.Decimal; renovationDepositAmount: Prisma.Decimal; depositRefunds: Prisma.JsonValue; depositCarriedOut: Prisma.JsonValue }) {
+    return heldDeposits(this.depositAmounts(lease), this.refunds(lease), this.carried(lease.depositCarriedOut));
+  }
+
+  /** The deposits the tenant still has to pay for this lease: all of them, less what came over from the lease it renews. */
+  private depositToCollect(lease: { depositAmount: Prisma.Decimal; utilityDepositAmount: Prisma.Decimal; renovationDepositAmount: Prisma.Decimal; depositCarriedIn: Prisma.JsonValue }) {
+    const total = depositTotal(this.depositAmounts(lease));
+    const carried = this.carried(lease.depositCarriedIn);
+    return carried ? Math.round((total - depositTotal(carried.amounts)) * 100) / 100 : total;
+  }
+
+  /** A renewal the owner offered, until the tenant has declared its business and use are Shariah-compliant. */
+  private awaitsDeclaration(history: LeaseHistoryEntry[]) {
+    return history[0]?.action === RENEWAL_OFFERED && !history.some((entry) => entry.statement?.includes(SHARIAH_DECLARATION));
+  }
+
+  // ---- Utilities: bills the owner paid, recharged to the tenant at cost ----
+
+  private assertRecharged(actor: AuthenticatedUser, lease: LeaseRow) {
+    if (this.partyOf(actor, lease) !== 'OWNER') throw new ForbiddenException('Only the owner records utility bills.');
+    if (!['APPROVED', 'ENDED'].includes(lease.status)) throw new BadRequestException('Utility bills are recorded for an approved lease.');
+    if (lease.utilitiesPaidBy !== 'OWNER_RECHARGE') throw new BadRequestException('Under this lease the tenant pays the bills directly.');
+  }
+
+  /** The owner bills the tenant one month's electricity, water or sewerage, at the bill's amount. */
+  async addUtilityCharge(actor: AuthenticatedUser, id: string, input: LeaseUtilityChargeDto) {
+    const lease = await this.findLease(actor, id);
+    this.assertRecharged(actor, lease);
+    const dueDate = input.dueDate ? new Date(`${input.dueDate.slice(0, 10)}T00:00:00.000Z`) : utilityChargeDueDate(new Date());
+    const charge = await this.prisma.leaseUtilityCharge.create({ data: { leaseId: id, period: input.period, kind: input.kind, amount: input.amount, currency: lease.currency, billReference: input.billReference, dueDate, createdBy: actor.userId } }).catch((error: unknown) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') throw new ConflictException('That bill is already recorded for this month.');
+      throw error;
+    });
+    await this.audit.recordActor(actor, { action: 'asset_lease.utility_charged', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { chargeId: charge.id, period: input.period, kind: input.kind, amount: input.amount, billReference: input.billReference, dueDate: day(dueDate) } });
+    await this.notifyParty(lease, 'TENANT', 'Utility bill to pay', `${lease.unit.label}, ${lease.unit.asset.name}: the ${input.kind.toLowerCase()} bill for ${input.period} is ${money(lease.currency, input.amount)} (bill ${input.billReference}). Pay it to the owner's bank account by ${day(dueDate)}.`);
+    return this.getLease(actor, id);
+  }
+
+  /** The owner records a bill as paid back to them. */
+  async recordUtilityPayment(actor: AuthenticatedUser, id: string, chargeId: string, input: RecordRentPaymentDto) {
+    const lease = await this.findLease(actor, id);
+    this.assertRecharged(actor, lease);
+    const paidAt = input.paidAt ? new Date(input.paidAt) : new Date();
+    if (paidAt > new Date()) throw new BadRequestException('The payment date cannot be in the future.');
+    const claimed = await this.prisma.leaseUtilityCharge.updateMany({ where: { id: chargeId, leaseId: id, status: 'DUE' }, data: { status: 'PAID', paidAt, reference: input.reference, recordedBy: actor.userId } });
+    if (!claimed.count) throw new ConflictException('This bill is not due, or is already recorded as paid.');
+    const charge = lease.utilityCharges.find((row) => row.id === chargeId);
+    await this.audit.recordActor(actor, { action: 'asset_lease.utility_received', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { chargeId, period: charge?.period, kind: charge?.kind, reference: input.reference, paidAt: paidAt.toISOString() } });
+    await this.notifyParty(lease, 'TENANT', 'Utility bill received', `${lease.unit.label}, ${lease.unit.asset.name}: the owner recorded the ${charge?.kind.toLowerCase()} bill for ${charge?.period} as received (reference ${input.reference}).`);
+    return this.getLease(actor, id);
+  }
+
+  /** Removes a bill entered by mistake; the audit log keeps what it was. A paid bill stays. */
+  async removeUtilityCharge(actor: AuthenticatedUser, id: string, chargeId: string, input: EndLeaseDto) {
+    const lease = await this.findLease(actor, id);
+    this.assertRecharged(actor, lease);
+    const charge = lease.utilityCharges.find((row) => row.id === chargeId);
+    const removed = await this.prisma.leaseUtilityCharge.deleteMany({ where: { id: chargeId, leaseId: id, status: 'DUE' } });
+    if (!removed.count || !charge) throw new ConflictException('Only a bill still due can be removed.');
+    await this.audit.recordActor(actor, { action: 'asset_lease.utility_removed', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { chargeId, period: charge.period, kind: charge.kind, amount: Number(charge.amount), billReference: charge.billReference, reason: input.note } });
+    await this.notifyParty(lease, 'TENANT', 'Utility bill removed', `${lease.unit.label}, ${lease.unit.asset.name}: the owner removed the ${charge.kind.toLowerCase()} bill for ${charge.period}. ${input.note}`);
+    return this.getLease(actor, id);
+  }
+
+  // ---- The utility deposit a new unit starts with, by state ----
+
+  private async depositRules(countryNodeId: string) {
+    const rows = await this.prisma.utilityDepositRule.findMany({ where: { countryNodeId }, orderBy: { state: 'asc' } });
+    return rows.map((row) => ({ state: row.state, months: Number(row.months) }));
+  }
+
+  async utilityDepositRules(actor: AuthenticatedUser) {
+    return { defaultMonths: DEFAULT_UTILITY_DEPOSIT_MONTHS, rules: await this.depositRules(actor.countryNodeId) };
+  }
+
+  /** Sets a state's months. It applies to units listed from now on: units and leases already made keep theirs. */
+  async setUtilityDepositRule(actor: AuthenticatedUser, input: UtilityDepositRuleDto) {
+    const existing = (await this.depositRules(actor.countryNodeId)).find((rule) => stateKey(rule.state) === stateKey(input.state));
+    const state = existing?.state ?? input.state.replace(/\s+/g, ' ');
+    await this.prisma.utilityDepositRule.upsert({ where: { countryNodeId_state: { countryNodeId: actor.countryNodeId, state } }, update: { months: input.months, updatedBy: actor.userId }, create: { countryNodeId: actor.countryNodeId, state, months: input.months, updatedBy: actor.userId } });
+    await this.audit.recordActor(actor, { action: 'utility_deposit_rule.set', resourceType: 'UtilityDepositRule', resourceId: state, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { state, months: input.months, before: existing?.months ?? null } });
+    return this.utilityDepositRules(actor);
+  }
+
+  async removeUtilityDepositRule(actor: AuthenticatedUser, state: string) {
+    const removed = await this.prisma.utilityDepositRule.deleteMany({ where: { countryNodeId: actor.countryNodeId, state } });
+    if (!removed.count) throw new NotFoundException('No rule for that state.');
+    await this.audit.recordActor(actor, { action: 'utility_deposit_rule.remove', resourceType: 'UtilityDepositRule', resourceId: state, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { state } });
+    return this.utilityDepositRules(actor);
   }
 
   private refunds(lease: { depositRefunds: Prisma.JsonValue }): DepositRefund[] {
@@ -461,7 +631,7 @@ export class LeasingService {
       if (!stage) continue;
       const what = `${lease.unit.label}, ${lease.unit.asset.name}`;
       const parties = [{ userId: lease.createdBy, organisationId: lease.tenantOrganisationId }, { userId: lease.unit.asset.ownerUserId, organisationId: lease.ownerOrganisationId }];
-      await this.remind(lease, parties, `lease-ending:${lease.id}:${stage}`, 'Lease ending soon', `${what}: the lease ends on ${day(lease.endDate)}, in ${daysUntil(lease.endDate, now)} days. To continue, the tenant asks for a new lease; otherwise the space is handed back on that day.`);
+      await this.remind(lease, parties, `lease-ending:${lease.id}:${stage}`, 'Lease ending soon', `${what}: the lease ends on ${day(lease.endDate)}, in ${daysUntil(lease.endDate, now)} days. To continue, the tenant asks to renew or the owner offers it in Leasing; otherwise the space is handed back on that day.`);
       sent += 1;
     }
     const unrefunded = await this.prisma.assetLease.findMany({ where: { depositReceivedAt: { not: null }, depositReturnedAt: null, OR: [{ status: 'ENDED' }, { status: 'APPROVED', endDate: { lt: now } }] }, include: LEASE_INCLUDE });
@@ -469,13 +639,19 @@ export class LeasingService {
       const dueBy = depositRefundDueBy(lease);
       const left = daysUntil(dueBy, now);
       if (left > 7) continue;
-      const amounts = this.depositAmounts(lease);
-      const refunded = this.refunds(lease);
-      const outstanding = (Object.keys(amounts) as DepositKind[]).filter((kind) => !refunded.some((refund) => refund.kind === kind)).reduce((total, kind) => total + amounts[kind], 0);
+      const outstanding = depositTotal(this.heldAmounts(lease));
       if (!outstanding) continue;
       const what = `${lease.unit.label}, ${lease.unit.asset.name}`;
       const owner = { userId: lease.unit.asset.ownerUserId, organisationId: lease.ownerOrganisationId };
       await this.remind(lease, [owner], `lease-deposit:${lease.id}:${left < 0 ? 'late' : 'soon'}`, left < 0 ? 'Deposit refund overdue' : 'Deposit refund due', `${what}: refund the deposit of ${money(lease.currency, outstanding)} by ${day(dueBy)}, less only unpaid rent and repairs beyond fair wear and tear, and record it in Leasing.`);
+      sent += 1;
+    }
+    // A recharged bill past its date: one reminder to the tenant.
+    const bills = await this.prisma.leaseUtilityCharge.findMany({ where: { status: 'DUE', dueDate: { lt: now }, lease: { status: { in: ['APPROVED', 'ENDED'] } } }, include: { lease: { include: LEASE_INCLUDE } } });
+    for (const bill of bills) {
+      if (!isOverdue(bill, now)) continue;
+      const lease = bill.lease;
+      await this.remind(lease, [{ userId: lease.createdBy, organisationId: lease.tenantOrganisationId }], `lease-utility:${bill.id}:overdue`, 'Utility bill overdue', `${lease.unit.label}, ${lease.unit.asset.name}: the ${bill.kind.toLowerCase()} bill of ${money(bill.currency, Number(bill.amount))} for ${bill.period} was due on ${day(bill.dueDate)}. Pay it to the owner's bank account.`);
       sent += 1;
     }
     return sent;
@@ -608,7 +784,11 @@ export class LeasingService {
     const details = row.unit.asset.details as AssetDetails | null;
     const amounts = this.depositAmounts(row);
     const refunds = this.refunds(row);
-    const refundable = refundableDeposits({ status: row.status, endDate: row.endDate, received: Boolean(row.depositReceivedAt), amounts, refunds }, today);
+    const refundable = refundableDeposits({ status: row.status, endDate: row.endDate, received: Boolean(row.depositReceivedAt), amounts: this.heldAmounts(row), refunds }, today);
+    const utilities = row.utilityCharges.map((charge) => ({
+      id: charge.id, period: charge.period, kind: charge.kind, amount: Number(charge.amount), currency: charge.currency, billReference: charge.billReference,
+      dueDate: day(charge.dueDate), status: isOverdue(charge, today) ? 'OVERDUE' : charge.status, paidAt: day(charge.paidAt), reference: charge.reference,
+    }));
     return {
       id: row.id,
       status: row.status,
@@ -620,6 +800,12 @@ export class LeasingService {
       canRecordPayment: party === 'OWNER' && ['APPROVED', 'ENDED'].includes(row.status),
       canEnd: party === 'OWNER' && row.status === 'APPROVED',
       canRenew: party === 'TENANT' && row.status === 'APPROVED' && day(row.endDate)! >= day(today)! && !renewal,
+      canOfferRenewal: party === 'OWNER' && row.status === 'APPROVED' && day(row.endDate)! >= day(today)! && !renewal,
+      // Answering a renewal the owner offered needs the tenant's Shariah declaration.
+      needsShariahDeclaration: party === 'TENANT' && row.status === 'PROPOSED' && this.awaitsDeclaration(row.history as unknown as LeaseHistoryEntry[]),
+      canChargeUtilities: party === 'OWNER' && ['APPROVED', 'ENDED'].includes(row.status) && row.utilitiesPaidBy === 'OWNER_RECHARGE',
+      utilities,
+      utilitiesUnpaid: Math.round(utilities.filter((charge) => charge.status !== 'PAID').reduce((total, charge) => total + charge.amount, 0) * 100) / 100,
       renewsLeaseId: row.renewsLeaseId,
       renewal,
       canRecordDeposit: party === 'OWNER' && row.status === 'APPROVED' && !row.depositReceivedAt,
@@ -634,6 +820,10 @@ export class LeasingService {
         reference: row.depositReference,
         returnedAt: day(row.depositReturnedAt),
         refunds,
+        carriedIn: this.carried(row.depositCarriedIn),
+        carriedOut: this.carried(row.depositCarriedOut),
+        // What the tenant still has to pay, less what came over from the lease this one renews.
+        toCollect: this.depositToCollect(row),
         // What the owner can refund now (empty for anyone else).
         refundable: party === 'OWNER' ? refundable : [],
         refundDueBy: row.depositReceivedAt && (row.status === 'ENDED' || daysUntil(row.endDate, today) < 0) ? day(depositRefundDueBy(row)) : null,

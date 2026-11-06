@@ -25,8 +25,8 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 17 | Modul aset | Sewa/untung pemilik aset, tandatangan, takaful, agensi luar, skrin demo | Boleh diteruskan |
 | 18 | Kunci API | Kunci untuk sistem luar | Tangguh sehingga perlu |
 | 19 | Pengurusan pengguna | Notis privasi rasmi, pelulus kedua untuk peranan admin, sebab tukar peranan | Butiran syarikat; peguam |
-| 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, Keycloak, emel BM, semakan di telefon | Butiran bank; spesifikasi D8 Ideas |
-| 21 | Sewaan terus (Ijarah) | Semakan perjanjian di mini-app, label "Delivery partner", caj utiliti, keputusan kutipan sewa dan cukai | Pemilik projek; peguam dan cukai |
+| 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, Keycloak, teks panel Semakan | Butiran bank; spesifikasi D8 Ideas |
+| 21 | Sewaan terus (Ijarah) | Keputusan kutipan sewa dan cukai, pool hasil sewa, sambung SIT Tingkat 6 | Pemilik projek; peguam dan cukai |
 | 22 | Agihan keuntungan | Fail bayaran pukal bank, padanan penyata, peringatan hasil lewat | Format fail bank; jadual hasil projek |
 | 23 | Projek bermasalah | Pulangan modal kepada pelabur | Kewangan dan penasihat Shariah |
 | 24 | Pangkalan pengetahuan dan Tanya | Tanda standard lama, model embedding di staging, Rebuild & embed, ujian jawapan | Shariah/Kewangan semak versi; tetapan staging |
@@ -241,22 +241,20 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 2. Log masuk (SSO) dan push melalui D8 Ideas: tunggu spesifikasi mereka.
 3. Uji dalam super app, terutamanya kamera dalam WebView.
 4. Keycloak: tambah `/m/*` dalam Valid redirect URIs, dan tetapkan emel (SMTP) untuk "Forgot password".
-5. Terjemahan: notifikasi utama sudah dalam BM (`src/mobile/i18n.messages.ts`). Mesej server yang baharu perlu ditambah ke situ, jika tidak ia keluar dalam bahasa Inggeris. Yang masih dalam bahasa Inggeris: emel.
-6. Semakan di telefon untuk KYC Officer dan penyemak Legal/Shariah: belum dibina; mereka guna portal web.
+5. Terjemahan: emel dan notifikasi keluar ikut bahasa akaun penerima (jika belum dipilih, BM untuk Malaysia). Teksnya dalam `server/src/notifications/ms-text*.ts`, dikongsi oleh server dan mini-app. Mesej server yang baharu perlu ditambah ke situ, jika tidak ia keluar dalam bahasa Inggeris.
+6. Skrin Semakan: panel semakan automatik KYC, semakan wajah dan semakan teks perjanjian diguna semula dari web, jadi teksnya masih dalam bahasa Inggeris.
+7. Mesej "aset untuk projek: nota penyemak" (penolakan perkongsian aset) keluar dalam bahasa Inggeris kerana isinya nota bebas penyemak.
 
 ## 21. Sewaan terus (Ijarah) tanpa projek
 
-- **Keadaan:** berjalan di mini-app dan web (tab Sewaan): senarai unit, mohon dan runding, kelulusan Legal dan Shariah, perjanjian Ijarah dengan tandatangan OTP, jadual sewa, rekod bayaran, peringatan, dan tiga jenis deposit.
+- **Keadaan:** berjalan di mini-app dan web (tab Sewaan): senarai unit, mohon dan runding, kelulusan Legal dan Shariah, perjanjian Ijarah dengan tandatangan OTP, jadual sewa, rekod bayaran, peringatan, tiga jenis deposit, pembaharuan (dimohon penyewa atau ditawarkan pemilik, deposit dibawa secara automatik), bil utiliti bulanan, dan deposit utiliti ikut negeri (7 November 2026).
 - **Keputusan sementara (perlu disahkan):** penyewa membayar sewa **terus ke akaun bank pemilik**. Platform hanya merekod, tidak memegang wang, dan tiada komisen buat masa ini.
 
 **Belum siap:**
-1. Penyemak belum boleh menyemak perjanjian sewaan di mini-app (guna web).
-2. Skrin web Contracts (`src/ai/features/contract/AgreementReviewPanel.tsx`) masih memanggil penyewa "Delivery partner".
-3. **Pembaharuan:** penyewa sudah boleh memohon pembaharuan (sewaan baharu bermula sehari selepas tamat, dipautkan kepada sewaan lama). Belum siap: deposit dipindahkan secara automatik (kini pemilik merekod sendiri dengan rujukan sewaan lama), dan pemilik menawarkan pembaharuan dahulu.
-4. Rekod caj utiliti bulanan jika pemilik yang bayar bil; tetapan bulan deposit utiliti ikut negeri.
-5. **Keputusan pemilik projek:** platform kutip sewa atau rekod sahaja; komisen atau yuran (semak Akta 242); duti setem; cukai perkhidmatan atas sewa komersial.
-6. Fasa kemudian: pool pelaburan daripada hasil sewa.
-7. **SIT:** sewaan Tingkat 6 (`LEASE-MYS-QAAJDKTT`) ditamatkan awal. Untuk sambung SIT, jalankan sendiri di staging: `cd /opt/how/server && npx tsx scripts/reopen-ended-lease.ts --lease LEASE-MYS-QAAJDKTT` (lihat dahulu), kemudian tambah `--confirm --by <userId> --reason "..."`.
+1. **Keputusan pemilik projek:** platform kutip sewa atau rekod sahaja; komisen atau yuran (semak Akta 242); duti setem; cukai perkhidmatan atas sewa komersial.
+2. Fasa kemudian: pool pelaburan daripada hasil sewa.
+3. **SIT:** keputusan 6 November 2026: sewaan Tingkat 6 (`LEASE-MYS-QAAJDKTT`) kekal tamat kerana satu depositnya sudah dipulangkan. SIT disambung dengan sewaan baharu; penyewa memohon semula unit itu di tab Sewaan.
+4. Bil utiliti belum masuk ke kes kutipan (item 25); hanya satu peringatan dihantar kepada penyewa selepas tarikh bayar.
 
 ## 22. Agihan keuntungan (Settlement Officer)
 
@@ -296,5 +294,4 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 3. **Fasa 3, OTG + Tech:** tugasan lawatan lapangan di mini-app selepas peringatan 1 dan 2 (gambar, lokasi, nota). Perlu sahkan skop kerja OTG dengan Al Hidayah (lawatan, utiliti, pemeriksaan teknikal).
 4. **Fasa 3, pakej Legal:** satu muat turun dengan perjanjian Ijarah, SOA, semua surat peringatan dan log susulan.
 5. **Tetapan tempoh ikut pemilik:** tempoh 7/7/14/7 kini nilai lalai dalam kod; belum boleh diubah oleh setiap pemilik.
-6. **Notifikasi dalam BM:** tajuk notifikasi kutipan sudah dalam BM, tetapi isi mesej masih dalam bahasa Inggeris.
-7. **Keputusan Shariah:** caj lewat bayar (ta'widh/gharamah) dalam Ijarah. Tiada caj dikenakan sehingga diputuskan.
+6. **Keputusan Shariah:** caj lewat bayar (ta'widh/gharamah) dalam Ijarah. Tiada caj dikenakan sehingga diputuskan.

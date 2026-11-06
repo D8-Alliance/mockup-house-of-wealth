@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { Transform, Type } from 'class-transformer';
-import { ArrayMaxSize, Equals, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, Equals, IsArray, IsBoolean, IsDateString, IsIn, IsInt, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
 import { PAYOUT_CURRENCIES } from '../distribution/payout-destination.dto';
 
 export const AREA_UNITS = ['SQFT', 'SQM'] as const;
@@ -11,6 +11,7 @@ export const LEASE_REVIEW_TRACKS = ['LEGAL', 'SHARIAH'] as const;
 /** TENANT_DIRECT: electricity and water meters in the tenant's name. OWNER_RECHARGE: the owner pays and bills the tenant. */
 export const UTILITY_PAYERS = ['TENANT_DIRECT', 'OWNER_RECHARGE'] as const;
 export const DEPOSIT_KINDS = ['SECURITY', 'UTILITY', 'RENOVATION'] as const;
+export const UTILITY_CHARGE_KINDS = ['ELECTRICITY', 'WATER', 'SEWERAGE', 'OTHER'] as const;
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -74,6 +75,8 @@ export class RespondLeaseDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) note?: string;
   /** ACCEPT: the party confirms it accepts these terms on behalf of its organisation. */
   @IsOptional() @IsBoolean() confirmed?: boolean;
+  /** The tenant answering a renewal the owner offered declares its business and use are Shariah-compliant. */
+  @IsOptional() @IsBoolean() shariahDeclaration?: boolean;
 }
 
 /** The tenant asks to renew an approved lease: from the day after it ends, for a number of months. */
@@ -82,6 +85,14 @@ export class RenewLeaseDto {
   /** The rent the tenant offers; the current rent when left out. */
   @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(1e10) monthlyRent?: number;
   @Equals(true, { message: 'Confirm that your business and your use of the space are Shariah-compliant.' }) shariahDeclaration!: boolean;
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) message?: string;
+}
+
+/** The owner offers to renew: the tenant then accepts, counters or declines, as with any lease. */
+export class OfferRenewalDto {
+  @Type(() => Number) @IsInt() @Min(1) @Max(360) termMonths!: number;
+  /** The rent offered; the current rent when left out. */
+  @IsOptional() @Type(() => Number) @IsNumber() @Min(1) @Max(1e10) monthlyRent?: number;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) message?: string;
 }
 
@@ -122,6 +133,21 @@ export class ReturnDepositDto {
   @IsArray() @ArrayMaxSize(20) @ValidateNested({ each: true }) @Type(() => DepositDeductionDto) deductions!: DepositDeductionDto[];
   @Transform(trim) @IsString() @MinLength(3) @MaxLength(120) reference!: string;
   @IsOptional() @IsDateString() paidAt?: string;
+}
+
+/** A month's bill the owner paid and recharges to the tenant at cost. */
+export class LeaseUtilityChargeDto {
+  @Matches(/^\d{4}-(0[1-9]|1[0-2])$/, { message: 'Give the month of the bill as YYYY-MM.' }) period!: string;
+  @IsIn(UTILITY_CHARGE_KINDS) kind!: (typeof UTILITY_CHARGE_KINDS)[number];
+  @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(0.01) @Max(1e9) amount!: number;
+  @Transform(trim) @IsString() @MinLength(3) @MaxLength(120) billReference!: string;
+  @IsOptional() @IsDateString() dueDate?: string;
+}
+
+/** Sets the utility deposit a new unit starts with in a state. */
+export class UtilityDepositRuleDto {
+  @Transform(trim) @IsString() @MinLength(2) @MaxLength(80) state!: string;
+  @Type(() => Number) @IsNumber() @Min(0) @Max(12) months!: number;
 }
 
 export class EndLeaseDto {

@@ -220,14 +220,14 @@ export const apiClient = {
   getCollectionAccounts: () => request<CollectionAccountView[]>('/collection-accounts'),
   saveCollectionAccount: (countryNodeId: string, input: { bankName: string; accountName: string; accountNumber: string; swiftCode?: string; instructions?: string }) => request<CollectionAccountView>(`/collection-accounts/${encodeURIComponent(countryNodeId)}`, { method: 'PUT', body: JSON.stringify(input) }),
   // Direct leasing (Ijarah) of units of verified assets, without a project.
-  getMyLeasableUnits: () => request<{ assets: Array<{ id: string; name: string; assetType: string }>; units: MyLeasableUnit[] }>('/leasing/my-units'),
+  getMyLeasableUnits: () => request<{ assets: LeasableAsset[]; units: MyLeasableUnit[] }>('/leasing/my-units'),
   createLeasableUnit: (input: LeasableUnitInput) => request<LeasableUnitView>('/leasing/units', { method: 'POST', body: JSON.stringify(input) }),
   updateLeasableUnit: (id: string, input: Partial<Omit<LeasableUnitInput, 'assetId' | 'currency'>> & { status?: 'LISTED' | 'WITHDRAWN' }) => request<LeasableUnitView>(`/leasing/units/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) }),
   getAvailableUnits: () => request<AvailableUnit[]>('/leasing/units'),
   getLeases: () => request<AssetLeaseView[]>('/leasing/leases'),
   getLease: (id: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}`),
   requestLease: (input: { unitId: string; startDate: string; termMonths: number; monthlyRent?: number; intendedUse: string; tenantActivity: string; shariahDeclaration: boolean; message?: string }) => request<AssetLeaseView>('/leasing/leases', { method: 'POST', body: JSON.stringify(input) }),
-  respondLease: (id: string, input: { action: 'ACCEPT' | 'DECLINE' | 'COUNTER'; monthlyRent?: number; depositAmount?: number; utilityDepositAmount?: number; renovationDepositAmount?: number; startDate?: string; termMonths?: number; note?: string; confirmed?: boolean }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/respond`, { method: 'POST', body: JSON.stringify(input) }),
+  respondLease: (id: string, input: { action: 'ACCEPT' | 'DECLINE' | 'COUNTER'; monthlyRent?: number; depositAmount?: number; utilityDepositAmount?: number; renovationDepositAmount?: number; startDate?: string; termMonths?: number; note?: string; confirmed?: boolean; shariahDeclaration?: boolean }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/respond`, { method: 'POST', body: JSON.stringify(input) }),
   withdrawLease: (id: string, note?: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/withdraw`, { method: 'POST', body: JSON.stringify({ note }) }),
   reviewLease: (id: string, input: { decision: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES'; note: string; track?: 'LEGAL' | 'SHARIAH' }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
   recordLeaseRent: (id: string, period: string, input: { reference: string; paidAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/payments/${encodeURIComponent(period)}`, { method: 'POST', body: JSON.stringify(input) }),
@@ -236,6 +236,13 @@ export const apiClient = {
   recordLeaseDeposit: (id: string, input: { reference: string; receivedAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/deposit`, { method: 'POST', body: JSON.stringify(input) }),
   refundLeaseDeposit: (id: string, input: { kind: DepositKind; deductions: Array<{ reason: string; amount: number }>; reference: string; paidAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/deposit/refund`, { method: 'POST', body: JSON.stringify(input) }),
   renewLease: (id: string, input: { termMonths: number; monthlyRent?: number; message?: string; shariahDeclaration: true }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/renew`, { method: 'POST', body: JSON.stringify(input) }),
+  offerLeaseRenewal: (id: string, input: { termMonths: number; monthlyRent?: number; message?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/offer-renewal`, { method: 'POST', body: JSON.stringify(input) }),
+  addLeaseUtilityCharge: (id: string, input: { period: string; kind: UtilityChargeKind; amount: number; billReference: string; dueDate?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/utilities`, { method: 'POST', body: JSON.stringify(input) }),
+  recordLeaseUtilityPayment: (id: string, chargeId: string, input: { reference: string; paidAt?: string }) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/utilities/${encodeURIComponent(chargeId)}/paid`, { method: 'POST', body: JSON.stringify(input) }),
+  removeLeaseUtilityCharge: (id: string, chargeId: string, note: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/utilities/${encodeURIComponent(chargeId)}/remove`, { method: 'POST', body: JSON.stringify({ note }) }),
+  getUtilityDepositRules: () => request<UtilityDepositRules>('/leasing/utility-deposit-rules'),
+  setUtilityDepositRule: (input: { state: string; months: number }) => request<UtilityDepositRules>('/leasing/utility-deposit-rules', { method: 'PUT', body: JSON.stringify(input) }),
+  removeUtilityDepositRule: (state: string) => request<UtilityDepositRules>(`/leasing/utility-deposit-rules/${encodeURIComponent(state)}`, { method: 'DELETE' }),
   endLease: (id: string, note: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/end`, { method: 'POST', body: JSON.stringify({ note }) }),
   createInvestmentOrder: (input: { poolId: string; amount: number; currency: string; idempotencyKey: string; akadTermsId: string; acceptAkad: true }) => request<BackendInvestmentOrder>('/investments/orders', { method: 'POST', body: JSON.stringify(input) }),
   getSettlementQueue: () => request<SettlementQueueOrder[]>('/investments/settlement-queue'),
@@ -2313,6 +2320,16 @@ export interface LeasableUnitView {
   ownerOrganisationName: string;
 }
 
+/** A verified asset a unit can be added to, with the utility deposit its state starts from. */
+export interface LeasableAsset { id: string; name: string; assetType: string; state: string | null; utilityDepositMonths: number }
+/** The utility deposit a new unit starts with, by state; `defaultMonths` where no rule applies. */
+export interface UtilityDepositRules { defaultMonths: number; rules: Array<{ state: string; months: number }> }
+export type UtilityChargeKind = 'ELECTRICITY' | 'WATER' | 'SEWERAGE' | 'OTHER';
+/** A month's bill the owner paid and recharges to the tenant at cost. */
+export interface LeaseUtilityRow { id: string; period: string; kind: UtilityChargeKind; amount: number; currency: string; billReference: string; dueDate: string; status: 'DUE' | 'PAID' | 'OVERDUE'; paidAt: string | null; reference: string | null }
+/** Deposits passed between a lease and its renewal; `leaseId` is the other lease. */
+export interface LeaseDepositCarry { leaseId: string; at: string; amounts: Record<DepositKind, number> }
+
 export interface MyLeasableUnit extends LeasableUnitView {
   /** The end of the approved lease that holds the unit today. */
   occupiedUntil: string | null;
@@ -2373,6 +2390,14 @@ export interface AssetLeaseView {
   canEnd: boolean;
   /** The tenant may ask to renew: the lease is approved and running, and no renewal is under way. */
   canRenew?: boolean;
+  /** The owner may offer to renew, under the same conditions. */
+  canOfferRenewal?: boolean;
+  /** The tenant answers a renewal the owner offered: accepting or countering needs its Shariah declaration. */
+  needsShariahDeclaration?: boolean;
+  /** The owner pays the bills under this lease and can recharge them. */
+  canChargeUtilities?: boolean;
+  utilities?: LeaseUtilityRow[];
+  utilitiesUnpaid?: number;
   /** The lease this one renews. */
   renewsLeaseId?: string | null;
   /** The renewal of this lease, under way or approved. */
@@ -2389,6 +2414,12 @@ export interface AssetLeaseView {
     refunds: Array<{ kind: DepositKind; amount: number; reference: string; paidAt: string; deductions: Array<{ reason: string; amount: number }> }>;
     refundable: DepositKind[];
     refundDueBy: string | null;
+    /** Brought over from the lease this one renews. */
+    carriedIn?: LeaseDepositCarry | null;
+    /** Passed on to the lease that renews this one: only the rest can be refunded here. */
+    carriedOut?: LeaseDepositCarry | null;
+    /** What the tenant still has to pay, less what came over. */
+    toCollect?: number;
   };
   unit: { id: string; label: string; floorArea: number | null; floorAreaUnit: string; permittedUse: string; minTermMonths: number };
   asset: { id: string; name: string; assetType: string; region: string; location?: string };

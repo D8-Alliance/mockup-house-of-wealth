@@ -1,10 +1,12 @@
-import { MS_LEASING_PATTERNS, MS_LEASING_TEXT } from './i18n.leasing';
-import { MS_ROADMAP_PATTERNS, MS_ROADMAP_TEXT } from './i18n.roadmap';
+import { MS_LEASING_PATTERNS, MS_LEASING_TEXT } from './ms-text-leasing';
+import { MS_NOTICE_PATTERNS, MS_NOTICE_TITLES } from './ms-text-notices';
+import { MS_ROADMAP_PATTERNS, MS_ROADMAP_TEXT } from './ms-text-roadmap';
 
 /**
  * Notification texts the server writes in English with values filled in (amounts, names, dates, references),
  * and their Malay wording. The server keeps one language so the record stays the same for everyone; the
- * mini-app shows it in the reader's language. `$1`, `$2`... are the values captured from the English text.
+ * mini-app shows it in the reader's language, and emails go out in it (notification-language.ts).
+ * A new notification needs its wording here: notification-text.spec.ts lists the known ones. `$1`, `$2`... are the values captured from the English text.
  * A text that matches nothing shows as the server wrote it.
  */
 /** The asset expiry labels the server uses (server/src/assets/asset-expiry.ts), in Malay. */
@@ -118,6 +120,7 @@ export const MS_SERVER_TEXT: Array<[RegExp, string | ((match: RegExpExecArray) =
   [/^(.+?): the rent of (.+?) due on (\S+) is (\d+) day\(s\) late\. Pay it to the owner's bank account; the owner records it once received\.$/, '$1: sewa $2 yang perlu dibayar pada $3 sudah lewat $4 hari. Bayar ke akaun bank pemilik; pemilik merekodkannya selepas diterima.'],
   [/^(.+?): the rent of (.+?) due on (\S+) is not recorded as received, (\d+) day\(s\) after it was due\. If it reached your account, record it\.$/, '$1: sewa $2 yang perlu dibayar pada $3 belum direkod sebagai diterima, $4 hari selepas tarikhnya. Jika sudah masuk ke akaun anda, rekodkannya.'],
   [/^(.+?): the rent of (.+?) for (\S+) is due on (\S+)\. Pay it to the owner's bank account\.$/, '$1: sewa $2 bagi $3 perlu dibayar pada $4. Bayar ke akaun bank pemilik.'],
+  // Leases that were reminded before the wording changed.
   [/^(.+?): the lease ends on (\S+), in (\d+) days\. To continue, the tenant asks for a new lease; otherwise the space is handed back on that day\.$/, '$1: sewaan tamat pada $2, dalam $3 hari. Untuk meneruskan, penyewa memohon sewaan baharu; jika tidak, ruang diserahkan semula pada hari itu.'],
   [/^(.+?): refund the deposit of (.+?) by (\S+), less only unpaid rent and repairs beyond fair wear and tear, and record it in Leasing\.$/, '$1: pulangkan deposit $2 sebelum $3, ditolak hanya sewa tertunggak dan pembaikan melebihi haus dan lusuh biasa, dan rekodkannya di Sewaan.'],
 
@@ -164,11 +167,14 @@ const MS_SERVER_TITLES: Record<string, string> = {
   'Collection step overdue': 'Langkah kutipan sudah lewat',
 };
 
+// The fuller wordings of ms-text-notices.ts first: the older '$1 was declined' style ones are more general.
+const ALL_PATTERNS = [...MS_NOTICE_PATTERNS, ...MS_SERVER_TEXT, ...MS_ROADMAP_PATTERNS, ...MS_LEASING_PATTERNS];
+
 /** The server's English notification title or message in Malay, when known; otherwise as written. */
 export function translateServerText(text: string): string {
-  const known = MS_SERVER_TITLES[text] ?? MS_ROADMAP_TEXT[text] ?? MS_LEASING_TEXT[text];
+  const known = MS_SERVER_TITLES[text] ?? MS_NOTICE_TITLES[text] ?? MS_ROADMAP_TEXT[text] ?? MS_LEASING_TEXT[text];
   if (known) return known;
-  for (const [pattern, malay] of [...MS_SERVER_TEXT, ...MS_ROADMAP_PATTERNS, ...MS_LEASING_PATTERNS]) {
+  for (const [pattern, malay] of ALL_PATTERNS) {
     const match = pattern.exec(text);
     if (match) return (typeof malay === 'function' ? malay(match) : malay.replace(/\$(\d)/g, (_, index: string) => match[Number(index)] ?? '')).trim();
   }

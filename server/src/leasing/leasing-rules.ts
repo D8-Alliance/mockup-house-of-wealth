@@ -133,3 +133,34 @@ export function depositRefund(deposit: number, deductions: Array<{ reason: strin
   if (deducted > deposit) return { amount: 0, problem: 'The deductions cannot be more than the deposit.' };
   return { amount: Math.round((deposit - deducted) * 100) / 100, problem: null };
 }
+
+/** A deposit passed from a lease to the lease that renews it, per kind; `leaseId` is the lease on the other side. */
+export interface DepositCarry { leaseId: string; at: string; amounts: Record<DepositKind, number> }
+const sen = (value: number) => Math.round(value * 100) / 100;
+export const depositTotal = (amounts: Record<DepositKind, number>) => sen(amounts.SECURITY + amounts.UTILITY + amounts.RENOVATION);
+
+/** What the owner still holds of each deposit under this lease: not refunded, and not passed on to its renewal. */
+export function heldDeposits(amounts: Record<DepositKind, number>, refunds: DepositRefund[], carriedOut: DepositCarry | null): Record<DepositKind, number> {
+  const held = (kind: DepositKind) => (refunds.some((refund) => refund.kind === kind) ? 0 : sen(amounts[kind] - (carriedOut?.amounts[kind] ?? 0)));
+  return { SECURITY: held('SECURITY'), UTILITY: held('UTILITY'), RENOVATION: held('RENOVATION') };
+}
+
+/** What passes to the renewal, kind by kind: what it needs, up to what is held. Anything more stays refundable under the earlier lease. */
+export const depositCarryOver = (held: Record<DepositKind, number>, required: Record<DepositKind, number>): Record<DepositKind, number> => ({
+  SECURITY: Math.min(held.SECURITY, required.SECURITY), UTILITY: Math.min(held.UTILITY, required.UTILITY), RENOVATION: Math.min(held.RENOVATION, required.RENOVATION),
+});
+
+/** The utility deposit a unit starts with where no state rule applies. */
+export const DEFAULT_UTILITY_DEPOSIT_MONTHS = 1;
+/** State names compare without regard to case or spacing: asset details are typed by hand. */
+export const stateKey = (state: string) => state.trim().replace(/\s+/g, ' ').toLowerCase();
+/** The months the state's rule sets, or the default. */
+export function utilityDepositMonthsFor(state: string | null | undefined, rules: Array<{ state: string; months: number }>): number {
+  const rule = state ? rules.find((item) => stateKey(item.state) === stateKey(state)) : undefined;
+  return rule ? rule.months : DEFAULT_UTILITY_DEPOSIT_MONTHS;
+}
+
+/** Days the tenant has to pay a recharged utility bill, unless the owner gives a date. */
+export const UTILITY_CHARGE_DAYS = 14;
+/** A bill's due date when the owner gives none. */
+export const utilityChargeDueDate = (today: Date) => new Date(Date.parse(isoDay(today)) + UTILITY_CHARGE_DAYS * DAY_MS);

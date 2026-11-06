@@ -2311,6 +2311,10 @@ model AssetLease {
   depositReturnedAt    DateTime?
   /// Each deposit as refunded: [{ kind: SECURITY | UTILITY | RENOVATION, amount, reference, paidAt, deductions: [{ reason, amount }] }].
   depositRefunds       Json?
+  /// Deposits brought over from the lease this one renews: { leaseId, at, amounts: { SECURITY, UTILITY, RENOVATION } }.
+  depositCarriedIn     Json?
+  /// Deposits passed on to the lease that renews this one, in the same form; only what is left can be refunded here.
+  depositCarriedOut    Json?
   /// The lease this one renews: it starts the day after that lease ends, for the same unit and tenant.
   renewsLeaseId        String?
   createdBy            String
@@ -2319,12 +2323,53 @@ model AssetLease {
 
   unit     LeasableUnit       @relation(fields: [unitId], references: [id])
   payments LeaseRentPayment[]
+  utilityCharges LeaseUtilityCharge[]
 
   @@index([unitId, status])
   @@index([countryNodeId, status])
   @@index([ownerOrganisationId])
   @@index([tenantOrganisationId])
   @@index([renewsLeaseId])
+}
+
+/** One month's bill recharged at cost when the owner pays the electricity and water (OWNER_RECHARGE). */
+model LeaseUtilityCharge {
+  id            String    @id @default(cuid())
+  leaseId       String
+  /// YYYY-MM, the month the bill is for.
+  period        String
+  /// ELECTRICITY, WATER, SEWERAGE or OTHER
+  kind          String
+  amount        Decimal   @db.Decimal(18, 2)
+  currency      String
+  /// The bill's number, so the tenant can check the charge is at cost.
+  billReference String
+  dueDate       DateTime
+  /// DUE or PAID; overdue is a DUE row past its due date. A charge entered by mistake is removed, with the audit log keeping it.
+  status        String    @default("DUE")
+  paidAt        DateTime?
+  /// The tenant's transfer reference as the owner saw it in their bank.
+  reference     String?
+  createdBy     String
+  recordedBy    String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  lease AssetLease @relation(fields: [leaseId], references: [id])
+
+  @@unique([leaseId, period, kind])
+  @@index([status, dueDate])
+}
+
+/** The utility deposit, in months of rent, a unit starts with in one state (TNB and water practice differs by state). */
+model UtilityDepositRule {
+  countryNodeId String
+  state         String
+  months        Decimal  @db.Decimal(4, 1)
+  updatedBy     String
+  updatedAt     DateTime @updatedAt
+
+  @@id([countryNodeId, state])
 }
 
 /** One month's rent of an approved lease: due, then recorded as paid by the owner. */

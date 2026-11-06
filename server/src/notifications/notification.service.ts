@@ -5,6 +5,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { tenantScopeFilter } from '../tenancy/tenant-scope';
 import { NotificationDeliveryService } from './notification-delivery.service';
+import { inLanguage, notificationLanguage } from './notification-language';
 
 export interface NotificationInput {
   recipientUserId: string;
@@ -117,7 +118,9 @@ export class NotificationService {
         // Only the channels not yet done: a retry never repeats an email or push that already went out.
         const done = new Set(row.deliveredChannels.split(',').filter(Boolean));
         const pending = channelsForRecipient(row.channels, profile).split(',').filter((channel) => channel && !done.has(channel.trim().toUpperCase())).join(',');
-        const results = await this.delivery.deliverEach({ channels: pending, title: row.title, message: row.message, recipientEmail: recipient?.email, recipientPhone: typeof profile.phone === 'string' ? profile.phone : undefined, pushToken: typeof profile.pushToken === 'string' ? profile.pushToken : undefined });
+        // The record above stays in English; what is sent out reads in the recipient's language.
+        const language = notificationLanguage(profile, row.countryNodeId);
+        const results = await this.delivery.deliverEach({ channels: pending, title: inLanguage(row.title, language), message: inLanguage(row.message, language), recipientEmail: recipient?.email, recipientPhone: typeof profile.phone === 'string' ? profile.phone : undefined, pushToken: typeof profile.pushToken === 'string' ? profile.pushToken : undefined });
         for (const result of results) if (result.outcome !== 'FAILED') done.add(result.channel);
         const failed = results.filter((result) => result.outcome === 'FAILED');
         const skipped = results.filter((result) => result.outcome === 'SKIPPED');

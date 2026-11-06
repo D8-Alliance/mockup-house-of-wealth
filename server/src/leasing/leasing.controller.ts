@@ -1,14 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { Roles } from '../auth/roles.decorator';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
-import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, RecordDepositDto, RecordRentPaymentDto, RenewLeaseDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto } from './leasing.dto';
+import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, LeaseUtilityChargeDto, OfferRenewalDto, RecordDepositDto, RecordRentPaymentDto, RenewLeaseDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto, UtilityDepositRuleDto } from './leasing.dto';
 import { LeasingService } from './leasing.service';
 
 const OWNERS = ['Asset Owner', 'Asset Manager'] as const;
 const TENANTS = ['Organization Admin', 'Corporate Investor', 'Project Sponsor', 'Project Manager'] as const;
+const COUNTRY_ADMINS = ['Super Admin', 'Country Admin'] as const;
 const REVIEWERS = ['Super Admin', 'Country Admin', 'Legal Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'] as const;
 
 /** Direct Ijarah leases: owners list units of verified assets and companies rent them without a project. */
@@ -50,6 +51,10 @@ export class LeasingController {
   @Roles(...TENANTS)
   renew(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() body: RenewLeaseDto) { return this.leasing.renewLease(actor, id, body); }
 
+  @Post('leases/:id/offer-renewal')
+  @Roles(...OWNERS)
+  offerRenewal(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() body: OfferRenewalDto) { return this.leasing.offerRenewal(actor, id, body); }
+
   @Post('leases/:id/respond')
   @Roles(...OWNERS, ...TENANTS)
   respond(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() body: RespondLeaseDto) { return this.leasing.respond(actor, id, body); }
@@ -73,6 +78,30 @@ export class LeasingController {
   @Post('leases/:id/deposit/refund')
   @Roles(...OWNERS)
   returnDeposit(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() body: ReturnDepositDto) { return this.leasing.returnDeposit(actor, id, body); }
+
+  @Post('leases/:id/utilities')
+  @Roles(...OWNERS)
+  addUtilityCharge(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() body: LeaseUtilityChargeDto) { return this.leasing.addUtilityCharge(actor, id, body); }
+
+  @Post('leases/:id/utilities/:chargeId/paid')
+  @Roles(...OWNERS)
+  recordUtilityPayment(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Param('chargeId') chargeId: string, @Body() body: RecordRentPaymentDto) { return this.leasing.recordUtilityPayment(actor, id, chargeId, body); }
+
+  @Post('leases/:id/utilities/:chargeId/remove')
+  @Roles(...OWNERS)
+  removeUtilityCharge(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Param('chargeId') chargeId: string, @Body() body: EndLeaseDto) { return this.leasing.removeUtilityCharge(actor, id, chargeId, body); }
+
+  @Get('utility-deposit-rules')
+  @Roles(...OWNERS, ...COUNTRY_ADMINS)
+  utilityDepositRules(@CurrentUser() actor: AuthenticatedUser) { return this.leasing.utilityDepositRules(actor); }
+
+  @Put('utility-deposit-rules')
+  @Roles(...COUNTRY_ADMINS)
+  setUtilityDepositRule(@CurrentUser() actor: AuthenticatedUser, @Body() body: UtilityDepositRuleDto) { return this.leasing.setUtilityDepositRule(actor, body); }
+
+  @Delete('utility-deposit-rules/:state')
+  @Roles(...COUNTRY_ADMINS)
+  removeUtilityDepositRule(@CurrentUser() actor: AuthenticatedUser, @Param('state') state: string) { return this.leasing.removeUtilityDepositRule(actor, state); }
 
   @Post('leases/:id/end')
   @Roles(...OWNERS)

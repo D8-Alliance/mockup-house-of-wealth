@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Building2, ChevronRight, Plus, RefreshCw } from 'lucide-react';
-import { AgreementDetail, AgreementStatus, apiClient, DepositKind, AssetLeaseView, AvailableUnit, LeasableUnitInput, LeasableUnitView, MyLeasableUnit } from '../../services/apiClient';
+import { AgreementDetail, AgreementStatus, apiClient, DepositKind, AssetLeaseView, AvailableUnit, LeasableAsset, LeasableUnitInput, LeasableUnitView, LeaseUtilityRow, MyLeasableUnit, UtilityChargeKind, UtilityDepositRules } from '../../services/apiClient';
 import { useRBAC } from '../../rbac/RBACContext';
-import { LEASE_OWNER_ROLES, LEASE_REVIEWER_ROLES, LEASE_TENANT_ROLES } from '../mobileRoles';
+import { LEASE_OWNER_ROLES, LEASE_REVIEWER_ROLES, LEASE_TENANT_ROLES, USER_ADMIN_ROLES } from '../mobileRoles';
 import { useT } from '../i18n';
 import { LeaseReport } from './LeaseReport';
 import { LeaseCollections, LeaseReminderLetters } from './LeaseCollections';
 
-type Section = 'units' | 'find' | 'leases' | 'review' | 'report' | 'collections';
+type Section = 'units' | 'find' | 'leases' | 'review' | 'report' | 'collections' | 'deposits';
 
 const STATUS_LABEL: Record<string, string> = {
   PROPOSED: 'Under discussion', ACCEPTED: 'Awaiting Legal and Shariah approval', APPROVED: 'Approved', DECLINED: 'Declined',
@@ -77,6 +77,7 @@ const LeasingScreens: React.FC = () => {
     ['leases', isReviewer && !isOwner && !isTenant ? t('All leases') : t('Leases')],
     ...(isOwner ? [['collections', t('Collection')] as [Section, string]] : []),
     ...(isOwner ? [['report', t('Report')] as [Section, string]] : []),
+    ...(USER_ADMIN_ROLES.includes(currentRole) ? [['deposits', t('Utility deposit')] as [Section, string]] : []),
   ];
   const [section, setSection] = useState<Section>(sections[0][0]);
   const [openLease, setOpenLease] = useState<string | null>(null);
@@ -106,6 +107,7 @@ const LeasingScreens: React.FC = () => {
       {section === 'units' && <OwnerUnits />}
       {section === 'report' && <LeaseReport />}
       {section === 'collections' && <LeaseCollections />}
+      {section === 'deposits' && <UtilityDepositSettings />}
       {section === 'find' && <FindSpace onRent={setRenting} />}
       {section === 'review' && <LeaseList filter={(lease) => lease.canReview} empty={t('No lease is waiting for your review.')} onOpen={setOpenLease} />}
       {section === 'leases' && <LeaseList empty={isTenant ? t('Your company has no lease or request yet. Find space to ask for one.') : t('No lease yet.')} onOpen={setOpenLease} />}
@@ -122,7 +124,7 @@ function useMoney() {
 const OwnerUnits: React.FC = () => {
   const { t } = useT();
   const money = useMoney();
-  const [data, setData] = useState<{ assets: Array<{ id: string; name: string }>; units: MyLeasableUnit[] } | null>(null);
+  const [data, setData] = useState<{ assets: LeasableAsset[]; units: MyLeasableUnit[] } | null>(null);
   const [error, setError] = useState('');
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<MyLeasableUnit | null>(null);
@@ -224,12 +226,12 @@ type LeaseKind = 'space' | 'land' | 'movable';
 const leaseKind = (assetType: string | undefined): LeaseKind => (assetType === 'BUILDING' ? 'space' : assetType === 'LAND' ? 'land' : 'movable');
 
 /** Adds a unit, or with `unit` changes its terms; leases already requested keep the terms they were made on. */
-const UnitForm: React.FC<{ assets: Array<{ id: string; name: string; assetType?: string }>; unit?: MyLeasableUnit; onDone: (saved: boolean) => void }> = ({ assets, unit, onDone }) => {
+const UnitForm: React.FC<{ assets: LeasableAsset[]; unit?: MyLeasableUnit; onDone: (saved: boolean) => void }> = ({ assets, unit, onDone }) => {
   const { t } = useT();
   const firstKind = leaseKind(assets[0]?.assetType);
   const [form, setForm] = useState(unit
     ? { assetId: unit.assetId, label: unit.label, floorArea: unit.floorArea ? String(unit.floorArea) : '', floorAreaUnit: unit.floorAreaUnit, monthlyRent: String(unit.monthlyRent), depositMonths: String(unit.depositMonths), utilityDepositMonths: String(unit.utilityDepositMonths), renovationDeposit: String(unit.renovationDeposit), utilitiesPaidBy: unit.utilitiesPaidBy as string, minTermMonths: String(unit.minTermMonths), availableFrom: unit.availableFrom ?? '', permittedUse: unit.permittedUse, description: unit.description }
-    : { assetId: assets[0]?.id ?? '', label: firstKind === 'movable' ? assets[0]?.name ?? '' : '', floorArea: '', floorAreaUnit: firstKind === 'land' ? 'SQM' : 'SQFT', monthlyRent: '', depositMonths: '2', utilityDepositMonths: firstKind === 'space' ? '1' : '0', renovationDeposit: '0', utilitiesPaidBy: 'TENANT_DIRECT', minTermMonths: firstKind === 'movable' ? '1' : '12', availableFrom: '', permittedUse: '', description: '' });
+    : { assetId: assets[0]?.id ?? '', label: firstKind === 'movable' ? assets[0]?.name ?? '' : '', floorArea: '', floorAreaUnit: firstKind === 'land' ? 'SQM' : 'SQFT', monthlyRent: '', depositMonths: '2', utilityDepositMonths: firstKind === 'space' ? String(assets[0]?.utilityDepositMonths ?? 1) : '0', renovationDeposit: '0', utilitiesPaidBy: 'TENANT_DIRECT', minTermMonths: firstKind === 'movable' ? '1' : '12', availableFrom: '', permittedUse: '', description: '' });
   const asset = assets.find(item => item.id === form.assetId);
   const kind = leaseKind(unit ? unit.asset.assetType : asset?.assetType);
   // A new asset picked: start from that kind's defaults, and a movable asset is rented whole under its own name.
@@ -240,7 +242,8 @@ const UnitForm: React.FC<{ assets: Array<{ id: string; name: string; assetType?:
       ...current, assetId: event.target.value,
       label: nextKind === 'movable' ? next?.name ?? '' : kind === 'movable' ? '' : current.label,
       floorArea: nextKind === 'movable' ? '' : current.floorArea, floorAreaUnit: nextKind === 'land' ? 'SQM' : current.floorAreaUnit,
-      utilityDepositMonths: nextKind === 'space' ? (kind === 'space' ? current.utilityDepositMonths : '1') : '0',
+      // Each state has its own starting point, so a different asset starts again from its state.
+      utilityDepositMonths: nextKind === 'space' ? String(next?.utilityDepositMonths ?? 1) : '0',
       renovationDeposit: nextKind === 'space' ? current.renovationDeposit : '0', utilitiesPaidBy: nextKind === 'space' ? current.utilitiesPaidBy : 'TENANT_DIRECT',
     }));
   };
@@ -288,7 +291,7 @@ const UnitForm: React.FC<{ assets: Array<{ id: string; name: string; assetType?:
       {kind === 'space' && (
         <>
           <div className="grid grid-cols-2 gap-2">
-            <label className="block text-xs font-bold text-slate-500">{t('Utility deposit (months of rent)')}<input required type="number" min={0} max={12} step="0.5" value={form.utilityDepositMonths} onChange={set('utilityDepositMonths')} className={input} /></label>
+            <label className="block text-xs font-bold text-slate-500">{t('Utility deposit (months of rent)')}<input required type="number" min={0} max={12} step="0.5" value={form.utilityDepositMonths} onChange={set('utilityDepositMonths')} className={input} />{!unit && asset?.state && <span className="mt-1 block font-normal text-[11px]">{t('Usual for {state}: {months}', { state: asset.state, months: asset.utilityDepositMonths })}</span>}</label>
             <label className="block text-xs font-bold text-slate-500">{t('Renovation deposit (RM)')}<input required type="number" min={0} step="0.01" value={form.renovationDeposit} onChange={set('renovationDeposit')} className={input} /></label>
           </div>
           <label className="block text-xs font-bold text-slate-500">{t('Electricity and water')}<select value={form.utilitiesPaidBy} onChange={set('utilitiesPaidBy')} className={input}><option value="TENANT_DIRECT">{t('Tenant pays TNB and water directly')}</option><option value="OWNER_RECHARGE">{t('Owner pays and bills the tenant at cost')}</option></select></label>
@@ -462,7 +465,7 @@ const LeaseList: React.FC<{ filter?: (lease: AssetLeaseView) => boolean; empty: 
 };
 
 const HISTORY_LABEL: Record<string, string> = {
-  PROPOSED: 'Asked to rent', COUNTERED: 'Proposed new terms', ACCEPTED: 'Accepted the terms', DECLINED: 'Declined', WITHDRAWN: 'Withdrew', ENDED: 'Ended the lease',
+  PROPOSED: 'Asked to rent', RENEWAL_OFFERED: 'Offered to renew', COUNTERED: 'Proposed new terms', ACCEPTED: 'Accepted the terms', DECLINED: 'Declined', WITHDRAWN: 'Withdrew', ENDED: 'Ended the lease',
   LEGAL_APPROVED: 'Legal approved', SHARIAH_APPROVED: 'Shariah approved', LEGAL_REJECTED: 'Legal rejected', SHARIAH_REJECTED: 'Shariah rejected',
   LEGAL_CHANGES_REQUESTED: 'Legal asked for changes', SHARIAH_CHANGES_REQUESTED: 'Shariah asked for changes',
 };
@@ -477,7 +480,8 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
   const [lease, setLease] = useState<AssetLeaseView | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [mode, setMode] = useState<'' | 'accept' | 'counter' | 'decline' | 'withdraw' | 'review' | 'end' | 'renew'>('');
+  const [mode, setMode] = useState<'' | 'accept' | 'counter' | 'decline' | 'withdraw' | 'review' | 'end' | 'renew' | 'offer'>('');
+  const [declared, setDeclared] = useState(false);
   const [note, setNote] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [counter, setCounter] = useState({ monthlyRent: '', depositAmount: '', utilityDepositAmount: '', renovationDepositAmount: '', startDate: '', termMonths: '' });
@@ -492,8 +496,9 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
     setMode(next);
     setNote('');
     setConfirmed(false);
+    setDeclared(false);
     setError('');
-    if (lease && next === 'renew') setRenewal({ termMonths: String(lease.termMonths), monthlyRent: String(lease.monthlyRent) });
+    if (lease && (next === 'renew' || next === 'offer')) setRenewal({ termMonths: String(lease.termMonths), monthlyRent: String(lease.monthlyRent) });
     if (lease && next === 'counter') setCounter({ monthlyRent: String(lease.monthlyRent), depositAmount: String(lease.depositAmount), utilityDepositAmount: String(lease.utilityDepositAmount), renovationDepositAmount: String(lease.renovationDepositAmount), startDate: lease.startDate, termMonths: String(lease.termMonths) });
   };
   const act = async (call: () => Promise<AssetLeaseView>) => {
@@ -518,6 +523,9 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
       : lease.status === 'APPROVED' ? t('Approved. Sign the Ijarah agreement; rent is paid to the owner\'s bank account each month and the owner records it here.') : '';
   const isSuperAdmin = currentRole === 'Super Admin';
   const row = (label: string, value: React.ReactNode) => <div className="flex justify-between gap-3 py-1.5"><dt className="text-slate-500">{label}</dt><dd className="font-bold text-right">{value}</dd></div>;
+  const declarationMissing = Boolean(lease.needsShariahDeclaration) && !declared;
+  // A renewal the owner offered: the tenant declares here what it would have declared when asking itself.
+  const declaration = lease.needsShariahDeclaration && <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={declared} onChange={(event) => setDeclared(event.target.checked)} className="mt-0.5 w-4 h-4" /><span>{t('Our business and our use of the space remain Shariah-compliant.')}</span></label>;
   const noteBox = (required: boolean, placeholder: string) => <textarea required={required} minLength={required ? 3 : undefined} maxLength={2000} rows={3} value={note} onChange={(event) => setNote(event.target.value)} placeholder={placeholder} className={input} />;
 
   return (
@@ -531,7 +539,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
       {lease.renewsLeaseId && (
         <div className="rounded-xl bg-sky-50 dark:bg-sky-500/10 p-3 text-xs text-sky-900 dark:text-sky-100 space-y-1">
           <p className="font-bold">{t('Renewal of')} <button type="button" onClick={() => onOpen(lease.renewsLeaseId!)} className="font-mono underline">{lease.renewsLeaseId}</button></p>
-          {lease.myParty === 'OWNER' && <p>{t('The deposits held under the earlier lease can carry over: record them as received here with that lease as the reference, and refund them there with this lease as the reference.')}</p>}
+          {!lease.deposit.carriedIn && ['PROPOSED', 'ACCEPTED'].includes(lease.status) && <p>{t('Once this renewal is approved, the deposits held under the earlier lease carry over. Only a difference is paid or refunded.')}</p>}
         </div>
       )}
       {lease.renewal && <p className="rounded-xl bg-sky-50 dark:bg-sky-500/10 p-3 text-xs font-bold text-sky-900 dark:text-sky-100">{t('Renewal')}: <button type="button" onClick={() => onOpen(lease.renewal!.id)} className="font-mono underline">{lease.renewal.id}</button> · {t(STATUS_LABEL[lease.renewal.status])}</p>}
@@ -560,7 +568,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
 
       {error && <ErrorNote text={error} />}
 
-      {!mode && (lease.canRespond || lease.canWithdraw || lease.canReview || lease.canEnd || lease.canRenew) && (
+      {!mode && (lease.canRespond || lease.canWithdraw || lease.canReview || lease.canEnd || lease.canRenew || lease.canOfferRenewal) && (
         <div className="grid grid-cols-2 gap-2">
           {lease.canRespond && <button type="button" onClick={() => open('accept')} className={primary}>{t('Accept')}</button>}
           {lease.canRespond && <button type="button" onClick={() => open('counter')} className={secondary}>{t('Propose other terms')}</button>}
@@ -568,6 +576,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
           {lease.canWithdraw && <button type="button" onClick={() => open('withdraw')} className={secondary}>{t('Withdraw')}</button>}
           {lease.canReview && <button type="button" onClick={() => open('review')} className={`${primary} col-span-2`}>{t('Review')}</button>}
           {lease.canRenew && <button type="button" onClick={() => open('renew')} className={`${primary} col-span-2`}>{t('Ask to renew')}</button>}
+          {lease.canOfferRenewal && <button type="button" onClick={() => open('offer')} className={`${primary} col-span-2`}>{t('Offer to renew')}</button>}
           {lease.canEnd && <button type="button" onClick={() => open('end')} className={`${secondary} col-span-2`}>{t('End the lease early')}</button>}
         </div>
       )}
@@ -575,14 +584,15 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
       {mode === 'accept' && (
         <section className={`${card} space-y-3`}>
           <label className="flex items-start gap-2 text-xs"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-0.5 w-4 h-4" /><span>{t('I accept these terms on behalf of my organisation.')}</span></label>
+          {declaration}
           {noteBox(false, t('Note (optional)'))}
-          <button type="button" disabled={busy || !confirmed} onClick={() => act(() => apiClient.respondLease(lease.id, { action: 'ACCEPT', confirmed: true, note: note || undefined }))} className={primary}>{t('Accept')}</button>
+          <button type="button" disabled={busy || !confirmed || declarationMissing} onClick={() => act(() => apiClient.respondLease(lease.id, { action: 'ACCEPT', confirmed: true, note: note || undefined, ...(lease.needsShariahDeclaration ? { shariahDeclaration: true } : {}) }))} className={primary}>{t('Accept')}</button>
           <button type="button" onClick={() => setMode('')} className={secondary}>{t('Cancel')}</button>
         </section>
       )}
 
       {mode === 'counter' && (
-        <form className={`${card} space-y-3`} onSubmit={(event) => { event.preventDefault(); act(() => apiClient.respondLease(lease.id, { action: 'COUNTER', monthlyRent: Number(counter.monthlyRent), ...(Number(counter.depositAmount) !== lease.depositAmount ? { depositAmount: Number(counter.depositAmount) } : {}), ...(Number(counter.utilityDepositAmount) !== lease.utilityDepositAmount ? { utilityDepositAmount: Number(counter.utilityDepositAmount) } : {}), ...(Number(counter.renovationDepositAmount) !== lease.renovationDepositAmount ? { renovationDepositAmount: Number(counter.renovationDepositAmount) } : {}), startDate: counter.startDate, termMonths: Number(counter.termMonths), note: note || undefined })); }}>
+        <form className={`${card} space-y-3`} onSubmit={(event) => { event.preventDefault(); act(() => apiClient.respondLease(lease.id, { action: 'COUNTER', monthlyRent: Number(counter.monthlyRent), ...(Number(counter.depositAmount) !== lease.depositAmount ? { depositAmount: Number(counter.depositAmount) } : {}), ...(Number(counter.utilityDepositAmount) !== lease.utilityDepositAmount ? { utilityDepositAmount: Number(counter.utilityDepositAmount) } : {}), ...(Number(counter.renovationDepositAmount) !== lease.renovationDepositAmount ? { renovationDepositAmount: Number(counter.renovationDepositAmount) } : {}), startDate: counter.startDate, termMonths: Number(counter.termMonths), note: note || undefined, ...(lease.needsShariahDeclaration ? { shariahDeclaration: true } : {}) })); }}>
           <label className="block text-xs font-bold text-slate-500">{t('Rent a month (RM)')}<input required type="number" min={1} step="0.01" value={counter.monthlyRent} onChange={(event) => setCounter(current => ({ ...current, monthlyRent: event.target.value }))} className={input} /></label>
           <label className="block text-xs font-bold text-slate-500">{t('Deposit (RM)')}<input required type="number" min={0} step="0.01" value={counter.depositAmount} onChange={(event) => setCounter(current => ({ ...current, depositAmount: event.target.value }))} className={input} /></label>
           <div className="grid grid-cols-2 gap-2">
@@ -595,7 +605,8 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
             <label className="block text-xs font-bold text-slate-500">{t('Months')}<input required type="number" min={1} max={360} value={counter.termMonths} onChange={(event) => setCounter(current => ({ ...current, termMonths: event.target.value }))} className={input} /></label>
           </div>
           {noteBox(false, t('Note (optional)'))}
-          <button type="submit" disabled={busy} className={primary}>{t('Send the new terms')}</button>
+          {declaration}
+          <button type="submit" disabled={busy || declarationMissing} className={primary}>{t('Send the new terms')}</button>
           <button type="button" onClick={() => setMode('')} className={secondary}>{t('Cancel')}</button>
         </form>
       )}
@@ -623,6 +634,20 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
         </form>
       )}
 
+      {mode === 'offer' && (
+        <form className={`${card} space-y-3`} onSubmit={(event) => { event.preventDefault(); setBusy(true); setError(''); apiClient.offerLeaseRenewal(lease.id, { termMonths: Number(renewal.termMonths), ...(Number(renewal.monthlyRent) !== lease.monthlyRent ? { monthlyRent: Number(renewal.monthlyRent) } : {}), message: note || undefined }).then((created) => onOpen(created.id)).catch((cause) => setError(errorText(cause, t('That did not go through.')))).finally(() => setBusy(false)); }}>
+          <h2 className="text-sm font-black">{t('Offer to renew')}</h2>
+          <p className="text-[11px] text-slate-500">{t('A new lease from {date}, the day after this one ends, with the same use and deposits. The tenant answers, then Legal and Shariah review it and both sides sign a new agreement.', { date: nextDay(lease.endDate) })}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-xs font-bold text-slate-500">{t('Months')}<input required type="number" min={1} max={360} value={renewal.termMonths} onChange={(event) => setRenewal(current => ({ ...current, termMonths: event.target.value }))} className={input} /></label>
+            <label className="block text-xs font-bold text-slate-500">{t('Rent a month (RM)')}<input required type="number" min={1} step="0.01" value={renewal.monthlyRent} onChange={(event) => setRenewal(current => ({ ...current, monthlyRent: event.target.value }))} className={input} /></label>
+          </div>
+          {noteBox(false, t('Message to the tenant (optional)'))}
+          <button type="submit" disabled={busy} className={primary}>{t('Send the offer')}</button>
+          <button type="button" onClick={() => setMode('')} className={secondary}>{t('Cancel')}</button>
+        </form>
+      )}
+
       {mode === 'review' && (
         <section className={`${card} space-y-3`}>
           {isSuperAdmin && (
@@ -642,6 +667,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
 
       {['APPROVED', 'ENDED'].includes(lease.status) && lease.myParty && <LeaseAgreementCard lease={lease} onChanged={reload} />}
       {['APPROVED', 'ENDED'].includes(lease.status) && (lease.myParty || lease.deposit.receivedAt) && <DepositCard lease={lease} onChanged={setLease} />}
+      {['APPROVED', 'ENDED'].includes(lease.status) && lease.utilitiesPaidBy === 'OWNER_RECHARGE' && (lease.canChargeUtilities || (lease.utilities?.length ?? 0) > 0) && <UtilityBillsCard lease={lease} onChanged={setLease} />}
       {['APPROVED', 'ENDED'].includes(lease.status) && lease.myParty && <LeaseReminderLetters leaseId={lease.id} />}
       </div>
 
@@ -707,7 +733,7 @@ const AGREEMENT_STATUS: Record<AgreementStatus, string> = {
 /**
  * The lease's Ijarah agreement: the owner drafts it from the approved terms, both sides agree to the text,
  * the owner sends it to legal and Shariah review, then each side signs with a one-time code. Reviewers work
- * on the web portal; the parties do everything here.
+ * under Reviews (MobileAgreementReview) or on the web portal; the parties do everything here.
  */
 const LeaseAgreementCard: React.FC<{ lease: AssetLeaseView; onChanged: () => void }> = ({ lease, onChanged }) => {
   const { t } = useT();
@@ -798,6 +824,10 @@ const DepositCard: React.FC<{ lease: AssetLeaseView; onChanged: (lease: AssetLea
   const money = (amount: number) => `${lease.currency === 'MYR' ? 'RM' : lease.currency} ${amount.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const deducted = deductions.reduce((total, item) => total + (Number(item.amount) || 0), 0);
   const amountOf = (kind: DepositKind) => (kind === 'SECURITY' ? deposit.amount : kind === 'UTILITY' ? deposit.utility : deposit.renovation);
+  /** What can still be refunded here: a part carried over to the renewal is held there. */
+  const refundableAmount = (kind: DepositKind) => Math.round((amountOf(kind) - (deposit.carriedOut?.amounts[kind] ?? 0)) * 100) / 100;
+  const carriedTotal = (carry: { amounts: Record<DepositKind, number> }) => carry.amounts.SECURITY + carry.amounts.UTILITY + carry.amounts.RENOVATION;
+  const toCollect = deposit.toCollect ?? deposit.total;
   const act = async (call: () => Promise<AssetLeaseView>) => {
     setBusy(true);
     setError('');
@@ -814,6 +844,9 @@ const DepositCard: React.FC<{ lease: AssetLeaseView; onChanged: (lease: AssetLea
         <p className="text-sm font-black">{money(deposit.total)}</p>
       </div>
       <p className="text-[11px] text-slate-500">{deposit.receivedAt ? t('received {date} · ref {reference}', { date: deposit.receivedAt, reference: deposit.reference ?? '' }) : t('not received yet')}</p>
+      {deposit.carriedIn && <p className="text-[11px] font-bold text-sky-700 dark:text-sky-300">{t('{amount} carried over from {lease}', { amount: money(carriedTotal(deposit.carriedIn)), lease: deposit.carriedIn.leaseId })}{!deposit.receivedAt && toCollect > 0 ? ` · ${t('{amount} still to pay', { amount: money(toCollect) })}` : ''}</p>}
+      {deposit.carriedOut && <p className="text-[11px] font-bold text-sky-700 dark:text-sky-300">{t('{amount} carried over to {lease}', { amount: money(carriedTotal(deposit.carriedOut)), lease: deposit.carriedOut.leaseId })}</p>}
+      {(lease.utilitiesUnpaid ?? 0) > 0 && lease.deposit.refundable.includes('UTILITY') && <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">{t('Utility bills unpaid: {amount}', { amount: money(lease.utilitiesUnpaid!) })}</p>}
       <ul className="divide-y divide-slate-100 dark:divide-slate-800">
         {kinds.map(kind => {
           const refund = deposit.refunds.find(item => item.kind === kind);
@@ -829,7 +862,7 @@ const DepositCard: React.FC<{ lease: AssetLeaseView; onChanged: (lease: AssetLea
       </ul>
       {deposit.refundDueBy && !deposit.returnedAt && <p className="text-[11px] font-bold text-amber-700 dark:text-amber-300">{t('Security and utility deposits to be refunded by {date}.', { date: deposit.refundDueBy })}</p>}
 
-      {lease.canRecordDeposit && mode !== 'receive' && <button type="button" onClick={() => open('receive')} className={secondary}>{t('Record deposits received ({amount})', { amount: money(deposit.total) })}</button>}
+      {lease.canRecordDeposit && mode !== 'receive' && <button type="button" onClick={() => open('receive')} className={secondary}>{t('Record deposits received ({amount})', { amount: money(toCollect) })}</button>}
 
       {mode === 'receive' && (
         <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); act(() => apiClient.recordLeaseDeposit(lease.id, { reference: reference.trim(), receivedAt: date })); }}>
@@ -854,16 +887,152 @@ const DepositCard: React.FC<{ lease: AssetLeaseView; onChanged: (lease: AssetLea
             </div>
           ))}
           <button type="button" onClick={() => setDeductions(current => [...current, { reason: '', amount: '' }])} className="text-xs font-black text-emerald-700 dark:text-emerald-400">{t('+ Add a deduction')}</button>
-          <p className={`text-xs font-black ${deducted > amountOf(refundKind) ? 'text-rose-700 dark:text-rose-400' : ''}`}>{t('To refund: {amount}', { amount: money(Math.max(0, amountOf(refundKind) - deducted)) })}</p>
+          <p className={`text-xs font-black ${deducted > refundableAmount(refundKind) ? 'text-rose-700 dark:text-rose-400' : ''}`}>{t('To refund: {amount}', { amount: money(Math.max(0, refundableAmount(refundKind) - deducted)) })}</p>
           <input required minLength={3} maxLength={120} value={reference} onChange={(event) => setReference(event.target.value)} placeholder={t('Transfer reference in your bank')} className={input} />
           <input required type="date" max={today()} value={date} onChange={(event) => setDate(event.target.value)} className={input} />
           <div className="grid grid-cols-2 gap-2">
-            <button type="submit" disabled={busy || deducted > amountOf(refundKind)} className={primary}>{t('Record the refund')}</button>
+            <button type="submit" disabled={busy || deducted > refundableAmount(refundKind)} className={primary}>{t('Record the refund')}</button>
             <button type="button" onClick={() => setMode('')} className={secondary}>{t('Cancel')}</button>
           </div>
         </form>
       )}
       {error && <ErrorNote text={error} />}
     </section>
+  );
+};
+
+const UTILITY_KINDS: UtilityChargeKind[] = ['ELECTRICITY', 'WATER', 'SEWERAGE', 'OTHER'];
+const UTILITY_LABEL: Record<UtilityChargeKind, string> = { ELECTRICITY: 'Electricity', WATER: 'Water', SEWERAGE: 'Sewerage', OTHER: 'Other' };
+
+/**
+ * Bills the owner paid and recharges at cost, when the lease says the owner pays: one per month and kind, with the
+ * bill's number so the tenant can check it. The tenant pays the owner's bank account and the owner records it.
+ */
+const UtilityBillsCard: React.FC<{ lease: AssetLeaseView; onChanged: (lease: AssetLeaseView) => void }> = ({ lease, onChanged }) => {
+  const { t, locale } = useT();
+  const money = useMoney();
+  const [adding, setAdding] = useState(false);
+  const [bill, setBill] = useState({ period: today().slice(0, 7), kind: 'ELECTRICITY' as UtilityChargeKind, amount: '', billReference: '', dueDate: '' });
+  const [paying, setPaying] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [payment, setPayment] = useState({ reference: '', paidAt: today() });
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const act = async (call: () => Promise<AssetLeaseView>) => {
+    setBusy(true);
+    setError('');
+    try { onChanged(await call()); setAdding(false); setPaying(null); setRemoving(null); } catch (cause) { setError(errorText(cause, t('That did not go through.'))); } finally { setBusy(false); }
+  };
+  const open = () => { setBill({ period: today().slice(0, 7), kind: 'ELECTRICITY', amount: '', billReference: '', dueDate: '' }); setError(''); setAdding(true); };
+  const label = (row: LeaseUtilityRow) => new Date(`${row.period}-01T00:00:00`).toLocaleDateString(locale, { month: 'long', year: 'numeric' });
+  const rows = lease.utilities ?? [];
+  return (
+    <section className={`${card} space-y-2`}>
+      <h2 className="text-sm font-black">{t('Utility bills')}</h2>
+      <p className="text-[11px] text-slate-500">{t('The owner pays the bills and charges them at cost. Unpaid: {amount}', { amount: money(lease.currency, lease.utilitiesUnpaid ?? 0) })}</p>
+      {rows.length === 0 && <p className="text-xs text-slate-500">{t('No bill recorded yet.')}</p>}
+      <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+        {rows.map(row => (
+          <li key={row.id} className="py-2 text-xs space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-bold">{t(UTILITY_LABEL[row.kind])} · {label(row)}</p>
+                <p className="text-[11px] text-slate-500">{t('bill {reference}', { reference: row.billReference })} · {row.status === 'PAID' ? t('paid {date} · ref {reference}', { date: row.paidAt ?? '', reference: row.reference ?? '' }) : t('due {date}', { date: row.dueDate })}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="font-black">{money(row.currency, row.amount)}</p>
+                <p className={`text-[11px] font-black ${RENT_STYLE[row.status]}`}>{t(RENT_LABEL[row.status])}</p>
+              </div>
+            </div>
+            {lease.canChargeUtilities && row.status !== 'PAID' && paying !== row.id && removing !== row.id && (
+              <div className="flex gap-4">
+                <button type="button" onClick={() => { setPaying(row.id); setRemoving(null); setPayment({ reference: '', paidAt: today() }); }} className="text-[11px] font-black text-emerald-700 dark:text-emerald-400">{t('Record as received')}</button>
+                <button type="button" onClick={() => { setRemoving(row.id); setPaying(null); setReason(''); }} className="text-[11px] font-black text-slate-500">{t('Remove')}</button>
+              </div>
+            )}
+            {paying === row.id && (
+              <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); act(() => apiClient.recordLeaseUtilityPayment(lease.id, row.id, payment)); }}>
+                <input required minLength={3} maxLength={120} value={payment.reference} onChange={(event) => setPayment(current => ({ ...current, reference: event.target.value }))} placeholder={t('Transfer reference in your bank')} className={input} />
+                <input required type="date" max={today()} value={payment.paidAt} onChange={(event) => setPayment(current => ({ ...current, paidAt: event.target.value }))} className={input} />
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="submit" disabled={busy} className={primary}>{t('Save')}</button>
+                  <button type="button" onClick={() => setPaying(null)} className={secondary}>{t('Cancel')}</button>
+                </div>
+              </form>
+            )}
+            {removing === row.id && (
+              <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); act(() => apiClient.removeLeaseUtilityCharge(lease.id, row.id, reason.trim())); }}>
+                <input required minLength={3} maxLength={2000} value={reason} onChange={(event) => setReason(event.target.value)} placeholder={t('Why this bill is removed')} className={input} />
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="submit" disabled={busy} className={primary}>{t('Remove')}</button>
+                  <button type="button" onClick={() => setRemoving(null)} className={secondary}>{t('Cancel')}</button>
+                </div>
+              </form>
+            )}
+          </li>
+        ))}
+      </ul>
+      {lease.canChargeUtilities && !adding && <button type="button" onClick={open} className={secondary}>{t('Add a bill')}</button>}
+      {adding && (
+        <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); act(() => apiClient.addLeaseUtilityCharge(lease.id, { period: bill.period, kind: bill.kind, amount: Number(bill.amount), billReference: bill.billReference.trim(), ...(bill.dueDate ? { dueDate: bill.dueDate } : {}) })); }}>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-xs font-bold text-slate-500">{t('Month of the bill')}<input required type="month" value={bill.period} onChange={(event) => setBill(current => ({ ...current, period: event.target.value }))} className={input} /></label>
+            <label className="block text-xs font-bold text-slate-500">{t('Bill for')}<select value={bill.kind} onChange={(event) => setBill(current => ({ ...current, kind: event.target.value as UtilityChargeKind }))} className={input}>{UTILITY_KINDS.map(kind => <option key={kind} value={kind}>{t(UTILITY_LABEL[kind])}</option>)}</select></label>
+          </div>
+          <label className="block text-xs font-bold text-slate-500">{t('Amount on the bill (RM)')}<input required type="number" min={0.01} step="0.01" inputMode="decimal" value={bill.amount} onChange={(event) => setBill(current => ({ ...current, amount: event.target.value }))} className={input} /></label>
+          <label className="block text-xs font-bold text-slate-500">{t('Bill number')}<input required minLength={3} maxLength={120} value={bill.billReference} onChange={(event) => setBill(current => ({ ...current, billReference: event.target.value }))} className={input} /></label>
+          <label className="block text-xs font-bold text-slate-500">{t('Pay by (14 days if left empty)')}<input type="date" min={today()} value={bill.dueDate} onChange={(event) => setBill(current => ({ ...current, dueDate: event.target.value }))} className={input} /></label>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="submit" disabled={busy} className={primary}>{t('Save')}</button>
+            <button type="button" onClick={() => setAdding(false)} className={secondary}>{t('Cancel')}</button>
+          </div>
+        </form>
+      )}
+      {error && <ErrorNote text={error} />}
+    </section>
+  );
+};
+
+/** Super Admin and Country Admin set the utility deposit a new unit starts with in each state. The owner can still change it. */
+const UtilityDepositSettings: React.FC = () => {
+  const { t } = useT();
+  const [data, setData] = useState<UtilityDepositRules | null>(null);
+  const [form, setForm] = useState({ state: '', months: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  useEffect(() => { apiClient.getUtilityDepositRules().then(setData).catch((cause) => setError(errorText(cause, t('The settings could not be loaded.')))); }, [t]);
+  const act = async (call: () => Promise<UtilityDepositRules>) => {
+    setBusy(true);
+    setError('');
+    try { setData(await call()); setForm({ state: '', months: '' }); } catch (cause) { setError(errorText(cause, t('That did not go through.'))); } finally { setBusy(false); }
+  };
+  return (
+    <div className="space-y-3 in-[.leasing-web]:max-w-2xl">
+      <p className="text-xs text-slate-500">{t('The utility deposit, in months of rent, that a new unit starts with in each state. The owner can change it, and units already listed keep theirs.')}</p>
+      {error && <ErrorNote text={error} />}
+      {!data && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
+      {data && (
+        <section className={`${card} space-y-2`}>
+          <p className="text-xs font-bold">{t('Every other state: {months} month(s)', { months: data.defaultMonths })}</p>
+          {data.rules.length === 0 && <p className="text-xs text-slate-500">{t('No state has its own rule yet.')}</p>}
+          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+            {data.rules.map(rule => (
+              <li key={rule.state} className="flex items-center justify-between gap-2 py-2 text-xs">
+                <button type="button" onClick={() => setForm({ state: rule.state, months: String(rule.months) })} className="font-bold text-left">{rule.state}: {t('{months} month(s)', { months: rule.months })}</button>
+                <button type="button" disabled={busy} onClick={() => act(() => apiClient.removeUtilityDepositRule(rule.state))} className="font-black text-slate-500 disabled:opacity-50">{t('Remove')}</button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <form className={`${card} space-y-2`} onSubmit={(event) => { event.preventDefault(); act(() => apiClient.setUtilityDepositRule({ state: form.state.trim(), months: Number(form.months) })); }}>
+        <div className="grid grid-cols-[1fr_7rem] gap-2">
+          <label className="block text-xs font-bold text-slate-500">{t('State')}<input required minLength={2} maxLength={80} value={form.state} onChange={(event) => setForm(current => ({ ...current, state: event.target.value }))} placeholder={t('as written on the asset, e.g. Pulau Pinang')} className={input} /></label>
+          <label className="block text-xs font-bold text-slate-500">{t('Months')}<input required type="number" min={0} max={12} step="0.5" value={form.months} onChange={(event) => setForm(current => ({ ...current, months: event.target.value }))} className={input} /></label>
+        </div>
+        <button type="submit" disabled={busy} className={primary}>{t('Save')}</button>
+      </form>
+    </div>
   );
 };

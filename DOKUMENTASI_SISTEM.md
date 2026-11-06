@@ -306,6 +306,7 @@ Super Admin boleh hidupkan atau matikan peranan untuk seluruh platform di **Admi
 ### 5.12 Notifikasi dan kerja latar belakang (`/notifications`, `server/src/jobs/`)
 - **Saluran:** dalam aplikasi (loceng) dan **emel** (Resend atau SMTP). Keputusan 30 Oktober 2026: push (Firebase) dan SMS (Twilio) tidak digunakan, tetapi kodnya kekal. Saluran asal `IN_APP,EMAIL`. Pengguna boleh matikan emel.
 - **Outbox:** notifikasi tidak dihantar dua kali, dicuba semula jika gagal, dan diasingkan jika terus gagal (dead-letter). Setiap saluran dihantar dan direkod berasingan (`deliveredChannels`), jadi cubaan semula tidak menghantar emel dua kali. Saluran yang belum disediakan dilangkau dan dicatat.
+- **Bahasa:** emel keluar ikut bahasa akaun penerima (`preferences.language`). Jika belum dipilih, atau penerima tiada akaun (pelapor kematian, penerima hibah), BM untuk Malaysia dan Inggeris untuk negara lain. Rekod dalam aplikasi kekal Inggeris dan diterjemah di skrin. Teks BM di `server/src/notifications/ms-text*.ts`, dikongsi oleh server dan mini-app.
 - **Notifikasi utama:** keputusan KYC dan KYB; pelaburan disahkan atau dibatalkan; pool menunggu tandatangan, dibuka dan penuh; untung dibayar atau gagal; akaun bank disahkan; tranche diminta, diluluskan, ditolak atau dikeluarkan; langkah perkongsian dan perjanjian; laporan prestasi untuk disahkan dan diterbitkan; peringatan; dan perkembangan kes pusaka.
 - **Kerja berjadual (BullMQ, perlu worker):** padanan ToyyibPay (10 minit), padanan payout (15 minit), outbox notifikasi (30 saat), meterai rantai hash (5 minit).
 - **Semakan harian dalam API** (tanpa worker): peringatan membership (seminggu sebelum tamat); peringatan tarikh luput aset dan takaful (30, 14 dan 7 hari sebelum, dan selepas tamat); keaslian perjanjian yang ditandatangani; dan permintaan AI yang tersangkut.
@@ -426,6 +427,10 @@ Logik "kontrak" (agihan ikut nisbah akad, tolak rugi, kunci terma) **sudah dibin
 - Pemilik aset senaraikan unit dari aset yang disahkan. Syarikat penyewa yang KYB-nya lulus memohon dan berunding. Kelulusan Legal dan Shariah oleh dua orang berbeza dari luar kedua-dua pihak (aktiviti yang mungkin haram ditanda). Ada jadual sewa bulanan dan rekod bayaran oleh pemilik.
 - Ada di mini-app dan tab Sewaan di web.
 - Keputusan sementara: sewa dibayar terus ke akaun pemilik; platform hanya merekod.
+- **Pembaharuan:** penyewa memohon, atau pemilik menawarkan dahulu. Sewaan baharu bermula sehari selepas sewaan lama tamat dan melalui rundingan, kelulusan dan perjanjian yang sama. Bagi tawaran pemilik, penyewa membuat akuan patuh Shariah semasa menerima atau membalas. Deposit ubah suai yang sudah dipulangkan tidak diminta semula.
+- **Deposit dibawa:** bila pembaharuan diluluskan, deposit yang masih dipegang dibawa mengikut jenis, sehingga jumlah yang diperlukan. Kekurangan dibayar penyewa (pemilik merekodnya); lebihan kekal boleh dipulangkan di bawah sewaan lama. Jika deposit sewaan lama direkod selepas kelulusan, ia dibawa ketika itu.
+- **Bil utiliti:** bila pemilik yang membayar bil (`OWNER_RECHARGE`), pemilik merekod bil setiap bulan pada kos sebenar dengan nombor bil. Penyewa dimaklumkan, bayar dalam 14 hari secara lalai, dan pemilik merekod penerimaan. Satu bil bagi setiap bulan dan jenis (`LeaseUtilityCharge`). Bil yang belum dibayar boleh dibuang dengan sebab; log audit menyimpannya.
+- **Deposit utiliti ikut negeri:** Super Admin dan Country Admin menetapkan bulan bagi setiap negeri (tab Sewaan › Deposit utiliti, `UtilityDepositRule`). Nilai ini menjadi nilai awal unit baharu; lalai 1 bulan. Pemilik boleh mengubahnya, dan unit sedia ada tidak terjejas.
 
 ### 5.22 Tadbir urus di Admin Center (`/governance`, `/dashboard`)
 - **Papan pemuka** Compliance, Audit, Finance dan Security dari database (untuk Super Admin, Country Admin, Compliance Officer, Auditor). Security Dashboard menyemak tetapan pelayan yang perlu untuk production.
@@ -442,14 +447,15 @@ Logik "kontrak" (agihan ikut nisbah akad, tolak rugi, kunci terma) **sudah dibin
 - Juruaudit (Auditor) dari negara yang sama dan organisasi lain mengesahkan atau memulangkan dengan nota. Laporan yang disahkan dikunci dan dipaparkan kepada pelabur projek, dengan notifikasi. Senarai laporan untuk juruaudit ada di tab Documents.
 
 ### 5.24 Mini-app D8 Ideas (`/m`)
-- Log masuk, KYC dengan kamera dan semakan wajah, pool dan pesanan dengan arahan bayaran, portfolio, papan pemuka pelabur, profil, benefisiari, pengguna (Country Admin), sejarah keuntungan, notifikasi, penyata (PDF), zakat, sewaan, agihan (Settlement Officer), dan borang lapor kematian. Dalam BM dan EN (pilihan disimpan dalam akaun).
+- Log masuk, KYC dengan kamera dan semakan wajah, pool dan pesanan dengan arahan bayaran, portfolio, papan pemuka pelabur, profil, benefisiari, pengguna (Country Admin), sejarah keuntungan, notifikasi, penyata (PDF), zakat, sewaan, agihan (Settlement Officer), semakan (KYC Officer dan Compliance Officer untuk KYC; Legal dan Shariah untuk perjanjian), dan borang lapor kematian. Dalam BM dan EN (pilihan disimpan dalam akaun).
+- **Semakan:** tab Semakan (Super Admin dan Country Admin membukanya dari Utama). Keselamatan yang sama seperti web: sebab wajib bila semakan automatik gagal, pengesahan amaran, asingan tugas di server, dan log audit.
 - Log masuk (SSO) dan push melalui D8 Ideas menunggu spesifikasi mereka.
 
 ---
 
 ## 6. Database
 
-- **102 model** dan **90 migration** (`server/prisma/migrations/`).
+- **106 model** dan **92 migration** (`server/prisma/migrations/`).
 - **Jadual yang tidak boleh diubah** (UPDATE dan DELETE ditolak oleh trigger): `AuditEvent`, `LedgerTransaction`, `LedgerEntry`, `HashChainLink`, `PoolAkadTerms`.
 - **Peraturan penting dalam database:**
   - baki lejar mesti seimbang;

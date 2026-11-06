@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { apiClient } from '../services/apiClient';
 import { MS } from './i18n.ms';
-import { translateServerText } from './i18n.messages';
+import { translateServerText } from '../../server/src/notifications/ms-text';
 
 export type Language = 'en' | 'ms';
 

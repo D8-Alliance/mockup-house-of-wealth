@@ -8,11 +8,11 @@ import type { MobileTab } from '../MobileShell';
 import { MobileInvestorDashboard } from './MobileInvestorDashboard';
 import { MobileAssetOwnerDashboard } from './MobileAssetOwnerDashboard';
 import { MobileSponsorDashboard } from './MobileSponsorDashboard';
-import { ASSET_OWNER_ROLES, LEASING_ROLES, POOL_VIEW_ROLES, SETTLEMENT_ROLES, SPONSOR_ROLES, USER_ADMIN_ROLES } from '../mobileRoles';
+import { AGREEMENT_REVIEW_ROLES, ASSET_OWNER_ROLES, KYC_REVIEW_ROLES, LEASING_ROLES, POOL_VIEW_ROLES, SETTLEMENT_ROLES, SPONSOR_ROLES, USER_ADMIN_ROLES } from '../mobileRoles';
 import { useT } from '../i18n';
 
 /** Home: who is signed in, whether they may invest yet (KYC), and the way to the pools. */
-export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc: () => void; onOpenProjects: () => void; onOpenNotifications: () => void }> = ({ onOpen, onOpenKyc, onOpenProjects, onOpenNotifications }) => {
+export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc: () => void; onOpenProjects: () => void; onOpenKycReviews: () => void; onOpenNotifications: () => void }> = ({ onOpen, onOpenKyc, onOpenProjects, onOpenKycReviews, onOpenNotifications }) => {
   const { t } = useT();
   const { activeUser, currentRole } = useRBAC();
   const investor = canInvest(currentRole);
@@ -20,7 +20,8 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc:
   const assetOwner = ASSET_OWNER_ROLES.includes(currentRole);
   const sponsor = SPONSOR_ROLES.includes(currentRole);
   // Roles with nothing of their own in the mini-app yet are pointed to the website.
-  const webOnly = !investor && ![...USER_ADMIN_ROLES, ...ASSET_OWNER_ROLES, ...SPONSOR_ROLES, ...LEASING_ROLES, ...SETTLEMENT_ROLES].includes(currentRole);
+  const webOnly = !investor && ![...USER_ADMIN_ROLES, ...ASSET_OWNER_ROLES, ...SPONSOR_ROLES, ...LEASING_ROLES, ...SETTLEMENT_ROLES, ...KYC_REVIEW_ROLES, ...AGREEMENT_REVIEW_ROLES].includes(currentRole);
+  const reviewer = [...KYC_REVIEW_ROLES, ...AGREEMENT_REVIEW_ROLES].includes(currentRole);
   const [kyc, setKyc] = useState<KycApplication | null | undefined>(undefined);
   const [kycError, setKycError] = useState('');
 
@@ -53,6 +54,16 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc:
           <span>
             <span className="block text-sm font-black">{t('Manage projects')}</span>
             <span className="block text-xs text-slate-500">{t('Archive or suspend a problem project, with a reason')}</span>
+          </span>
+          <ChevronRight className="w-5 h-5 text-slate-400" />
+        </button>
+      )}
+
+      {reviewer && (
+        <button type="button" onClick={() => (userAdmin ? onOpenKycReviews() : onOpen('reviews'))} className="w-full flex items-center justify-between rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 text-left">
+          <span>
+            <span className="block text-sm font-black">{t('Reviews')}</span>
+            <span className="block text-xs text-slate-500">{AGREEMENT_REVIEW_ROLES.includes(currentRole) ? t('Agreements waiting for your Legal or Shariah decision') : t('Identity applications (KYC) waiting for a decision')}</span>
           </span>
           <ChevronRight className="w-5 h-5 text-slate-400" />
         </button>

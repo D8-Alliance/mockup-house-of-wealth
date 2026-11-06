@@ -8,6 +8,7 @@ import { CreatePayoutDestinationDto } from '../distribution/payout-destination.d
 import { FinancialLedgerService, investorCashAccount } from '../financial/financial-ledger.service';
 import { detectDocumentType } from '../kyc/kyc.service';
 import { NotificationDeliveryService } from '../notifications/notification-delivery.service';
+import { inLanguage, notificationLanguage } from '../notifications/notification-language';
 import { NotificationService } from '../notifications/notification.service';
 import { EARNED_DISTRIBUTION_STATUSES } from '../investments/positions';
 import { INVESTOR_ROLES } from '../pools/pool-access';
@@ -56,9 +57,13 @@ export class EstateCasesService {
    * The person who reported the death usually has no account, so they hear about the case by email when it
    * moves on (if they gave an address and email is set up). A failure to send never stops the case.
    */
-  private async tellReporter(row: { caseNumber: string; reporterEmail: string | null; reporterName: string }, title: string, message: string) {
+  private async tellReporter(row: { caseNumber: string; reporterEmail: string | null; reporterName: string; countryNodeId: string }, title: string, message: string) {
     if (!row.reporterEmail || !this.delivery) return;
-    await this.delivery.deliverEach({ channels: 'EMAIL', recipientEmail: row.reporterEmail, title: `${title} (case ${row.caseNumber})`, message: `Dear ${row.reporterName}, ${message} Quote case ${row.caseNumber} if you contact us.` }).catch(() => undefined);
+    const language = notificationLanguage(null, row.countryNodeId);
+    const [subject, body] = [inLanguage(title, language), inLanguage(message, language)];
+    await this.delivery.deliverEach({ channels: 'EMAIL', recipientEmail: row.reporterEmail, ...(language === 'ms'
+      ? { title: `${subject} (kes ${row.caseNumber})`, message: `Kepada ${row.reporterName}, ${body} Sebut kes ${row.caseNumber} jika anda menghubungi kami.` }
+      : { title: `${subject} (case ${row.caseNumber})`, message: `Dear ${row.reporterName}, ${body} Quote case ${row.caseNumber} if you contact us.` }) }).catch(() => undefined);
   }
 
   // ---- The report, without signing in ----

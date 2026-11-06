@@ -12,6 +12,11 @@ export const LEASE_TENANT_ROLES = ['Organization Admin', 'Corporate Investor', '
 export const LEASE_REVIEWER_ROLES = ['Super Admin', 'Country Admin', 'Legal Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'];
 export const LEASING_ROLES = [...LEASE_OWNER_ROLES, ...LEASE_TENANT_ROLES, ...LEASE_REVIEWER_ROLES];
 
+/** Who decides identity applications (mirrors the roles on /kyc/applications). */
+export const KYC_REVIEW_ROLES = ['Super Admin', 'Country Admin', 'KYC Officer', 'Compliance Officer'];
+/** Who gives the Legal and Shariah decisions on agreements (mirrors LEGAL_ROLES and SHARIAH_ROLES on the server). */
+export const AGREEMENT_REVIEW_ROLES = ['Legal Officer', 'Shariah Reviewer', 'Shariah Advisor', 'Shariah Committee'];
+
 /** Profit distribution and payouts (mirrors the server's settlement operators). */
 export const SETTLEMENT_ROLES = ['Super Admin', 'Settlement Officer'];
 
