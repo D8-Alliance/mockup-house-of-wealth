@@ -252,6 +252,7 @@ export const AgreementReviewPanel: React.FC = () => {
             <div className="flex items-center gap-2">
               <button type="button" onClick={() => void apiClient.downloadAgreement(selected.id, 'pdf')} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-200 cursor-pointer"><Download className="w-3.5 h-3.5" /> PDF</button>
               <button type="button" onClick={() => void apiClient.downloadAgreement(selected.id, 'docx')} className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-200 cursor-pointer"><Download className="w-3.5 h-3.5" /> Word</button>
+              <button type="button" onClick={() => void apiClient.downloadAgreementHistory(selected.id)} title="Versions, parties, every step and who opened it" className="inline-flex items-center gap-1 rounded-xl border border-slate-200 dark:border-slate-700 px-3 py-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-200 cursor-pointer"><Download className="w-3.5 h-3.5" /> History</button>
               <button type="button" onClick={() => setSelected(null)} className="p-1.5 rounded-full text-slate-400 hover:text-slate-600 cursor-pointer" title="Close"><X className="w-4 h-4" /></button>
             </div>
           </div>
@@ -265,6 +266,12 @@ export const AgreementReviewPanel: React.FC = () => {
               </li>
             ))}
           </ol>
+          {selected.viewedBy && selected.viewedBy.length > 0 && (
+            <p className="text-[11px] text-slate-500">
+              <span className="font-bold text-slate-600 dark:text-slate-300">Opened by: </span>
+              {selected.viewedBy.map((view) => `${view.name}${view.role ? ` (${view.role})` : ''}, ${formatDateTimeWithZone(view.lastViewedAt)}${view.times > 1 ? `, ${view.times}×` : ''}`).join(' · ')}
+            </p>
+          )}
           {selected.status === 'CHANGES_REQUESTED' && <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">{parties.length ? 'Changes were requested. Either side drafts a revision from the partnership page; both agree to it, then it is resubmitted for legal review.' : 'Changes were requested. The drafting organisation resubmits it for legal review.'}</p>}
 
           {parties.length > 0 && (

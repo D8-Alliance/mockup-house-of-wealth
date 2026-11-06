@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { OidcGuard } from './auth/oidc.guard';
 import { RolesGuard } from './auth/roles.guard';
+import { PrivacyConsentGuard } from './auth/privacy-consent.guard';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { PolicyModule } from './policy/policy.module';
@@ -92,6 +93,8 @@ import { JobsModule } from './jobs/jobs.module';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: OidcGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // Last: a signed-in user must have accepted the current privacy notice (PDPA).
+    { provide: APP_GUARD, useClass: PrivacyConsentGuard },
   ],
 })
 export class AppModule {}

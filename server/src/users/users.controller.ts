@@ -1,4 +1,4 @@
-import { Controller, Post, Delete, Get, Patch, Param, Body, ParseEnumPipe, Req } from '@nestjs/common';
+import { Controller, Post, Delete, Get, Patch, Param, Body, ParseEnumPipe, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { AcceptPrivacyNoticeDto } from './privacy-consent.dto';
 import { Roles, RequirePermission } from '../auth/roles.decorator';
@@ -73,6 +73,7 @@ export class UsersController {
       body.organisationId,
       body.countryNodeId,
       actor,
+      body.reason,
     );
   }
 
@@ -89,6 +90,7 @@ export class UsersController {
     @Param('organisationId') organisationId: string,
     @Param('countryNodeId') countryNodeId: string,
     @CurrentUser() actor: AuthenticatedUser,
+    @Query('reason') reason?: string,
   ) {
     return this.usersService.revokeRole(
       userId,
@@ -96,6 +98,7 @@ export class UsersController {
       organisationId,
       countryNodeId,
       actor,
+      reason?.slice(0, 500),
     );
   }
 

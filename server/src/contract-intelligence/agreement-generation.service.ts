@@ -19,6 +19,7 @@ import { agreementTextChecks } from './agreement-text-checks';
 import { AgreementFront, AgreementParty, buildAgreement, definedNames, PartnershipDeal, partiesFromWizard } from './agreement-document';
 import { datedLine, drawAgreement, drawFooters, ExecutionBlock } from './agreement-pdf-layout';
 import { formatLocalDateTime } from '../tenancy/country-time';
+import { renderAgreementHistoryPdf } from './agreement-history-pdf';
 import { entryHash } from '../asset-partnerships/engagement-record';
 import { NOTE_READS_AS_REFUSAL } from '../asset-partnerships/partnership-review-checks';
 import { AgreementSigningService } from './signing/agreement-signing.service';
@@ -267,7 +268,73 @@ export class AgreementGenerationService {
     const shape = { ...contract, latestVersion: contract.versions[0]?.version ?? 1, latestVersionAt: contract.versions[0]?.createdAt };
     const signingBlocked = await this.signingBlocker(contract.engagementId);
     const actions = partyActions(actor, shape).filter((item) => !(signingBlocked && item.action === 'SIGN'));
-    return { ...contract, latestVersion: shape.latestVersion, latestVersionAt: shape.latestVersionAt, availableActions: availableActions(actor, shape), partyActions: actions, signingBlocked };
+    await this.recordView(actor, contract);
+    return { ...contract, latestVersion: shape.latestVersion, latestVersionAt: shape.latestVersionAt, availableActions: availableActions(actor, shape), partyActions: actions, signingBlocked, viewedBy: await this.viewers(id) };
+  }
+
+  /** Who opened the agreement: written to the audit log at most once an hour per person. */
+  private async recordView(actor: AuthenticatedUser, contract: { id: string; organisationId: string; countryNodeId: string }) {
+    const recent = await this.prisma.auditEvent.findFirst({ where: { action: 'agreement.viewed', resourceId: contract.id, userId: actor.userId, createdAt: { gte: new Date(Date.now() - 3600_000) } }, select: { id: true } });
+    if (recent) return;
+    await this.audit.recordActor(actor, { action: 'agreement.viewed', resourceType: 'Contract', resourceId: contract.id, organisationId: contract.organisationId, countryNodeId: contract.countryNodeId, metadata: { role: actor.role, name: actor.name } });
+  }
+
+  /** Everyone who has opened the agreement, most recent first, with how many times. */
+  private async viewers(contractId: string) {
+    const views = await this.prisma.auditEvent.findMany({ where: { action: 'agreement.viewed', resourceId: contractId }, select: { userId: true, metadata: true, createdAt: true }, orderBy: { createdAt: 'desc' }, take: 500 });
+    const byUser = new Map<string, { userId: string; name: string; role: string; lastViewedAt: Date; times: number }>();
+    for (const view of views) {
+      const meta = (view.metadata ?? {}) as { name?: string; role?: string };
+      const seen = byUser.get(view.userId);
+      if (seen) seen.times += 1;
+      else byUser.set(view.userId, { userId: view.userId, name: meta.name ?? view.userId, role: meta.role ?? '', lastViewedAt: view.createdAt, times: 1 });
+    }
+    return [...byUser.values()];
+  }
+
+  /** The agreement's history as a PDF: versions, parties, every step and who opened it. */
+  async historyPdf(actor: AuthenticatedUser, id: string) {
+    const contract = await this.prisma.contract.findUnique({ where: { id }, include: { versions: { orderBy: { version: 'asc' } }, parties: true, events: { orderBy: { createdAt: 'asc' } } } });
+    if (!contract) throw new NotFoundException('Agreement not found');
+    if (!canSeeAgreement(actor, contract)) throw new ForbiddenException('Agreement is outside your scope');
+    const local = (value: Date | null | undefined) => (value ? formatLocalDateTime(value, actor.countryNodeId) : '-');
+    const userIds = [...new Set([...contract.versions.map((item) => item.createdBy), ...contract.events.map((item) => item.actorId)])];
+    const users = await this.prisma.user.findMany({ where: { id: { in: userIds } }, select: { id: true, name: true } });
+    const nameOf = (userId: string) => users.find((user) => user.id === userId)?.name ?? userId;
+    const amends = contract.amendsContractId ? await this.prisma.contract.findUnique({ where: { id: contract.amendsContractId }, select: { contractNumber: true } }) : null;
+    const project = contract.projectId ? await this.prisma.project.findUnique({ where: { projectId: contract.projectId }, select: { projectName: true } }) : null;
+    const describe = (event: (typeof contract.events)[number]) => {
+      const meta = (event.metadata ?? {}) as { version?: number; note?: string; comment?: string };
+      const step = event.eventType === 'DRAFT_CREATED' ? 'drafted the agreement'
+        : event.eventType === 'REVISED' ? `wrote version ${meta.version ?? ''}`.trim()
+        : event.eventType === 'PARTY_CONSENTED' ? `agreed to version ${meta.version ?? ''}`.trim()
+        : event.eventType === 'PARTY_SIGNED' ? 'signed'
+        : event.eventType === 'STATUS_CHANGED' ? `moved it from ${event.fromStatus ?? '-'} to ${event.toStatus ?? '-'}`
+        : event.eventType.toLowerCase().replace(/_/g, ' ');
+      return { at: local(event.createdAt), who: nameOf(event.actorId), what: step, note: meta.comment ?? meta.note };
+    };
+    const views = await this.viewers(id);
+    const buffer = await renderAgreementHistoryPdf({
+      contractNumber: contract.contractNumber,
+      title: contract.title ?? contract.contractType,
+      status: contract.status,
+      generatedAt: local(new Date()),
+      generatedBy: `${actor.name} (${actor.role})`,
+      facts: [
+        ['Type', contract.contractType],
+        ...(project ? [['Project', project.projectName] as [string, string]] : []),
+        ...(contract.engagementId ? [['Asset partnership', contract.engagementId] as [string, string]] : []),
+        ...(contract.leaseId ? [['Lease', contract.leaseId] as [string, string]] : []),
+        ...(amends ? [['Amends', amends.contractNumber] as [string, string]] : []),
+        ['Created', local(contract.createdAt)],
+      ],
+      versions: contract.versions.map((item) => ({ version: item.version, at: local(item.createdAt), by: nameOf(item.createdBy), status: item.status })),
+      parties: contract.parties.map((party) => ({ name: party.displayName, agreed: party.consentedVersion ? `version ${party.consentedVersion}, ${local(party.consentedAt)}` : 'not yet', signed: party.signedAt ? local(party.signedAt) : 'not yet' })),
+      events: contract.events.map(describe),
+      views: views.map((view) => ({ who: `${view.name}${view.role ? ` (${view.role})` : ''}`, last: local(view.lastViewedAt), times: view.times })),
+    });
+    await this.auditRecord(actor, 'agreement.history_downloaded', id, { contractNumber: contract.contractNumber });
+    return { buffer, filename: `agreement-history-${contract.contractNumber}.pdf` };
   }
 
   /** Why a partnership agreement cannot be signed yet: its project still needs the Shariah board's approval. */
