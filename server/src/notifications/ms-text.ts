@@ -1,4 +1,5 @@
 import { MS_LEASING_PATTERNS, MS_LEASING_TEXT } from './ms-text-leasing';
+import { translateCheckText } from './ms-text-checks';
 import { MS_NOTICE_PATTERNS, MS_NOTICE_TITLES } from './ms-text-notices';
 import { MS_ROADMAP_PATTERNS, MS_ROADMAP_TEXT } from './ms-text-roadmap';
 
@@ -178,5 +179,5 @@ export function translateServerText(text: string): string {
     const match = pattern.exec(text);
     if (match) return (typeof malay === 'function' ? malay(match) : malay.replace(/\$(\d)/g, (_, index: string) => match[Number(index)] ?? '')).trim();
   }
-  return text;
+  return translateCheckText(text) ?? text;
 }

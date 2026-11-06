@@ -154,7 +154,7 @@ const AgreementReviewDetail: React.FC<{ id: string; onBack: () => void }> = ({ i
           <textarea rows={3} value={note} onChange={(event) => setNote(event.target.value)} placeholder={t('Note for the record (required to ask for changes)')} className={input} />
           {grounds.length > 0 && (
             <div className="rounded-xl bg-amber-50 dark:bg-amber-500/10 p-3 space-y-1 text-xs">
-              <p className="font-bold text-amber-800 dark:text-amber-200">{t('To approve, give your reason: {grounds}.', { grounds: grounds.join('; ') })}</p>
+              <p className="font-bold text-amber-800 dark:text-amber-200">{t('To approve, give your reason: {grounds}.', { grounds: grounds.map(serverText).join('; ') })}</p>
               <textarea rows={2} maxLength={1000} value={overrideReason} onChange={(event) => setOverrideReason(event.target.value)} placeholder={t('Why you approve anyway (recorded with your decision)')} className={input} />
             </div>
           )}

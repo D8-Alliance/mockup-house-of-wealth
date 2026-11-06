@@ -25,7 +25,7 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 17 | Modul aset | Sewa/untung pemilik aset, tandatangan, takaful, agensi luar, skrin demo | Boleh diteruskan |
 | 18 | Kunci API | Kunci untuk sistem luar | Tangguh sehingga perlu |
 | 19 | Pengurusan pengguna | Notis privasi rasmi, pelulus kedua untuk peranan admin, sebab tukar peranan | Butiran syarikat; peguam |
-| 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, Keycloak, teks panel Semakan | Butiran bank; spesifikasi D8 Ideas |
+| 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, SMTP Keycloak | Butiran bank; spesifikasi D8 Ideas |
 | 21 | Sewaan terus (Ijarah) | Keputusan kutipan sewa dan cukai, pool hasil sewa, sambung SIT Tingkat 6 | Pemilik projek; peguam dan cukai |
 | 22 | Agihan keuntungan | Fail bayaran pukal bank, padanan penyata, peringatan hasil lewat | Format fail bank; jadual hasil projek |
 | 23 | Projek bermasalah | Pulangan modal kepada pelabur | Kewangan dan penasihat Shariah |
@@ -241,10 +241,9 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 1. Isi akaun amanah sebenar setiap negara (bank, nama akaun, nombor, SWIFT) di Admin Center › Country Nodes sebelum pelabur sebenar membuat pesanan.
 2. Log masuk (SSO) dan push melalui D8 Ideas: tunggu spesifikasi mereka.
 3. Uji dalam super app, terutamanya kamera dalam WebView.
-4. Keycloak: tambah `/m/*` dalam Valid redirect URIs, dan tetapkan emel (SMTP) untuk "Forgot password".
+4. Keycloak staging (semakan 6 November 2026): pautan `/m/*` sudah sah melalui `https://how-staging.alhidayahgroup.com.my/*`, dan "Forgot password" hidup, tetapi SMTP realm kosong, jadi emelnya tidak dihantar. Production belum disemak.
 5. Terjemahan: emel dan notifikasi keluar ikut bahasa akaun penerima (jika belum dipilih, BM untuk Malaysia). Teksnya dalam `server/src/notifications/ms-text*.ts`, dikongsi oleh server dan mini-app. Mesej server yang baharu perlu ditambah ke situ, jika tidak ia keluar dalam bahasa Inggeris.
-6. Skrin Semakan: panel semakan automatik KYC, semakan wajah dan semakan teks perjanjian diguna semula dari web, jadi teksnya masih dalam bahasa Inggeris.
-7. Mesej "aset untuk projek: nota penyemak" (penolakan perkongsian aset) keluar dalam bahasa Inggeris kerana isinya nota bebas penyemak.
+6. Mesej "aset untuk projek: nota penyemak" (penolakan perkongsian aset) keluar dalam bahasa Inggeris kerana isinya nota bebas penyemak.
 
 ## 21. Sewaan terus (Ijarah) tanpa projek
 

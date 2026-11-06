@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { apiClient, apiErrorMessage, KycApplication, KycCheckFinding, KycCheckRecommendation, KycCheckStatus } from '../services/apiClient';
+import { useT } from '../mobile/i18n';
 
 const FINDING_RESULT: Record<KycCheckFinding['result'], { label: string; className: string }> = {
   MATCH: { label: '✓ Matches', className: 'text-emerald-600' },
@@ -44,6 +45,8 @@ interface KycChecksPanelProps {
 
 /** Advisory automated-check results for the officer. They never decide the application. */
 export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onUpdated }) => {
+  // Outside the mini-app there is no language provider, and this reads as written.
+  const { t, serverText } = useT();
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const checks = application.checks ?? [];
@@ -56,8 +59,8 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
   // Every finding that needs the officer's attention, one line each (e.g. a name on the ID that does not match).
   const issues = primary
     .filter((check) => check.status === 'FAIL' || check.status === 'REVIEW' || check.status === 'ERROR')
-    .flatMap((check) => (check.reasons.length ? check.reasons : [`${check.status === 'ERROR' ? 'could not be run' : 'needs review'}`])
-      .map((reason, index) => ({ key: `${check.id}-${index}`, label: CHECK_LABELS[check.checkType] ?? check.checkType, reason, failed: check.status === 'FAIL' })));
+    .flatMap((check) => (check.reasons.length ? check.reasons : [t(check.status === 'ERROR' ? 'could not be run' : 'needs review')])
+      .map((reason, index) => ({ key: `${check.id}-${index}`, label: t(CHECK_LABELS[check.checkType] ?? check.checkType), reason, failed: check.status === 'FAIL' })));
 
   const rerun = async () => {
     setRunning(true);
@@ -65,7 +68,7 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
     try {
       onUpdated(await apiClient.rerunKycChecks(application.id));
     } catch (cause) {
-      setError(apiErrorMessage(cause, 'The checks could not be re-run.'));
+      setError(apiErrorMessage(cause, t('The checks could not be re-run.')));
     } finally {
       setRunning(false);
     }
@@ -74,30 +77,30 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h5 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">Automated checks (advisory)</h5>
+        <h5 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">{t('Automated checks (advisory)')}</h5>
         <div className="flex items-center gap-2">
-          {recommendation && <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${recommendation.className}`}>{recommendation.label}</span>}
+          {recommendation && <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${recommendation.className}`}>{t(recommendation.label)}</span>}
           {canRerun && (
-            <button type="button" disabled={running} onClick={() => void rerun()} className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-[11px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50" title="Runs a new round of checks; the application status is not changed">
+            <button type="button" disabled={running} onClick={() => void rerun()} className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-[11px] font-bold flex items-center gap-1 cursor-pointer disabled:opacity-50" title={t('Runs a new round of checks; the application status is not changed')}>
               <RefreshCw className={`w-3 h-3 ${running ? 'animate-spin' : ''}`} />
-              Re-run
+              {t('Re-run')}
             </button>
           )}
         </div>
       </div>
       {error && <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs">{error}</div>}
-      {!primary.length && <p className="text-xs text-slate-400">No automated checks have run for this application yet.</p>}
+      {!primary.length && <p className="text-xs text-slate-400">{t('No automated checks have run for this application yet.')}</p>}
       {issues.length > 0 && (
         <div className="p-3 rounded-xl border border-amber-300 bg-amber-50 dark:border-amber-700/60 dark:bg-amber-950/30 space-y-1.5" role="alert">
           <div className="flex items-center gap-1.5 text-xs font-black text-amber-800 dark:text-amber-300">
             <AlertTriangle className="w-4 h-4" />
-            {issues.length} issue{issues.length === 1 ? '' : 's'} to check before deciding
+            {issues.length === 1 ? t('1 issue to check before deciding') : t('{count} issues to check before deciding', { count: issues.length })}
           </div>
           <ul className="space-y-1">
             {issues.map(({ key, label, reason, failed }) => (
               <li key={key} className={`flex items-start gap-1.5 text-xs ${failed ? 'text-rose-700 dark:text-rose-300' : 'text-amber-800 dark:text-amber-200'}`}>
                 <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                <span><strong>{label}:</strong> {reason}</span>
+                <span><strong>{label}:</strong> {serverText(reason)}</span>
               </li>
             ))}
           </ul>
@@ -106,25 +109,25 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
       {/* The overall reasons repeat the issues listed above, so they are only shown when there are none. */}
       {issues.length === 0 && (application.checkReasons ?? []).length > 0 && (
         <ul className="list-disc pl-5 text-xs text-slate-600 dark:text-slate-300 space-y-0.5">
-          {application.checkReasons!.map((reason) => <li key={reason}>{reason}</li>)}
+          {application.checkReasons!.map((reason) => <li key={reason}>{serverText(reason)}</li>)}
         </ul>
       )}
       {primary.length > 0 && (
         <table className="w-full text-[11px]">
           <thead>
             <tr className="text-left text-slate-400 uppercase">
-              <th className="py-1">Check</th><th>Provider</th><th>Result</th><th>Score</th>
+              <th className="py-1">{t('Check')}</th><th>{t('Provider')}</th><th>{t('Result')}</th><th>{t('Score')}</th>
             </tr>
           </thead>
           <tbody>
             {primary.map((check) => (
               <tr key={check.id} className="border-t border-slate-100 dark:border-slate-700 align-top">
-                <td className="py-1">{CHECK_LABELS[check.checkType] ?? check.checkType}</td>
+                <td className="py-1">{t(CHECK_LABELS[check.checkType] ?? check.checkType)}</td>
                 <td>{check.provider}</td>
                 <td className={`font-bold ${STATUS_STYLES[check.status]}`}>
-                  {check.status}
+                  {t(check.status)}
                   {/* Reasons of checks needing attention are already in the issues box. */}
-                  {check.reasons.length > 0 && !['FAIL', 'REVIEW', 'ERROR'].includes(check.status) && <div className="font-normal text-slate-500">{check.reasons.join('; ')}</div>}
+                  {check.reasons.length > 0 && !['FAIL', 'REVIEW', 'ERROR'].includes(check.status) && <div className="font-normal text-slate-500">{check.reasons.map(serverText).join('; ')}</div>}
                 </td>
                 <td>{check.score === null ? '-' : check.score.toFixed(2)}</td>
               </tr>
@@ -134,21 +137,21 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
       )}
       {primary.filter((check) => check.findings?.length).map((check) => (
         <div key={`findings-${check.id}`} className="space-y-1">
-          <h6 className="text-[11px] font-black text-slate-600 dark:text-slate-300">{CHECK_LABELS[check.checkType] ?? check.checkType}: field by field</h6>
+          <h6 className="text-[11px] font-black text-slate-600 dark:text-slate-300">{t('{check}: field by field', { check: t(CHECK_LABELS[check.checkType] ?? check.checkType) })}</h6>
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]">
               <thead>
-                <tr className="text-left text-slate-400 uppercase"><th className="py-1 pr-2">Field</th><th className="pr-2">Entered</th><th className="pr-2">On the document</th><th>Result</th></tr>
+                <tr className="text-left text-slate-400 uppercase"><th className="py-1 pr-2">{t('Field')}</th><th className="pr-2">{t('Entered')}</th><th className="pr-2">{t('On the document')}</th><th>{t('Result')}</th></tr>
               </thead>
               <tbody>
                 {check.findings!.map((finding, index) => (
                   <tr key={index} className="border-t border-slate-100 dark:border-slate-700 align-top">
-                    <td className="py-1 pr-2"><div className="font-bold text-slate-700 dark:text-slate-200">{finding.field}</div><div className="text-slate-400">{finding.source}</div></td>
-                    <td className="pr-2 text-slate-600 dark:text-slate-300 break-words">{finding.entered ?? '-'}</td>
-                    <td className="pr-2 font-mono text-slate-600 dark:text-slate-300 break-words">{finding.found ?? (finding.result === 'MATCH' ? 'same as entered' : '-')}</td>
+                    <td className="py-1 pr-2"><div className="font-bold text-slate-700 dark:text-slate-200">{serverText(finding.field)}</div><div className="text-slate-400">{serverText(finding.source)}</div></td>
+                    <td className="pr-2 text-slate-600 dark:text-slate-300 break-words">{finding.entered ? serverText(finding.entered) : '-'}</td>
+                    <td className="pr-2 font-mono text-slate-600 dark:text-slate-300 break-words">{finding.found ? serverText(finding.found) : finding.result === 'MATCH' ? t('same as entered') : '-'}</td>
                     <td className={`font-bold whitespace-nowrap ${FINDING_RESULT[finding.result].className}`}>
-                      {FINDING_RESULT[finding.result].label}
-                      {finding.note && <div className="font-normal text-slate-500 whitespace-normal max-w-[14rem]">{finding.note}</div>}
+                      {t(FINDING_RESULT[finding.result].label)}
+                      {finding.note && <div className="font-normal text-slate-500 whitespace-normal max-w-[14rem]">{serverText(finding.note)}</div>}
                     </td>
                   </tr>
                 ))}
@@ -159,10 +162,10 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
       ))}
       {shadows.length > 0 && (
         <p className="text-[11px] text-slate-500">
-          Shadow providers: {shadows.map((check) => `${check.provider} ${check.checkType} ${check.status}${check.agree === null ? '' : check.agree ? ' (agrees)' : ' (disagrees)'}`).join(' · ')}
+          {t('Shadow providers:')} {shadows.map((check) => `${check.provider} ${check.checkType} ${t(check.status)}${check.agree === null ? '' : ` (${t(check.agree ? 'agrees' : 'disagrees')})`}`).join(' · ')}
         </p>
       )}
-      <p className="text-[10px] text-slate-400">Round {latestRound || '-'}. These signals support your review; the decision remains yours.</p>
+      <p className="text-[10px] text-slate-400">{t('Round {round}. These signals support your review; the decision remains yours.', { round: latestRound || '-' })}</p>
     </div>
   );
 };

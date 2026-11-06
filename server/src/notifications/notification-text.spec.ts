@@ -82,3 +82,19 @@ describe('sending a queued notification', () => {
     expect(sent).toMatchObject({ title: 'Rent received', message: row.message });
   });
 });
+
+describe('Malay wording of the checks on the Reviews screens', () => {
+  it.each([
+    ['Name on the identity document does not match the application (entered: "Ali bin Abu")', 'Nama pada dokumen pengenalan tidak sepadan dengan permohonan (diisi: "Ali bin Abu")'],
+    ['Address could not be found on the proof of address', 'Alamat tidak dijumpai pada bukti alamat'],
+    ['Could not read any text from the ID card (front) - check it manually', 'Tiada teks dapat dibaca daripada kad pengenalan (depan): semak secara manual'],
+    ['DOCUMENT_CONTENT: needs review (Possible photo of a screen; Applicant is under 18)', 'DOCUMENT_CONTENT: perlu disemak (Mungkin gambar skrin; Pemohon berumur bawah 18 tahun)'],
+    ['LIVENESS: score 0.31 far below 0.36', 'LIVENESS: skor 0.31 jauh di bawah 0.36'],
+    ['No blanks left in the text', 'Tiada ruang kosong dalam teks'],
+    ['Still to fill: [Tenant name].', 'Masih perlu diisi: [Tenant name].'],
+    ['2 text checks failed: No blanks left in the text, Lessor keeps ownership', '2 semakan teks gagal: Tiada ruang kosong dalam teks, Pemberi sewa kekal sebagai pemilik'],
+    ['the AI scan found 1 serious gap', 'imbasan AI menemui 1 jurang serius'],
+  ])('reads %s', (text, malay) => {
+    expect(translateServerText(text)).toBe(malay);
+  });
+});
