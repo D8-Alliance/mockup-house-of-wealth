@@ -127,3 +127,28 @@ export class ReturnDepositDto {
 export class EndLeaseDto {
   @Transform(trim) @IsString() @MinLength(3) @MaxLength(2000) note!: string;
 }
+
+export class SetDutyDto {
+  @IsString() userId!: string;
+  @IsIn(['ACCOUNTS', 'SOA', 'COLLECTION', 'FIELD', 'LEGAL']) duty!: string;
+  @IsBoolean() on!: boolean;
+}
+
+export class CollectionNoteDto {
+  @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) note?: string;
+}
+
+export class CollectionReasonDto {
+  @Transform(trim) @IsString() @MinLength(3) @MaxLength(2000) note!: string;
+}
+
+export class CollectionFollowUpDto {
+  @IsIn(['CALL', 'WHATSAPP', 'EMAIL', 'VISIT', 'MEETING', 'OTHER']) channel!: string;
+  @Transform(trim) @IsString() @MinLength(3) @MaxLength(2000) note!: string;
+  /** The date the tenant promised to pay, if they did. */
+  @IsOptional() @IsDateString() promiseDate?: string;
+}
+
+export class CollectionAssignDto {
+  @IsString() userId!: string;
+}

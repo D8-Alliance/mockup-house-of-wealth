@@ -5,8 +5,9 @@ import { useRBAC } from '../../rbac/RBACContext';
 import { LEASE_OWNER_ROLES, LEASE_REVIEWER_ROLES, LEASE_TENANT_ROLES } from '../mobileRoles';
 import { useT } from '../i18n';
 import { LeaseReport } from './LeaseReport';
+import { LeaseCollections, LeaseReminderLetters } from './LeaseCollections';
 
-type Section = 'units' | 'find' | 'leases' | 'review' | 'report';
+type Section = 'units' | 'find' | 'leases' | 'review' | 'report' | 'collections';
 
 const STATUS_LABEL: Record<string, string> = {
   PROPOSED: 'Under discussion', ACCEPTED: 'Awaiting Legal and Shariah approval', APPROVED: 'Approved', DECLINED: 'Declined',
@@ -74,6 +75,7 @@ const LeasingScreens: React.FC = () => {
     ...(isTenant ? [['find', t('Find space')] as [Section, string]] : []),
     ...(isReviewer ? [['review', t('To review')] as [Section, string]] : []),
     ['leases', isReviewer && !isOwner && !isTenant ? t('All leases') : t('Leases')],
+    ...(isOwner ? [['collections', t('Collection')] as [Section, string]] : []),
     ...(isOwner ? [['report', t('Report')] as [Section, string]] : []),
   ];
   const [section, setSection] = useState<Section>(sections[0][0]);
@@ -103,6 +105,7 @@ const LeasingScreens: React.FC = () => {
       )}
       {section === 'units' && <OwnerUnits />}
       {section === 'report' && <LeaseReport />}
+      {section === 'collections' && <LeaseCollections />}
       {section === 'find' && <FindSpace onRent={setRenting} />}
       {section === 'review' && <LeaseList filter={(lease) => lease.canReview} empty={t('No lease is waiting for your review.')} onOpen={setOpenLease} />}
       {section === 'leases' && <LeaseList empty={isTenant ? t('Your company has no lease or request yet. Find space to ask for one.') : t('No lease yet.')} onOpen={setOpenLease} />}
@@ -639,6 +642,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
 
       {['APPROVED', 'ENDED'].includes(lease.status) && lease.myParty && <LeaseAgreementCard lease={lease} onChanged={reload} />}
       {['APPROVED', 'ENDED'].includes(lease.status) && (lease.myParty || lease.deposit.receivedAt) && <DepositCard lease={lease} onChanged={setLease} />}
+      {['APPROVED', 'ENDED'].includes(lease.status) && lease.myParty && <LeaseReminderLetters leaseId={lease.id} />}
       </div>
 
       <div className="space-y-4">

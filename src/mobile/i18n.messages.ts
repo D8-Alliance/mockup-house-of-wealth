@@ -157,6 +157,11 @@ const MS_SERVER_TITLES: Record<string, string> = {
   'Asset partnership approved': 'Perkongsian aset diluluskan',
   'Offer closed': 'Tawaran ditutup',
   'A tenant asks to renew': 'Penyewa memohon pembaharuan sewaan',
+  'New collection case': 'Kes kutipan baharu',
+  'Rent reminder 1': 'Peringatan sewa 1', 'Rent reminder 2': 'Peringatan sewa 2', 'Rent reminder 3': 'Peringatan sewa 3 (terakhir)',
+  'Collection case assigned to you': 'Kes kutipan ditugaskan kepada anda',
+  'Rent arrears passed to Legal': 'Tunggakan sewa diserahkan kepada Legal',
+  'Collection step overdue': 'Langkah kutipan sudah lewat',
 };
 
 /** The server's English notification title or message in Malay, when known; otherwise as written. */

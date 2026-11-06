@@ -30,6 +30,7 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 22 | Agihan keuntungan | Fail bayaran pukal bank, padanan penyata, peringatan hasil lewat | Format fail bank; jadual hasil projek |
 | 23 | Projek bermasalah | Pulangan modal kepada pelabur | Kewangan dan penasihat Shariah |
 | 24 | Pangkalan pengetahuan dan Tanya | Tanda standard lama, model embedding di staging, Rebuild & embed, ujian jawapan | Shariah/Kewangan semak versi; tetapan staging |
+| 25 | Kutipan sewa | Fasa 2: invois/SOA bulanan, pengesahan bayaran dua orang. Fasa 3: tugasan OTG, pakej Legal | Fasa 1 siap; Shariah untuk caj lewat |
 
 ---
 
@@ -283,3 +284,17 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 2. **Model embedding di staging:** `RAG_EMBEDDING_MODEL` belum diisi dalam `/opt/how/server/.env`, jadi carian hanya ikut kata kunci. Cadangan: `nomic-embed-text` pada Ollama di droplet how-ai. Selepas itu tekan **Rebuild & embed**.
 3. Uji soalan sebenar di Tanya dan semak rujukan yang diberi.
 4. Kredit AI: soalan tanpa sumber tidak ditolak kredit; putuskan sama ada pelabur biasa perlu kredit untuk Tanya.
+
+## 25. Kutipan sewa (proses kutipan Al Hidayah)
+
+- **Keadaan (Fasa 1 siap, 6 November 2026):** web dan mini-app, tab Sewaan › Kutipan. Bulan yang belum dibayar 7 hari selepas tarikh perlu bayar menjadi kes kutipan. Pasukan Kutipan menghantar peringatan 1, 2 dan 3 (surat PDF BM/EN kepada penyewa), merekod susulan (panggilan, WhatsApp, lawatan, janji bayar), menugaskan kes, dan selepas peringatan 3 menyerahkan kes kepada Legal dalaman pemilik. Rekod sewa sebagai diterima menutup kes. Tempoh lalai: peringatan 1 dalam 7 hari, peringatan 2 dalam 14 hari, peringatan 3 dalam 7 hari, Legal 7 hari selepas itu. Pemilik Aset menetapkan tugas pasukan (Akaun, SOA, Kutipan, Lapangan OTG, Legal) di Kutipan › Pasukan.
+- **Fail:** `server/src/leasing/rent-collection*.ts`, `src/mobile/screens/LeaseCollections.tsx`
+
+**Belum siap:**
+1. **Fasa 2, invois dan SOA:** invois atau penyata akaun (SOA) bulanan dalam PDF, dijana dan dihantar kepada penyewa bersama baki tertunggak.
+2. **Fasa 2, pengesahan dua orang:** pegawai SOA merekod bayaran (menunggu pengesahan), kemudian Akaun mengesahkannya (dibayar). Sekarang seorang sahaja merekod.
+3. **Fasa 3, OTG + Tech:** tugasan lawatan lapangan di mini-app selepas peringatan 1 dan 2 (gambar, lokasi, nota). Perlu sahkan skop kerja OTG dengan Al Hidayah (lawatan, utiliti, pemeriksaan teknikal).
+4. **Fasa 3, pakej Legal:** satu muat turun dengan perjanjian Ijarah, SOA, semua surat peringatan dan log susulan.
+5. **Tetapan tempoh ikut pemilik:** tempoh 7/7/14/7 kini nilai lalai dalam kod; belum boleh diubah oleh setiap pemilik.
+6. **Notifikasi dalam BM:** tajuk notifikasi kutipan sudah dalam BM, tetapi isi mesej masih dalam bahasa Inggeris.
+7. **Keputusan Shariah:** caj lewat bayar (ta'widh/gharamah) dalam Ijarah. Tiada caj dikenakan sehingga diputuskan.
