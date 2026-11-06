@@ -2721,3 +2721,45 @@ model EstateHeirConsent {
 
   @@index([caseId])
 }
+
+/// What a person does for their organisation's leases (ACCOUNTS, SOA, COLLECTION, FIELD, LEGAL), on top of their role.
+model OrganisationDuty {
+  id             String   @id @default(cuid())
+  organisationId String
+  userId         String
+  duty           String
+  assignedBy     String
+  createdAt      DateTime @default(now())
+
+  @@unique([organisationId, userId, duty])
+  @@index([organisationId, duty])
+}
+
+/// A month's rent not paid in time, chased by the owner's collection team: reminders 1 to 3, then the owner's legal team.
+model RentCollectionCase {
+  id                   String    @id
+  leaseId              String
+  paymentId            String    @unique
+  period               String
+  ownerOrganisationId  String
+  tenantOrganisationId String
+  countryNodeId        String
+  amount               Decimal   @db.Decimal(18, 2)
+  currency             String
+  /// OPEN | REMINDER_1 | REMINDER_2 | REMINDER_3 | LEGAL | PAID | CLOSED
+  stage                String    @default("OPEN")
+  assignedUserId       String?
+  /// When the next step is due (the next reminder, or the hand-over to Legal).
+  actionDueAt          DateTime
+  /// Each step: [{ at, by, byName, action, stage, note? }].
+  history              Json
+  /// Each contact with the tenant: [{ at, by, byName, channel, note, promiseDate? }].
+  followUps            Json      @default("[]")
+  closedAt             DateTime?
+  closedReason         String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  @@index([ownerOrganisationId, stage])
+  @@index([leaseId])
+}

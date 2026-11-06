@@ -1,15 +1,16 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { LeasingService } from './leasing.service';
+import { RentCollectionService } from './rent-collection.service';
 
 const INTERVAL_MS = 24 * 3600_000;
 
-/** Once a day (and three minutes after start): rent due and overdue, leases ending, and deposits to refund. */
+/** Once a day (and three minutes after start): rent due and overdue, leases ending, deposits to refund, and rent collection cases. */
 @Injectable()
 export class LeaseReminderSweeper implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(LeaseReminderSweeper.name);
   private timer?: NodeJS.Timeout;
 
-  constructor(private readonly leasing: LeasingService) {}
+  constructor(private readonly leasing: LeasingService, private readonly collection: RentCollectionService) {}
 
   onModuleInit() {
     if (process.env.NODE_ENV === 'test') return;
@@ -26,6 +27,8 @@ export class LeaseReminderSweeper implements OnModuleInit, OnModuleDestroy {
     try {
       const sent = await this.leasing.remindDue();
       if (sent) this.logger.log(`Lease reminders due: ${sent}`);
+      const cases = await this.collection.sweep();
+      if (cases) this.logger.log(`Rent collection cases opened or closed: ${cases}`);
     } catch (error) {
       this.logger.warn(`Lease reminder check failed: ${error instanceof Error ? error.message : String(error)}`);
     }

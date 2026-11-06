@@ -5,10 +5,12 @@ import { NotificationModule } from '../notifications/notification.module';
 import { LeasingController } from './leasing.controller';
 import { LeasingService } from './leasing.service';
 import { LeaseReminderSweeper } from './lease-reminder.sweeper';
+import { RentCollectionController } from './rent-collection.controller';
+import { RentCollectionService } from './rent-collection.service';
 
 @Module({
   imports: [AuditModule, FeatureModuleModule, NotificationModule],
-  controllers: [LeasingController],
-  providers: [LeasingService, LeaseReminderSweeper],
+  controllers: [LeasingController, RentCollectionController],
+  providers: [LeasingService, RentCollectionService, LeaseReminderSweeper],
 })
 export class LeasingModule {}

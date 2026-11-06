@@ -624,6 +624,18 @@ export const apiClient = {
   /** Sends the signer a one-time code (in test mode the code comes back to show on screen). */
   requestSignCode: (id: string) => request<{ challengeId: string; channel: 'EMAIL' | 'TEST'; destination: string; expiresAt: string; testCode?: string }>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/sign-code`, { method: 'POST' }),
   getAgreementIntegrity: (id: string) => request<AgreementIntegrity>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/integrity`),
+  // Rent collection: the owner's team chases unpaid months (server/src/leasing/rent-collection.service.ts).
+  getLeasingTeam: () => request<LeasingTeam>('/leasing/team'),
+  setLeasingDuty: (input: { userId: string; duty: OrganisationDuty; on: boolean }) => request<LeasingTeam>('/leasing/team/duties', { method: 'POST', body: JSON.stringify(input) }),
+  getCollectionCases: () => request<CollectionCase[]>('/leasing/collections'),
+  getCollectionCase: (id: string) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}`),
+  sendCollectionReminder: (id: string, note?: string) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}/remind`, { method: 'POST', body: JSON.stringify({ note }) }),
+  addCollectionFollowUp: (id: string, input: { channel: string; note: string; promiseDate?: string }) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}/follow-up`, { method: 'POST', body: JSON.stringify(input) }),
+  assignCollectionCase: (id: string, userId: string) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}/assign`, { method: 'POST', body: JSON.stringify({ userId }) }),
+  escalateCollectionCase: (id: string, note: string) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}/legal`, { method: 'POST', body: JSON.stringify({ note }) }),
+  closeCollectionCase: (id: string, note: string) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}/close`, { method: 'POST', body: JSON.stringify({ note }) }),
+  downloadReminderLetter: (id: string, number: number, lang: 'ms' | 'en') => openAuthenticatedFile(`/leasing/collections/${encodeURIComponent(id)}/letters/${number}?lang=${lang}`),
+  getLeaseReminderLetters: (leaseId: string) => request<Array<{ caseId: string; period: string; number: 1 | 2 | 3; sentAt: string; stage: CollectionStage }>>(`/leasing/leases/${encodeURIComponent(leaseId)}/reminder-letters`),
   downloadSignedAgreement: (id: string) => openAuthenticatedFile(`/contract-intelligence/agreements/${encodeURIComponent(id)}/signed.pdf`),
   downloadAgreementTimestamp: (id: string) => openAuthenticatedFile(`/contract-intelligence/agreements/${encodeURIComponent(id)}/timestamp.tsr`),
   agreementPartyAction: (id: string, input: { action: AgreementPartyAction; signatureName?: string; otpChallengeId?: string; otpCode?: string }) => request<AgreementDetail>(`/contract-intelligence/agreements/${encodeURIComponent(id)}/party-action`, { method: 'POST', body: JSON.stringify(input) }),
@@ -2328,6 +2340,30 @@ export interface LeaseRentRow {
   status: 'DUE' | 'PAID' | 'OVERDUE';
   paidAt: string | null;
   reference: string | null;
+}
+
+export type OrganisationDuty = 'ACCOUNTS' | 'SOA' | 'COLLECTION' | 'FIELD' | 'LEGAL';
+export type CollectionStage = 'OPEN' | 'REMINDER_1' | 'REMINDER_2' | 'REMINDER_3' | 'LEGAL' | 'PAID' | 'CLOSED';
+
+/** The owner's people and what each does for its leases. */
+export interface LeasingTeam {
+  canManage: boolean;
+  members: Array<{ userId: string; name: string; email: string; role: string; duties: OrganisationDuty[] }>;
+}
+
+/** A month's rent the tenant has not paid, chased by the owner's collection team. */
+export interface CollectionCase {
+  id: string; leaseId: string; period: string; amount: number; currency: string; stage: CollectionStage;
+  unit: string; asset: string; tenantName: string; dueDate: string | null;
+  /** When the next step is due; late is true once that date has passed. */
+  actionDueAt: string | null; late: boolean;
+  nextStep: CollectionStage | null;
+  assignedUserId: string | null; assignedName: string | null;
+  letters: Array<{ number: 1 | 2 | 3; sentAt: string }>;
+  history: Array<{ at: string; byName: string; action: string; stage: CollectionStage; note?: string }>;
+  followUps: Array<{ at: string; byName: string; channel: string; note: string; promiseDate?: string }>;
+  closedAt: string | null; closedReason: string | null;
+  canRemind: boolean; canEscalate: boolean; canAssign: boolean; canFollowUp: boolean; canClose: boolean;
 }
 
 export interface AssetLeaseView {
