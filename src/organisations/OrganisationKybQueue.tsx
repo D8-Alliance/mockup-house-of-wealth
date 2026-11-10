@@ -21,6 +21,9 @@ export const OrganisationKybQueue: React.FC = () => {
     apiClient.getOrganisationKybQueue(filter).then(setItems).catch((cause) => setError(apiErrorMessage(cause, 'The queue could not be loaded.')));
   }, [filter]);
   useEffect(load, [load]);
+  // Official group names: a declared group that is not one of them was typed freely and may not match its relatives.
+  const [officialGroups, setOfficialGroups] = useState<string[]>([]);
+  useEffect(() => { apiClient.getCorporateGroups().then((list) => setOfficialGroups(list.map((group) => group.name))).catch(() => setOfficialGroups([])); }, []);
 
   const decide = async (decision: 'APPROVE' | 'REQUEST_CHANGES' | 'REJECT') => {
     if (!selected) return;
@@ -72,7 +75,9 @@ export const OrganisationKybQueue: React.FC = () => {
             <p><span className="text-slate-400">Registration number:</span> <strong className="font-mono">{selected.registrationNumber ?? '-'}</strong></p>
             <p><span className="text-slate-400">Registered address:</span> {selected.registeredAddress ?? '-'}</p>
             <p><span className="text-slate-400">Entity type:</span> <strong>{selected.entityType ? ENTITY_LABELS[selected.entityType] ?? selected.entityType : '-'}</strong></p>
-            <p><span className="text-slate-400">Corporate group:</span> <strong>{selected.groupName ?? 'None declared'}</strong></p>
+            <p><span className="text-slate-400">Corporate group:</span> <strong>{selected.groupName ?? 'None declared'}</strong>{selected.groupName && (officialGroups.includes(selected.groupName)
+              ? <span className="ml-1.5 text-[10px] font-black rounded-full px-2 py-0.5 bg-emerald-500/10 text-emerald-700">On the group list</span>
+              : <span className="ml-1.5 text-[10px] font-black rounded-full px-2 py-0.5 bg-amber-500/10 text-amber-700" title="Add it, or its official name with this as another spelling, in Admin Center › Organisations › Corporate groups">Not on the group list</span>)}</p>
           </div>
           {selected.groupName && <p className="p-2 rounded-xl bg-amber-50 dark:bg-amber-500/10 text-amber-800 dark:text-amber-200">Check the group name against the shareholders in the SSM company profile before verifying: investments between organisations of the same group are flagged as related-party only when the names match.</p>}
           <div className="space-y-1">

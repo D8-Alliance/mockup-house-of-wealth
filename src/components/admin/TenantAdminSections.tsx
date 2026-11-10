@@ -4,6 +4,7 @@ import { apiClient, apiErrorMessage, CountryNodeRow, NetworkOverview, Organisati
 import { useRBAC } from '../../rbac/RBACContext';
 import { CollectionAccountsPanel } from './CollectionAccountsPanel';
 import { ProhibitedActivitiesPanel } from './ProhibitedActivitiesPanel';
+import { CorporateGroupsPanel } from './CorporateGroupsPanel';
 import { Card, label, TD, TH } from './AdminLivePlatformSections';
 
 const INPUT = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs';
@@ -111,6 +112,7 @@ export const LiveOrganisations: React.FC = () => {
           </table>
         </div>
       )}
+      {manager && <CorporateGroupsPanel />}
     </Card>
   );
 };

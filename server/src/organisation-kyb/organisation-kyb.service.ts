@@ -7,6 +7,7 @@ import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { inspectDocument } from '../projects/document-integrity';
 import { KYB_DECISIONS, KYB_DOCUMENT_TYPES, OrganisationDetailsDto } from './organisation-kyb.dto';
+import { officialGroupName } from './organisation-group';
 
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 /** Members who keep their organisation's details and documents. */
@@ -39,7 +40,10 @@ export class OrganisationKybService {
     this.assertSubmitter(actor);
     const organisation = await this.load(actor.organisationId);
     this.assertEditable(organisation.kybStatus);
-    const groupName = input.groupName?.trim() || null;
+    // A known group's name or other spelling is stored under its official name, so related parties are found.
+    const typedGroup = input.groupName?.trim() || null;
+    const groups = typedGroup ? await this.prisma.corporateGroup.findMany({ where: { countryNodeId: organisation.countryNodeId }, select: { name: true, aliases: true } }) : [];
+    const groupName = typedGroup ? officialGroupName(typedGroup, groups) ?? typedGroup : null;
     await this.prisma.organisation.update({ where: { id: organisation.id }, data: { registrationNumber: input.registrationNumber.trim(), registeredAddress: input.registeredAddress.trim(), entityType: input.entityType ?? null, groupName } });
     await this.record(actor, 'organisation.kyb.details_saved', organisation.id, { registrationNumber: input.registrationNumber.trim(), entityType: input.entityType ?? null, groupName });
     return this.mine(actor);

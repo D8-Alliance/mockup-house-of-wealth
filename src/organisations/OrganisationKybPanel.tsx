@@ -31,6 +31,9 @@ export const OrganisationKybPanel: React.FC = () => {
     setGroupName(value.groupName ?? '');
   };
   useEffect(() => { apiClient.getMyOrganisationKyb().then((value) => { show(value); setOpen(value.kybStatus !== 'APPROVED'); }).catch(() => setKyb(null)); }, []);
+  // The country's known groups, offered as suggestions; a known name or spelling is saved under the official name.
+  const [groups, setGroups] = useState<string[]>([]);
+  useEffect(() => { apiClient.getCorporateGroups().then((list) => setGroups(list.flatMap((group) => [group.name, ...group.aliases]))).catch(() => setGroups([])); }, []);
   if (!kyb) return null;
 
   const run = async (action: () => Promise<OrganisationKyb>) => {
@@ -66,7 +69,8 @@ export const OrganisationKybPanel: React.FC = () => {
               </select>
             </label>
             <label className="font-bold text-slate-600 dark:text-slate-300">Corporate group (if any)
-              <input value={groupName} onChange={(event) => setGroupName(event.target.value)} disabled={!kyb.canEdit} placeholder="e.g. FELDA Group; leave empty if none" className={`${INPUT} mt-1 font-normal`} />
+              <input list="kyb-corporate-groups" value={groupName} onChange={(event) => setGroupName(event.target.value)} disabled={!kyb.canEdit} placeholder="e.g. FELDA Group; leave empty if none" className={`${INPUT} mt-1 font-normal`} />
+              <datalist id="kyb-corporate-groups">{groups.map((name) => <option key={name} value={name} />)}</datalist>
               <span className="block mt-1 font-normal text-slate-400">Used only to disclose investments between entities of the same group. It gives no access to the other entities.</span>
             </label>
           </div>

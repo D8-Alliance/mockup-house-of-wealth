@@ -12,6 +12,7 @@ const kybOfficer = person('KYB Officer', 'ORG-ADMIN', 'USR-KYB');
 function memory() {
   const organisation = { id: 'ORG-AHG', name: 'Al Hidayah Group Sdn Bhd', countryNodeId: 'CN-MYS', registrationNumber: null as string | null, registeredAddress: null as string | null, entityType: null as string | null, groupName: null as string | null, kybStatus: 'NOT_SUBMITTED', kybSubmittedAt: null as Date | null, kybReviewedBy: null as string | null, kybReviewedAt: null as Date | null, kybNote: null as string | null, kybHistory: [] as unknown[], kybDocuments: [] as Array<{ id: string; documentType: string; fileName: string; mimeType: string; fileSize: number; sha256: string; integrity: unknown; uploadedBy: string; createdAt: Date }> };
   const prisma = {
+    corporateGroup: { findMany: jest.fn(async () => [{ name: 'FELDA Group', aliases: ['FGV'] }]) },
     organisation: {
       findUnique: jest.fn(async () => ({ ...organisation, kybDocuments: [...organisation.kybDocuments] })),
       update: jest.fn(async ({ data }) => Object.assign(organisation, data)),

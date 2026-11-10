@@ -20,11 +20,11 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 12 | Keputusan kecil | Organization Admin dan kredit AI, tarikh tamat kad 9 negara, data ujian "mockup" | Pemilik projek |
 | 13 | Pembantu dokumen AI | Muat naik pintar, chatbot tahu status, lampiran dalam chat | Keputusan; model AI lebih kuat |
 | 14 | DigitalOcean | Fail ke Spaces, model AI di staging, tetapan Keycloak, sandaran, production | Bajet; lokasi data |
-| 15 | Kumpulan syarikat (pihak berkaitan) | Senarai nama kumpulan oleh admin, modal penaja Musharakah | Keputusan Shariah |
+| 15 | Kumpulan syarikat (pihak berkaitan) | Modal penaja Musharakah | Keputusan Shariah |
 | 16 | Benefisiari dan pusaka | Semakan Shariah dan undang-undang, pewaris tanpa akaun, aset bukan pool | Penasihat Shariah, peguam, pemegang amanah |
-| 17 | Modul aset | Sewa/untung pemilik aset, tandatangan, takaful, agensi luar, skrin demo | Boleh diteruskan |
+| 17 | Modul aset | Sewa/untung pemilik aset, tandatangan elektronik production, agensi luar, semakan SSM | Shariah; peguam; agensi |
 | 18 | Kunci API | Kunci untuk sistem luar | Tangguh sehingga perlu |
-| 19 | Pengurusan pengguna | Notis privasi rasmi, pelulus kedua untuk peranan admin, sebab tukar peranan | Butiran syarikat; peguam |
+| 19 | Pengurusan pengguna | Notis privasi rasmi, pelulus kedua untuk peranan admin, daftar sendiri, kunci KYC di staging | Butiran syarikat; peguam; keputusan pelulus |
 | 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, SMTP Keycloak | Butiran bank; spesifikasi D8 Ideas |
 | 21 | Sewaan terus (Ijarah) | Keputusan kutipan sewa dan cukai, pool hasil sewa, sambung SIT Tingkat 6 | Pemilik projek; peguam dan cukai |
 | 22 | Agihan keuntungan | Fail bayaran pukal bank, padanan penyata, peringatan hasil lewat | Format fail bank; jadual hasil projek |
@@ -178,8 +178,9 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 ## 15. Kumpulan syarikat (pihak berkaitan)
 
 **Belum siap:**
-1. Nama kumpulan diisi sendiri oleh organisasi. Jika ejaan berbeza, sistem tidak dapat padankan. Pertimbangkan senarai nama kumpulan yang diurus oleh admin. (Skrin semakan KYB kini memaparkan jenis entiti dan kumpulan, dengan peringatan supaya disemak dengan profil SSM.)
-2. **Modal penaja dalam Musharakah** (pilihan): sebagai sumbangan berasingan dalam terma akad, dengan semakan Shariah.
+1. **Modal penaja dalam Musharakah** (pilihan): sebagai sumbangan berasingan dalam terma akad, dengan semakan Shariah.
+
+(Siap 10 November 2026: senarai kumpulan syarikat diurus di Admin Center › Organisations › Corporate groups, dengan nama rasmi dan ejaan lain. Nama yang ditaip dalam KYB disimpan di bawah nama rasmi, dan organisasi lama yang guna ejaan lain dikemas kini. Skrin semakan KYB menanda "On the group list" atau "Not on the group list".)
 
 ## 16. Benefisiari dan pusaka
 

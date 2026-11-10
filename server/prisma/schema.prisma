@@ -1959,6 +1959,20 @@ model ContractEvent {
   @@index([contractId, createdAt])
 }
 
+/// A corporate group the administrators keep for a country: the official name and other spellings. An organisation's
+/// declared group is stored under the official name, so related parties are found (src/organisation-kyb/organisation-group.ts).
+model CorporateGroup {
+  id            String   @id @default(cuid())
+  countryNodeId String
+  name          String
+  aliases       String[] @default([])
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([countryNodeId, name])
+}
+
 /// Evidence that a user accepted a version of the privacy notice (PDPA). One row per user and version.
 model PrivacyConsent {
   id            String   @id @default(cuid())

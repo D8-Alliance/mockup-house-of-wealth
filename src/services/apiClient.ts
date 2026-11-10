@@ -695,6 +695,10 @@ export const apiClient = {
   },
   getMyOrganisationKyb: () => request<OrganisationKyb>('/organisations/me/kyb'),
   saveOrganisationDetails: (input: { registrationNumber: string; registeredAddress: string; entityType?: OrganisationEntityType; groupName?: string }) => request<OrganisationKyb>('/organisations/me/kyb', { method: 'PUT', body: JSON.stringify(input) }),
+  /** The country's corporate groups (official name and other spellings), kept by the KYB reviewers. */
+  getCorporateGroups: () => request<CorporateGroup[]>('/corporate-groups'),
+  saveCorporateGroup: (input: { name: string; aliases: string[] }, id?: string) => request<CorporateGroup & { organisationsUpdated: number }>(id ? `/corporate-groups/${encodeURIComponent(id)}` : '/corporate-groups', { method: id ? 'PATCH' : 'POST', body: JSON.stringify(input) }),
+  deleteCorporateGroup: (id: string) => request<{ id: string }>(`/corporate-groups/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   uploadOrganisationKybDocument: (documentType: OrganisationKybDocumentType, file: File) => { const body = new FormData(); body.append('file', file, file.name); return request<OrganisationKyb>(`/organisations/me/kyb/documents/${documentType}`, { method: 'POST', body }); },
   removeOrganisationKybDocument: (documentId: string) => request<OrganisationKyb>(`/organisations/me/kyb/documents/${encodeURIComponent(documentId)}`, { method: 'DELETE' }),
   submitOrganisationKyb: () => request<OrganisationKyb>('/organisations/me/kyb/submit', { method: 'POST' }),
@@ -1692,6 +1696,9 @@ export interface AuditEventPage {
 const auditQueryString = (query: AuditEventQuery) => new URLSearchParams(Object.entries(query).filter(([, value]) => value !== undefined && value !== '').map(([key, value]) => [key, String(value)])).toString();
 
 /** A country node as tenant administration lists it (server/src/tenant-admin). */
+/** A corporate group of the country: its official name and the other ways it is written. */
+export interface CorporateGroup { id: string; name: string; aliases: string[]; updatedAt?: string }
+
 /** A pool open for investment as the public landing page shows it. */
 export interface PublicOpenPool { poolId: string; poolName: string; projectName: string; sector: string; akad: string; indicativeExpectedReturn: number; currency: string; country: string; target: number; raised: number; closesAt: string | null }
 
