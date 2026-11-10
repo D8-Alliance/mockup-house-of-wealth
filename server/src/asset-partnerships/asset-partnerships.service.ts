@@ -365,7 +365,7 @@ export class AssetPartnershipsService {
 
   private async checksFor(engagement: EngagementRow): Promise<ReviewCheck[]> {
     const [asset, need, pdpApplication, overlapping] = await Promise.all([
-      this.prisma.asset.findUnique({ where: { id: engagement.assetId }, select: { assetType: true, status: true, isEncumbered: true, estimatedValue: true, valuationDate: true, details: true, checkFindings: true, documents: { select: { documentType: true } } } }),
+      this.prisma.asset.findUnique({ where: { id: engagement.assetId }, select: { assetType: true, countryNode: { select: { prohibitedActivityTerms: true } }, status: true, isEncumbered: true, estimatedValue: true, valuationDate: true, details: true, checkFindings: true, documents: { select: { documentType: true } } } }),
       engagement.needId ? this.prisma.projectAssetNeed.findUnique({ where: { id: engagement.needId }, select: { assetType: true, title: true, startDate: true, endDate: true } }) : Promise.resolve(null),
       this.prisma.pdpApplication.findFirst({ where: { OR: [{ organisationId: engagement.pdpOrganisationId }, { organisationName: engagement.project.organisation.name }], status: { not: 'DRAFT' } }, orderBy: { updatedAt: 'desc' }, select: { status: true } }),
       this.prisma.assetEngagement.count({ where: { assetId: engagement.assetId, id: { not: engagement.id }, status: { in: HOLDING_ENGAGEMENT_STATUSES }, startDate: { lt: engagement.endDate }, endDate: { gt: engagement.startDate } } }),
@@ -375,7 +375,7 @@ export class AssetPartnershipsService {
       akad: engagement.akad as Akad, terms: engagement.terms as EngagementTerms, startDate: engagement.startDate, endDate: engagement.endDate,
       need, project: { sector: engagement.project.sector, projectName: engagement.project.projectName },
       asset: { assetType: asset.assetType, status: asset.status, isEncumbered: asset.isEncumbered, estimatedValue: Number(asset.estimatedValue), valuationDate: asset.valuationDate, details: asset.details as AssetDetails | null, checkFindings: asset.checkFindings, documentTypes: asset.documents.map((document) => document.documentType) },
-      pdpApplicationStatus: pdpApplication?.status ?? null, overlappingCommitments: overlapping,
+      pdpApplicationStatus: pdpApplication?.status ?? null, overlappingCommitments: overlapping, countryTerms: asset.countryNode?.prohibitedActivityTerms ?? [],
     });
   }
 

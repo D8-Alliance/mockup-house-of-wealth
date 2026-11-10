@@ -3,6 +3,7 @@ import { Building2, Globe, Plus } from 'lucide-react';
 import { apiClient, apiErrorMessage, CountryNodeRow, NetworkOverview, OrganisationDirectoryRow, OrganisationEntityType } from '../../services/apiClient';
 import { useRBAC } from '../../rbac/RBACContext';
 import { CollectionAccountsPanel } from './CollectionAccountsPanel';
+import { ProhibitedActivitiesPanel } from './ProhibitedActivitiesPanel';
 import { Card, label, TD, TH } from './AdminLivePlatformSections';
 
 const INPUT = 'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs';
@@ -184,6 +185,7 @@ export const LiveCountryNodes: React.FC = () => {
         </div>
       )}
       <CollectionAccountsPanel />
+      {nodes && <ProhibitedActivitiesPanel nodes={nodes} onSaved={load} />}
     </Card>
   );
 };

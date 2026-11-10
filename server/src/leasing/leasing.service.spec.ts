@@ -52,8 +52,8 @@ describe('leasing rules', () => {
   });
 
   it('flags activities an Ijarah may not serve, and not an ordinary office', () => {
-    expect(shariahFlags('Office', 'Engineering consultancy')).toEqual([]);
-    expect(shariahFlags('Office and karaoke lounge', 'Licensed moneylender')).toEqual(['conventional finance (riba)', 'adult entertainment']);
+    expect(shariahFlags([], 'Office', 'Engineering consultancy')).toEqual([]);
+    expect(shariahFlags([], 'Office and karaoke lounge', 'Licensed moneylender')).toEqual(['conventional finance (riba)', 'adult entertainment']);
   });
 });
 

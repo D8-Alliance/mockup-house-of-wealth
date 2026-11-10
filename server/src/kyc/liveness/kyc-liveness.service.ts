@@ -10,6 +10,7 @@ import { detectDocumentType } from '../kyc.service';
 import { cosineSimilarity, decodeImage, DetectedFace, FaceEngine, headPose, meanBrightness, RgbImage } from './face-engine';
 import { Baseline, evaluateFaceStep, issueSteps, LivenessStep, SESSION_TTL_MS, splitLiveAndCardFaces, stepTimeLimitMs, StepVerdict, THRESHOLDS } from './liveness-rules';
 import { cardImageQuality, cardRegion, CardRegion, cardRetryMessage } from './card-quality';
+import { revealIdNumber } from '../kyc-identity-crypto';
 
 /** What the client is told about a session. Embeddings and raw frames never leave the server. */
 export interface LivenessSessionView {
@@ -134,7 +135,8 @@ export class KycLivenessService {
   }
 
   private async evaluateIdCard(actor: AuthenticatedUser, applicationId: string, image: RgbImage, faces: DetectedFace[]): Promise<StepVerdict> {
-    const application = await this.prisma.kycApplication.findUniqueOrThrow({ where: { id: applicationId }, select: { idDocumentNumber: true } });
+    const stored = await this.prisma.kycApplication.findUniqueOrThrow({ where: { id: applicationId }, select: { idDocumentNumber: true } });
+    const application = { idDocumentNumber: revealIdNumber(stored.idDocumentNumber) };
     // The card must be read clearly: the ID number on it has to match the application. OCR runs
     // first on the card guide area, enlarged and sharpened, then on the whole frame in case the
     // card was held outside the guide.

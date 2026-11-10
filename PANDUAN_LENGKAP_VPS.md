@@ -333,3 +333,93 @@ Expected backend tests:
 - Jangan gunakan Redis sebelum diperlukan.
 - Jangan anggap mock user sebagai production identity.
 - Jangan gunakan `sslRequired=NONE` untuk production.
+
+## 16. Sahkan Pengguna Baharu (Staging)
+
+Log masuk ada dua bahagian. **Keycloak** menyemak kata laluan dan OTP. **Database aplikasi** pula menentukan siapa pengguna itu dan apa peranannya. Pengguna yang ada dalam Keycloak sahaja akan nampak:
+
+```text
+Sign-in was not completed
+Reason from the server: User is not provisioned or has no active role in this organisation and country
+```
+
+Maksudnya kata laluan betul, tetapi akaun belum dipautkan kepada pengguna dalam aplikasi. Ikut langkah di bawah.
+
+### Langkah 1: Salin ID Keycloak
+
+1. Buka https://how-staging-auth.alhidayahgroup.com.my/admin
+2. Pilih realm **house-of-wealth**, kemudian **Users**.
+3. Klik pengguna itu. Di tab **Details**, salin **ID** (36 aksara, contoh `219e2fce-3ed3-46e5-9f88-a023eacc504f`).
+4. Di tab yang sama, pastikan **Email verified** ON, kemudian **Save**. Emel staging belum berfungsi, jadi pengguna tidak dapat mengesahkan emel sendiri.
+
+### Langkah 2: Pilih organisasi
+
+Peranan selain pelabur individu (Retail atau HNWI Investor) mesti berada dalam satu organisasi. Di droplet, sebagai `how`, buka database:
+
+```bash
+cd /opt/how/server
+psql "$(grep '^DATABASE_URL=' .env | cut -d= -f2- | tr -d '"' | sed 's/[?&]schema=[^&]*//')"
+```
+
+Senaraikan organisasi:
+
+```sql
+SELECT id, name FROM "Organisation" WHERE "countryNodeId"='CN-MYS' AND status='ACTIVE' ORDER BY name;
+```
+
+Taip `\q` untuk keluar.
+
+- **Asset Manager:** organisasi pemilik aset yang dia uruskan.
+- **Legal Officer, Shariah, Compliance:** organisasi penyemak (contohnya organisasi platform), bukan organisasi pihak yang disemak.
+- **Syarikat baharu:** guna `--org-name "Nama Syarikat"` di langkah 3, bukan `--org-id`.
+
+### Langkah 3: Pautkan akaun
+
+Masih di `/opt/how/server`. Satu arahan bagi setiap pengguna:
+
+```bash
+npx tsx scripts/provision-user.ts --keycloak-id <ID_KEYCLOAK> --role "<Peranan>" \
+  --country CN-MYS --org-id <ID_ORGANISASI> --email <emel@pengguna>
+```
+
+Contoh:
+
+```bash
+npx tsx scripts/provision-user.ts --keycloak-id <ID_AZIMAH> --role "Asset Manager" \
+  --country CN-MYS --org-id <ID_ORGANISASI_PEMILIK_ASET> --email azimahasset@gmail.com
+```
+
+- Tulis peranan seperti dalam aplikasi: `"Asset Owner"`, `"Asset Manager"`, `"Legal Officer"`, `"Retail Investor"`, `"Project Sponsor"`.
+- Pelabur individu (`"Retail Investor"`, `"HNWI Investor"`) tidak perlu `--org-id`; skrip mencipta organisasi peribadi.
+- Super Admin tidak boleh diberi di sini (hanya ada seorang).
+- Jika skrip berkata akaun Keycloak itu sudah dipautkan, jangan jalankan lagi. Tukar peranan di langkah 6.
+
+### Langkah 4: Hidupkan peranan jika perlu
+
+Sesetengah peranan dimatikan secara asal (contohnya Legal Officer, peranan Shariah, Auditor). Jika pengguna nampak `Your role is currently disabled on this platform`, Super Admin hidupkan peranan itu di **Admin Center › Role Availability**.
+
+### Langkah 5: Uji log masuk
+
+1. Buka tetingkap **Incognito** baharu (supaya sesi lama tidak digunakan).
+2. Buka https://how-staging.alhidayahgroup.com.my dan log masuk dengan akaun pengguna itu.
+3. Notis privasi dipaparkan dahulu. Selepas diterima, aplikasi dibuka dengan peranan yang diberi.
+
+### Langkah 6: Tukar peranan atau organisasi (selepas akaun dipautkan)
+
+Tidak perlu skrip atau SQL. Sebagai Super Admin atau Country Admin:
+
+1. **Admin Center › User Directory**, cari emel pengguna.
+2. **Roles:** tanda peranan baharu, buang tanda peranan lama, tulis sebab, **Save**.
+3. Jika organisasi juga salah, guna **Move to organisation** (dengan sebab). Semua peranannya ikut berpindah.
+4. Pengguna log keluar dan log masuk semula.
+
+### Jika masih gagal
+
+Banner merah di halaman utama memaparkan sebab dari server:
+
+| Sebab | Maksud | Tindakan |
+|---|---|---|
+| `User is not provisioned or has no active role...` | Akaun belum dipautkan, atau tiada peranan aktif | Ulang langkah 3 |
+| `Your role is currently disabled on this platform` | Peranan dimatikan | Langkah 4 |
+| `MFA is required for this role` | Peranan ini wajib OTP | Dalam Keycloak, user › **Required user actions** › **Configure OTP**; pengguna sediakan OTP semasa log masuk |
+| Keycloak minta sahkan emel | **Email verified** OFF | Langkah 1, perkara 4 |

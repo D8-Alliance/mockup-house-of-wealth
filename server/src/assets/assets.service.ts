@@ -12,6 +12,7 @@ import { ASSET_DOCUMENT_TYPES, ReviewAssetDto, SaveAssetDto, SitePhotoMetadataDt
 import { AssetDetails, assetIdentityKey, checkAssetDocuments, detailGaps, requiredDocuments } from './asset-checks';
 import { DocumentTextReader } from '../kyc/checks/document-text-reader';
 import { structuringGuidance } from './asset-structuring';
+import { HOLDING_LEASE_STATUSES, OPEN_LEASE_STATUSES } from '../leasing/leasing-rules';
 
 /** Roles that register assets for their own organisation. */
 export const ASSET_OWNER_ROLES: ReadonlySet<string> = new Set(['Asset Owner', 'Asset Manager']);
@@ -24,6 +25,8 @@ const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const DOCUMENT_SELECT = { id: true, documentType: true, fileName: true, mimeType: true, fileSize: true, sha256: true, integrity: true, metadata: true, uploadedBy: true, createdAt: true } satisfies Prisma.AssetDocumentSelect;
 /** Assets that no longer count when looking for the same asset registered twice. */
 const INACTIVE = ['WITHDRAWN', 'REJECTED'];
+// A partnership offered, accepted or approved still relies on the asset's verified details.
+const LIVE_ENGAGEMENT_STATUSES = ['PROPOSED', 'ACCEPTED', 'APPROVED'];
 const DOCUMENT_LABELS: Record<string, string> = {
   OWNERSHIP: 'proof of ownership (land title, JPJ ownership certificate, purchase invoice, or building title or sale agreement)',
   OFFICIAL_SEARCH: 'official land search (Carian Rasmi)',
@@ -199,7 +202,7 @@ export class AssetsService {
 
   /** Reads the asset's documents and stores what they agree or disagree with. Never decides the review. */
   private async runDocumentChecks(id: string, organisationId: string) {
-    const asset = await this.prisma.asset.findUniqueOrThrow({ where: { id }, include: { documents: { select: { documentType: true, mimeType: true, fileContent: true, metadata: true }, orderBy: { createdAt: 'asc' } } } });
+    const asset = await this.prisma.asset.findUniqueOrThrow({ where: { id }, include: { documents: { select: { documentType: true, mimeType: true, fileContent: true, metadata: true }, orderBy: { createdAt: 'asc' } }, countryNode: { select: { prohibitedActivityTerms: true } } } });
     const organisation = await this.prisma.organisation.findUnique({ where: { id: organisationId }, select: { name: true } });
     const documents = [];
     for (const document of asset.documents) {
@@ -209,16 +212,46 @@ export class AssetsService {
     }
     // Personal organisations are named "<person> (individual)"; the title shows the person.
     const ownerName = (organisation?.name ?? '').replace(/\s*\((individual|asset owner|individual investor)\)\s*$/i, '');
-    const findings = checkAssetDocuments({ assetType: asset.assetType, ownerName, isEncumbered: asset.isEncumbered, latitude: asset.latitude, longitude: asset.longitude, location: asset.location, details: asset.details as AssetDetails | null, estimatedValue: Number(asset.estimatedValue), currency: asset.currency }, documents);
+    const findings = checkAssetDocuments({ assetType: asset.assetType, ownerName, isEncumbered: asset.isEncumbered, latitude: asset.latitude, longitude: asset.longitude, location: asset.location, details: asset.details as AssetDetails | null, estimatedValue: Number(asset.estimatedValue), currency: asset.currency, prohibitedTerms: asset.countryNode?.prohibitedActivityTerms ?? [] }, documents);
     return this.prisma.asset.update({ where: { id }, data: { checkFindings: findings as unknown as Prisma.InputJsonValue, checkedAt: new Date() }, include: { documents: { select: DOCUMENT_SELECT } } });
   }
 
-  async withdraw(actor: AuthenticatedUser, id: string) {
+  /** A verified asset needs a reason, and cannot leave while a partnership or lease relies on it. */
+  async withdraw(actor: AuthenticatedUser, id: string, reason?: string) {
     const asset = await this.findOwn(actor, id);
-    if (asset.status === 'VERIFIED' || asset.status === 'WITHDRAWN') throw new BadRequestException(asset.status === 'VERIFIED' ? 'A verified asset cannot be withdrawn here; contact your Country Admin.' : 'The asset is already withdrawn.');
+    if (asset.status === 'WITHDRAWN') throw new BadRequestException('The asset is already withdrawn.');
+    if (asset.status === 'VERIFIED') {
+      if (!reason || reason.trim().length < 5) throw new BadRequestException('Give a reason of at least 5 characters for withdrawing a verified asset.');
+      await this.assertNotInUse(id);
+    }
     const updated = await this.claim(id, asset.status, { status: 'WITHDRAWN' });
-    await this.record(actor, 'asset.withdraw', updated);
+    await this.record(actor, 'asset.withdraw', updated, { fromStatus: asset.status, reason: reason?.trim() || null });
     return this.view(updated);
+  }
+
+  /**
+   * Reopens a verified asset so the owner can change it (a new value, a new valuation, corrected details): it
+   * returns to DRAFT and is reviewed again before it can be offered. Not while a partnership or lease relies on it.
+   */
+  async reopen(actor: AuthenticatedUser, id: string, reason: string) {
+    const asset = await this.findOwn(actor, id);
+    if (asset.status !== 'VERIFIED') throw new BadRequestException('Only a verified asset is reopened; a draft can be changed directly.');
+    await this.assertNotInUse(id);
+    const updated = await this.claim(id, 'VERIFIED', { status: 'DRAFT' });
+    await this.record(actor, 'asset.reopen', updated, { fromStatus: 'VERIFIED', reason: reason.trim() });
+    return this.view(updated);
+  }
+
+  /** Refuses while the asset is offered to, or committed in, a project partnership or a lease. */
+  private async assertNotInUse(assetId: string) {
+    const [partnerships, units, leases] = await Promise.all([
+      this.prisma.assetEngagement.count({ where: { assetId, status: { in: LIVE_ENGAGEMENT_STATUSES } } }),
+      this.prisma.leasableUnit.count({ where: { assetId, status: 'LISTED' } }),
+      this.prisma.assetLease.count({ where: { assetId, status: { in: [...OPEN_LEASE_STATUSES, ...HOLDING_LEASE_STATUSES] } } }),
+    ]);
+    if (partnerships) throw new ConflictException('This asset is in a project partnership that is under way or agreed. Withdraw the offer or end the partnership first.');
+    if (leases) throw new ConflictException('This asset has a lease under way. End the lease first.');
+    if (units) throw new ConflictException('This asset has units listed for lease. Withdraw the listings first.');
   }
 
   /** A Country Admin or Legal Officer of the asset's country decides; never someone from the owner's organisation. */

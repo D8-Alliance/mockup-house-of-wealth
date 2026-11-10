@@ -1,6 +1,7 @@
 import { CheckFinding } from '../kyc/checks/check-types';
 import { DocumentText } from '../kyc/checks/document-text-reader';
 import { closestLine, datesInText, nameOnDocument, PROOF_OF_ADDRESS_MAX_AGE_DAYS } from '../kyc/checks/providers/document-content.provider';
+import { firstProhibitedTerm } from '../shariah/prohibited-activities';
 
 /** Land title details as saved on the asset (see LandDetailsDto). */
 export interface LandDetails {
@@ -190,8 +191,6 @@ const MALAY_RESERVE = /\b(RIZAB MELAYU|MALAY RESERVE|TANAH SIMPANAN MELAYU)\b/i;
 /** A financier's ownership claim on a vehicle or machine under hire purchase. */
 const HIRE_PURCHASE = /\b(TUNTUTAN HAK ?MILIK|HAK ?MILIK TUNTUTAN|HIRE[ -]PURCHASE|SEWA ?BELI|OWNERSHIP CLAIM)\b/i;
 const COMPLETION = /\b(PERAKUAN SIAP DAN PEMATUHAN|CERTIFICATE OF COMPLETION AND COMPLIANCE|CCC|SIJIL LAYAK MENDUDUKI|CERTIFICATE OF FITNESS FOR OCCUPATION|CFO)\b/i;
-/** Tenant businesses that are not Shariah-compliant; a match is for the Shariah reviewer to look at. */
-const NON_COMPLIANT_ACTIVITY = /\b(bar|pub|alcohol|arak|liquor|beer|wine|casino|gambling|judi|betting|lottery|nightclub|karaoke|pork|babi|conventional bank|insurance company|loan ?shark|ah ?long)\b/i;
 
 export interface CheckedDocument {
   documentType: string;
@@ -208,6 +207,8 @@ export interface CheckedAsset {
   /** Where the owner says it is, for comparing with an assessment bill. */
   location?: string;
   details: AssetDetails | null;
+  /** The country's own prohibited-activity words, on top of the platform's list (tenants' business). */
+  prohibitedTerms?: readonly string[];
   /** The value the owner entered, for comparing with the valuation report. */
   estimatedValue?: number;
   currency?: string;
@@ -399,7 +400,7 @@ export function checkAssetDocuments(asset: CheckedAsset, documents: CheckedDocum
     }
     if (details.hasTenants) {
       const activity = details.tenantActivity ?? '';
-      const flagged = activity.match(NON_COMPLIANT_ACTIVITY)?.[0];
+      const flagged = firstProhibitedTerm(activity, asset.prohibitedTerms);
       findings.push({ source: 'details entered', field: "Tenants' business", result: flagged ? 'MISMATCH' : 'INFO', entered: activity || '-', note: flagged ? `"${flagged}" suggests a business that is not Shariah-compliant. Rent from it cannot be distributed to investors; the Shariah reviewer must decide.` : 'Check the tenancy agreements: rent from an activity that is not Shariah-compliant cannot be distributed.' });
     }
   }

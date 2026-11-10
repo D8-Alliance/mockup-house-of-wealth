@@ -438,12 +438,17 @@ export const apiClient = {
   getServerPermissions: () => request<Array<{ role: string; permissions: Record<string, string[]> }>>('/dashboard/permissions'),
   getPlatformRevenue: () => request<PlatformRevenue>('/membership/admin/revenue'),
   getSiteContent: (editor: boolean) => request<Record<string, unknown>>(editor ? '/site-content/editor' : '/site-content'),
+  /** Public: the newest pools open for investment, for the landing page. */
+  getPublicOpenPools: () => request<PublicOpenPool[]>('/public/open-pools'),
   /** Public: each active country node with live counts, for the Member States and About pages. */
   getPublicNetwork: () => request<Array<{ countryNodeId: string; countryName: string; currency: string; regulatoryProfile: string; status: string; flagUrl: string; activeOrganisationsCount: number; activeProjectsCount: number; activePoolsCount: number; activeUsersCount: number }>>('/public/network'),
   saveSiteContent: (entries: Record<string, unknown>) => request<Record<string, unknown>>('/site-content', { method: 'PUT', body: JSON.stringify({ entries }) }),
   getCountryNodeList: () => request<CountryNodeRow[]>('/country-nodes'),
   createCountryNode: (input: { code: string; name: string; currency: string; timezone: string; regulatoryProfile: string }) => request<CountryNodeRow>('/country-nodes', { method: 'POST', body: JSON.stringify(input) }),
   setCountryNodeStatus: (code: string, status: 'ACTIVE' | 'SUSPENDED', reason: string) => request<CountryNodeRow & { peopleAffected?: number }>(`/country-nodes/${encodeURIComponent(code)}/status`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }),
+  /** The platform's prohibited-activity categories and words, which every country's own words are added to. */
+  getProhibitedActivities: () => request<Array<{ label: string; terms: string[] }>>('/prohibited-activities'),
+  setCountryProhibitedActivities: (code: string, terms: string[], reason: string) => request<{ code: string; prohibitedActivityTerms: string[] }>(`/country-nodes/${encodeURIComponent(code)}/prohibited-activities`, { method: 'PATCH', body: JSON.stringify({ terms, reason }) }),
   createOrganisation: (input: { name: string; countryNodeId?: string; entityType?: OrganisationEntityType; registrationNumber?: string }) => request<OrganisationDirectoryRow>('/organisations', { method: 'POST', body: JSON.stringify(input) }),
   setOrganisationStatus: (id: string, status: 'ACTIVE' | 'SUSPENDED', reason: string) => request<{ id: string; status: string; peopleAffected?: number }>(`/organisations/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ status, reason }) }),
   moveUserToOrganisation: (userId: string, organisationId: string, reason: string) => request<{ userId: string; organisationId: string; organisationName: string; rolesMoved: number }>(`/users/${encodeURIComponent(userId)}/organisation`, { method: 'POST', body: JSON.stringify({ organisationId, reason }) }),
@@ -722,7 +727,10 @@ export const apiClient = {
   getPartnershipChecks: (id: string) => request<{ engagementId: string; checks: PartnershipReviewCheck[]; generatedAt: string }>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/checks`),
   askPartnershipReviewAssistant: (id: string, track: 'LEGAL' | 'SHARIAH') => request<BackendAiRun & { track: string; failing: number }>(`/ai/asset-partnerships/engagements/${encodeURIComponent(id)}/review-assist`, { method: 'POST', body: JSON.stringify({ track }) }),
   reviewAssetEngagement: (id: string, input: { decision: 'APPROVE' | 'REJECT' | 'REQUEST_CHANGES'; note: string; track?: 'LEGAL' | 'SHARIAH'; aiRunId?: string; overrideReason?: string }) => request<AssetEngagement>(`/asset-partnerships/engagements/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
-  withdrawAsset: (id: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/withdraw`, { method: 'POST' }),
+  // A verified asset needs a reason; a draft does not (the mini-app withdraws drafts without one).
+  withdrawAsset: (id: string, reason?: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/withdraw`, { method: 'POST', ...(reason ? { body: JSON.stringify({ reason }) } : {}) }),
+  /** A verified asset back to draft, to change its value or details; it is reviewed again on resubmission. */
+  reopenAsset: (id: string, reason: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/reopen`, { method: 'POST', body: JSON.stringify({ reason }) }),
   reviewAsset: (id: string, decision: 'VERIFIED' | 'CHANGES_REQUESTED' | 'REJECTED', note: string) => request<RegisteredAsset>(`/assets/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify({ decision, note }) }),
   downloadKycDocumentForReview: (applicationId: string, documentId: string) => openAuthenticatedFile(`/kyc/applications/${encodeURIComponent(applicationId)}/documents/${encodeURIComponent(documentId)}/download`),
   reviewKycApplication: (id: string, input: { decision: KycDecision; comment: string; kycLevel?: KycLevel; acknowledgeWarnings?: boolean; overrideReason?: string }) => request<KycApplication>(`/kyc/applications/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify(input) }),
@@ -1684,7 +1692,10 @@ export interface AuditEventPage {
 const auditQueryString = (query: AuditEventQuery) => new URLSearchParams(Object.entries(query).filter(([, value]) => value !== undefined && value !== '').map(([key, value]) => [key, String(value)])).toString();
 
 /** A country node as tenant administration lists it (server/src/tenant-admin). */
-export interface CountryNodeRow { code: string; name: string; currency: string; timezone: string; regulatoryProfile: string; status: string }
+/** A pool open for investment as the public landing page shows it. */
+export interface PublicOpenPool { poolId: string; poolName: string; projectName: string; sector: string; akad: string; indicativeExpectedReturn: number; currency: string; country: string; target: number; raised: number; closesAt: string | null }
+
+export interface CountryNodeRow { code: string; name: string; currency: string; timezone: string; regulatoryProfile: string; status: string; /** The country's own prohibited-activity words, on top of the platform's list. */ prohibitedActivityTerms?: string[] }
 
 export interface OrganisationDirectoryRow {
   id: string;

@@ -143,3 +143,12 @@ export class ReviewAssetDto {
   @IsIn(ASSET_DECISIONS) decision!: (typeof ASSET_DECISIONS)[number];
   @Transform(trim) @IsString() @MinLength(5, { message: 'Give a reason of at least 5 characters; the owner sees it.' }) @MaxLength(1000) note!: string;
 }
+
+/** Why a verified asset is reopened or withdrawn; kept in the audit log. */
+export class AssetChangeReasonDto {
+  @IsOptional() @Transform(trim) @IsString() @MinLength(5, { message: 'Give a reason of at least 5 characters.' }) @MaxLength(1000) reason?: string;
+}
+
+export class ReopenAssetDto {
+  @Transform(trim) @IsString() @MinLength(5, { message: 'Give a reason of at least 5 characters.' }) @MaxLength(1000) reason!: string;
+}

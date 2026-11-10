@@ -108,3 +108,40 @@ describe('AssetsService', () => {
     expect(prisma.asset.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { organisationId: 'ORG-AO', countryNodeId: 'CN-MYS' } }));
   });
 });
+
+describe('changing a verified asset', () => {
+  const verified = { ...draft, status: 'VERIFIED' };
+  const inUse = { engagements: 0, units: 0, leases: 0 };
+  const prisma = {
+    asset: { findFirst: jest.fn(async () => verified), updateMany: jest.fn(async () => ({ count: 1 })), findUniqueOrThrow: jest.fn(async ({ where }) => ({ ...verified, id: where.id, status: 'CHANGED' })) },
+    assetEngagement: { count: jest.fn(async () => inUse.engagements) },
+    leasableUnit: { count: jest.fn(async () => inUse.units) },
+    assetLease: { count: jest.fn(async () => inUse.leases) },
+  };
+  const audit = { recordActor: jest.fn().mockResolvedValue(undefined) };
+  const service = new AssetsService(prisma as unknown as PrismaService, audit as unknown as AuditService);
+
+  beforeEach(() => { jest.clearAllMocks(); Object.assign(inUse, { engagements: 0, units: 0, leases: 0 }); });
+
+  it('reopens a free verified asset to draft and logs the reason', async () => {
+    await service.reopen(owner, verified.id, 'New valuation report dated 1 Nov 2026');
+    expect(prisma.asset.updateMany).toHaveBeenCalledWith({ where: { id: verified.id, status: 'VERIFIED' }, data: { status: 'DRAFT' } });
+    expect(audit.recordActor).toHaveBeenCalledWith(owner, expect.objectContaining({ action: 'asset.reopen', metadata: expect.objectContaining({ reason: 'New valuation report dated 1 Nov 2026' }) }));
+  });
+
+  it('refuses while a partnership, a lease or a listed unit relies on the asset', async () => {
+    inUse.engagements = 1;
+    await expect(service.reopen(owner, verified.id, 'New valuation report')).rejects.toBeInstanceOf(ConflictException);
+    inUse.engagements = 0; inUse.leases = 1;
+    await expect(service.withdraw(owner, verified.id, 'Asset sold to a third party')).rejects.toBeInstanceOf(ConflictException);
+    inUse.leases = 0; inUse.units = 1;
+    await expect(service.withdraw(owner, verified.id, 'Asset sold to a third party')).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.asset.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('withdraws a verified asset only with a reason', async () => {
+    await expect(service.withdraw(owner, verified.id)).rejects.toBeInstanceOf(BadRequestException);
+    await service.withdraw(owner, verified.id, 'Asset sold to a third party');
+    expect(prisma.asset.updateMany).toHaveBeenCalledWith({ where: { id: verified.id, status: 'VERIFIED' }, data: { status: 'WITHDRAWN' } });
+  });
+});

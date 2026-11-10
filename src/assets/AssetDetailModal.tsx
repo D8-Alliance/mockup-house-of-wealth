@@ -31,6 +31,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState<Record<string, boolean>>({});
   const [note, setNote] = useState('');
+  const [changeReason, setChangeReason] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const editable = canEdit && ASSET_EDITABLE.has(asset.status);
   const checklist = documentChecklist(asset.assetType, asset.details);
@@ -176,6 +177,18 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
           <div className="flex justify-start">
             <button type="button" disabled={busy} onClick={() => { if (confirm('Withdraw this asset? It will no longer be reviewed or offered.')) void run(() => apiClient.withdrawAsset(asset.id)); }} className="text-[11px] font-bold text-slate-500 hover:text-rose-600 cursor-pointer">Withdraw asset</button>
           </div>
+        )}
+
+        {canEdit && asset.status === 'VERIFIED' && (
+          <section className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2">
+            <p className="text-xs font-black text-slate-800 dark:text-slate-100">Change or withdraw this verified asset</p>
+            <p className="text-[11px] text-slate-500">To change its value or details (for example after a new valuation), reopen it: it goes back to draft and is reviewed again before it can be offered. Neither is possible while a partnership or lease relies on the asset.</p>
+            <textarea rows={2} value={changeReason} onChange={(e) => setChangeReason(e.target.value)} placeholder="Reason (required, kept in the audit log), e.g. New valuation report dated 1 Nov 2026" className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs" />
+            <div className="flex flex-wrap justify-end gap-2">
+              <button type="button" disabled={busy || changeReason.trim().length < 5} onClick={() => { if (confirm('Withdraw this verified asset? It can no longer be offered to projects or leased.')) void run(() => apiClient.withdrawAsset(asset.id, changeReason.trim())); }} className="px-4 py-2 rounded-xl border border-rose-300 text-rose-600 text-xs font-bold cursor-pointer disabled:opacity-50">Withdraw</button>
+              <button type="button" disabled={busy || changeReason.trim().length < 5} onClick={() => void run(() => apiClient.reopenAsset(asset.id, changeReason.trim()))} className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer disabled:opacity-50">Reopen to change</button>
+            </div>
+          </section>
         )}
 
         {error && <p className="p-3 rounded-xl bg-rose-500/10 text-rose-600 text-xs font-bold">{error}</p>}

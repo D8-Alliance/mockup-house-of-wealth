@@ -5,7 +5,8 @@ import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PRIVILEGED_ROLES } from '../policy/permissions';
 import { PrismaService } from '../prisma.service';
-import { CreateCountryNodeDto, CreateOrganisationDto, MoveUserDto, SetStatusDto } from './tenant-admin.dto';
+import { normaliseCountryTerms } from '../shariah/prohibited-activities';
+import { CreateCountryNodeDto, CreateOrganisationDto, MoveUserDto, SetProhibitedActivitiesDto, SetStatusDto } from './tenant-admin.dto';
 
 const toPrisma = (role: string) => role.replace(/ /g, '_') as PrismaUserRole;
 /** Roles only the Super Admin may move between organisations: the admins themselves. */
@@ -40,7 +41,24 @@ export class TenantAdminService {
 
   async listCountryNodes(actor: AuthenticatedUser) {
     this.requireAdmin(actor);
-    return this.prisma.countryNode.findMany({ where: actor.role === 'Super Admin' ? {} : { code: actor.countryNodeId }, orderBy: { name: 'asc' }, select: { code: true, name: true, currency: true, timezone: true, regulatoryProfile: true, status: true } });
+    return this.prisma.countryNode.findMany({ where: actor.role === 'Super Admin' ? {} : { code: actor.countryNodeId }, orderBy: { name: 'asc' }, select: { code: true, name: true, currency: true, timezone: true, regulatoryProfile: true, status: true, prohibitedActivityTerms: true } });
+  }
+
+  /**
+   * Replaces the country's own prohibited-activity words (on top of the platform's list in
+   * src/shariah/prohibited-activities.ts). The Super Admin for any country, a Country Admin for their own.
+   */
+  async setProhibitedActivities(actor: AuthenticatedUser, code: string, input: SetProhibitedActivitiesDto) {
+    this.requireAdmin(actor);
+    if (actor.role !== 'Super Admin' && code !== actor.countryNodeId) throw new ForbiddenException('A Country Admin sets the words for their own country only.');
+    const node = await this.prisma.countryNode.findUnique({ where: { code }, select: { prohibitedActivityTerms: true } });
+    if (!node) throw new NotFoundException('Country node not found.');
+    const terms = normaliseCountryTerms(input.terms);
+    const updated = await this.prisma.countryNode.update({ where: { code }, data: { prohibitedActivityTerms: terms }, select: { code: true, prohibitedActivityTerms: true } });
+    const added = terms.filter((term) => !node.prohibitedActivityTerms.includes(term));
+    const removed = node.prohibitedActivityTerms.filter((term) => !terms.includes(term));
+    await this.audit.recordActor(actor, { action: 'country_node.prohibited_activities', resourceType: 'CountryNode', resourceId: code, countryNodeId: code, metadata: { added, removed, reason: input.reason } });
+    return updated;
   }
 
   async createCountryNode(actor: AuthenticatedUser, input: CreateCountryNodeDto) {

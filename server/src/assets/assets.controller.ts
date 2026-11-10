@@ -6,7 +6,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { RequirePermission, Roles } from '../auth/roles.decorator';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
-import { ReviewAssetDto, SaveAssetDto, SitePhotoMetadataDto, SubmitAssetDto } from './asset.dto';
+import { AssetChangeReasonDto, ReopenAssetDto, ReviewAssetDto, SaveAssetDto, SitePhotoMetadataDto, SubmitAssetDto } from './asset.dto';
 import { AssetsService } from './assets.service';
 
 const OWNERS = ['Asset Owner', 'Asset Manager'] as const;
@@ -76,7 +76,13 @@ export class AssetsController {
   @Post(':id/withdraw')
   @Roles(...OWNERS)
   @RequirePermission('assets', 'update')
-  withdraw(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.assets.withdraw(actor, id); }
+  withdraw(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: AssetChangeReasonDto) { return this.assets.withdraw(actor, id, input?.reason); }
+
+  /** A verified asset back to draft, to change its value or details; reviewed again on resubmission. */
+  @Post(':id/reopen')
+  @Roles(...OWNERS)
+  @RequirePermission('assets', 'update')
+  reopen(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Body() input: ReopenAssetDto) { return this.assets.reopen(actor, id, input.reason); }
 
   @Post(':id/checks/run')
   @Roles(...REVIEWERS)

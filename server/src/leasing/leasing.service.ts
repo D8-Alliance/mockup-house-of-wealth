@@ -34,7 +34,7 @@ interface LeaseHistoryEntry {
   statement?: string;
 }
 
-const UNIT_ASSET = { select: { id: true, name: true, assetType: true, location: true, details: true, status: true, ownerUserId: true, organisationId: true, organisation: { select: { name: true } } } } as const;
+const UNIT_ASSET = { select: { id: true, name: true, assetType: true, location: true, details: true, status: true, ownerUserId: true, organisationId: true, organisation: { select: { name: true } }, countryNode: { select: { prohibitedActivityTerms: true } } } } as const;
 const LEASE_INCLUDE = {
   unit: { include: { asset: UNIT_ASSET } },
   payments: { orderBy: { dueDate: 'asc' } },
@@ -338,7 +338,7 @@ export class LeasingService {
 
     const history = lease.history as unknown as LeaseHistoryEntry[];
     const label = track === 'LEGAL' ? 'Legal' : 'Shariah';
-    const flags = shariahFlags(lease.intendedUse, lease.tenantActivity);
+    const flags = shariahFlags(lease.unit.asset.countryNode?.prohibitedActivityTerms ?? [], lease.intendedUse, lease.tenantActivity);
     // Approving the akad over a flagged activity needs the reviewer to say why it is permissible.
     if (input.decision === 'APPROVE' && track === 'SHARIAH' && flags.length && input.note.length < 20) throw new BadRequestException(`The tenant's activity may involve ${flags.join(', ')}. Explain in the note why the lease is permissible.`);
     const decided = (action: string) => ({ ...this.entry(actor, 'REVIEW', action, input.note), ...(flags.length ? { statement: `Activity flags when decided: ${flags.join(', ')}.` } : {}) });
@@ -844,7 +844,7 @@ export class LeasingService {
       intendedUse: row.intendedUse,
       tenantActivity: row.tenantActivity,
       // Shown to the reviewers, who decide on them.
-      shariahFlags: reviewer || actor.role === 'Super Admin' ? shariahFlags(row.intendedUse, row.tenantActivity) : undefined,
+      shariahFlags: reviewer || actor.role === 'Super Admin' ? shariahFlags(row.unit.asset.countryNode?.prohibitedActivityTerms ?? [], row.intendedUse, row.tenantActivity) : undefined,
       legalApprovedAt: row.legalApprovedAt?.toISOString() ?? null,
       shariahApprovedAt: row.shariahApprovedAt?.toISOString() ?? null,
       endedAt: row.endedAt?.toISOString() ?? null,

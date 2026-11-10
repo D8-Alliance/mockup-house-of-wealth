@@ -6,6 +6,7 @@ import { PrismaService } from '../../prisma.service';
 import { assertRoutingUsable, CheckRoute, CheckRouting, loadCheckRouting, resolvePipeline } from './check-routing';
 import { CheckContext, CheckOutcome, CheckSubject, FINAL_CHECK_STATUSES, KYC_CHECK_PROVIDERS, KYC_CHECK_TYPES, KycCheckProvider, KycCheckStatus, KycCheckType, WebhookRequest } from './check-types';
 import { recommend } from './recommendation';
+import { revealIdNumber } from '../kyc-identity-crypto';
 
 export const KYC_CHECK_ROUTING = Symbol('KYC_CHECK_ROUTING');
 const SYSTEM_ACTOR = 'system:kyc-checks';
@@ -60,7 +61,7 @@ export class KycChecksService {
       dateOfBirth: application.dateOfBirth,
       nationality: application.nationality,
       idDocumentType: application.idDocumentType,
-      idDocumentNumber: application.idDocumentNumber,
+      idDocumentNumber: revealIdNumber(application.idDocumentNumber),
       idDocumentExpiry: application.idDocumentExpiry,
       residentialAddress: application.residentialAddress,
       documentTypes: application.documents.map((document) => document.documentType),

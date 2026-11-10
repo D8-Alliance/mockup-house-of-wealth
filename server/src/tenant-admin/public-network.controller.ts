@@ -30,4 +30,25 @@ export class PublicNetworkController {
       activeOrganisationsCount: count(organisations, node.code), activeProjectsCount: count(projects, node.code), activePoolsCount: count(pools, node.code), activeUsersCount: users.filter((row) => row.countryNodeId === node.code).length,
     }));
   }
+
+  /**
+   * The landing page's preview: the newest pools open for investment, with what the public may see (project,
+   * sector, akad, indicative return, target and money raised). Investing still needs sign-in and approved KYC.
+   */
+  @Get('open-pools')
+  @Public()
+  async openPools() {
+    const pools = await this.prisma.wealthPool.findMany({
+      where: { status: 'OPEN', countryNode: { status: 'ACTIVE' }, project: { archivedAt: null, suspendedAt: null } },
+      orderBy: { createdAt: 'desc' },
+      take: 3,
+      select: { poolId: true, poolName: true, currency: true, investmentStructure: true, indicativeExpectedReturn: true, closesAt: true, countryNode: { select: { name: true } }, project: { select: { projectName: true, sector: true, fundingRequired: true } } },
+    });
+    const raised = pools.length ? await this.prisma.investmentContribution.groupBy({ by: ['poolId'], where: { poolId: { in: pools.map((pool) => pool.poolId) }, status: 'POSTED' }, _sum: { amount: true } }) : [];
+    return pools.map((pool) => ({
+      poolId: pool.poolId, poolName: pool.poolName, projectName: pool.project.projectName, sector: pool.project.sector, akad: pool.investmentStructure,
+      indicativeExpectedReturn: Number(pool.indicativeExpectedReturn), currency: pool.currency, country: pool.countryNode.name,
+      target: Number(pool.project.fundingRequired), raised: Number(raised.find((row) => row.poolId === pool.poolId)?._sum.amount ?? 0), closesAt: pool.closesAt,
+    }));
+  }
 }

@@ -1,5 +1,6 @@
 import { AssetDetails, requiredDocuments } from '../assets/asset-checks';
 import { Akad, capitalShares, EngagementTerms, monthsBetween, offerMetrics, typesMatch } from './asset-partnership-rules';
+import { prohibitedActivities } from '../shariah/prohibited-activities';
 
 export type CheckStatus = 'PASS' | 'WARN' | 'FAIL' | 'INFO';
 /** LEGAL checks are for the Legal reviewer, SHARIAH for the Shariah reviewer; BOTH are shown to each. */
@@ -20,11 +21,11 @@ export interface ReviewCheckInput {
   pdpApplicationStatus: string | null;
   /** Other accepted or approved partnerships holding the asset over an overlapping period. */
   overlappingCommitments: number;
+  /** The project country's own prohibited-activity words, on top of the platform's list. */
+  countryTerms?: readonly string[];
   now?: Date;
 }
 
-/** Project activities a Shariah-compliant partnership cannot serve. */
-const PROHIBITED_ACTIVITY = /\b(alcohol|liquor|brewery|beer|wine|casino|gambling|gaming|lottery|pork|swine|tobacco|cigarette|conventional (bank|insurance)|interest[- ]based|riba|nightclub|arak|judi|babi)\b/i;
 
 const findingsOf = (value: unknown): Finding[] => (Array.isArray(value) ? value as Finding[] : []);
 const pct = (value: number) => `${Math.round(value * 10) / 10}%`;
@@ -131,7 +132,8 @@ export function partnershipChecks(input: ReviewCheckInput): ReviewCheck[] {
 
   // ---- Shariah: what the asset is used for ----
   const activity = `${input.project.sector} ${input.project.projectName}`;
-  add('halal-use', 'SHARIAH', 'Project activity is permissible', PROHIBITED_ACTIVITY.test(activity) ? 'FAIL' : 'PASS', PROHIBITED_ACTIVITY.test(activity) ? `"${activity.trim()}" suggests an activity that is not Shariah-compliant.` : `${input.project.sector}: no prohibited activity found in the project's description.`);
+  const prohibited = prohibitedActivities(activity, input.countryTerms);
+  add('halal-use', 'SHARIAH', 'Project activity is permissible', prohibited.length ? 'FAIL' : 'PASS', prohibited.length ? `"${activity.trim()}" suggests ${prohibited.join(', ')}, which is not Shariah-compliant.` : `${input.project.sector}: no prohibited activity found in the project's description.`);
   const tenants = worst("Tenants' business");
   if (tenants) add('tenants', 'SHARIAH', 'Tenants\' business is permissible', tenants.result === 'MISMATCH' ? 'FAIL' : 'INFO', tenants.note ?? 'Check the tenancy agreements.');
 

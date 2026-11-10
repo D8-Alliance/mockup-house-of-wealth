@@ -1,4 +1,5 @@
 import { PrismaService } from '../../../prisma.service';
+import { idNumberHash } from '../../kyc-identity-crypto';
 import { idDocumentHasExpiry, KYC_MIN_AGE_YEARS } from '../../kyc-workflow';
 import { CheckContext, CheckOutcome, KycCheckProvider, KycCheckStatus, KycCheckType } from '../check-types';
 
@@ -77,13 +78,15 @@ export class InternalRulesProvider implements KycCheckProvider {
 
   private async duplicates({ subject }: CheckContext): Promise<CheckOutcome> {
     const normalized = subject.idDocumentNumber.replace(/[^\p{L}\p{N}]/gu, '').toUpperCase();
+    // By keyed hash for encrypted numbers, by the plain number for rows not yet converted.
+    const hash = idNumberHash(subject.idDocumentNumber) ?? '';
     const sameId = normalized
       ? await this.prisma.$queryRaw<Array<{ status: string }>>`
           SELECT "status" FROM "KycApplication"
           WHERE "userId" <> ${subject.userId}
             AND "status" <> 'DRAFT'
             AND "idDocumentType" = ${subject.idDocumentType}
-            AND upper(regexp_replace("idDocumentNumber", '[^[:alnum:]]', '', 'g')) = ${normalized}
+            AND ("idDocumentNumberHash" = ${hash} OR upper(regexp_replace("idDocumentNumber", '[^[:alnum:]]', '', 'g')) = ${normalized})
           LIMIT 20`
       : [];
     // The same file (by SHA-256) uploaded by a different user is a strong sign of identity reuse.

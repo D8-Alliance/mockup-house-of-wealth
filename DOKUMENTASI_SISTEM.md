@@ -464,7 +464,7 @@ Logik "kontrak" (agihan ikut nisbah akad, tolak rugi, kunci terma) **sudah dibin
   - satu laporan prestasi bagi setiap projek dan suku;
   - jenis tempoh agihan: `PROFIT`, `LOSS`, `ABSORBED`;
   - nisab mesti positif dan tempohnya sah.
-- **Data sulit disulitkan:** nombor akaun payout (`PAYOUT_DESTINATION_ENCRYPTION_KEY`) dan nombor ID benefisiari serta wasi (`ESTATE_DATA_ENCRYPTION_KEY`). Fail KYC, bukti dan dokumen masih disimpan dalam database (`Bytes`). Rancangan untuk pindah ke DigitalOcean Spaces ada dalam item 14.
+- **Data sulit disulitkan:** nombor akaun payout (`PAYOUT_DESTINATION_ENCRYPTION_KEY`), nombor ID benefisiari serta wasi (`ESTATE_DATA_ENCRYPTION_KEY`), dan nombor dokumen ID dalam KYC (`KYC_DATA_ENCRYPTION_KEY`; disimpan bersama hash berkunci untuk semakan ID berulang dan 4 aksara akhir untuk paparan bertopeng; rekod lama ditukar dengan `scripts/encrypt-kyc-identity.ts`). Fail KYC, bukti dan dokumen masih disimpan dalam database (`Bytes`). Rancangan untuk pindah ke DigitalOcean Spaces ada dalam item 14.
 
 ---
 

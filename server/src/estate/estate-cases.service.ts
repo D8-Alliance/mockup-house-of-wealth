@@ -16,6 +16,7 @@ import { PrismaService } from '../prisma.service';
 import { postingOnBehalfOf } from '../tenancy/tenant-scope';
 import { DeathReportDto } from './estate.dto';
 import { planProblems, SettlementPlan, splitHolding } from './estate-settlement';
+import { revealIdNumber } from '../kyc/kyc-identity-crypto';
 
 /** Who handles estate cases: the estate officer, and the country's admin or the Super Admin as stand-ins. */
 export const ESTATE_CASE_ROLES = ['Estate Officer', 'Country Admin', 'Super Admin'];
@@ -82,8 +83,9 @@ export class EstateCasesService {
     if (Number.isNaN(dateOfDeath.getTime()) || dateOfDeath > new Date()) throw new BadRequestException('The date of death cannot be in the future.');
 
     const wanted = normaliseId(input.deceasedIdNumber);
-    const candidates = await this.prisma.kycApplication.findMany({ where: { status: 'APPROVED', idDocumentNumber: { endsWith: wanted.slice(-4), mode: 'insensitive' } }, select: { userId: true, countryNodeId: true, fullName: true, idDocumentNumber: true } });
-    const kyc = candidates.find((row) => normaliseId(row.idDocumentNumber) === wanted);
+    // Encrypted numbers are found by their last four characters, older plain ones by how they end; then compared in full.
+    const candidates = await this.prisma.kycApplication.findMany({ where: { status: 'APPROVED', OR: [{ idDocumentNumberLast4: wanted.slice(-4) }, { idDocumentNumber: { endsWith: wanted.slice(-4), mode: 'insensitive' } }] }, select: { userId: true, countryNodeId: true, fullName: true, idDocumentNumber: true } });
+    const kyc = candidates.find((row) => normaliseId(revealIdNumber(row.idDocumentNumber)) === wanted);
     const deceased = kyc ? await this.prisma.user.findUnique({ where: { id: kyc.userId }, select: { id: true, name: true, homeCountryNodeId: true } }) : null;
     const reporter = deceased && (sameName(input.deceasedName, deceased.name) || sameName(input.deceasedName, kyc!.fullName)) ? await this.matchReporter(deceased.id, input) : null;
     const open = deceased ? await this.prisma.estateCase.findFirst({ where: { deceasedUserId: deceased.id, status: { in: OPEN_STATUSES } }, select: { id: true } }) : null;

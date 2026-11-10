@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { ENTITY_TYPES } from '../organisation-kyb/organisation-group';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
@@ -30,5 +30,11 @@ export class CreateCountryNodeDto {
 
 export class MoveUserDto {
   @IsString() organisationId!: string;
+  @Transform(trim) @IsString() @MinLength(3) @MaxLength(500) reason!: string;
+}
+
+/** The country's own prohibited-activity words, on top of the platform's list; the whole list is replaced. */
+export class SetProhibitedActivitiesDto {
+  @IsArray() @ArrayMaxSize(100) @IsString({ each: true }) @MaxLength(60, { each: true }) terms!: string[];
   @Transform(trim) @IsString() @MinLength(3) @MaxLength(500) reason!: string;
 }

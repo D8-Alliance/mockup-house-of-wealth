@@ -209,16 +209,18 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 6. Hidupkan `SIGNING_REQUIRE_VERIFIED_IDENTITY=true` di production.
 7. Templat perjanjian Musharakah dan Ijarah disemak peguam dan penasihat Shariah.
 
-**Rekod dan semakan:** senarai aktiviti haram ke tetapan negara; semakan automatik nombor SSM (perlu akses data SSM). (Siap 5 November 2026: PDF sejarah perjanjian, butang "History"; rekod siapa membuka perjanjian, dipaparkan "Opened by" dan dalam PDF itu.)
+**Rekod dan semakan:** semakan automatik nombor SSM (perlu akses data SSM). (Siap 5 November 2026: PDF sejarah perjanjian, butang "History"; rekod siapa membuka perjanjian, dipaparkan "Opened by" dan dalam PDF itu. Siap 10 November 2026: senarai aktiviti haram kini satu senarai platform (`server/src/shariah/prohibited-activities.ts`) yang digunakan oleh semakan aset, perkongsian dan sewaan, dan setiap negara boleh menambah perkataan sendiri di Admin Center › Country Nodes › Prohibited activities. Penasihat Shariah patut menyemak senarai platform itu.)
 
 **Pendaftaran aset:**
 1. Sambungan dengan e-Tanah, JPJ, JKKP (perlu perjanjian dengan agensi).
 2. Pautan ke peta lot negeri.
-3. Cara kemas kini nilai atau tarik balik aset yang sudah disahkan.
-4. Skrin demo masih guna senarai aset contoh.
-5. Pantau masa jawapan penasihat AI di staging.
+3. Pantau masa jawapan penasihat AI di staging.
+
+(Siap 10 November 2026: halaman utama awam kini memaparkan pool sebenar yang dibuka untuk pelaburan, bukan "Sample Offerings". Contoh hanya dalam mod DEMO.)
 
 (Amaran nilai berbanding laporan penilaian siap 4 November 2026: semakan dokumen membaca nilai pasaran dalam laporan dan menanda jika nilai yang diisi berbeza lebih 20%.)
+
+(Siap 10 November 2026: aset yang disahkan boleh **dibuka semula** untuk tukar nilai atau butiran, dengan sebab; ia kembali ke draf dan disemak semula. Ia juga boleh **ditarik balik** dengan sebab. Kedua-duanya ditolak selagi aset dalam perkongsian projek, sewaan atau senarai unit sewa yang aktif.)
 
 ## 18. Kunci API
 
@@ -230,7 +232,7 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 1. **Notis privasi:** deraf perlu disemak peguam. Isi nama syarikat, nombor SSM, pegawai perlindungan data, lokasi data dan tempoh simpanan, kemudian terbitkan.
 2. **Pelulus kedua** bagi peranan admin: perlu keputusan. Hanya Super Admin boleh memberi peranan admin, dan hanya ada seorang Super Admin, jadi siapa pelulus kedua? (Sebab tambah/buang peranan kini direkod dalam log audit dari web, 5 November 2026. Mini-app belum menghantar sebab.)
 3. **Daftar sendiri** melalui Keycloak.
-4. Sulitkan medan KYC dalam database.
+4. **Sulitkan nombor ID KYC di staging dan production** (kod siap 10 November 2026): tambah `KYC_DATA_ENCRYPTION_KEY` (nilai rawak sendiri, contoh `openssl rand -base64 32`) dalam `/opt/how/server/.env`, `pm2 restart how-api`, kemudian `npx tsx scripts/encrypt-kyc-identity.ts` (lihat dahulu) dan `--confirm`. Simpan kunci itu dengan selamat: tanpanya nombor ID tidak boleh dibaca. Medan lain (tarikh lahir, alamat) belum disulitkan.
 5. Tetapkan `COUNTRY_NODE_ID=CN-MYS` di production Malaysia.
 
 (Siap 5 November 2026: server menolak semua permintaan sehingga pengguna menerima notis privasi semasa, bila log masuk Keycloak digunakan.)

@@ -136,6 +136,8 @@ model CountryNode {
   activeUsersCount         Int      @default(0)
   activeProjectsCount      Int      @default(0)
   activePoolsCount         Int      @default(0)
+  /// Extra prohibited-activity words for this country, on top of the platform's list (src/shariah/prohibited-activities.ts).
+  prohibitedActivityTerms  String[] @default([])
   flagUrl                  String
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
@@ -1426,7 +1428,12 @@ model KycApplication {
   dateOfBirth         DateTime?
   nationality         String    @default("")
   idDocumentType      String    @default("") // NATIONAL_ID | PASSPORT
+  /// Encrypted ("enc:v1:..."); see src/kyc/kyc-identity-crypto.ts. Older rows may still hold the plain number.
   idDocumentNumber    String    @default("")
+  /// Keyed hash of the normalised number, for duplicate checks without decrypting.
+  idDocumentNumberHash  String?
+  /// Last four characters of the normalised number, for masked display and lookups.
+  idDocumentNumberLast4 String?
   idDocumentExpiry    DateTime?
   residentialAddress  String    @default("")
   // DRAFT | SUBMITTED | RESUBMISSION_REQUIRED | APPROVED | REJECTED. See src/kyc/kyc-workflow.ts.

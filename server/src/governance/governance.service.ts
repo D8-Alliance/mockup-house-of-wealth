@@ -172,6 +172,7 @@ export class GovernanceService {
       { key: 'Face liveness required in KYC', ok: env.KYC_REQUIRE_LIVENESS === 'true', value: env.KYC_REQUIRE_LIVENESS === 'true' ? 'required' : 'not required' },
       { key: 'Redis over TLS', ok: env.REDIS_TLS === 'true', value: env.REDIS_TLS === 'true' ? 'on' : 'off' },
       { key: 'Investment limits by KYC level', ok: !!env.KYC_INVESTMENT_LIMITS?.trim(), value: env.KYC_INVESTMENT_LIMITS?.trim() ? 'set' : 'no limits' },
+      { key: 'KYC identity numbers encrypted', ok: !!env.KYC_DATA_ENCRYPTION_KEY?.trim(), value: env.KYC_DATA_ENCRYPTION_KEY?.trim() ? 'key set' : 'not set (production refuses KYC saves)' },
     ];
     return {
       settings,

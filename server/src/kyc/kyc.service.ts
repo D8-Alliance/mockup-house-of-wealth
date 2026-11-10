@@ -7,6 +7,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { CHECK_RESULT_SELECT, KycChecksService } from './checks/kyc-checks.service';
 import { KycReviewDto, SaveKycDraftDto } from './kyc.dto';
+import { idNumberHash, protectIdNumber, revealIdNumber } from './kyc-identity-crypto';
 import { idDocumentHasExpiry, KYC_DOCUMENT_TYPES, KYC_EDITABLE_STATUSES, KYC_MAX_REJECTED_APPLICATIONS, KYC_OPEN_STATUSES, KycStatus, kycSubmissionGaps, kycReviewScope, maskIdNumber, normalizeIdNumber, requiredKycDocuments } from './kyc-workflow';
 
 // File bytes are never returned in JSON; they are served only by the download endpoints.
@@ -47,8 +48,8 @@ export class KycService {
     });
     if (!application) return null;
     // Automated-check signals are for officers only; showing them would tell a fraudster what tripped.
-    const { checkRecommendation: _recommendation, checkReasons: _reasons, checksUpdatedAt: _checkedAt, ...visible } = application;
-    return { ...visible, requiredDocuments: requiredKycDocuments(application.idDocumentType), missing: kycSubmissionGaps(application, application.documents.map((document) => document.documentType)) };
+    const { checkRecommendation: _recommendation, checkReasons: _reasons, checksUpdatedAt: _checkedAt, idDocumentNumberHash: _hash, idDocumentNumberLast4: _last4, ...visible } = application;
+    return { ...visible, idDocumentNumber: revealIdNumber(application.idDocumentNumber), requiredDocuments: requiredKycDocuments(application.idDocumentType), missing: kycSubmissionGaps(application, application.documents.map((document) => document.documentType)) };
   }
 
   async saveDraft(actor: AuthenticatedUser, input: SaveKycDraftDto) {
@@ -57,7 +58,7 @@ export class KycService {
       ...(input.dateOfBirth !== undefined && { dateOfBirth: new Date(input.dateOfBirth) }),
       ...(input.nationality !== undefined && { nationality: input.nationality.trim() }),
       ...(input.idDocumentType !== undefined && { idDocumentType: input.idDocumentType }),
-      ...(input.idDocumentNumber !== undefined && { idDocumentNumber: input.idDocumentNumber.trim() }),
+      ...(input.idDocumentNumber !== undefined && protectIdNumber(input.idDocumentNumber)),
       ...(input.idDocumentExpiry !== undefined && { idDocumentExpiry: new Date(input.idDocumentExpiry) }),
       ...(input.residentialAddress !== undefined && { residentialAddress: input.residentialAddress.trim() }),
     };
@@ -143,7 +144,7 @@ export class KycService {
       take: 200,
       select: { id: true, applicationNumber: true, userId: true, userEmail: true, fullName: true, nationality: true, idDocumentType: true, idDocumentNumber: true, countryNodeId: true, status: true, kycLevel: true, submittedAt: true, reviewedAt: true, checkRecommendation: true, checkReasons: true, _count: { select: { documents: true } } },
     });
-    return applications.map(({ idDocumentNumber, _count, ...application }) => ({ ...application, idDocumentNumberMasked: maskIdNumber(idDocumentNumber), documentCount: _count.documents }));
+    return applications.map(({ idDocumentNumber, _count, ...application }) => ({ ...application, idDocumentNumberMasked: maskIdNumber(revealIdNumber(idDocumentNumber)), documentCount: _count.documents }));
   }
 
   /** Viewing personal identity data is audited. */
@@ -159,7 +160,8 @@ export class KycService {
       include: { documents: { select: DOCUMENT_SELECT }, reviews: { orderBy: { createdAt: 'desc' } }, checks: { select: CHECK_RESULT_SELECT, orderBy: [{ round: 'desc' }, { createdAt: 'asc' }] } },
     });
     if (!application) throw new NotFoundException('KYC application not found');
-    return { ...application, requiredDocuments: requiredKycDocuments(application.idDocumentType) };
+    const { idDocumentNumberHash: _hash, idDocumentNumberLast4: _last4, ...visible } = application;
+    return { ...visible, idDocumentNumber: revealIdNumber(application.idDocumentNumber), requiredDocuments: requiredKycDocuments(application.idDocumentType) };
   }
 
   /**
@@ -225,11 +227,14 @@ export class KycService {
    * - any other warning (ATTENTION, PENDING, checks not run) needs an explicit acknowledgement.
    */
   private async assertApprovable(application: { id: string; userId: string; idDocumentType: string; idDocumentNumber: string; checkRecommendation: string | null }, input: KycReviewDto) {
-    const normalizedId = normalizeIdNumber(application.idDocumentNumber);
+    // By hash for encrypted numbers; by the plain number for rows not yet converted (scripts/encrypt-kyc-identity.ts).
+    const plainId = revealIdNumber(application.idDocumentNumber);
+    const normalizedId = normalizeIdNumber(plainId);
+    const hash = idNumberHash(plainId) ?? '';
     const verifiedElsewhere = await this.prisma.$queryRaw<Array<{ id: string }>>`
       SELECT id FROM "KycApplication"
       WHERE status = 'APPROVED' AND "userId" <> ${application.userId} AND "idDocumentType" = ${application.idDocumentType}
-        AND upper(regexp_replace("idDocumentNumber", '[^A-Za-z0-9]', '', 'g')) = ${normalizedId}
+        AND ("idDocumentNumberHash" = ${hash} OR upper(regexp_replace("idDocumentNumber", '[^A-Za-z0-9]', '', 'g')) = ${normalizedId})
       LIMIT 1`;
     if (verifiedElsewhere.length) throw new ConflictException('This identity document is already verified for another account. It cannot be approved again.');
 

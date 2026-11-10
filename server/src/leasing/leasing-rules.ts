@@ -1,3 +1,4 @@
+import { prohibitedActivities } from '../shariah/prohibited-activities';
 /** Whose move it is in a direct lease. */
 export type LeaseParty = 'OWNER' | 'TENANT';
 
@@ -46,22 +47,12 @@ export function rentSchedule(start: Date, termMonths: number, monthlyRent: numbe
 export const depositFor = (monthlyRent: number, depositMonths: number) => Math.round(monthlyRent * depositMonths * 100) / 100;
 
 /**
- * Business activities an Ijarah may not serve: the asset may not be rented out for what is haram.
- * A match is a flag for the Shariah reviewer, not a decision: "non-alcoholic" or "Islamic bank" also match.
+ * The prohibited activities the tenant's stated use or business may involve, for the Shariah reviewer to confirm:
+ * an Ijarah may not rent the asset out for what is haram. The platform's list plus the country's own words
+ * (src/shariah/prohibited-activities.ts).
  */
-const PROHIBITED_ACTIVITIES: Array<{ label: string; pattern: RegExp }> = [
-  { label: 'alcohol', pattern: /\b(alcohol|liquor|beer|wine|brewery|bar|pub|arak|minuman keras)\b/i },
-  { label: 'gambling', pattern: /\b(gambling|casino|betting|lottery|judi|loteri|nombor ekor)\b/i },
-  { label: 'conventional finance (riba)', pattern: /\b(conventional bank|moneylend\w*|pawn ?shop|ah long|pajak gadai|pinjaman wang|conventional insurance)\b/i },
-  { label: 'pork', pattern: /\b(pork|babi|non-halal)\b/i },
-  { label: 'adult entertainment', pattern: /\b(nightclub|night club|karaoke|massage parlou?r|adult entertainment|kelab malam|disco)\b/i },
-  { label: 'tobacco', pattern: /\b(tobacco|cigarette|vape|rokok|tembakau)\b/i },
-];
-
-/** The prohibited activities the tenant's stated use or business may involve, for the Shariah reviewer to confirm. */
-export function shariahFlags(...texts: string[]): string[] {
-  const text = texts.join(' ');
-  return PROHIBITED_ACTIVITIES.filter((item) => item.pattern.test(text)).map((item) => item.label);
+export function shariahFlags(countryTerms: readonly string[], ...texts: string[]): string[] {
+  return prohibitedActivities(texts.join(' '), countryTerms);
 }
 
 /** The period's rent is overdue once its due date has passed without payment. */

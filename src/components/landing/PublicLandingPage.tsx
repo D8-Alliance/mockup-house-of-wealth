@@ -20,6 +20,7 @@ import {
 import { INITIAL_COUNTRY_NODES } from '../../countryNodes/mockCountryNodes';
 import { INITIAL_MARKETPLACE } from '../../data/initialData';
 import { useRBAC } from '../../rbac/RBACContext';
+import { LiveOpenPoolsPreview } from './LiveOpenPoolsPreview';
 import { LoginModal } from '../auth/LoginModal';
 import { SignInErrorBanner } from '../auth/SignInErrorBanner';
 import {
@@ -41,7 +42,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
   const [selectedCountryId, setSelectedCountryId] = useState<string>('CN-MYS');
   const [pageId, setPageId] = useState<PublicPageId>('home');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { setShowLoginModal, showLoginModal, isAuthenticated } = useRBAC();
+  const { setShowLoginModal, showLoginModal, isAuthenticated, authMode } = useRBAC();
 
   const navigate = (page: PublicPageId) => {
     setPageId(page);
@@ -333,8 +334,11 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
         </div>
       </section>
 
+      {/* Pools open for investment, from the database; the sample offerings below are for the demo only. */}
+      {authMode !== 'DEMO' && <LiveOpenPoolsPreview onSignIn={() => setShowLoginModal(true)} onExplore={onEnterPublicGuest} />}
+
       {/* Public Marketplace Preview (Guest-tier) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+      {authMode === 'DEMO' && <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Landmark className="w-5 h-5 text-emerald-500" />
@@ -392,7 +396,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
             </div>
           ))}
         </div>
-      </section>
+      </section>}
 
       {/* Login Call-to-Action */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
