@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { Roles } from '../auth/roles.decorator';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
-import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, LeaseUtilityChargeDto, OfferRenewalDto, RecordDepositDto, RecordRentPaymentDto, RenewLeaseDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto, UtilityDepositRuleDto } from './leasing.dto';
+import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, LeaseUtilityChargeDto, OfferRenewalDto, RecordDepositDto, RecordRentPaymentDto, RejectRentPaymentDto, RenewLeaseDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto, UtilityDepositRuleDto } from './leasing.dto';
 import { LeasingService } from './leasing.service';
 
 const OWNERS = ['Asset Owner', 'Asset Manager'] as const;
@@ -70,6 +71,28 @@ export class LeasingController {
   @Post('leases/:id/payments/:period')
   @Roles(...OWNERS)
   recordPayment(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Param('period') period: string, @Body() body: RecordRentPaymentDto) { return this.leasing.recordPayment(actor, id, period, body); }
+
+  /** Accounts confirms rent another person recorded (two-person recording). */
+  @Post('leases/:id/payments/:period/confirm')
+  @Roles(...OWNERS)
+  confirmPayment(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Param('period') period: string) { return this.leasing.confirmPayment(actor, id, period); }
+
+  @Post('leases/:id/payments/:period/reject')
+  @Roles(...OWNERS)
+  rejectPayment(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Param('period') period: string, @Body() body: RejectRentPaymentDto) { return this.leasing.rejectPayment(actor, id, period, body.reason); }
+
+  /** The statement of account (SOA): every charge billed so far and the balance, for the owner or the tenant. */
+  @Get('leases/:id/statement.pdf')
+  @Roles(...OWNERS, ...TENANTS, 'Super Admin')
+  async statement(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Query('lang') lang: string, @Res() response: Response) {
+    const result = await this.leasing.statement(actor, id, lang);
+    return response.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${result.filename}"` }).send(result.buffer);
+  }
+
+  /** The owner's SOA team sends this month's statement to the tenant now. */
+  @Post('leases/:id/statement/send')
+  @Roles(...OWNERS)
+  sendStatement(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.leasing.sendStatement(actor, id); }
 
   @Post('leases/:id/deposit')
   @Roles(...OWNERS)

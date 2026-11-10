@@ -64,6 +64,7 @@ describe('LeasingService', () => {
     leasableUnit: { findFirst: jest.fn(), findMany: jest.fn(), create: jest.fn(), update: jest.fn() },
     assetLease: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), updateMany: jest.fn(), findUniqueOrThrow: jest.fn() },
     leaseRentPayment: { createMany: jest.fn(), updateMany: jest.fn(), deleteMany: jest.fn() },
+    organisationDuty: { findMany: jest.fn().mockResolvedValue([]) },
     utilityDepositRule: { findMany: jest.fn().mockResolvedValue([]) },
     leaseUtilityCharge: { findMany: jest.fn().mockResolvedValue([]) },
     userRoleAssignment: { findMany: jest.fn().mockResolvedValue([{ userId: 'USR-LEGAL', organisationId: 'ORG-PUBLIC' }]) },

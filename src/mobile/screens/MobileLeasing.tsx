@@ -20,8 +20,8 @@ const STATUS_STYLE: Record<string, string> = {
   DECLINED: 'bg-slate-500/10 text-slate-500', WITHDRAWN: 'bg-slate-500/10 text-slate-500', ENDED: 'bg-slate-500/10 text-slate-500',
   REJECTED: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
 };
-const RENT_LABEL: Record<string, string> = { DUE: 'Due', PAID: 'Paid', OVERDUE: 'Overdue' };
-const RENT_STYLE: Record<string, string> = { DUE: 'text-slate-500', PAID: 'text-emerald-700 dark:text-emerald-400', OVERDUE: 'text-rose-700 dark:text-rose-400' };
+const RENT_LABEL: Record<string, string> = { DUE: 'Due', RECORDED: 'Awaiting Accounts confirmation', PAID: 'Paid', OVERDUE: 'Overdue' };
+const RENT_STYLE: Record<string, string> = { DUE: 'text-slate-500', RECORDED: 'text-amber-700 dark:text-amber-400', PAID: 'text-emerald-700 dark:text-emerald-400', OVERDUE: 'text-rose-700 dark:text-rose-400' };
 
 const card = 'rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4';
 const input = 'mt-1 w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-3 text-sm font-bold text-slate-900 dark:text-white';
@@ -489,6 +489,8 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
   const [paying, setPaying] = useState<string | null>(null);
   const [renewal, setRenewal] = useState({ termMonths: '', monthlyRent: '' });
   const [payment, setPayment] = useState({ reference: '', paidAt: today() });
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   const reload = useCallback(() => { apiClient.getLease(id).then(setLease).catch((cause) => setError(errorText(cause, t('The lease could not be loaded.')))); }, [id, t]);
   useEffect(reload, [reload]);
@@ -504,7 +506,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
   const act = async (call: () => Promise<AssetLeaseView>) => {
     setBusy(true);
     setError('');
-    try { setLease(await call()); setMode(''); setPaying(null); } catch (cause) { setError(errorText(cause, t('That did not go through.'))); } finally { setBusy(false); }
+    try { setLease(await call()); setMode(''); setPaying(null); setRejecting(null); } catch (cause) { setError(errorText(cause, t('That did not go through.'))); } finally { setBusy(false); }
   };
 
   if (!lease) {
@@ -668,6 +670,7 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
       {['APPROVED', 'ENDED'].includes(lease.status) && lease.myParty && <LeaseAgreementCard lease={lease} onChanged={reload} />}
       {['APPROVED', 'ENDED'].includes(lease.status) && (lease.myParty || lease.deposit.receivedAt) && <DepositCard lease={lease} onChanged={setLease} />}
       {['APPROVED', 'ENDED'].includes(lease.status) && lease.utilitiesPaidBy === 'OWNER_RECHARGE' && (lease.canChargeUtilities || (lease.utilities?.length ?? 0) > 0) && <UtilityBillsCard lease={lease} onChanged={setLease} />}
+      {['APPROVED', 'ENDED'].includes(lease.status) && lease.myParty && <LeaseStatementCard lease={lease} />}
       {['APPROVED', 'ENDED'].includes(lease.status) && lease.myParty && <LeaseReminderLetters leaseId={lease.id} />}
       </div>
 
@@ -676,20 +679,36 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
         <section className={`${card} space-y-2`}>
           <h2 className="text-sm font-black">{t('Rent schedule')}</h2>
           <p className="text-[11px] text-slate-500">{t('Paid {paid} · overdue {overdue} · still due {due}', { paid: money(lease.currency, lease.rent.paid), overdue: money(lease.currency, lease.rent.overdue), due: money(lease.currency, lease.rent.due) })}</p>
+          {(lease.rent.recorded ?? 0) > 0 && <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400">{t('{amount} recorded, waiting for Accounts to confirm it.', { amount: money(lease.currency, lease.rent.recorded ?? 0) })}</p>}
           <ul className="divide-y divide-slate-100 dark:divide-slate-800">
             {lease.payments.map(item => (
               <li key={item.period} className="py-2 text-xs space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <p className="font-bold">{new Date(`${item.period}-01T00:00:00`).toLocaleDateString(locale, { month: 'long', year: 'numeric' })}</p>
-                    <p className="text-[11px] text-slate-500">{item.status === 'PAID' ? t('paid {date} · ref {reference}', { date: item.paidAt ?? '', reference: item.reference ?? '' }) : t('due {date}', { date: item.dueDate })}</p>
+                    <p className="text-[11px] text-slate-500">{item.status === 'PAID' || item.status === 'RECORDED' ? t('paid {date} · ref {reference}', { date: item.paidAt ?? '', reference: item.reference ?? '' }) : t('due {date}', { date: item.dueDate })}</p>
                   </div>
                   <div className="text-right">
                     <p className="font-black">{money(item.currency, item.amount)}</p>
                     <p className={`text-[11px] font-black ${RENT_STYLE[item.status]}`}>{t(RENT_LABEL[item.status])}</p>
                   </div>
                 </div>
-                {lease.canRecordPayment && item.status !== 'PAID' && paying !== item.period && <button type="button" onClick={() => { setPaying(item.period); setPayment({ reference: '', paidAt: today() }); }} className="text-[11px] font-black text-emerald-700 dark:text-emerald-400">{t('Record as received')}</button>}
+                {item.canConfirm && rejecting !== item.period && (
+                  <div className="flex gap-3">
+                    <button type="button" disabled={busy} onClick={() => act(() => apiClient.confirmLeaseRent(lease.id, item.period))} className="text-[11px] font-black text-emerald-700 dark:text-emerald-400">{t('Confirm: found in the bank')}</button>
+                    <button type="button" disabled={busy} onClick={() => { setRejecting(item.period); setRejectReason(''); }} className="text-[11px] font-black text-rose-700 dark:text-rose-400">{t('Not found')}</button>
+                  </div>
+                )}
+                {rejecting === item.period && (
+                  <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); act(() => apiClient.rejectLeaseRent(lease.id, item.period, rejectReason)); }}>
+                    <input required minLength={5} maxLength={500} value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} placeholder={t('Why it is not confirmed, e.g. not in the bank statement')} className={input} />
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="submit" disabled={busy || rejectReason.trim().length < 5} className={primary}>{t('Send back as due')}</button>
+                      <button type="button" onClick={() => setRejecting(null)} className={secondary}>{t('Cancel')}</button>
+                    </div>
+                  </form>
+                )}
+                {lease.canRecordPayment && (item.status === 'DUE' || item.status === 'OVERDUE') && paying !== item.period &&<button type="button" onClick={() => { setPaying(item.period); setPayment({ reference: '', paidAt: today() }); }} className="text-[11px] font-black text-emerald-700 dark:text-emerald-400">{t('Record as received')}</button>}
                 {paying === item.period && (
                   <form className="space-y-2" onSubmit={(event) => { event.preventDefault(); act(() => apiClient.recordLeaseRent(lease.id, item.period, payment)); }}>
                     <input required minLength={3} maxLength={120} value={payment.reference} onChange={(event) => setPayment(current => ({ ...current, reference: event.target.value }))} placeholder={t('Transfer reference in your bank')} className={input} />
@@ -722,6 +741,40 @@ const LeaseDetail: React.FC<{ id: string; onBack: () => void; onOpen: (id: strin
       </div>
       </div>
     </div>
+  );
+};
+
+/**
+ * The statement of account (SOA): every charge billed so far and the balance, as a PDF in Malay or English. It goes
+ * to the tenant automatically each month; the owner's SOA team can send it again now.
+ */
+const LeaseStatementCard: React.FC<{ lease: AssetLeaseView }> = ({ lease }) => {
+  const { t } = useT();
+  const money = useMoney();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [sent, setSent] = useState('');
+  const download = (lang: 'ms' | 'en') => void apiClient.downloadLeaseStatement(lease.id, lang).catch((cause) => setError(errorText(cause, t('The statement could not be opened.'))));
+  const send = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await apiClient.sendLeaseStatement(lease.id);
+      setSent(t('Statement for {month} sent to the tenant. Outstanding: {amount}.', { month: result.month, amount: money(result.currency, result.outstanding) }));
+    } catch (cause) { setError(errorText(cause, t('The statement was not sent.'))); } finally { setBusy(false); }
+  };
+  return (
+    <section className={`${card} space-y-2`}>
+      <h2 className="text-sm font-black">{t('Statement of account')}</h2>
+      <p className="text-[11px] text-slate-500">{lease.myParty === 'OWNER' ? t('Sent to the tenant automatically at the start of each month, with the outstanding balance.') : t('The owner sends it at the start of each month, with your outstanding balance.')}</p>
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" onClick={() => download('ms')} className={secondary}>{t('Statement (BM)')}</button>
+        <button type="button" onClick={() => download('en')} className={secondary}>{t('Statement (EN)')}</button>
+      </div>
+      {lease.canSendStatement && <button type="button" disabled={busy} onClick={() => void send()} className={primary}>{t('Send the statement to the tenant now')}</button>}
+      {sent && <p className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">{sent}</p>}
+      {error && <ErrorNote text={error} />}
+    </section>
   );
 };
 

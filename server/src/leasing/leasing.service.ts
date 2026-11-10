@@ -8,6 +8,7 @@ import { publicDetails, regionOf } from '../asset-partnerships/asset-partnership
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { newCountryScopedId } from '../users/user-identity';
+import { LeaseStatement as LeaseStatementData, renderLeaseStatement, StatementLine, statementTotals } from './lease-statement';
 import { CreateLeaseDto, EndLeaseDto, LeasableUnitDto, LeaseNoteDto, LeaseUtilityChargeDto, OfferRenewalDto, RecordDepositDto, RecordRentPaymentDto, RenewLeaseDto, RespondLeaseDto, ReturnDepositDto, ReviewLeaseDto, UpdateLeasableUnitDto, UtilityDepositRuleDto } from './leasing.dto';
 import { daysUntil, DepositCarry, depositCarryOver, DepositKind, DepositRefund, depositsOf, depositFor, depositRefund, depositRefundDueBy, depositTotal, DEFAULT_UTILITY_DEPOSIT_MONTHS, heldDeposits, refundableDeposits, endingReminder, HOLDING_LEASE_STATUSES, isOverdue, LeaseParty, leaseEndDate, leaseTermMonths, OPEN_LEASE_STATUSES, otherLeaseParty, rentReminder, rentSchedule, shariahFlags, stateKey, utilityChargeDueDate, utilityDepositMonthsFor } from './leasing-rules';
 
@@ -382,19 +383,143 @@ export class LeasingService {
     return this.getLease(actor, id);
   }
 
-  /** The owner records a month's rent as received in their bank account. */
+  /**
+   * The owner's team records a month's rent as received in their bank account. Where the organisation has people
+   * with the Accounts duty, it is two-person: the Asset Owner or an SOA holder records it (RECORDED), and someone
+   * else (Accounts, or the Asset Owner) confirms it before it counts as paid. Otherwise one person records it as paid.
+   */
   async recordPayment(actor: AuthenticatedUser, id: string, period: string, input: RecordRentPaymentDto) {
     const lease = await this.findLease(actor, id);
     if (this.partyOf(actor, lease) !== 'OWNER') throw new ForbiddenException('Only the owner records rent received.');
     if (!['APPROVED', 'ENDED'].includes(lease.status)) throw new BadRequestException('Rent is recorded only for an approved lease.');
     const paidAt = input.paidAt ? new Date(input.paidAt) : new Date();
     if (paidAt > new Date()) throw new BadRequestException('The payment date cannot be in the future.');
-    const claimed = await this.prisma.leaseRentPayment.updateMany({ where: { leaseId: id, period, status: 'DUE' }, data: { status: 'PAID', paidAt, reference: input.reference, recordedBy: actor.userId } });
-    if (!claimed.count) throw new ConflictException('This month is not due, or is already recorded as paid.');
-    await this.audit.recordActor(actor, { action: 'asset_lease.rent_received', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { period, reference: input.reference, paidAt: paidAt.toISOString() } });
+    const twoPerson = (await this.dutyHolders(lease.ownerOrganisationId, 'ACCOUNTS')).length > 0;
+    if (twoPerson && actor.role !== 'Asset Owner' && !(await this.dutyHolders(lease.ownerOrganisationId, 'SOA')).includes(actor.userId)) throw new ForbiddenException('Recording rent needs the statement of account (SOA) duty. Ask the Asset Owner to give it to you.');
+    const now = new Date();
+    const claimed = await this.prisma.leaseRentPayment.updateMany({ where: { leaseId: id, period, status: 'DUE' }, data: { status: twoPerson ? 'RECORDED' : 'PAID', paidAt, reference: input.reference, recordedBy: actor.userId, recordedAt: now, ...(twoPerson ? {} : { confirmedBy: actor.userId, confirmedAt: now }) } });
+    if (!claimed.count) throw new ConflictException('This month is not due, or is already recorded.');
+    await this.audit.recordActor(actor, { action: twoPerson ? 'asset_lease.rent_recorded' : 'asset_lease.rent_received', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { period, reference: input.reference, paidAt: paidAt.toISOString(), twoPerson } });
     const payment = lease.payments.find((row) => row.period === period);
-    await this.notifyParty(lease, 'TENANT', 'Rent received', `${lease.unit.label}, ${lease.unit.asset.name}: the owner recorded ${payment ? money(payment.currency, Number(payment.amount)) : 'the rent'} for ${period} as received (reference ${input.reference}).`);
+    const amount = payment ? money(payment.currency, Number(payment.amount)) : 'the rent';
+    if (twoPerson) {
+      const accounts = (await this.dutyHolders(lease.ownerOrganisationId, 'ACCOUNTS')).filter((userId) => userId !== actor.userId).map((userId) => ({ userId, organisationId: lease.ownerOrganisationId }));
+      await this.send(lease, [{ userId: lease.unit.asset.ownerUserId, organisationId: lease.ownerOrganisationId }, ...accounts], `Rent to confirm (${period})`, `${lease.unit.label}, ${lease.unit.asset.name}: ${actor.name} recorded ${amount} for ${period} (reference ${input.reference}). Accounts: check the bank and confirm it.`);
+    } else await this.notifyParty(lease, 'TENANT', `Rent received (${period})`, `${lease.unit.label}, ${lease.unit.asset.name}: the owner recorded ${amount} for ${period} as received (reference ${input.reference}).`);
     return this.getLease(actor, id);
+  }
+
+  /** Accounts (or the Asset Owner) confirms rent someone else recorded: it now counts as paid and the tenant is told. */
+  async confirmPayment(actor: AuthenticatedUser, id: string, period: string) {
+    const { lease, payment } = await this.recordedPayment(actor, id, period);
+    const now = new Date();
+    const claimed = await this.prisma.leaseRentPayment.updateMany({ where: { id: payment.id, status: 'RECORDED' }, data: { status: 'PAID', confirmedBy: actor.userId, confirmedAt: now } });
+    if (!claimed.count) throw new ConflictException('This payment changed meanwhile. Reload it.');
+    await this.audit.recordActor(actor, { action: 'asset_lease.rent_confirmed', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { period, reference: payment.reference, recordedBy: payment.recordedBy } });
+    await this.notifyParty(lease, 'TENANT', `Rent received (${period})`, `${lease.unit.label}, ${lease.unit.asset.name}: ${money(payment.currency, Number(payment.amount))} for ${period} is received (reference ${payment.reference}).`);
+    return this.getLease(actor, id);
+  }
+
+  /** Accounts did not find the money: the month goes back to due, with the reason kept. */
+  async rejectPayment(actor: AuthenticatedUser, id: string, period: string, reason: string) {
+    const { lease, payment } = await this.recordedPayment(actor, id, period);
+    const claimed = await this.prisma.leaseRentPayment.updateMany({ where: { id: payment.id, status: 'RECORDED' }, data: { status: 'DUE', paidAt: null, reference: null, recordedBy: null, recordedAt: null } });
+    if (!claimed.count) throw new ConflictException('This payment changed meanwhile. Reload it.');
+    await this.audit.recordActor(actor, { action: 'asset_lease.rent_rejected', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { period, reference: payment.reference, recordedBy: payment.recordedBy, reason } });
+    await this.send(lease, [{ userId: lease.unit.asset.ownerUserId, organisationId: lease.ownerOrganisationId }, ...(payment.recordedBy ? [{ userId: payment.recordedBy, organisationId: lease.ownerOrganisationId }] : [])], `Rent not confirmed (${period})`, `${lease.unit.label}, ${lease.unit.asset.name}: the payment recorded for ${period} (reference ${payment.reference}) was not confirmed by Accounts: ${reason}. The month is due again.`);
+    return this.getLease(actor, id);
+  }
+
+  /** A recorded payment for the confirmer: Accounts or the Asset Owner of the owner, never the person who recorded it. */
+  private async recordedPayment(actor: AuthenticatedUser, id: string, period: string) {
+    const lease = await this.findLease(actor, id);
+    if (this.partyOf(actor, lease) !== 'OWNER') throw new ForbiddenException('Only the owner confirms rent received.');
+    if (actor.role !== 'Asset Owner' && !(await this.dutyHolders(lease.ownerOrganisationId, 'ACCOUNTS')).includes(actor.userId)) throw new ForbiddenException('Confirming rent needs the Accounts duty. Ask the Asset Owner to give it to you.');
+    const payment = await this.prisma.leaseRentPayment.findUnique({ where: { leaseId_period: { leaseId: id, period } } });
+    if (!payment || payment.status !== 'RECORDED') throw new BadRequestException('This month has no payment waiting for confirmation.');
+    if (payment.recordedBy === actor.userId) throw new ForbiddenException('You recorded this payment, so someone else must confirm it.');
+    return { lease, payment };
+  }
+
+  // ---- Statement of account (SOA) ----
+
+  /** The statement as a PDF, for either side of the lease: every charge billed so far and the balance. */
+  async statement(actor: AuthenticatedUser, id: string, language: string, now = new Date()) {
+    const lease = await this.findLease(actor, id);
+    if (!this.partyOf(actor, lease) && actor.role !== 'Super Admin') throw new ForbiddenException('Only the owner and the tenant see the statement of account.');
+    if (!['APPROVED', 'ENDED'].includes(lease.status)) throw new BadRequestException('A statement is issued only for an approved lease.');
+    const month = day(now)!.slice(0, 7);
+    const buffer = await renderLeaseStatement(await this.statementData(lease, language === 'en' ? 'en' : 'ms', now));
+    return { buffer, filename: `${lease.id}-statement-${month}.pdf` };
+  }
+
+  /** The owner's SOA team sends this month's statement to the tenant now (again, if it went out already). */
+  async sendStatement(actor: AuthenticatedUser, id: string) {
+    const lease = await this.findLease(actor, id);
+    if (this.partyOf(actor, lease) !== 'OWNER') throw new ForbiddenException('Only the owner sends the statement of account.');
+    if (!['APPROVED', 'ENDED'].includes(lease.status)) throw new BadRequestException('A statement is issued only for an approved lease.');
+    if (actor.role !== 'Asset Owner' && !(await this.dutyHolders(lease.ownerOrganisationId, 'SOA')).includes(actor.userId)) throw new ForbiddenException('Sending statements needs the statement of account (SOA) duty. Ask the Asset Owner to give it to you.');
+    const now = new Date();
+    const sent = await this.issueStatement(lease, actor.userId, now, true);
+    await this.audit.recordActor(actor, { action: 'asset_lease.statement_sent', resourceType: 'AssetLease', resourceId: id, organisationId: actor.organisationId, countryNodeId: lease.countryNodeId, metadata: { month: sent.month, outstanding: sent.outstanding } });
+    return { month: sent.month, outstanding: sent.outstanding, currency: lease.currency, sentAt: now.toISOString() };
+  }
+
+  /**
+   * Daily: each approved lease that has started gets this month's statement once, from the 1st of the month. An
+   * ended lease gets one only while something is still outstanding.
+   */
+  async sendMonthlyStatements(now = new Date()): Promise<number> {
+    const month = day(now)!.slice(0, 7);
+    const leases = await this.prisma.assetLease.findMany({ where: { status: { in: ['APPROVED', 'ENDED'] }, startDate: { lte: now }, statements: { none: { month } } }, include: LEASE_INCLUDE, take: 500 });
+    let sent = 0;
+    for (const lease of leases) {
+      if (lease.status === 'ENDED' && statementTotals(this.statementLines(lease, now), day(now)!).outstanding <= 0) continue;
+      if (await this.issueStatement(lease, 'SYSTEM', now, false).then(() => true, () => false)) sent += 1;
+    }
+    return sent;
+  }
+
+  /** Records the month's statement and tells the tenant the balance. A resend by hand replaces the month's record. */
+  private async issueStatement(lease: LeaseRow, sentBy: string, now: Date, resend: boolean) {
+    const month = day(now)!.slice(0, 7);
+    const totals = statementTotals(this.statementLines(lease, now), day(now)!);
+    const data = { outstanding: totals.outstanding, currency: lease.currency, sentBy, sentAt: now };
+    if (resend) await this.prisma.leaseStatement.upsert({ where: { leaseId_month: { leaseId: lease.id, month } }, create: { leaseId: lease.id, month, ...data }, update: data });
+    else await this.prisma.leaseStatement.create({ data: { leaseId: lease.id, month, ...data } });
+    if (this.notifications) {
+      const balance = totals.outstanding > 0 ? `Outstanding: ${money(lease.currency, totals.outstanding)}${totals.overdue > 0 ? `, of which ${money(lease.currency, totals.overdue)} is past due` : ''}.` : 'Nothing is outstanding.';
+      await this.notifications.enqueue({
+        recipientUserId: lease.createdBy, organisationId: lease.tenantOrganisationId, countryNodeId: lease.countryNodeId, type: 'ASSET_LEASE',
+        title: `Statement of account ${month}`, message: `${lease.unit.label}, ${lease.unit.asset.name}: your statement for ${month} is ready on the lease. ${balance}`,
+        resourceType: 'AssetLease', resourceId: lease.id, dedupeKey: `lease-statement:${lease.id}:${month}${resend ? `:${now.getTime()}` : ''}`,
+      }).catch(() => undefined);
+    }
+    return { month, outstanding: totals.outstanding };
+  }
+
+  private statementLines(lease: LeaseRow, now: Date): StatementLine[] {
+    const rent: StatementLine[] = lease.payments.map((payment) => ({
+      kind: 'RENT', period: payment.period, dueDate: day(payment.dueDate), amount: Number(payment.amount),
+      status: isOverdue(payment, now) ? 'OVERDUE' : payment.status, paidAt: day(payment.paidAt), reference: payment.reference,
+    }));
+    const utilities: StatementLine[] = lease.utilityCharges.map((charge) => ({
+      kind: charge.kind as StatementLine['kind'], period: charge.period, dueDate: day(charge.dueDate), amount: Number(charge.amount),
+      status: isOverdue(charge, now) ? 'OVERDUE' : charge.status, paidAt: day(charge.paidAt), reference: charge.reference ?? charge.billReference,
+    }));
+    return [...rent, ...utilities].sort((a, b) => (a.dueDate ?? a.period).localeCompare(b.dueDate ?? b.period));
+  }
+
+  private async statementData(lease: LeaseRow, language: 'ms' | 'en', now: Date): Promise<LeaseStatementData> {
+    const tenant = await this.prisma.organisation.findUnique({ where: { id: lease.tenantOrganisationId }, select: { name: true } });
+    return {
+      language, leaseId: lease.id, issuedOn: day(now)!, month: day(now)!.slice(0, 7), ownerName: lease.unit.asset.organisation.name, tenantName: tenant?.name ?? lease.tenantOrganisationId,
+      unit: lease.unit.label, asset: lease.unit.asset.name, leaseStart: day(lease.startDate)!, leaseEnd: day(lease.endDate)!, currency: lease.currency, lines: this.statementLines(lease, now),
+    };
+  }
+
+  private async dutyHolders(organisationId: string, duty: 'ACCOUNTS' | 'SOA') {
+    return (await this.prisma.organisationDuty.findMany({ where: { organisationId, duty }, select: { userId: true } })).map((row) => row.userId);
   }
 
   /** Ends an approved lease early, as the parties agreed; months after the end that are still due are removed. */
@@ -779,6 +904,9 @@ export class LeasingService {
     const payments = row.payments.map((payment) => ({
       period: payment.period, dueDate: day(payment.dueDate), amount: Number(payment.amount), currency: payment.currency,
       status: isOverdue(payment, today) ? 'OVERDUE' : payment.status, paidAt: day(payment.paidAt), reference: payment.reference,
+      // Two-person recording: who recorded it, and whether this person may confirm it (the server checks the Accounts duty).
+      ...(party === 'OWNER' ? { recordedBy: payment.recordedBy, confirmedAt: payment.confirmedAt?.toISOString() ?? null } : {}),
+      canConfirm: party === 'OWNER' && payment.status === 'RECORDED' && payment.recordedBy !== actor.userId,
     }));
     const sum = (status: string) => Math.round(payments.filter((payment) => payment.status === status).reduce((total, payment) => total + payment.amount, 0) * 100) / 100;
     const details = row.unit.asset.details as AssetDetails | null;
@@ -850,7 +978,8 @@ export class LeasingService {
       endedAt: row.endedAt?.toISOString() ?? null,
       history: row.history,
       payments,
-      rent: { paid: sum('PAID'), overdue: sum('OVERDUE'), due: sum('DUE') },
+      rent: { paid: sum('PAID'), recorded: sum('RECORDED'), overdue: sum('OVERDUE'), due: sum('DUE') },
+      canSendStatement: party === 'OWNER' && ['APPROVED', 'ENDED'].includes(row.status),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

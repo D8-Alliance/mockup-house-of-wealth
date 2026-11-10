@@ -75,6 +75,8 @@ export class RentCollectionService {
     await this.assertDuty(actor, row.ownerOrganisationId, 'COLLECTION');
     const next = nextReminder(row.stage as CollectionStage);
     if (!next) throw new BadRequestException(row.stage === 'REMINDER_3' ? 'All three reminders are sent: hand the case to Legal.' : 'This case takes no more reminders.');
+    const payment = await this.prisma.leaseRentPayment.findUnique({ where: { id: row.paymentId }, select: { status: true } });
+    if (payment?.status === 'RECORDED') throw new BadRequestException('A payment for this month is recorded and waiting for Accounts to confirm it. Do not send a reminder meanwhile.');
     const now = new Date();
     const updated = await this.move(actor, row, next, actionDueAfter(next, now), 'REMINDER_SENT', note);
     const lease = await this.lease(row.leaseId);

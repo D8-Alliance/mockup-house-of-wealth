@@ -112,6 +112,11 @@ export class RecordRentPaymentDto {
   @IsOptional() @IsDateString() paidAt?: string;
 }
 
+/** Why Accounts did not confirm a recorded rent payment, e.g. not found in the bank statement. */
+export class RejectRentPaymentDto {
+  @Transform(trim) @IsString() @MinLength(5) @MaxLength(500) reason!: string;
+}
+
 /** The tenant's security deposit as it reached the owner's bank account. */
 export class RecordDepositDto {
   @Transform(trim) @IsString() @MinLength(3) @MaxLength(120) reference!: string;

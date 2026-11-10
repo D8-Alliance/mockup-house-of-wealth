@@ -2345,6 +2345,7 @@ model AssetLease {
   unit     LeasableUnit       @relation(fields: [unitId], references: [id])
   payments LeaseRentPayment[]
   utilityCharges LeaseUtilityCharge[]
+  statements     LeaseStatement[]
 
   @@index([unitId, status])
   @@index([countryNodeId, status])
@@ -2402,12 +2403,16 @@ model LeaseRentPayment {
   dueDate    DateTime
   amount     Decimal   @db.Decimal(18, 2)
   currency   String
-  /// DUE or PAID; overdue is a DUE row past its due date.
+  /// DUE, RECORDED (entered by SOA, waiting for Accounts to confirm) or PAID; overdue is a DUE row past its due date.
   status     String    @default("DUE")
   paidAt     DateTime?
   /// The tenant's transfer reference as the owner saw it in their bank.
   reference  String?
   recordedBy String?
+  recordedAt DateTime?
+  /// Accounts: a second person who confirmed the money is in the bank.
+  confirmedBy String?
+  confirmedAt DateTime?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -2799,6 +2804,24 @@ model OrganisationDuty {
 
   @@unique([organisationId, userId, duty])
   @@index([organisationId, duty])
+}
+
+/// A statement of account (SOA) sent to the tenant for a month: what is billed, paid and outstanding. One per lease and month.
+model LeaseStatement {
+  id          String   @id @default(cuid())
+  leaseId     String
+  /// YYYY-MM, the calendar month the statement is for.
+  month       String
+  outstanding Decimal  @db.Decimal(18, 2)
+  currency    String
+  /// A user id, or SYSTEM for the monthly send.
+  sentBy      String
+  sentAt      DateTime @default(now())
+
+  lease AssetLease @relation(fields: [leaseId], references: [id])
+
+  @@unique([leaseId, month])
+  @@index([leaseId])
 }
 
 /// A month's rent not paid in time, chased by the owner's collection team: reminders 1 to 3, then the owner's legal team.

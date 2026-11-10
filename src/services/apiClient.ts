@@ -647,6 +647,10 @@ export const apiClient = {
   escalateCollectionCase: (id: string, note: string) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}/legal`, { method: 'POST', body: JSON.stringify({ note }) }),
   closeCollectionCase: (id: string, note: string) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}/close`, { method: 'POST', body: JSON.stringify({ note }) }),
   downloadReminderLetter: (id: string, number: number, lang: 'ms' | 'en') => openAuthenticatedFile(`/leasing/collections/${encodeURIComponent(id)}/letters/${number}?lang=${lang}`),
+  confirmLeaseRent: (id: string, period: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/payments/${encodeURIComponent(period)}/confirm`, { method: 'POST' }),
+  rejectLeaseRent: (id: string, period: string, reason: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/payments/${encodeURIComponent(period)}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  downloadLeaseStatement: (id: string, lang: 'ms' | 'en') => openAuthenticatedFile(`/leasing/leases/${encodeURIComponent(id)}/statement.pdf?lang=${lang}`),
+  sendLeaseStatement: (id: string) => request<{ month: string; outstanding: number; currency: string; sentAt: string }>(`/leasing/leases/${encodeURIComponent(id)}/statement/send`, { method: 'POST' }),
   getLeaseReminderLetters: (leaseId: string) => request<Array<{ caseId: string; period: string; number: 1 | 2 | 3; sentAt: string; stage: CollectionStage }>>(`/leasing/leases/${encodeURIComponent(leaseId)}/reminder-letters`),
   downloadSignedAgreement: (id: string) => openAuthenticatedFile(`/contract-intelligence/agreements/${encodeURIComponent(id)}/signed.pdf`),
   downloadAgreementTimestamp: (id: string) => openAuthenticatedFile(`/contract-intelligence/agreements/${encodeURIComponent(id)}/timestamp.tsr`),
@@ -2372,9 +2376,15 @@ export interface LeaseRentRow {
   dueDate: string;
   amount: number;
   currency: string;
-  status: 'DUE' | 'PAID' | 'OVERDUE';
+  /** RECORDED: received, waiting for Accounts to confirm it (two-person recording). */
+  status: 'DUE' | 'RECORDED' | 'PAID' | 'OVERDUE';
   paidAt: string | null;
   reference: string | null;
+  /** Owner only: who recorded it, and when Accounts confirmed it. */
+  recordedBy?: string | null;
+  confirmedAt?: string | null;
+  /** This person may confirm or reject the recorded payment (the server checks the Accounts duty). */
+  canConfirm?: boolean;
 }
 
 export type OrganisationDuty = 'ACCOUNTS' | 'SOA' | 'COLLECTION' | 'FIELD' | 'LEGAL';
@@ -2465,7 +2475,9 @@ export interface AssetLeaseView {
   endedAt: string | null;
   history: Array<{ at: string; byName: string; party: string; action: string; note?: string; statement?: string; terms?: { monthlyRent: number; depositAmount: number; startDate: string; endDate: string; termMonths: number } }>;
   payments: LeaseRentRow[];
-  rent: { paid: number; overdue: number; due: number };
+  rent: { paid: number; recorded?: number; overdue: number; due: number };
+  /** The owner may send the statement of account (SOA) now; the server checks the SOA duty. */
+  canSendStatement?: boolean;
   /** The Ijarah agreement drafted for the lease, once the owner drafts it. */
   agreement: { id: string; contractNumber: string; status: AgreementStatus } | null;
   /** The other side's contact person, once the lease is approved: the tenant's for the owner, the owner's for the tenant. */
