@@ -77,6 +77,7 @@ export const MS_NOTICE_TITLES: Record<string, string> = {
   'Utility bill received': 'Bil utiliti diterima',
   'Utility bill removed': 'Bil utiliti dibuang',
   'Utility bill overdue': 'Bil utiliti tertunggak',
+  'Utility arrears passed to Legal': 'Tunggakan bil utiliti diserahkan kepada Legal',
   // AI
   'AI request did not finish': 'Permintaan AI tidak selesai',
   'Your AI request was interrupted before it answered. Please try again.': 'Permintaan AI anda terganggu sebelum sempat dijawab. Sila cuba lagi.',
@@ -84,6 +85,8 @@ export const MS_NOTICE_TITLES: Record<string, string> = {
 
 const UTILITY_MS: Record<string, string> = { electricity: 'elektrik', water: 'air', sewerage: 'pembetungan', other: 'lain-lain' };
 const utility = (kind: string) => UTILITY_MS[kind] ?? kind;
+/** "rent" → "sewa"; "electricity bill" → "bil elektrik". */
+const owed = (item: string) => (item === 'rent' ? 'sewa' : `bil ${utility(item.replace(/ bill$/, ''))}`);
 const PARTY_MS: Record<string, string> = { 'asset owner': 'Pemilik aset', 'delivery partner': 'Rakan pelaksana' };
 const AGREEMENT_STEP_MS: Record<string, string> = { legal: 'Legal', Shariah: 'Shariah' };
 
@@ -100,12 +103,14 @@ export const MS_NOTICE_PATTERNS: Array<[RegExp, string | ((match: RegExpExecArra
   [/^(.+?): the lease ends on (\S+), in (\d+) days\. To continue, the tenant asks to renew or the owner offers it in Leasing; otherwise the space is handed back on that day\.$/, '$1: sewaan tamat pada $2, dalam $3 hari. Untuk meneruskan, penyewa memohon pembaharuan atau pemilik menawarkannya di Sewaan; jika tidak, ruang diserahkan semula pada hari itu.'],
 
   // Rent collection
-  [/^(.+?): the rent of (.+?) for (\S+) is unpaid\. Send reminder 1 by (\S+) \((\S+)\)\.$/, '$1: sewa $2 bagi $3 belum dibayar. Hantar peringatan 1 sebelum $4 ($5).'],
-  [/^(.+?): the rent of (.+?) for (\S+) is unpaid\. Please pay by (\S+)\. Reminder letter (\d) \((\S+)\) is on the lease\.$/, '$1: sewa $2 bagi $3 belum dibayar. Sila bayar sebelum $4. Surat peringatan $5 ($6) ada pada sewaan.'],
-  [/^(\S+): the rent for (\S+) \((.+?)\) is yours to follow up\.$/, '$1: sewa bagi $2 ($3) kini di bawah tindakan susulan anda.'],
-  [/^(\S+): rent for (\S+) is still unpaid; send reminder (\d) \(was due (\S+)\)\.$/, '$1: sewa bagi $2 masih belum dibayar; hantar peringatan $3 (perlu dibuat pada $4).'],
-  [/^(\S+): rent for (\S+) is still unpaid; hand it to Legal \(was due (\S+)\)\.$/, '$1: sewa bagi $2 masih belum dibayar; serahkan kepada Legal (perlu dibuat pada $3).'],
-  [/^(\S+): (.+?), rent for (\S+) \((.+?)\) is unpaid after three reminders\. (.*)$/, '$1: $2, sewa bagi $3 ($4) belum dibayar selepas tiga peringatan. $5'],
+  // A case chases "rent" or a recharged "<kind> bill" (electricity bill, water bill...).
+  [/^(.+?): the (rent|\w+ bill) of (.+?) for (\S+) is unpaid\. Send reminder 1 by (\S+) \((\S+)\)\.$/, (m) => `${m[1]}: ${owed(m[2])} ${m[3]} bagi ${m[4]} belum dibayar. Hantar peringatan 1 sebelum ${m[5]} (${m[6]}).`],
+  [/^(.+?): the (rent|\w+ bill) of (.+?) for (\S+) is unpaid\. Please pay by (\S+)\. Reminder letter (\d) \((\S+)\) is on the lease\.$/, (m) => `${m[1]}: ${owed(m[2])} ${m[3]} bagi ${m[4]} belum dibayar. Sila bayar sebelum ${m[5]}. Surat peringatan ${m[6]} (${m[7]}) ada pada sewaan.`],
+  [/^(\S+): the (rent|\w+ bill) for (\S+) \((.+?)\) is yours to follow up\.$/, (m) => `${m[1]}: ${owed(m[2])} bagi ${m[3]} (${m[4]}) kini di bawah tindakan susulan anda.`],
+  [/^(\S+): (rent|\w+ bill) for (\S+) is still unpaid; send reminder (\d) \(was due (\S+)\)\.$/, (m) => `${m[1]}: ${owed(m[2])} bagi ${m[3]} masih belum dibayar; hantar peringatan ${m[4]} (perlu dibuat pada ${m[5]}).`],
+  [/^(\S+): (rent|\w+ bill) for (\S+) is still unpaid; hand it to Legal \(was due (\S+)\)\.$/, (m) => `${m[1]}: ${owed(m[2])} bagi ${m[3]} masih belum dibayar; serahkan kepada Legal (perlu dibuat pada ${m[4]}).`],
+  [/^(\S+): (.+?), (rent|\w+ bill) for (\S+) \((.+?)\) is unpaid after three reminders\. (.*)$/, (m) => `${m[1]}: ${m[2]}, ${owed(m[3])} bagi ${m[4]} (${m[5]}) belum dibayar selepas tiga peringatan. ${m[6]}`],
+  [/^Bill reminder (\d)$/, (m) => `Peringatan bil ${m[1]}${m[1] === '3' ? ' (terakhir)' : ''}`],
 
   // Asset partnerships
   [/^Asset partnership rejected by (Legal|Shariah)$/, 'Perkongsian aset ditolak oleh $1'],

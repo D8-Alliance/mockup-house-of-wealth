@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshCw, X } from 'lucide-react';
 import { apiClient, apiErrorMessage, DistributionPreview, SettlementDistribution, SettlementPool } from '../../services/apiClient';
+import { BankStatementMatchPanel } from './BankStatementMatchPanel';
 import { RefundQueuePanel } from './RefundQueuePanel';
 
-type Section = 'pools' | 'approve' | 'payouts' | 'refunds' | 'history';
+type Section = 'pools' | 'approve' | 'payouts' | 'statement' | 'refunds' | 'history';
 
 const CARD = 'rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5';
 const INPUT = 'mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs';
@@ -38,7 +39,7 @@ export const ProfitDistributionPanel: React.FC = () => {
   useEffect(load, [load]);
   const toApprove = distributions?.filter((item) => item.status === 'PENDING_APPROVAL') ?? [];
   const toPay = distributions?.filter((item) => ['APPROVED', 'PROCESSING', 'FAILED', 'PARTIALLY_SETTLED'].includes(item.status) && item.kind === 'PROFIT') ?? [];
-  const sections: Array<[Section, string, number]> = [['pools', 'Pools', 0], ['approve', 'Approve', toApprove.length], ['payouts', 'Pay out', toPay.length], ['refunds', 'Refunds', 0], ['history', 'All periods', 0]];
+  const sections: Array<[Section, string, number]> = [['pools', 'Pools', 0], ['approve', 'Approve', toApprove.length], ['payouts', 'Pay out', toPay.length], ['statement', 'Bank statement', 0], ['refunds', 'Refunds', 0], ['history', 'All periods', 0]];
 
   return (
     <div className="space-y-4">
@@ -63,6 +64,7 @@ export const ProfitDistributionPanel: React.FC = () => {
       {section === 'pools' && <PoolsSection onChanged={load} />}
       {section === 'approve' && <DistributionGrid items={toApprove} empty="No distribution is waiting for approval." onChanged={load} />}
       {section === 'payouts' && <DistributionGrid items={toPay} empty="No payout to make." onChanged={load} />}
+      {section === 'statement' && <BankStatementMatchPanel onSettled={load} />}
       {section === 'refunds' && <RefundQueuePanel />}
       {section === 'history' && <HistoryTable items={distributions ?? []} />}
     </div>

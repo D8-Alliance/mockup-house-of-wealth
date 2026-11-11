@@ -42,4 +42,13 @@ describe('notification outbox retries', () => {
     expect(current()).toMatchObject({ status: 'PROCESSED', deliveredChannels: 'EMAIL,SMS' });
     expect(current().lastError).toBe('Skipped SMS (not configured)');
   });
+
+  it('passes a stored file to the email and drops it once sent', async () => {
+    const { service, delivery, current } = setup('IN_APP,EMAIL');
+    Object.assign(current(), { attachmentName: 'statement.pdf', attachment: new Uint8Array([37, 80, 68, 70]) });
+    delivery.deliverEach.mockResolvedValueOnce([{ channel: 'EMAIL', outcome: 'SENT' }]);
+    await service.processOutbox();
+    expect(delivery.deliverEach).toHaveBeenCalledWith(expect.objectContaining({ attachment: { filename: 'statement.pdf', content: Buffer.from('%PDF') } }));
+    expect(current()).toMatchObject({ status: 'PROCESSED', attachment: null });
+  });
 });

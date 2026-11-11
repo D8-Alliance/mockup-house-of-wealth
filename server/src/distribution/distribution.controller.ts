@@ -7,7 +7,7 @@ import { Public, RequirePermission, Roles } from '../auth/roles.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
-import { CreateDistributionDto, DistributionDecisionDto, DistributionPreviewDto, DistributionRejectionDto, PayoutFailureDto, PoolIncomeDto, RecordPeriodResultDto, SubmitPayoutDto } from './distribution.dto';
+import { CreateDistributionDto, DistributionDecisionDto, DistributionPreviewDto, DistributionRejectionDto, PayoutFailureDto, PoolIncomeDto, RecordPeriodResultDto, StatementMatchDto, StatementSettleDto, SubmitPayoutDto } from './distribution.dto';
 import { DistributionService } from './distribution.service';
 import { PayoutDestinationService } from './payout-destination.service';
 import { CreatePayoutDestinationDto } from './payout-destination.dto';
@@ -118,6 +118,18 @@ export class DistributionController {
   @Roles('Super Admin', 'Settlement Officer')
   @RequirePermission('ledger', 'update')
   reconcilePayouts(@CurrentUser() actor: AuthenticatedUser) { return this.distributions.reconcilePayouts(actor); }
+
+  /** Pairs a bank statement (CSV) with payouts already sent. Read only. */
+  @Post('payouts/statement-match')
+  @Roles('Super Admin', 'Settlement Officer')
+  @RequirePermission('ledger', 'update')
+  matchBankStatement(@CurrentUser() actor: AuthenticatedUser, @Body() input: StatementMatchDto) { return this.distributions.matchBankStatement(actor, input); }
+
+  /** Confirms the ticked pairs: each payout is settled, with the statement line recorded in the audit log. */
+  @Post('payouts/statement-settle')
+  @Roles('Super Admin', 'Settlement Officer')
+  @RequirePermission('ledger', 'update')
+  settleFromStatement(@CurrentUser() actor: AuthenticatedUser, @Body() input: StatementSettleDto) { return this.distributions.settleFromStatement(actor, input); }
 
   // Provider callbacks retry on failure and are authenticated by signature, so they are not rate limited.
   @SkipThrottle()

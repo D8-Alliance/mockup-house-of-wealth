@@ -1649,6 +1649,9 @@ model NotificationOutbox {
   attempts        Int       @default(0)
   nextAttemptAt   DateTime  @default(now())
   lastError       String?
+  /// A file sent with the email (e.g. the monthly statement of account PDF). Cleared once the row is processed.
+  attachmentName  String?
+  attachment      Bytes?
   processedAt     DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -2828,7 +2831,10 @@ model LeaseStatement {
 model RentCollectionCase {
   id                   String    @id
   leaseId              String
+  /// The unpaid item: a LeaseRentPayment id when itemKind is RENT, otherwise a LeaseUtilityCharge id.
   paymentId            String    @unique
+  /// RENT, or the utility bill's kind: ELECTRICITY, WATER, SEWERAGE or OTHER.
+  itemKind             String    @default("RENT")
   period               String
   ownerOrganisationId  String
   tenantOrganisationId String

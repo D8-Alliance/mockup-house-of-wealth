@@ -38,7 +38,7 @@ describe('rent collection rules', () => {
 
 describe('RentCollectionService', () => {
   const row = (overrides: Record<string, unknown> = {}) => ({
-    id: 'COLL-MYS-1', leaseId: 'LEASE-MYS-1', paymentId: 'PAY-1', period: '2026-11', ownerOrganisationId: 'ORG-AHG', tenantOrganisationId: 'ORG-TENANT', countryNodeId: 'CN-MYS',
+    id: 'COLL-MYS-1', leaseId: 'LEASE-MYS-1', paymentId: 'PAY-1', itemKind: 'RENT', period: '2026-11', ownerOrganisationId: 'ORG-AHG', tenantOrganisationId: 'ORG-TENANT', countryNodeId: 'CN-MYS',
     amount: new Prisma.Decimal(25500), currency: 'MYR', stage: 'OPEN', assignedUserId: null, actionDueAt: d('2026-11-15'), history: [], followUps: [], closedAt: null, closedReason: null,
     createdAt: new Date(), updatedAt: new Date(), ...overrides,
   });
@@ -53,6 +53,7 @@ describe('RentCollectionService', () => {
       organisationDuty: { findMany: jest.fn(async ({ where }) => (where.duty === 'COLLECTION' ? [{ userId: 'USR-AZIMAH' }] : where.duty === 'LEGAL' ? [{ userId: 'USR-LEGAL' }] : [])) },
       assetLease: { findUniqueOrThrow: jest.fn(async () => lease), findMany: jest.fn(async () => [lease]) },
       leaseRentPayment: { findMany: jest.fn(async () => []), findUnique: jest.fn(async () => ({ dueDate: d('2026-11-01') })) },
+      leaseUtilityCharge: { findMany: jest.fn(async () => []), findUnique: jest.fn(async () => null) },
       organisation: { findMany: jest.fn(async () => [{ id: 'ORG-TENANT', name: 'Teras Engineering' }]) },
       userRoleAssignment: { findMany: jest.fn(async () => []) },
       user: { findMany: jest.fn(async () => []) },
@@ -84,7 +85,7 @@ describe('RentCollectionService', () => {
   });
 
   it('closes a case as paid once the month is recorded as received', async () => {
-    prisma.rentCollectionCase.findMany.mockResolvedValueOnce([{ id: 'COLL-MYS-1', paymentId: 'PAY-1', history: [], updatedAt: new Date() }]);
+    prisma.rentCollectionCase.findMany.mockResolvedValueOnce([{ id: 'COLL-MYS-1', paymentId: 'PAY-1', itemKind: 'RENT', history: [], updatedAt: new Date() }]);
     prisma.leaseRentPayment.findMany.mockResolvedValueOnce([{ id: 'PAY-1', paidAt: d('2026-11-20'), reference: 'IBG 123' }]);
     prisma.leaseRentPayment.findMany.mockResolvedValueOnce([]);
     await service.sweep(d('2026-11-21'));
@@ -93,5 +94,40 @@ describe('RentCollectionService', () => {
 
   it('keeps the case to the owner team: the tenant cannot open it', async () => {
     await expect(service.list(actor('Organization Admin', 'USR-TN', 'ORG-TENANT'))).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  describe('utility bills the owner recharged', () => {
+    const bill = { id: 'UTIL-1', leaseId: 'LEASE-MYS-1', period: '2026-10', dueDate: d('2026-11-01'), amount: new Prisma.Decimal(812.4), currency: 'MYR', kind: 'ELECTRICITY', lease: { ownerOrganisationId: 'ORG-AHG', tenantOrganisationId: 'ORG-TENANT', countryNodeId: 'CN-MYS', unit: lease.unit } };
+
+    it('opens a case for a bill unpaid 7 days after it was due, like a month of rent', async () => {
+      prisma.leaseUtilityCharge.findMany.mockResolvedValueOnce([bill]);
+      await service.sweep(d('2026-11-08'));
+      expect(prisma.rentCollectionCase.create).toHaveBeenCalledWith({ data: expect.objectContaining({ paymentId: 'UTIL-1', itemKind: 'ELECTRICITY', period: '2026-10', stage: 'OPEN' }) });
+      expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-AZIMAH', message: expect.stringContaining('the electricity bill of RM 812.40 for 2026-10 is unpaid') }));
+    });
+
+    it('sends a bill reminder naming the bill', async () => {
+      prisma.rentCollectionCase.findFirst.mockResolvedValue(row({ paymentId: 'UTIL-1', itemKind: 'ELECTRICITY', period: '2026-10', amount: new Prisma.Decimal(812.4) }));
+      prisma.rentCollectionCase.findUniqueOrThrow.mockResolvedValue(row({ paymentId: 'UTIL-1', itemKind: 'ELECTRICITY', period: '2026-10', amount: new Prisma.Decimal(812.4) }));
+      prisma.leaseUtilityCharge.findUnique.mockResolvedValue({ status: 'DUE', dueDate: d('2026-11-01'), billReference: 'TNB-881' });
+      await service.remind(collector, 'COLL-MYS-1');
+      expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-TN', title: 'Bill reminder 1', message: expect.stringContaining('the electricity bill of RM 812.40 for 2026-10 is unpaid') }));
+    });
+
+    it('closes the case once the bill is paid, or when the owner removed the bill', async () => {
+      prisma.rentCollectionCase.findMany.mockResolvedValueOnce([
+        { id: 'COLL-MYS-2', paymentId: 'UTIL-1', itemKind: 'ELECTRICITY', history: [], updatedAt: new Date() },
+        { id: 'COLL-MYS-3', paymentId: 'UTIL-GONE', itemKind: 'WATER', history: [], updatedAt: new Date() },
+      ]);
+      prisma.leaseUtilityCharge.findMany.mockResolvedValueOnce([{ id: 'UTIL-1', status: 'PAID', paidAt: d('2026-11-20'), reference: 'IBG 9' }]);
+      await service.sweep(d('2026-11-21'));
+      expect(prisma.rentCollectionCase.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: 'COLL-MYS-2' }), data: expect.objectContaining({ stage: 'PAID' }) }));
+      expect(prisma.rentCollectionCase.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: 'COLL-MYS-3' }), data: expect.objectContaining({ stage: 'CLOSED', closedReason: 'Bill removed by the owner' }) }));
+    });
+
+    it('writes the reminder letter for a bill in Malay and English', async () => {
+      const letter = { number: 1 as const, caseId: 'COLL-MYS-2', issuedOn: '2026-11-10', payBy: '2026-11-24', ownerName: 'Al Hidayah Group', tenantName: 'Teras Engineering', unit: 'Tingkat 7', asset: 'Menara Hidayah', leaseId: 'LEASE-MYS-1', leaseStart: '2026-08-01', period: '2026-10', dueDate: '2026-11-01', amount: 'RM 812.40', totalOverdue: 'RM 26,312.40', item: 'ELECTRICITY', billReference: 'TNB-881' };
+      for (const language of ['ms', 'en'] as const) expect((await renderReminderLetter({ ...letter, language })).subarray(0, 5).toString()).toBe('%PDF-');
+    });
   });
 });

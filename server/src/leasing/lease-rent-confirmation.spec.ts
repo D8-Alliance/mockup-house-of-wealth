@@ -37,7 +37,7 @@ describe('two-person rent recording and the statement of account', () => {
     organisationDuty: { findMany: jest.fn(duties) },
     leaseStatement: { create: jest.fn().mockResolvedValue({}), upsert: jest.fn().mockResolvedValue({}) },
     contract: { findMany: jest.fn().mockResolvedValue([]) },
-    user: { findMany: jest.fn().mockResolvedValue([]) },
+    user: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn().mockResolvedValue({ profile: { preferences: { language: 'en' } } }) },
   };
   const audit = { recordActor: jest.fn().mockResolvedValue(undefined) };
   const notifications = { enqueue: jest.fn().mockResolvedValue(undefined) };
@@ -121,6 +121,7 @@ describe('two-person rent recording and the statement of account', () => {
     expect(await service.sendMonthlyStatements(new Date('2020-02-01T03:00:00Z'))).toBe(1);
     expect(prisma.assetLease.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ statements: { none: { month: '2020-02' } } }) }));
     expect(prisma.leaseStatement.create).toHaveBeenCalledWith({ data: expect.objectContaining({ leaseId: 'LEASE-MYS-0000001', month: '2020-02', outstanding: 25500, sentBy: 'SYSTEM' }) });
-    expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-TN', title: 'Statement of account 2020-02', dedupeKey: 'lease-statement:LEASE-MYS-0000001:2020-02', message: expect.stringContaining('MYR 25,500.00') }));
+    expect(notifications.enqueue).toHaveBeenCalledWith(expect.objectContaining({ recipientUserId: 'USR-TN', title: 'Statement of account 2020-02', dedupeKey: 'lease-statement:LEASE-MYS-0000001:2020-02', message: expect.stringContaining('MYR 25,500.00'), attachment: { filename: 'LEASE-MYS-0000001-statement-2020-02.pdf', content: expect.any(Buffer) } }));
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: 'USR-TN' }, select: { profile: true } });
   });
 });

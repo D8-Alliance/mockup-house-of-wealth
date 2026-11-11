@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsDateString, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsDateString, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
 
 export class DistributionAllocationDto {
   @IsString() beneficiaryUserId!: string;
@@ -64,4 +64,22 @@ export class PoolIncomeDto {
   @IsString() @MinLength(3) @MaxLength(120) reference!: string;
   @IsOptional() @IsDateString() receivedAt?: string;
   @IsOptional() @IsString() @MaxLength(300) note?: string;
+}
+
+/** A bank statement exported as CSV, to pair its outgoing lines with payouts already sent. */
+export class StatementMatchDto {
+  @IsString() @MinLength(10) @MaxLength(95000, { message: 'The statement is too large. Export one month at a time (up to about 1,000 lines).' }) csv!: string;
+  @IsString() @MaxLength(3) currency!: string;
+}
+
+/** The pairs the Settlement Officer ticked: each payout is confirmed as paid, with the statement line it matched. */
+export class StatementSettleDto {
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(500) @ValidateNested({ each: true }) @Type(() => StatementSettleItemDto) items!: StatementSettleItemDto[];
+  @IsOptional() @IsString() @MaxLength(160) statementName?: string;
+}
+
+export class StatementSettleItemDto {
+  @IsString() payoutId!: string;
+  @IsNumber() @Min(1) line!: number;
+  @IsOptional() @IsString() @MaxLength(300) description?: string;
 }

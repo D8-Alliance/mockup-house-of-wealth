@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma.service';
 import { assertTenantScope, postingOnBehalfOf, TenantResource, tenantScopeFilter } from '../tenancy/tenant-scope';
 import { CreateDistributionDto, DistributionPreviewDto, PoolIncomeDto, RecordPeriodResultDto } from './distribution.dto';
 import { periodOutcome, PriorResult } from './period-result';
+import { matchStatement, parseStatementCsv, StatementLine } from './bank-statement-match';
 
 /** Earlier period results of a pool that count towards loss offsetting. */
 const COUNTED_RESULT = { status: { notIn: ['REJECTED', 'CANCELLED'] } };
@@ -326,6 +327,53 @@ export class DistributionService {
     if (!OPERATORS.has(actor.role)) throw new ForbiddenException('Only settlement operators can reconcile payouts.');
     const payouts = await this.prisma.payoutInstruction.findMany({ where: { status: { in: ['SUBMITTED', 'FAILED'] }, allocation: { distribution: settlementScopeFilter(actor) } }, include: { allocation: { include: { distribution: true } } }, orderBy: { createdAt: 'asc' }, take: 500 });
     return { inspected: payouts.length, payouts: payouts.map((payout) => ({ id: payout.id, status: payout.status, provider: payout.provider, providerReference: payout.providerReference, amount: payout.amount, currency: payout.currency, distributionId: payout.allocation.distributionId, createdAt: payout.createdAt })) };
+  }
+
+  /**
+   * Pairs a bank statement's outgoing lines with payouts already sent (SUBMITTED) in that currency. Read only:
+   * the officer reviews the pairs and confirms the ones to settle with settleFromStatement.
+   */
+  async matchBankStatement(actor: AuthenticatedUser, input: { csv: string; currency: string }) {
+    if (!OPERATORS.has(actor.role)) throw new ForbiddenException('Only settlement operators can match bank statements.');
+    let lines: StatementLine[];
+    try { lines = parseStatementCsv(input.csv); } catch (error) { throw new BadRequestException(error instanceof Error ? error.message : 'The statement could not be read.'); }
+    if (lines.length > 5000) throw new BadRequestException('The statement has too many lines. Export one month at a time.');
+    const currency = input.currency.toUpperCase();
+    const payouts = await this.prisma.payoutInstruction.findMany({ where: { status: 'SUBMITTED', currency, allocation: { distribution: settlementScopeFilter(actor) } }, include: { allocation: { include: { distribution: { select: { periodName: true } } } } }, orderBy: { submittedAt: 'asc' }, take: 2000 });
+    const result = matchStatement(lines, payouts.map((payout) => ({ id: payout.id, amount: Number(payout.amount), currency: payout.currency, providerReference: payout.providerReference })));
+    const users = await this.prisma.user.findMany({ where: { id: { in: [...new Set(payouts.map((payout) => payout.beneficiaryUserId))] } }, select: { id: true, name: true } });
+    const info = new Map(payouts.map((payout) => [payout.id, {
+      id: payout.id, amount: Number(payout.amount), currency: payout.currency, providerReference: payout.providerReference, periodName: payout.allocation.distribution.periodName,
+      beneficiaryName: users.find((user) => user.id === payout.beneficiaryUserId)?.name ?? null, submittedAt: payout.submittedAt?.toISOString() ?? null,
+    }]));
+    await this.audit.recordActor(actor, { action: 'payout.statement_matched', resourceType: 'PayoutInstruction', resourceId: 'BANK_STATEMENT', organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { currency, lines: lines.length, submitted: payouts.length, matched: result.matches.length, mismatched: result.mismatches.length, ambiguous: result.ambiguous.length } });
+    return {
+      currency, lineCount: lines.length, submittedCount: payouts.length,
+      matches: result.matches.map((match) => ({ ...match, payout: info.get(match.payoutId)! })),
+      mismatches: result.mismatches.map((item) => ({ ...item, payout: info.get(item.payoutId)! })),
+      ambiguous: result.ambiguous.map((item) => ({ ...item, payouts: item.payoutIds.map((id) => info.get(id)!) })),
+      unmatchedLines: result.unmatchedLines,
+      unmatchedPayouts: result.unmatchedPayoutIds.map((id) => info.get(id)!),
+    };
+  }
+
+  /** Settles the payouts the officer confirmed from a statement, one by one; a payout that cannot be settled is reported, not fatal. */
+  async settleFromStatement(actor: AuthenticatedUser, input: { items: Array<{ payoutId: string; line: number; description?: string }>; statementName?: string }) {
+    if (!OPERATORS.has(actor.role)) throw new ForbiddenException('Only settlement operators can settle payouts.');
+    const ids = input.items.map((item) => item.payoutId);
+    if (new Set(ids).size !== ids.length) throw new BadRequestException('Each payout can be confirmed once.');
+    const settled: string[] = [];
+    const failed: Array<{ payoutId: string; reason: string }> = [];
+    for (const item of input.items) {
+      try {
+        await this.settlePayout(actor, item.payoutId);
+        settled.push(item.payoutId);
+      } catch (error) {
+        failed.push({ payoutId: item.payoutId, reason: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    await this.audit.recordActor(actor, { action: 'payout.statement_settled', resourceType: 'PayoutInstruction', resourceId: 'BANK_STATEMENT', organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { statementName: input.statementName ?? null, settled: input.items.filter((item) => settled.includes(item.payoutId)).map((item) => ({ payoutId: item.payoutId, line: item.line, description: item.description ?? null })), failed } });
+    return { settled, failed };
   }
 
   async handleProviderWebhook(provider: string, eventId: string, payoutId: string, eventType: string, status: string, providerReference: string | undefined, payload: Record<string, unknown>) {

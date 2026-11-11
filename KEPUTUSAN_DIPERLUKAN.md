@@ -97,13 +97,11 @@ Each item lists who must answer, the question, the options, what happens while w
 **BM**
 - **Soalan 1 – skop OTG:** apa kerja sebenar pasukan lapangan (OTG) selepas peringatan 1 dan 2? Contoh: lawatan ke premis, semakan meter utiliti, pemeriksaan teknikal bangunan. Apa yang perlu direkod (gambar, lokasi GPS, nota, tandatangan penyewa)?
 - **Soalan 2 – tempoh:** tempoh kini tetap dalam kod: peringatan 1 dalam 7 hari, peringatan 2 dalam 14 hari, peringatan 3 dalam 7 hari, Legal 7 hari selepas itu. Adakah setiap pemilik aset perlu boleh mengubahnya?
-- **Soalan 3 – emel penyata:** setuju PDF penyata akaun (SOA) dilampirkan dalam emel bulanan kepada penyewa? (Emel sudah hidup.)
 - **Selepas keputusan:** bina tugasan OTG di mini-app (Fasa 3) dan tetapan tempoh ikut pemilik.
 
 **EN**
 - **Question 1 – OTG scope:** what does the field team (OTG) actually do after reminders 1 and 2? For example: visiting the premises, checking utility meters, technical inspection of the building. What must be recorded (photos, GPS location, notes, tenant signature)?
 - **Question 2 – periods:** the periods are fixed in code: reminder 1 within 7 days, reminder 2 within 14 days, reminder 3 within 7 days, Legal 7 days after that. Should each asset owner be able to change them?
-- **Question 3 – statement email:** should the statement of account (SOA) PDF be attached to the monthly email to the tenant? (Email is now live.)
 - **After the decision:** build OTG tasks in the mini-app (phase 3) and per-owner period settings.
 
 ### P5. Keputusan kecil / Small decisions (12) 🟢
@@ -315,10 +313,6 @@ Each item lists who must answer, the question, the options, what happens while w
 | BM | EN | Rujukan / Ref |
 |---|---|---|
 | Semakan dokumen diubah: tandatangan digital PDF, banding teks PDF dengan teks imbasan. | Altered document checks: PDF digital signatures, compare PDF text with scanned text. | 1 |
-| Pakej Legal: satu muat turun dengan perjanjian, SOA, surat peringatan dan log susulan. | Legal pack: one download with the agreement, SOA, reminder letters and follow-up log. | 25 |
-| Lampirkan PDF SOA dalam emel (emel sudah hidup). | Attach the SOA PDF to email (email is live). | 25 |
-| Bil utiliti belum dibayar masuk ke kes kutipan. | Unpaid utility bills go into collection cases. | 21.4 |
-| Padanan penyata bank dengan bayaran yang direkod. | Matching bank statements with recorded payments. | 22.2 |
 
 ---
 

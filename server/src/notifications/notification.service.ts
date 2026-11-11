@@ -18,6 +18,8 @@ export interface NotificationInput {
   resourceId?: string;
   dedupeKey: string;
   channels?: string;
+  /** A file sent with the email only (the in-app notice never carries it). */
+  attachment?: { filename: string; content: Buffer };
 }
 
 /** "RM 5,000" (or "USD 5,000") for notification text. */
@@ -53,7 +55,8 @@ export class NotificationService {
 
   async enqueue(input: NotificationInput, tx?: Prisma.TransactionClient) {
     const client = tx || this.prisma;
-    return client.notificationOutbox.upsert({ where: { dedupeKey: input.dedupeKey }, update: {}, create: { ...input, channels: input.channels || process.env.NOTIFICATION_DEFAULT_CHANNELS || DEFAULT_CHANNELS } });
+    const { attachment, ...rest } = input;
+    return client.notificationOutbox.upsert({ where: { dedupeKey: input.dedupeKey }, update: {}, create: { ...rest, channels: input.channels || process.env.NOTIFICATION_DEFAULT_CHANNELS || DEFAULT_CHANNELS, ...(attachment ? { attachmentName: attachment.filename, attachment: attachment.content } : {}) } });
   }
 
   /**
@@ -120,7 +123,7 @@ export class NotificationService {
         const pending = channelsForRecipient(row.channels, profile).split(',').filter((channel) => channel && !done.has(channel.trim().toUpperCase())).join(',');
         // The record above stays in English; what is sent out reads in the recipient's language.
         const language = notificationLanguage(profile, row.countryNodeId);
-        const results = await this.delivery.deliverEach({ channels: pending, title: inLanguage(row.title, language), message: inLanguage(row.message, language), recipientEmail: recipient?.email, recipientPhone: typeof profile.phone === 'string' ? profile.phone : undefined, pushToken: typeof profile.pushToken === 'string' ? profile.pushToken : undefined });
+        const results = await this.delivery.deliverEach({ channels: pending, title: inLanguage(row.title, language), message: inLanguage(row.message, language), recipientEmail: recipient?.email, recipientPhone: typeof profile.phone === 'string' ? profile.phone : undefined, pushToken: typeof profile.pushToken === 'string' ? profile.pushToken : undefined, ...(row.attachment && row.attachmentName ? { attachment: { filename: row.attachmentName, content: Buffer.from(row.attachment) } } : {}) });
         for (const result of results) if (result.outcome !== 'FAILED') done.add(result.channel);
         const failed = results.filter((result) => result.outcome === 'FAILED');
         const skipped = results.filter((result) => result.outcome === 'SKIPPED');
@@ -129,7 +132,7 @@ export class NotificationService {
           throw new Error(failed.map((result) => `${result.channel}: ${result.reason}`).join('; '));
         }
         // Skipped channels are noted, so an operator can see why an email or SMS did not go out.
-        await this.prisma.notificationOutbox.update({ where: { id: row.id }, data: { status: 'PROCESSED', processedAt: new Date(), deliveredChannels: [...done].join(','), lastError: skipped.length ? `Skipped ${skipped.map((result) => `${result.channel} (${result.reason})`).join(', ')}` : null } });
+        await this.prisma.notificationOutbox.update({ where: { id: row.id }, data: { status: 'PROCESSED', processedAt: new Date(), deliveredChannels: [...done].join(','), attachment: null, lastError: skipped.length ? `Skipped ${skipped.map((result) => `${result.channel} (${result.reason})`).join(', ')}` : null } });
         processed += 1;
       } catch (error) {
         const attempts = row.attempts + 1;

@@ -1,8 +1,8 @@
 # Kerja Yang Belum Siap
 
-Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap dibuang. Penerangan sistem yang sudah ada ditulis dalam [DOKUMENTASI_SISTEM.md](DOKUMENTASI_SISTEM.md).
+Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap dibuang. Penerangan sistem yang sudah ada ditulis dalam [DOKUMENTASI_SISTEM.md](DOKUMENTASI_SISTEM.md). Keputusan yang perlu dibuat, dan siapa yang perlu menjawab, ada dalam [KEPUTUSAN_DIPERLUKAN.md](KEPUTUSAN_DIPERLUKAN.md).
 
-## Ringkasan (disemak dengan kod pada 4 November 2026)
+## Ringkasan (disemak dengan kod pada 11 November 2026)
 
 | # | Perkara | Apa yang belum siap | Sedang tunggu apa |
 |---|---|---|---|
@@ -10,10 +10,10 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 2 | Penyedia eKYC luar | Kesan muka palsu, dokumen palsu, semakan rekod kerajaan, senarai AML/PEP/sekatan | Pilih penyedia; semak garis panduan BNM dengan Compliance |
 | 3 | Semakan wajah (liveness) | Uji di lebih banyak telefon, kelip mata/senyum, semak kad fizikal, jalan lain jika kamera gagal | Ujian telefon; jalan lain sebelum dihidupkan |
 | 4 | Data biometrik (PDPA) | Berapa lama gambar wajah disimpan dan bila dipadam | Keputusan tempoh simpanan |
-| 5 | Perjanjian ikut projek | Teks pindaan yang khusus (sekarang pindaan memuatkan perjanjian penuh) | Templat pindaan daripada peguam |
+| 5 | Perjanjian ikut projek | Teks pindaan yang khusus, versi bagi perjanjian kosong | Templat pindaan daripada peguam |
 | 6 | Pembayaran ToyyibPay | Uji di staging, kredit bonus, buka akaun live | Ujian staging; akaun ToyyibPay live |
 | 7 | Bayaran keluar ke bank | Sambungan bank/DuitNow, semakan sebelum selesai, dua pelulus ikut amaun | Pilih penyedia; had amaun |
-| 8 | Notifikasi | Redis TLS di production (emel siap di staging dan production) | Sijil TLS Redis |
+| 8 | Notifikasi | Redis TLS di production | Sijil TLS Redis |
 | 9 | Blockchain | Fasa 2 (simpan cap hash di blockchain awam), Fasa 3 (token) | Pilih rangkaian; nasihat SC dan Shariah |
 | 10 | Akad, zakat, cukai, dompet pelabur | Nisab 3 negeri, cukai, e-Invois, kira akhir pool, dompet pelabur | Penasihat cukai dan Shariah; Kewangan |
 | 11 | Keselamatan sebelum pilot | Sahkan had KYC, format laporan regulator, tetapan production, hidupkan peranan Auditor | Compliance; pemilik projek |
@@ -27,10 +27,10 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 19 | Pengurusan pengguna | Notis privasi rasmi, pelulus kedua untuk peranan admin, daftar sendiri, kunci KYC di staging | Butiran syarikat; peguam; keputusan pelulus |
 | 20 | Mini-app D8 Ideas | Akaun amanah sebenar, SSO D8 Ideas, ujian dalam super app, SMTP Keycloak | Butiran bank; spesifikasi D8 Ideas |
 | 21 | Sewaan terus (Ijarah) | Keputusan kutipan sewa dan cukai, pool hasil sewa, sambung SIT Tingkat 6 | Pemilik projek; peguam dan cukai |
-| 22 | Agihan keuntungan | Fail bayaran pukal bank, padanan penyata, peringatan hasil lewat | Format fail bank; jadual hasil projek |
+| 22 | Agihan keuntungan | Fail bayaran pukal bank, uji padanan penyata dengan penyata sebenar, peringatan hasil lewat | Format fail bank; jadual hasil projek |
 | 23 | Projek bermasalah | Pulangan modal kepada pelabur | Kewangan dan penasihat Shariah |
 | 24 | Pangkalan pengetahuan dan Tanya | Tanda standard lama, model embedding di staging, Rebuild & embed, ujian jawapan | Shariah/Kewangan semak versi; tetapan staging |
-| 25 | Kutipan sewa | Fasa 3: tugasan OTG, pakej Legal. Uji Fasa 2 di SIT | Fasa 1 dan 2 siap; Shariah untuk caj lewat |
+| 25 | Kutipan sewa | Uji di SIT, tugasan OTG, tempoh ikut pemilik | Ujian SIT; skop OTG; Shariah untuk caj lewat |
 
 ---
 
@@ -70,8 +70,6 @@ Buat masa ini, Compliance menyemak sendiri semasa KYC dan KYB. Skrin AML, PEP da
 4. Uji pada lebih banyak telefon dan bila skrin dipusing.
 5. **Sebelum dihidupkan** (`KYC_REQUIRE_LIVENESS=true`, kini `false`): sediakan jalan lain untuk orang yang tiada kamera atau asyik gagal, contohnya semakan manual atau panggilan video.
 
-**Nota:** muat naik selfie sudah dibuang daripada KYC (4 November 2026). Sekarang tiada semakan wajah langsung; jika perlu, semakan wajah (liveness) inilah yang menggantikannya.
-
 ## 4. Data biometrik (PDPA 2010)
 
 Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
@@ -82,10 +80,6 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 ## 5. Perjanjian ikut projek
 
 - **Fail:** `server/src/ai/ai.service.ts`, `server/src/contract-intelligence/`, `src/ai/features/contract/`
-
-**Sudah siap (5 November 2026):**
-- Nasihat kontrak AI disimpan bagi setiap projek. Bila projek dipilih, nasihat terakhir dipaparkan; versi lama boleh dipilih. Analisis semula menambah versi baharu.
-- Perjanjian yang diisi daripada projek ("Fill from" › My projects) dipautkan kepada projek itu. Jana semula semasa draf = versi 2, 3 dan seterusnya. Semasa semakan Legal/Shariah, jana semula ditolak. Selepas diluluskan atau ditandatangani, jana semula mencipta **pindaan** (perjanjian baharu yang merujuk perjanjian asal).
 
 **Belum siap:**
 1. Pindaan sekarang memuatkan teks perjanjian penuh dengan tajuk "Amendment to ...". Perlu templat pindaan yang hanya menyatakan perubahan, disediakan oleh peguam.
@@ -112,12 +106,10 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 **Belum siap:**
 1. **Redis untuk production:** sediakan sijil TLS (`ca.crt`, `redis.crt`, `redis.key`) dan simpan kata laluan Redis di tempat rahsia (lihat `server/ops/redis/README.md`).
 
-
 ## 9. Blockchain dan smart contract
 
 - **Fasa 2 (belum mula):** setiap hari, simpan cap hash rekod audit, lejar dan zakat di blockchain awam yang murah. Buat halaman awam "Ketelusan Zakat" dan butang "Sahkan bayaran saya". **Perlu:** pilih rangkaian, dompet, cara simpan kunci, dan bajet yuran.
-- **Fasa 3 (tunggu nasihat undang-undang dan Shariah):** token bagi bahagian pool hampir pasti dikira sebagai sekuriti oleh SC. Dapatkan nasihat dahulu. Lihat `DOKUMENTASI_SISTEM.md` bahagian 5.14.
-- **Teks dalam skrin:** perkataan "tokenization" dan hash palsu sudah dibuang (4 November 2026). Yang tinggal hanya satu yuran masa depan dalam data contoh yang ditanda "Fasa 3, perlu semakan regulator".
+- **Fasa 3 (tunggu nasihat undang-undang dan Shariah):** token bagi bahagian pool hampir pasti dikira sebagai sekuriti oleh SC. Dapatkan nasihat dahulu. Lihat `DOKUMENTASI_SISTEM.md` bahagian 5.14. Satu yuran masa depan dalam data contoh ditanda "Fasa 3, perlu semakan regulator".
 
 ## 10. Akad, zakat, cukai dan dompet pelabur
 
@@ -163,7 +155,7 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 
 **Prinsip:** AI hanya mencadang; pengguna yang sahkan. AI tidak meluluskan KYC. Gambar IC dan pasport tidak dihantar ke AI luar.
 
-## 14. DigitalOcean (staging berjalan sejak 15 Oktober 2026)
+## 14. DigitalOcean
 
 **Belum siap:**
 1. **Simpan fail di DigitalOcean Spaces**, bukan dalam database. Fail KYC mesti peribadi.
@@ -177,8 +169,6 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 
 **Belum siap:**
 1. **Modal penaja dalam Musharakah** (pilihan): sebagai sumbangan berasingan dalam terma akad, dengan semakan Shariah.
-
-(Siap 10 November 2026: senarai kumpulan syarikat diurus di Admin Center › Organisations › Corporate groups, dengan nama rasmi dan ejaan lain. Nama yang ditaip dalam KYB disimpan di bawah nama rasmi, dan organisasi lama yang guna ejaan lain dikemas kini. Skrin semakan KYB menanda "On the group list" atau "Not on the group list".)
 
 ## 16. Benefisiari dan pusaka
 
@@ -196,30 +186,25 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 2. Organisasi menggunakan aset sendiri dalam projek sendiri (kini ditolak).
 3. Skor tawaran oleh AI: ditangguhkan, kerana model sekarang tidak konsisten.
 4. Hidupkan peranan Legal dan Shariah di staging jika mahu penyemak sebenar.
-
-**Modal penaja dan takaful:** siap 4 November 2026 (setoran modal penaja direkod dalam lejar; pemilik aset muat naik takaful sendiri dari skrin perkongsian; sasaran minimum, tarikh tutup dan pulangan wang pool). Yang tinggal: penasihat Shariah sahkan bahawa pool yang tidak capai minimum memulangkan modal penuh.
+5. Penasihat Shariah sahkan bahawa pool yang tidak capai minimum memulangkan modal penuh.
 
 **Tandatangan elektronik:**
 1. Sijil meterai daripada pihak yang dipercayai Adobe untuk production.
-2. Uji emel OTP tandatangan di staging (Resend kini hidup).
+2. Uji emel OTP tandatangan di staging.
 3. Cap masa dalam meterai.
 4. Penyedia tandatangan berlesen (MSC Trustgate / Pos Digicert) untuk perjanjian bernilai tinggi.
 5. Pendapat peguam tentang tandatangan elektronik dan duti setem.
 6. Hidupkan `SIGNING_REQUIRE_VERIFIED_IDENTITY=true` di production.
 7. Templat perjanjian Musharakah dan Ijarah disemak peguam dan penasihat Shariah.
 
-**Rekod dan semakan:** semakan automatik nombor SSM (perlu akses data SSM). (Siap 5 November 2026: PDF sejarah perjanjian, butang "History"; rekod siapa membuka perjanjian, dipaparkan "Opened by" dan dalam PDF itu. Siap 10 November 2026: senarai aktiviti haram kini satu senarai platform (`server/src/shariah/prohibited-activities.ts`) yang digunakan oleh semakan aset, perkongsian dan sewaan, dan setiap negara boleh menambah perkataan sendiri di Admin Center › Country Nodes › Prohibited activities. Penasihat Shariah patut menyemak senarai platform itu.)
+**Rekod dan semakan:**
+1. Semakan automatik nombor SSM (perlu akses data SSM).
+2. Penasihat Shariah semak senarai aktiviti haram platform (`server/src/shariah/prohibited-activities.ts`).
 
 **Pendaftaran aset:**
 1. Sambungan dengan e-Tanah, JPJ, JKKP (perlu perjanjian dengan agensi).
 2. Pautan ke peta lot negeri.
 3. Pantau masa jawapan penasihat AI di staging.
-
-(Siap 10 November 2026: halaman utama awam kini memaparkan pool sebenar yang dibuka untuk pelaburan, bukan "Sample Offerings". Contoh hanya dalam mod DEMO.)
-
-(Amaran nilai berbanding laporan penilaian siap 4 November 2026: semakan dokumen membaca nilai pasaran dalam laporan dan menanda jika nilai yang diisi berbeza lebih 20%.)
-
-(Siap 10 November 2026: aset yang disahkan boleh **dibuka semula** untuk tukar nilai atau butiran, dengan sebab; ia kembali ke draf dan disemak semula. Ia juga boleh **ditarik balik** dengan sebab. Kedua-duanya ditolak selagi aset dalam perkongsian projek, sewaan atau senarai unit sewa yang aktif.)
 
 ## 18. Kunci API
 
@@ -229,12 +214,10 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 
 **Belum siap:**
 1. **Notis privasi:** deraf perlu disemak peguam. Isi nama syarikat, nombor SSM, pegawai perlindungan data, lokasi data dan tempoh simpanan, kemudian terbitkan.
-2. **Pelulus kedua** bagi peranan admin: perlu keputusan. Hanya Super Admin boleh memberi peranan admin, dan hanya ada seorang Super Admin, jadi siapa pelulus kedua? (Sebab tambah/buang peranan kini direkod dalam log audit dari web, 5 November 2026. Mini-app belum menghantar sebab.)
+2. **Pelulus kedua** bagi peranan admin: perlu keputusan. Hanya Super Admin boleh memberi peranan admin, dan hanya ada seorang Super Admin, jadi siapa pelulus kedua? Mini-app juga belum menghantar sebab bila peranan ditambah atau dibuang.
 3. **Daftar sendiri** melalui Keycloak.
-4. **Sulitkan nombor ID KYC di staging dan production** (kod siap 10 November 2026): tambah `KYC_DATA_ENCRYPTION_KEY` (nilai rawak sendiri, contoh `openssl rand -base64 32`) dalam `/opt/how/server/.env`, `pm2 restart how-api`, kemudian `npx tsx scripts/encrypt-kyc-identity.ts` (lihat dahulu) dan `--confirm`. Simpan kunci itu dengan selamat: tanpanya nombor ID tidak boleh dibaca. Medan lain (tarikh lahir, alamat) belum disulitkan.
+4. **Sulitkan nombor ID KYC di staging dan production:** tambah `KYC_DATA_ENCRYPTION_KEY` (nilai rawak sendiri, contoh `openssl rand -base64 32`) dalam `/opt/how/server/.env`, `pm2 restart how-api`, kemudian `npx tsx scripts/encrypt-kyc-identity.ts` (lihat dahulu) dan `--confirm`. Simpan kunci itu dengan selamat: tanpanya nombor ID tidak boleh dibaca. Medan lain (tarikh lahir, alamat) belum disulitkan.
 5. Tetapkan `COUNTRY_NODE_ID=CN-MYS` di production Malaysia.
-
-(Siap 5 November 2026: server menolak semua permintaan sehingga pengguna menerima notis privasi semasa, bila log masuk Keycloak digunakan.)
 
 ## 20. Mini-app D8 Ideas
 
@@ -242,41 +225,32 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 1. Isi akaun amanah sebenar setiap negara (bank, nama akaun, nombor, SWIFT) di Admin Center › Country Nodes sebelum pelabur sebenar membuat pesanan.
 2. Log masuk (SSO) dan push melalui D8 Ideas: tunggu spesifikasi mereka.
 3. Uji dalam super app, terutamanya kamera dalam WebView.
-4. Keycloak staging (semakan 6 November 2026): pautan `/m/*` sudah sah melalui `https://how-staging.alhidayahgroup.com.my/*`, dan "Forgot password" hidup, tetapi SMTP realm kosong, jadi emelnya tidak dihantar. Production belum disemak.
-5. Terjemahan: emel dan notifikasi keluar ikut bahasa akaun penerima (jika belum dipilih, BM untuk Malaysia). Teksnya dalam `server/src/notifications/ms-text*.ts`, dikongsi oleh server dan mini-app. Mesej server yang baharu perlu ditambah ke situ, jika tidak ia keluar dalam bahasa Inggeris.
-6. Mesej "aset untuk projek: nota penyemak" (penolakan perkongsian aset) keluar dalam bahasa Inggeris kerana isinya nota bebas penyemak.
+4. Keycloak: SMTP realm staging kosong, jadi emel "Forgot password" tidak dihantar. Production belum disemak.
+5. Mesej "aset untuk projek: nota penyemak" (penolakan perkongsian aset) keluar dalam bahasa Inggeris kerana isinya nota bebas penyemak.
 
 ## 21. Sewaan terus (Ijarah) tanpa projek
 
-- **Keadaan:** berjalan di mini-app dan web (tab Sewaan): senarai unit, mohon dan runding, kelulusan Legal dan Shariah, perjanjian Ijarah dengan tandatangan OTP, jadual sewa, rekod bayaran, peringatan, tiga jenis deposit, pembaharuan (dimohon penyewa atau ditawarkan pemilik, deposit dibawa secara automatik), bil utiliti bulanan, dan deposit utiliti ikut negeri (7 November 2026).
 - **Keputusan sementara (perlu disahkan):** penyewa membayar sewa **terus ke akaun bank pemilik**. Platform hanya merekod, tidak memegang wang, dan tiada komisen buat masa ini.
 
 **Belum siap:**
 1. **Keputusan pemilik projek:** platform kutip sewa atau rekod sahaja; komisen atau yuran (semak Akta 242); duti setem; cukai perkhidmatan atas sewa komersial.
 2. Fasa kemudian: pool pelaburan daripada hasil sewa.
-3. **SIT:** keputusan 6 November 2026: sewaan Tingkat 6 (`LEASE-MYS-QAAJDKTT`) kekal tamat kerana satu depositnya sudah dipulangkan. SIT disambung dengan sewaan baharu; penyewa memohon semula unit itu di tab Sewaan.
-4. Bil utiliti belum masuk ke kes kutipan (item 25); hanya satu peringatan dihantar kepada penyewa selepas tarikh bayar.
+3. **SIT:** sewaan Tingkat 6 (`LEASE-MYS-QAAJDKTT`) kekal tamat kerana satu depositnya sudah dipulangkan (keputusan 6 November 2026). SIT disambung dengan sewaan baharu; penyewa memohon semula unit itu di tab Sewaan.
 
 ## 22. Agihan keuntungan (Settlement Officer)
 
-- **Keadaan:** aliran agihan berjalan di mini-app (tab Agihan) dan di web (Financials › Profit distribution, untuk Settlement Officer dan Super Admin, 4 November 2026): rekod hasil projek, pratonton bahagian setiap pelabur, pelulus kedua, bayaran dan rekod rujukan bank.
-
 **Belum siap:**
 1. **Fail bayaran pukal bank** (DuitNow Bulk atau IBG): perlu format fail bank yang digunakan. Fail ini perlu nombor akaun penuh, jadi server perlu membuka nombor yang disulitkan dengan kawalan ketat.
-2. **Padanan penyata bank:** sekarang setiap bayaran disahkan satu demi satu.
+2. **Uji padanan penyata dengan penyata sebenar:** bank berbeza menulis lajur berbeza. Bila bank akaun amanah dipilih, uji satu penyata CSV sebenar di Financials › Profit distribution › Bank statement dan tambah nama lajurnya jika tidak dikenali. Mini-app belum ada skrin ini.
 3. **Peringatan hasil lewat:** perlu jadual bila hasil projek dijangka masuk (belum direkod dalam sistem).
 4. Kira akhir pool dan rugi yang belum pulih (item 10).
 
-## 23. Projek bermasalah: arkib dan gantung
-
-- **Keadaan:** Arkib, Pulihkan, Gantung dan Sambung semula boleh dibuat di mini-app (Utama › Urus projek) dan di web (Admin Center › Problem Projects), dengan sebab wajib dan log audit. Pelabur nampak label "Suspended" dan sebabnya dalam Investments (4 November 2026). Projek ujian juga boleh dibuang dengan skrip `server/scripts/delete-test-project.ts`.
+## 23. Projek bermasalah
 
 **Belum siap:**
 1. **Pulangan modal kepada pelabur** bila projek tidak diteruskan: berapa yang dipulangkan (penuh atau tolak rugi), siapa meluluskan, dan catatan dalam lejar. Perlu keputusan Kewangan dan penasihat Shariah.
 
 ## 24. Pangkalan pengetahuan (AAOIFI) dan Tanya
-
-- **Keadaan:** 47 PDF AAOIFI sudah dimuat naik dan APPROVED (AI Center › Knowledge Base, muat naik dan semakan pukal). Butang Tanya (ikon ✨) di mini-app menjawab hanya daripada sumber yang diluluskan, dengan rujukan.
 
 **Belum siap:**
 1. **Standard lama:** tanda versi yang sudah diganti sebagai lapuk, contohnya FAS 1 (1993) diganti FAS 1 (2022, berkuat kuasa 1 Januari 2024). Fail lain perlu disemak oleh penasihat Shariah atau Kewangan.
@@ -286,16 +260,10 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 
 ## 25. Kutipan sewa (proses kutipan Al Hidayah)
 
-- **Keadaan (Fasa 1 siap, 6 November 2026):** web dan mini-app, tab Sewaan › Kutipan. Bulan yang belum dibayar 7 hari selepas tarikh perlu bayar menjadi kes kutipan. Pasukan Kutipan menghantar peringatan 1, 2 dan 3 (surat PDF BM/EN kepada penyewa), merekod susulan (panggilan, WhatsApp, lawatan, janji bayar), menugaskan kes, dan selepas peringatan 3 menyerahkan kes kepada Legal dalaman pemilik. Rekod sewa sebagai diterima menutup kes. Tempoh lalai: peringatan 1 dalam 7 hari, peringatan 2 dalam 14 hari, peringatan 3 dalam 7 hari, Legal 7 hari selepas itu. Pemilik Aset menetapkan tugas pasukan (Akaun, SOA, Kutipan, Lapangan OTG, Legal) di Kutipan › Pasukan.
-- **Fasa 2 siap (10 November 2026):**
-  - **Penyata akaun (SOA):** PDF BM/EN dengan semua sewa dan bil utiliti setakat tarikh penyata, jumlah dibayar dan baki tertunggak. Dihantar automatik kepada penyewa sekali sebulan; Pemilik Aset atau pegawai SOA boleh hantar semula. Pemilik dan penyewa boleh muat turun di halaman sewaan.
-  - **Pengesahan dua orang:** bila syarikat pemilik ada orang bertugas Akaun, Pemilik Aset atau pegawai SOA merekod bayaran ("Menunggu pengesahan Akaun"), kemudian Akaun mengesahkan atau menolak dengan sebab. Perekod tidak boleh sahkan bayaran sendiri. Tiada orang Akaun = seorang sahaja merekod seperti dahulu.
 - **Fail:** `server/src/leasing/rent-collection*.ts`, `server/src/leasing/lease-statement.ts`, `server/src/leasing/leasing.service.ts`, `src/mobile/screens/LeaseCollections.tsx`, `src/mobile/screens/MobileLeasing.tsx`
 
 **Belum siap:**
-1. **Ujian langsung Fasa 2:** pangkalan data tempatan tiada sewaan yang diluluskan. Perlu uji di SIT: beri tugas Akaun dan SOA, rekod bayaran, sahkan/tolak, dan muat turun penyata.
-2. **Penyata melalui e-mel:** notis penyata dihantar dalam aplikasi dan e-mel (Resend), tetapi PDF belum dilampirkan. Boleh dibina sekarang.
-3. **Fasa 3, OTG + Tech:** tugasan lawatan lapangan di mini-app selepas peringatan 1 dan 2 (gambar, lokasi, nota). Perlu sahkan skop kerja OTG dengan Al Hidayah (lawatan, utiliti, pemeriksaan teknikal).
-4. **Fasa 3, pakej Legal:** satu muat turun dengan perjanjian Ijarah, SOA, semua surat peringatan dan log susulan.
-5. **Tetapan tempoh ikut pemilik:** tempoh 7/7/14/7 kini nilai lalai dalam kod; belum boleh diubah oleh setiap pemilik.
-6. **Keputusan Shariah:** caj lewat bayar (ta'widh/gharamah) dalam Ijarah. Tiada caj dikenakan sehingga diputuskan.
+1. **Uji di SIT:** pangkalan data tempatan tiada sewaan yang diluluskan. Beri tugas Akaun dan SOA, rekod bayaran, sahkan/tolak, muat turun penyata, hantar penyata dan semak PDF dalam e-mel penyewa, biarkan satu bil utiliti tidak dibayar lebih 7 hari dan semak kes kutipannya, dan muat turun pakej Legal bagi kes yang sudah ada surat peringatan.
+2. **Fasa 3, OTG + Tech:** tugasan lawatan lapangan di mini-app selepas peringatan 1 dan 2 (gambar, lokasi, nota). Perlu sahkan skop kerja OTG dengan Al Hidayah (lawatan, utiliti, pemeriksaan teknikal).
+3. **Tetapan tempoh ikut pemilik:** tempoh 7/7/14/7 kini nilai lalai dalam kod; belum boleh diubah oleh setiap pemilik.
+4. **Keputusan Shariah:** caj lewat bayar (ta'widh/gharamah) dalam Ijarah. Tiada caj dikenakan sehingga diputuskan.

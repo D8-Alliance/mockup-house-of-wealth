@@ -5,6 +5,7 @@ import { AuthenticatedUser } from '../auth/identity.service';
 import { AssetDetails } from '../assets/asset-checks';
 import { ASSET_OWNER_ROLES } from '../assets/assets.service';
 import { publicDetails, regionOf } from '../asset-partnerships/asset-partnership-rules';
+import { notificationLanguage } from '../notifications/notification-language';
 import { NotificationService } from '../notifications/notification.service';
 import { PrismaService } from '../prisma.service';
 import { newCountryScopedId } from '../users/user-identity';
@@ -489,7 +490,12 @@ export class LeasingService {
     else await this.prisma.leaseStatement.create({ data: { leaseId: lease.id, month, ...data } });
     if (this.notifications) {
       const balance = totals.outstanding > 0 ? `Outstanding: ${money(lease.currency, totals.outstanding)}${totals.overdue > 0 ? `, of which ${money(lease.currency, totals.overdue)} is past due` : ''}.` : 'Nothing is outstanding.';
+      // The email carries the PDF, in the language the tenant's emails go out in.
+      const recipient = await this.prisma.user.findUnique({ where: { id: lease.createdBy }, select: { profile: true } });
+      const language = notificationLanguage(recipient?.profile, lease.countryNodeId);
+      const pdf = await renderLeaseStatement(await this.statementData(lease, language, now)).catch(() => null);
       await this.notifications.enqueue({
+        ...(pdf ? { attachment: { filename: `${lease.id}-statement-${month}.pdf`, content: pdf } } : {}),
         recipientUserId: lease.createdBy, organisationId: lease.tenantOrganisationId, countryNodeId: lease.countryNodeId, type: 'ASSET_LEASE',
         title: `Statement of account ${month}`, message: `${lease.unit.label}, ${lease.unit.asset.name}: your statement for ${month} is ready on the lease. ${balance}`,
         resourceType: 'AssetLease', resourceId: lease.id, dedupeKey: `lease-statement:${lease.id}:${month}${resend ? `:${now.getTime()}` : ''}`,

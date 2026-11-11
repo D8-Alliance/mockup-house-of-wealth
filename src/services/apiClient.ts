@@ -428,6 +428,8 @@ export const apiClient = {
   processDistribution: (id: string) => request<SettlementDistribution>(`/distributions/${encodeURIComponent(id)}/process`, { method: 'POST' }),
   submitPayout: (payoutId: string, providerReference: string) => request<unknown>(`/distributions/payouts/${encodeURIComponent(payoutId)}/submit`, { method: 'POST', body: JSON.stringify({ providerReference }) }),
   settlePayout: (payoutId: string) => request<unknown>(`/distributions/payouts/${encodeURIComponent(payoutId)}/settle`, { method: 'POST' }),
+  matchBankStatement: (input: { csv: string; currency: string }) => request<BankStatementMatch>('/distributions/payouts/statement-match', { method: 'POST', body: JSON.stringify(input) }),
+  settleFromStatement: (input: { items: Array<{ payoutId: string; line: number; description?: string }>; statementName?: string }) => request<{ settled: string[]; failed: Array<{ payoutId: string; reason: string }> }>('/distributions/payouts/statement-settle', { method: 'POST', body: JSON.stringify(input) }),
   failPayout: (payoutId: string, reason: string) => request<unknown>(`/distributions/payouts/${encodeURIComponent(payoutId)}/fail`, { method: 'POST', body: JSON.stringify({ reason }) }),
   retryPayout: (payoutId: string) => request<unknown>(`/distributions/payouts/${encodeURIComponent(payoutId)}/retry`, { method: 'POST' }),
   getUsers: () => request<BackendUser[]>('/users'),
@@ -646,6 +648,7 @@ export const apiClient = {
   assignCollectionCase: (id: string, userId: string) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}/assign`, { method: 'POST', body: JSON.stringify({ userId }) }),
   escalateCollectionCase: (id: string, note: string) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}/legal`, { method: 'POST', body: JSON.stringify({ note }) }),
   closeCollectionCase: (id: string, note: string) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}/close`, { method: 'POST', body: JSON.stringify({ note }) }),
+  downloadLegalPack: (id: string, lang: 'ms' | 'en') => saveAuthenticatedFile(`/leasing/collections/${encodeURIComponent(id)}/legal-pack?lang=${lang}`, `${id}-legal-pack.zip`),
   downloadReminderLetter: (id: string, number: number, lang: 'ms' | 'en') => openAuthenticatedFile(`/leasing/collections/${encodeURIComponent(id)}/letters/${number}?lang=${lang}`),
   confirmLeaseRent: (id: string, period: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/payments/${encodeURIComponent(period)}/confirm`, { method: 'POST' }),
   rejectLeaseRent: (id: string, period: string, reason: string) => request<AssetLeaseView>(`/leasing/leases/${encodeURIComponent(id)}/payments/${encodeURIComponent(period)}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
@@ -760,6 +763,19 @@ export const apiClient = {
     return URL.createObjectURL(await response.blob());
   },
 };
+
+/** Fetches a protected file with the bearer token and saves it under the server's file name (for zips and other files a tab cannot show). */
+async function saveAuthenticatedFile(path: string, fallbackName: string) {
+  const token = authService.getAuthState().session?.token;
+  const response = await apiFetch(`${API_BASE_URL}${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!response.ok) throw new Error(await response.text() || 'File is unavailable.');
+  const blobUrl = URL.createObjectURL(await response.blob());
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = response.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || fallbackName;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+}
 
 /** Fetches a protected file with the bearer token and opens it in a new tab. */
 async function openAuthenticatedFile(path: string) {
@@ -2398,7 +2414,7 @@ export interface LeasingTeam {
 
 /** A month's rent the tenant has not paid, chased by the owner's collection team. */
 export interface CollectionCase {
-  id: string; leaseId: string; period: string; amount: number; currency: string; stage: CollectionStage;
+  id: string; leaseId: string; /** RENT, or the recharged utility bill's kind. */ itemKind?: string; period: string; amount: number; currency: string; stage: CollectionStage;
   unit: string; asset: string; tenantName: string; dueDate: string | null;
   /** When the next step is due; late is true once that date has passed. */
   actionDueAt: string | null; late: boolean;
@@ -2409,6 +2425,8 @@ export interface CollectionCase {
   followUps: Array<{ at: string; byName: string; channel: string; note: string; promiseDate?: string }>;
   closedAt: string | null; closedReason: string | null;
   canRemind: boolean; canEscalate: boolean; canAssign: boolean; canFollowUp: boolean; canClose: boolean;
+  /** The Asset Owner, Legal and the collection team can download the legal pack (zip). */
+  canDownloadLegalPack?: boolean;
 }
 
 export interface AssetLeaseView {
@@ -2573,4 +2591,20 @@ export interface ManagedProject {
   settled: Array<{ currency: string; amount: number }>;
   hasSettledMoney: boolean;
   pendingOrders: number;
+}
+
+/** A payout already sent to the bank, as the statement matching shows it. */
+export interface StatementPayout { id: string; amount: number; currency: string; providerReference: string | null; periodName: string; beneficiaryName: string | null; submittedAt: string | null }
+export interface StatementLineView { line: number; date: string; description: string; amount: number }
+/** A bank statement paired with the payouts already sent: nothing is settled until the officer confirms. */
+export interface BankStatementMatch {
+  currency: string;
+  lineCount: number;
+  submittedCount: number;
+  /** REFERENCE: the transfer reference is in the line and the amount agrees. AMOUNT: only the amount agrees (unique on both sides). */
+  matches: Array<{ payoutId: string; line: StatementLineView; basis: 'REFERENCE' | 'AMOUNT'; payout: StatementPayout }>;
+  mismatches: Array<{ payoutId: string; line: StatementLineView; expected: number; payout: StatementPayout }>;
+  ambiguous: Array<{ amount: number; payoutIds: string[]; lines: number[]; payouts: StatementPayout[] }>;
+  unmatchedLines: StatementLineView[];
+  unmatchedPayouts: StatementPayout[];
 }

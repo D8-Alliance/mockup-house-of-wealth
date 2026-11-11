@@ -20,6 +20,8 @@ const DUTY_LABEL: Record<OrganisationDuty, string> = { ACCOUNTS: 'Accounts', SOA
 const CHANNELS: Array<[string, string]> = [['CALL', 'Call'], ['WHATSAPP', 'WhatsApp'], ['EMAIL', 'Email'], ['VISIT', 'Visit'], ['MEETING', 'Meeting'], ['OTHER', 'Other']];
 const ACTION_LABEL: Record<string, string> = { OPENED: 'Case opened', REMINDER_SENT: 'Reminder sent', TO_LEGAL: 'Passed to Legal', CLOSED: 'Closed', PAID: 'Paid' };
 const ACTIVE: CollectionStage[] = ['OPEN', 'REMINDER_1', 'REMINDER_2', 'REMINDER_3', 'LEGAL'];
+/** What a case chases: a month's rent, or a utility bill the owner recharged. */
+const ITEM_LABEL: Record<string, string> = { RENT: 'Rent for', ELECTRICITY: 'Electricity bill for', WATER: 'Water bill for', SEWERAGE: 'Sewerage bill for', OTHER: 'Utility bill for' };
 type Filter = 'action' | 'active' | 'legal' | 'closed';
 
 function useMoney() {
@@ -84,7 +86,7 @@ export const LeaseCollections: React.FC = () => {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-sm font-black truncate">{item.tenantName}</p>
-                <p className="text-[11px] text-slate-500 truncate">{item.unit} · {item.asset} · {item.period}</p>
+                <p className="text-[11px] text-slate-500 truncate">{item.unit} · {item.asset} · {t(ITEM_LABEL[item.itemKind ?? 'RENT'] ?? 'Rent for')} {item.period}</p>
               </div>
               <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black ${STAGE_STYLE[item.stage]}`}>{t(STAGE_LABEL[item.stage])}</span>
             </div>
@@ -144,7 +146,7 @@ const CollectionCaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id
         <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-[10px] font-black ${STAGE_STYLE[item.stage]}`}>{t(STAGE_LABEL[item.stage])}</span>
       </div>
       <section className={`${card} grid grid-cols-2 gap-2 text-xs`}>
-        <div><p className="text-slate-500">{t('Rent for')}</p><p className="font-black">{item.period}</p></div>
+        <div><p className="text-slate-500">{t(ITEM_LABEL[item.itemKind ?? 'RENT'] ?? 'Rent for')}</p><p className="font-black">{item.period}</p></div>
         <div><p className="text-slate-500">{t('Amount')}</p><p className="font-black">{money(item.currency, item.amount)}</p></div>
         <div><p className="text-slate-500">{t('Was due')}</p><p className="font-black">{item.dueDate ?? '-'}</p></div>
         <div><p className="text-slate-500">{t('Handled by')}</p><p className="font-black">{item.assignedName ?? t('Not assigned')}</p></div>
@@ -213,6 +215,17 @@ const CollectionCaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id
               </span>
             </div>
           ))}
+        </section>
+      )}
+
+      {item.canDownloadLegalPack && (
+        <section className={`${card} space-y-2`}>
+          <h3 className="text-sm font-black flex items-center gap-1.5"><Gavel className="w-4 h-4 text-slate-700 dark:text-slate-300" />{t('Legal pack')}</h3>
+          <p className="text-[11px] text-slate-500">{t('One zip for Legal: the case summary with its history and follow-ups, the Ijarah agreement (the signed copy, unchanged), the statement of account and every reminder letter.')}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" disabled={busy} onClick={() => void apiClient.downloadLegalPack(item.id, 'ms').catch((cause) => setError(errorText(cause, t('The legal pack could not be downloaded.'))))} className={secondary}>{t('Legal pack (BM)')}</button>
+            <button type="button" disabled={busy} onClick={() => void apiClient.downloadLegalPack(item.id, 'en').catch((cause) => setError(errorText(cause, t('The legal pack could not be downloaded.'))))} className={secondary}>{t('Legal pack (EN)')}</button>
+          </div>
         </section>
       )}
 

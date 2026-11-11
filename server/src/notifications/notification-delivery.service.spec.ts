@@ -36,3 +36,33 @@ describe('NotificationDeliveryService Twilio SMS', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('NotificationDeliveryService email attachment', () => {
+  const keys = ['NOTIFICATION_EMAIL_PROVIDER', 'RESEND_API_KEY', 'NOTIFICATION_EMAIL_FROM'] as const;
+  const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  let fetchMock: jest.SpiedFunction<typeof fetch>;
+
+  beforeEach(() => {
+    process.env.NOTIFICATION_EMAIL_PROVIDER = 'resend';
+    process.env.RESEND_API_KEY = 'test-key';
+    process.env.NOTIFICATION_EMAIL_FROM = 'noreply@notify.example.test';
+    fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(new Response('{}', { status: 200 }));
+  });
+
+  afterEach(() => {
+    fetchMock.mockRestore();
+    for (const key of keys) if (original[key] === undefined) delete process.env[key]; else process.env[key] = original[key];
+  });
+
+  it('sends the file with a Resend email, base64-encoded', async () => {
+    const content = Buffer.from('%PDF-1.7 statement');
+    await new NotificationDeliveryService().deliverEach({ channels: 'IN_APP,EMAIL', title: 'Statement of account 2026-12', message: 'Ready.', recipientEmail: 'tenant@example.test', attachment: { filename: 'LEASE-1-statement-2026-12.pdf', content } });
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.attachments).toEqual([{ filename: 'LEASE-1-statement-2026-12.pdf', content: content.toString('base64') }]);
+  });
+
+  it('sends a plain email when there is no file', async () => {
+    await new NotificationDeliveryService().deliverEach({ channels: 'EMAIL', title: 'Hello', message: 'Body', recipientEmail: 'tenant@example.test' });
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).attachments).toBeUndefined();
+  });
+});

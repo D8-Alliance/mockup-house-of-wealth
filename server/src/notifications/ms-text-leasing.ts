@@ -87,6 +87,7 @@ export const MS_LEASING_TEXT: Record<string, string> = {
   'Sending statements needs the statement of account (SOA) duty. Ask the Asset Owner to give it to you.': 'Menghantar penyata memerlukan tugas penyata akaun (SOA). Minta Pemilik Aset menetapkannya kepada anda.',
   'A payment for this month is recorded and waiting for Accounts to confirm it. Do not send a reminder meanwhile.': 'Bayaran bagi bulan ini sudah direkod dan menunggu pengesahan Akaun. Jangan hantar peringatan buat masa ini.',
   'Nothing is outstanding.': 'Tiada baki tertunggak.',
+  'The legal pack is for the Asset Owner, Legal and the collection team.': 'Pakej Legal hanya untuk Pemilik Aset, Legal dan pasukan Kutipan.',
 };
 
 /** The activities the Shariah check flags (server/src/leasing/leasing-rules.ts). */

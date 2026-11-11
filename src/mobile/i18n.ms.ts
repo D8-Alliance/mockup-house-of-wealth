@@ -1490,4 +1490,15 @@ export const MS: Record<string, string> = {
   "Statement for {month} sent to the tenant. Outstanding: {amount}.": "Penyata bagi {month} telah dihantar kepada penyewa. Baki tertunggak: {amount}.",
   "The statement could not be opened.": "Penyata tidak dapat dibuka.",
   "The statement was not sent.": "Penyata tidak dihantar.",
+  // Item 25 phase 3: the legal pack.
+  "Legal pack": "Pakej Legal",
+  "One zip for Legal: the case summary with its history and follow-ups, the Ijarah agreement (the signed copy, unchanged), the statement of account and every reminder letter.": "Satu fail zip untuk Legal: ringkasan kes bersama sejarah dan susulan, perjanjian Ijarah (salinan yang ditandatangani, tanpa diubah), penyata akaun dan semua surat peringatan.",
+  "Legal pack (BM)": "Pakej Legal (BM)",
+  "Legal pack (EN)": "Pakej Legal (EN)",
+  "The legal pack could not be downloaded.": "Pakej Legal tidak dapat dimuat turun.",
+  // Item 21.4: utility bills in collection cases.
+  "Electricity bill for": "Bil elektrik bagi",
+  "Water bill for": "Bil air bagi",
+  "Sewerage bill for": "Bil pembetungan bagi",
+  "Utility bill for": "Bil utiliti bagi",
 };

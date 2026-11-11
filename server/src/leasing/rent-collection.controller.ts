@@ -61,6 +61,14 @@ export class RentCollectionController {
     return response.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${result.filename}"` }).send(result.buffer);
   }
 
+  /** One zip for the owner's Legal team: case cover, the Ijarah agreement, the statement of account and every reminder letter. */
+  @Get('collections/:id/legal-pack')
+  @Roles(...OWNERS)
+  async legalPack(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string, @Query('lang') lang: string, @Res() response: Response) {
+    const result = await this.collection.legalPack(actor, id, lang);
+    return response.set({ 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${result.filename}"` }).send(result.buffer);
+  }
+
   @Get('leases/:id/reminder-letters')
   @Roles(...OWNERS, ...TENANTS)
   lettersForLease(@CurrentUser() actor: AuthenticatedUser, @Param('id') id: string) { return this.collection.lettersForLease(actor, id); }

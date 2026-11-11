@@ -54,3 +54,6 @@ export function payBy(stage: CollectionStage, sentAt: Date): Date {
 }
 
 export const FOLLOW_UP_CHANNELS = ['CALL', 'WHATSAPP', 'EMAIL', 'VISIT', 'MEETING', 'OTHER'] as const;
+
+/** What a case chases, as the English notices name it: "rent", or "electricity bill", "water bill" and so on. */
+export const collectionItem = (itemKind: string) => (itemKind === 'RENT' ? 'rent' : `${itemKind.toLowerCase()} bill`);

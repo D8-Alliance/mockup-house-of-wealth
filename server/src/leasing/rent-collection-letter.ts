@@ -15,9 +15,20 @@ export interface ReminderLetter {
   period: string;
   dueDate: string;
   amount: string;
-  /** Every month of this lease still unpaid, this one included. */
+  /** Rent and utility bills of this lease still unpaid, this one included. */
   totalOverdue: string;
+  /** What is unpaid: RENT (the default), or a recharged utility bill's kind. */
+  item?: string;
+  /** The utility bill's number, for a bill. */
+  billReference?: string;
 }
+
+const BILL = {
+  ms: { ELECTRICITY: 'bil elektrik', WATER: 'bil air', SEWERAGE: 'bil pembetungan', OTHER: 'bil utiliti' } as Record<string, string>,
+  en: { ELECTRICITY: 'electricity bill', WATER: 'water bill', SEWERAGE: 'sewerage bill', OTHER: 'utility bill' } as Record<string, string>,
+};
+const isBill = (l: ReminderLetter) => Boolean(l.item && l.item !== 'RENT');
+const billNumber = (l: ReminderLetter, label: string) => (l.billReference ? ` (${label} ${l.billReference})` : '');
 
 const GREEN = '#047857';
 const GREY = '#64748b';
@@ -26,9 +37,11 @@ const TEXT = {
   ms: {
     title: ['', 'NOTIS PERINGATAN PERTAMA', 'NOTIS PERINGATAN KEDUA', 'NOTIS PERINGATAN KETIGA DAN TERAKHIR'],
     ref: 'Rujukan', date: 'Tarikh', to: 'Kepada', subject: 'Perkara',
-    subjectText: (l: ReminderLetter) => `Tunggakan sewa ${l.unit}, ${l.asset} bagi ${l.period}`,
-    opening: (l: ReminderLetter) => `Merujuk perjanjian sewaan Ijarah ${l.leaseId} yang berkuat kuasa mulai ${l.leaseStart}, sewa bulanan sebanyak ${l.amount} bagi ${l.period} yang perlu dibayar pada ${l.dueDate} masih belum diterima.`,
-    total: (l: ReminderLetter) => `Jumlah sewa yang masih tertunggak bagi sewaan ini setakat tarikh surat ini ialah ${l.totalOverdue}.`,
+    subjectText: (l: ReminderLetter) => `Tunggakan ${isBill(l) ? BILL.ms[l.item!] ?? 'bil utiliti' : 'sewa'} ${l.unit}, ${l.asset} bagi ${l.period}`,
+    opening: (l: ReminderLetter) => isBill(l)
+      ? `Merujuk perjanjian sewaan Ijarah ${l.leaseId} yang berkuat kuasa mulai ${l.leaseStart}, ${BILL.ms[l.item!] ?? 'bil utiliti'} sebanyak ${l.amount} bagi ${l.period}${billNumber(l, 'no. bil')} yang dibayar oleh pemilik dan dicaj semula pada kos sebenar, yang perlu dibayar pada ${l.dueDate}, masih belum diterima.`
+      : `Merujuk perjanjian sewaan Ijarah ${l.leaseId} yang berkuat kuasa mulai ${l.leaseStart}, sewa bulanan sebanyak ${l.amount} bagi ${l.period} yang perlu dibayar pada ${l.dueDate} masih belum diterima.`,
+    total: (l: ReminderLetter) => `Jumlah sewa dan bil utiliti yang masih tertunggak bagi sewaan ini setakat tarikh surat ini ialah ${l.totalOverdue}.`,
     ask: (l: ReminderLetter) => `Sila jelaskan tunggakan tersebut ke akaun bank kami sebelum ${l.payBy}.`,
     last: (l: ReminderLetter) => `Ini adalah peringatan terakhir. Sekiranya tunggakan tidak dijelaskan sebelum ${l.payBy}, perkara ini akan diserahkan kepada bahagian undang-undang kami tanpa notis lanjut.`,
     paid: 'Sekiranya bayaran telah dibuat, sila abaikan notis ini dan kemukakan bukti bayaran kepada kami.',
@@ -39,9 +52,11 @@ const TEXT = {
   en: {
     title: ['', 'FIRST REMINDER NOTICE', 'SECOND REMINDER NOTICE', 'THIRD AND FINAL REMINDER NOTICE'],
     ref: 'Reference', date: 'Date', to: 'To', subject: 'Subject',
-    subjectText: (l: ReminderLetter) => `Rent arrears for ${l.unit}, ${l.asset}, ${l.period}`,
-    opening: (l: ReminderLetter) => `Under the Ijarah lease ${l.leaseId} in force from ${l.leaseStart}, the monthly rent of ${l.amount} for ${l.period}, due on ${l.dueDate}, has not been received.`,
-    total: (l: ReminderLetter) => `The rent outstanding under this lease as at the date of this notice is ${l.totalOverdue}.`,
+    subjectText: (l: ReminderLetter) => `${isBill(l) ? `Unpaid ${BILL.en[l.item!] ?? 'utility bill'}` : 'Rent arrears'} for ${l.unit}, ${l.asset}, ${l.period}`,
+    opening: (l: ReminderLetter) => isBill(l)
+      ? `Under the Ijarah lease ${l.leaseId} in force from ${l.leaseStart}, the ${BILL.en[l.item!] ?? 'utility bill'} of ${l.amount} for ${l.period}${billNumber(l, 'bill no.')}, paid by the owner and recharged at cost, due on ${l.dueDate}, has not been received.`
+      : `Under the Ijarah lease ${l.leaseId} in force from ${l.leaseStart}, the monthly rent of ${l.amount} for ${l.period}, due on ${l.dueDate}, has not been received.`,
+    total: (l: ReminderLetter) => `The rent and utility bills outstanding under this lease as at the date of this notice come to ${l.totalOverdue}.`,
     ask: (l: ReminderLetter) => `Please settle it to our bank account by ${l.payBy}.`,
     last: (l: ReminderLetter) => `This is the final reminder. If the arrears are not settled by ${l.payBy}, the matter will be passed to our legal team without further notice.`,
     paid: 'If you have already paid, please disregard this notice and send us the proof of payment.',
