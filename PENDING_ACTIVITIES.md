@@ -13,7 +13,7 @@ Senarai ini hanya mengandungi kerja yang **belum siap**. Kerja yang sudah siap d
 | 5 | Perjanjian ikut projek | Teks pindaan yang khusus (sekarang pindaan memuatkan perjanjian penuh) | Templat pindaan daripada peguam |
 | 6 | Pembayaran ToyyibPay | Uji di staging, kredit bonus, buka akaun live | Ujian staging; akaun ToyyibPay live |
 | 7 | Bayaran keluar ke bank | Sambungan bank/DuitNow, semakan sebelum selesai, dua pelulus ikut amaun | Pilih penyedia; had amaun |
-| 8 | Notifikasi | Rekod DNS untuk emel Resend, Redis TLS untuk production | Tambah rekod DNS |
+| 8 | Notifikasi | Redis TLS di production (emel siap di staging dan production) | Sijil TLS Redis |
 | 9 | Blockchain | Fasa 2 (simpan cap hash di blockchain awam), Fasa 3 (token) | Pilih rangkaian; nasihat SC dan Shariah |
 | 10 | Akad, zakat, cukai, dompet pelabur | Nisab 3 negeri, cukai, e-Invois, kira akhir pool, dompet pelabur | Penasihat cukai dan Shariah; Kewangan |
 | 11 | Keselamatan sebelum pilot | Sahkan had KYC, format laporan regulator, tetapan production, hidupkan peranan Auditor | Compliance; pemilik projek |
@@ -109,11 +109,9 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 
 ## 8. Notifikasi
 
-- **Keputusan 30 Oktober 2026:** notifikasi hanya dalam aplikasi dan emel. Tiada push (Firebase) dan tiada SMS (Twilio).
-
 **Belum siap:**
-1. **Emel (Resend):** tambah rekod DNS untuk domain `notify.alhidayahgroup.com.my` di MSC Hosting. Selepas itu isi `NOTIFICATION_EMAIL_PROVIDER=resend`, `RESEND_API_KEY` dan `NOTIFICATION_EMAIL_FROM` dalam `/opt/how/server/.env` di staging. Jangan guna `mail.alhidayahgroup.com.my`. Bila emel hidup, emel peringatan, kod OTP tandatangan dan emel kepada pelapor kematian juga akan dihantar.
-2. **Redis untuk production:** sediakan sijil TLS (`ca.crt`, `redis.crt`, `redis.key`) dan simpan kata laluan Redis di tempat rahsia (lihat `server/ops/redis/README.md`).
+1. **Redis untuk production:** sediakan sijil TLS (`ca.crt`, `redis.crt`, `redis.key`) dan simpan kata laluan Redis di tempat rahsia (lihat `server/ops/redis/README.md`).
+
 
 ## 9. Blockchain dan smart contract
 
@@ -203,7 +201,7 @@ Gambar wajah dan dokumen KYC kini disimpan tanpa had masa. **Perlu diputuskan:**
 
 **Tandatangan elektronik:**
 1. Sijil meterai daripada pihak yang dipercayai Adobe untuk production.
-2. Emel OTP (perlu Resend, item 8).
+2. Uji emel OTP tandatangan di staging (Resend kini hidup).
 3. Cap masa dalam meterai.
 4. Penyedia tandatangan berlesen (MSC Trustgate / Pos Digicert) untuk perjanjian bernilai tinggi.
 5. Pendapat peguam tentang tandatangan elektronik dan duti setem.
@@ -296,7 +294,7 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 
 **Belum siap:**
 1. **Ujian langsung Fasa 2:** pangkalan data tempatan tiada sewaan yang diluluskan. Perlu uji di SIT: beri tugas Akaun dan SOA, rekod bayaran, sahkan/tolak, dan muat turun penyata.
-2. **Penyata melalui e-mel:** penyata kini dimaklumkan dalam aplikasi; PDF tidak dilampirkan dalam e-mel.
+2. **Penyata melalui e-mel:** notis penyata dihantar dalam aplikasi dan e-mel (Resend), tetapi PDF belum dilampirkan. Boleh dibina sekarang.
 3. **Fasa 3, OTG + Tech:** tugasan lawatan lapangan di mini-app selepas peringatan 1 dan 2 (gambar, lokasi, nota). Perlu sahkan skop kerja OTG dengan Al Hidayah (lawatan, utiliti, pemeriksaan teknikal).
 4. **Fasa 3, pakej Legal:** satu muat turun dengan perjanjian Ijarah, SOA, semua surat peringatan dan log susulan.
 5. **Tetapan tempoh ikut pemilik:** tempoh 7/7/14/7 kini nilai lalai dalam kod; belum boleh diubah oleh setiap pemilik.

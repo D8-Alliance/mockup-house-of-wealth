@@ -73,6 +73,20 @@ export const MS_LEASING_TEXT: Record<string, string> = {
   'Waiting for the other side to respond.': 'Menunggu pihak satu lagi menjawab.',
   'You cannot review a lease your own organisation is part of.': 'Anda tidak boleh menyemak sewaan yang melibatkan organisasi anda sendiri.',
   'Your company must pass business verification (KYB) before it can rent space.': 'Syarikat anda mesti lulus pengesahan perniagaan (KYB) sebelum boleh menyewa ruang.',
+  // Two-person rent recording and the statement of account (item 25, phase 2)
+  'This month is not due, or is already recorded.': 'Bulan ini belum perlu dibayar, atau sudah direkod.',
+  'Recording rent needs the statement of account (SOA) duty. Ask the Asset Owner to give it to you.': 'Merekod sewa memerlukan tugas penyata akaun (SOA). Minta Pemilik Aset menetapkannya kepada anda.',
+  'Only the owner confirms rent received.': 'Hanya pemilik boleh mengesahkan sewa yang diterima.',
+  'Confirming rent needs the Accounts duty. Ask the Asset Owner to give it to you.': 'Mengesahkan sewa memerlukan tugas Akaun. Minta Pemilik Aset menetapkannya kepada anda.',
+  'This month has no payment waiting for confirmation.': 'Bulan ini tiada bayaran yang menunggu pengesahan.',
+  'You recorded this payment, so someone else must confirm it.': 'Anda yang merekod bayaran ini, jadi orang lain mesti mengesahkannya.',
+  'This payment changed meanwhile. Reload it.': 'Bayaran ini telah berubah. Muat semula.',
+  'Only the owner and the tenant see the statement of account.': 'Hanya pemilik dan penyewa boleh melihat penyata akaun.',
+  'A statement is issued only for an approved lease.': 'Penyata hanya dikeluarkan untuk sewaan yang diluluskan.',
+  'Only the owner sends the statement of account.': 'Hanya pemilik boleh menghantar penyata akaun.',
+  'Sending statements needs the statement of account (SOA) duty. Ask the Asset Owner to give it to you.': 'Menghantar penyata memerlukan tugas penyata akaun (SOA). Minta Pemilik Aset menetapkannya kepada anda.',
+  'A payment for this month is recorded and waiting for Accounts to confirm it. Do not send a reminder meanwhile.': 'Bayaran bagi bulan ini sudah direkod dan menunggu pengesahan Akaun. Jangan hantar peringatan buat masa ini.',
+  'Nothing is outstanding.': 'Tiada baki tertunggak.',
 };
 
 /** The activities the Shariah check flags (server/src/leasing/leasing-rules.ts). */
@@ -90,4 +104,13 @@ export const MS_LEASING_PATTERNS: Array<[RegExp, string | ((match: RegExpExecArr
   [/^This unit is available from (\S+)\.$/, 'Unit ini boleh disewa mulai $1.'],
   [/^This lease is already being renewed \((.+)\)\.$/, 'Sewaan ini sudah dalam proses pembaharuan ($1).'],
   [/^Your company already has a request for this unit \((.+)\)\.$/, 'Syarikat anda sudah ada permohonan untuk unit ini ($1).'],
+  // Two-person rent recording and the statement of account (item 25, phase 2)
+  [/^Rent received \((\S+)\)$/, 'Sewa diterima ($1)'],
+  [/^Rent to confirm \((\S+)\)$/, 'Sewa untuk disahkan ($1)'],
+  [/^Rent not confirmed \((\S+)\)$/, 'Sewa tidak disahkan ($1)'],
+  [/^Statement of account (\S+)$/, 'Penyata akaun $1'],
+  [/^(.+?): (.+?) recorded (.+?) for (\S+) \(reference (.+?)\)\. Accounts: check the bank and confirm it\.$/, '$1: $2 merekodkan $3 bagi $4 (rujukan $5). Akaun: semak bank dan sahkan.'],
+  [/^(.+?): (.+?) for (\S+) is received \(reference (.+?)\)\.$/, '$1: $2 bagi $3 telah diterima (rujukan $4).'],
+  [/^(.+?): the payment recorded for (\S+) \(reference (.+?)\) was not confirmed by Accounts: (.+)\. The month is due again\.$/, '$1: bayaran yang direkod bagi $2 (rujukan $3) tidak disahkan oleh Akaun: $4. Bulan ini perlu dibayar semula.'],
+  [/^(.+?): your statement for (\S+) is ready on the lease\. (?:Outstanding: (.+?)(?:, of which (.+?) is past due)?\.|(Nothing is outstanding\.))$/, (match) => `${match[1]}: penyata anda bagi ${match[2]} sedia di halaman sewaan. ${match[5] ? 'Tiada baki tertunggak.' : `Baki tertunggak: ${match[3]}${match[4] ? `, termasuk ${match[4]} yang telah lewat tarikh` : ''}.`}`],
 ];

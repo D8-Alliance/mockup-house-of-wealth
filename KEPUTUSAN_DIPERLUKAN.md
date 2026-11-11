@@ -14,7 +14,6 @@ Each item lists who must answer, the question, the options, what happens while w
 
 | Kod / Code | Perkara / Item | Siapa / Who | Keutamaan / Priority |
 |---|---|---|---|
-| A1 | Rekod DNS emel Resend / Resend email DNS records | Pentadbir domain / Domain admin | 🔴 |
 | P1 | Pelulus kedua peranan admin / Second approver for admin roles | Pemilik projek / Project owner | 🔴 |
 | C1 | Had pelaburan ikut tahap KYC / Investment limits by KYC level | Compliance | 🔴 |
 | C3 | Lokasi simpanan data / Data location | Compliance | 🔴 |
@@ -98,13 +97,13 @@ Each item lists who must answer, the question, the options, what happens while w
 **BM**
 - **Soalan 1 – skop OTG:** apa kerja sebenar pasukan lapangan (OTG) selepas peringatan 1 dan 2? Contoh: lawatan ke premis, semakan meter utiliti, pemeriksaan teknikal bangunan. Apa yang perlu direkod (gambar, lokasi GPS, nota, tandatangan penyewa)?
 - **Soalan 2 – tempoh:** tempoh kini tetap dalam kod: peringatan 1 dalam 7 hari, peringatan 2 dalam 14 hari, peringatan 3 dalam 7 hari, Legal 7 hari selepas itu. Adakah setiap pemilik aset perlu boleh mengubahnya?
-- **Soalan 3 – emel penyata:** setuju PDF penyata akaun (SOA) dilampirkan dalam emel bulanan kepada penyewa? (Hanya berfungsi selepas A1.)
+- **Soalan 3 – emel penyata:** setuju PDF penyata akaun (SOA) dilampirkan dalam emel bulanan kepada penyewa? (Emel sudah hidup.)
 - **Selepas keputusan:** bina tugasan OTG di mini-app (Fasa 3) dan tetapan tempoh ikut pemilik.
 
 **EN**
 - **Question 1 – OTG scope:** what does the field team (OTG) actually do after reminders 1 and 2? For example: visiting the premises, checking utility meters, technical inspection of the building. What must be recorded (photos, GPS location, notes, tenant signature)?
 - **Question 2 – periods:** the periods are fixed in code: reminder 1 within 7 days, reminder 2 within 14 days, reminder 3 within 7 days, Legal 7 days after that. Should each asset owner be able to change them?
-- **Question 3 – statement email:** should the statement of account (SOA) PDF be attached to the monthly email to the tenant? (Works only after A1.)
+- **Question 3 – statement email:** should the statement of account (SOA) PDF be attached to the monthly email to the tenant? (Email is now live.)
 - **After the decision:** build OTG tasks in the mini-app (phase 3) and per-owner period settings.
 
 ### P5. Keputusan kecil / Small decisions (12) 🟢
@@ -299,7 +298,6 @@ Each item lists who must answer, the question, the options, what happens while w
 
 | Kod / Code | BM | EN | Rujukan / Ref |
 |---|---|---|---|
-| A1 🔴 | Tambah rekod DNS bagi `notify.alhidayahgroup.com.my` di MSC Hosting, kemudian isi tetapan Resend di staging. Tanpa ini tiada emel (OTP tandatangan, peringatan, penyata). | Add DNS records for `notify.alhidayahgroup.com.my` at MSC Hosting, then fill the Resend settings on staging. Without this no email is sent (signing OTPs, reminders, statements). | 8.1 |
 | A2 🟠 | ToyyibPay: uji di staging, kemudian buka akaun live dan buat satu bayaran kecil. | ToyyibPay: test on staging, then open the live account and make one small payment. | 6 |
 | A3 🟠 | Pilih penyedia payout bank/DuitNow dan dapatkan format fail bayaran pukal bank. | Choose a bank/DuitNow payout provider and get the bank's bulk payment file format. | 7.1, 22.1 |
 | A4 🔴 | Butiran akaun amanah sebenar bagi setiap negara (bank, nama, nombor, SWIFT). | Real trust account details for each country (bank, name, number, SWIFT). | 20.1 |
@@ -318,7 +316,7 @@ Each item lists who must answer, the question, the options, what happens while w
 |---|---|---|
 | Semakan dokumen diubah: tandatangan digital PDF, banding teks PDF dengan teks imbasan. | Altered document checks: PDF digital signatures, compare PDF text with scanned text. | 1 |
 | Pakej Legal: satu muat turun dengan perjanjian, SOA, surat peringatan dan log susulan. | Legal pack: one download with the agreement, SOA, reminder letters and follow-up log. | 25 |
-| Lampirkan PDF SOA dalam emel (dihantar selepas A1). | Attach the SOA PDF to email (sent after A1). | 25 |
+| Lampirkan PDF SOA dalam emel (emel sudah hidup). | Attach the SOA PDF to email (email is live). | 25 |
 | Bil utiliti belum dibayar masuk ke kes kutipan. | Unpaid utility bills go into collection cases. | 21.4 |
 | Padanan penyata bank dengan bayaran yang direkod. | Matching bank statements with recorded payments. | 22.2 |
 
@@ -326,6 +324,6 @@ Each item lists who must answer, the question, the options, what happens while w
 
 ## Langkah seterusnya yang dicadangkan / Suggested next steps
 
-**BM:** dapatkan dahulu (1) rekod DNS Resend (A1), (2) keputusan pelulus kedua (P1), dan (3) pengesahan Compliance tentang had KYC dan lokasi data (C1, C3). Tiga ini membuka paling banyak kerja dan diperlukan untuk pilot.
+**BM:** emel Resend sudah siap (A1). Seterusnya dapatkan (1) keputusan pelulus kedua (P1), dan (2) pengesahan Compliance tentang had KYC dan lokasi data (C1, C3). Ini membuka paling banyak kerja dan diperlukan untuk pilot.
 
-**EN:** first get (1) the Resend DNS records (A1), (2) the second-approver decision (P1), and (3) Compliance's sign-off on KYC limits and data location (C1, C3). These three unblock the most work and are needed for the pilot.
+**EN:** Resend email is done (A1). Next, get (1) the second-approver decision (P1) and (2) Compliance's sign-off on KYC limits and data location (C1, C3). These unblock the most work and are needed for the pilot.
