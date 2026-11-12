@@ -260,10 +260,10 @@ Bila sistem luar perlu membaca data platform, bina kunci API (disimpan selamat, 
 
 ## 25. Kutipan sewa (proses kutipan Al Hidayah)
 
+- **Tempoh ikut pemilik (12 November 2026):** Pemilik Aset menetapkan tempoh sendiri di Kutipan › Pasukan (1 hingga 90 hari): hari selepas tarikh perlu bayar sebelum kes dibuka, peringatan 1, 2, 3 dan Legal. Lalai 7/7/14/7/7. Tempoh baharu terpakai pada kes baharu dan langkah seterusnya kes terbuka; tarikh bayar dalam surat yang sudah dihantar tidak berubah.
 - **Fail:** `server/src/leasing/rent-collection*.ts`, `server/src/leasing/lease-statement.ts`, `server/src/leasing/leasing.service.ts`, `src/mobile/screens/LeaseCollections.tsx`, `src/mobile/screens/MobileLeasing.tsx`
 
 **Belum siap:**
 1. **Uji di SIT:** pangkalan data tempatan tiada sewaan yang diluluskan. Beri tugas Akaun dan SOA, rekod bayaran, sahkan/tolak, muat turun penyata, hantar penyata dan semak PDF dalam e-mel penyewa, biarkan satu bil utiliti tidak dibayar lebih 7 hari dan semak kes kutipannya, dan muat turun pakej Legal bagi kes yang sudah ada surat peringatan.
 2. **Fasa 3, OTG + Tech:** tugasan lawatan lapangan di mini-app selepas peringatan 1 dan 2 (gambar, lokasi, nota). Perlu sahkan skop kerja OTG dengan Al Hidayah (lawatan, utiliti, pemeriksaan teknikal).
-3. **Tetapan tempoh ikut pemilik:** tempoh 7/7/14/7 kini nilai lalai dalam kod; belum boleh diubah oleh setiap pemilik.
-4. **Keputusan Shariah:** caj lewat bayar (ta'widh/gharamah) dalam Ijarah. Tiada caj dikenakan sehingga diputuskan.
+3. **Keputusan Shariah:** caj lewat bayar (ta'widh/gharamah) dalam Ijarah. Tiada caj dikenakan sehingga diputuskan.

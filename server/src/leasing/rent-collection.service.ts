@@ -11,12 +11,13 @@ import { buildZip, ZipEntry } from '../documents/zip-archive';
 import { LeasingService } from './leasing.service';
 import { renderReminderLetter } from './rent-collection-letter';
 import { renderCaseSummary } from './rent-collection-pack';
-import { ACTIVE_STAGES, actionDueAfter, addDays, COLLECTION_GRACE_DAYS, collectionItem, CollectionStage, nextReminder, OrganisationDutyCode, ORGANISATION_DUTIES, payBy, REMINDER_NUMBER, shouldOpenCase } from './rent-collection-rules';
+import { ACTIVE_STAGES, actionDueAfter, addDays, collectionItem, CollectionStage, CollectionTimings, DEFAULT_TIMINGS, nextReminder, OrganisationDutyCode, ORGANISATION_DUTIES, payBy, REMINDER_NUMBER, shouldOpenCase, TIMING_KEYS, TIMING_LIMITS, timingsFrom } from './rent-collection-rules';
 
 const day = (date: Date | null | undefined) => (date ? date.toISOString().slice(0, 10) : null);
 const money = (currency: string, amount: number) => `${currency === 'MYR' ? 'RM' : currency} ${amount.toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export interface HistoryEntry { at: string; by: string; byName: string; action: string; stage: CollectionStage; note?: string }
+/** A step of the case. A sent reminder keeps the pay-by date its letter gives, so a later change of timings does not alter it. */
+export interface HistoryEntry { at: string; by: string; byName: string; action: string; stage: CollectionStage; note?: string; payBy?: string }
 export interface FollowUp { at: string; by: string; byName: string; channel: string; note: string; promiseDate?: string }
 
 const LEASE_SELECT = { id: true, startDate: true, createdBy: true, unit: { select: { label: true, asset: { select: { name: true, ownerUserId: true } } } } } as const;
@@ -64,6 +65,29 @@ export class RentCollectionService {
     return this.team(actor);
   }
 
+  // ---- Timings: the owner's own days for each step ----
+
+  /** The owner's timings (the defaults until changed). Anyone of the owner's organisation may see them; the Asset Owner changes them. */
+  async timings(actor: AuthenticatedUser) {
+    this.assertOwnerStaff(actor);
+    const saved = await this.prisma.rentCollectionSettings.findUnique({ where: { organisationId: actor.organisationId } });
+    return { canManage: actor.role === 'Asset Owner', timings: timingsFrom(saved), defaults: DEFAULT_TIMINGS, custom: !!saved, updatedAt: saved?.updatedAt.toISOString() ?? null, limits: TIMING_LIMITS };
+  }
+
+  /** The Asset Owner sets the timings. Cases already open keep their current step's date; the new days apply from their next step. */
+  async setTimings(actor: AuthenticatedUser, input: CollectionTimings) {
+    if (actor.role !== 'Asset Owner') throw new ForbiddenException('Only the Asset Owner of the organisation changes the collection timings.');
+    for (const key of TIMING_KEYS) {
+      const value = input[key];
+      if (!Number.isInteger(value) || value < TIMING_LIMITS.min || value > TIMING_LIMITS.max) throw new BadRequestException(`Each timing is a whole number of days from ${TIMING_LIMITS.min} to ${TIMING_LIMITS.max}.`);
+    }
+    const before = await this.timingsFor(actor.organisationId);
+    const data = { graceDays: input.graceDays, reminder1Days: input.reminder1Days, reminder2Days: input.reminder2Days, reminder3Days: input.reminder3Days, legalDays: input.legalDays, updatedBy: actor.userId };
+    await this.prisma.rentCollectionSettings.upsert({ where: { organisationId: actor.organisationId }, create: { organisationId: actor.organisationId, ...data }, update: data });
+    await this.audit.recordActor(actor, { action: 'rent_collection.timings_changed', resourceType: 'RentCollectionSettings', resourceId: actor.organisationId, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { before, after: timingsFrom(data) } });
+    return this.timings(actor);
+  }
+
   // ---- Cases ----
 
   async list(actor: AuthenticatedUser) {
@@ -88,11 +112,13 @@ export class RentCollectionService {
     const item = await this.item(row);
     if (item?.status === 'RECORDED') throw new BadRequestException('A payment for this month is recorded and waiting for Accounts to confirm it. Do not send a reminder meanwhile.');
     const now = new Date();
-    const updated = await this.move(actor, row, next, actionDueAfter(next, now), 'REMINDER_SENT', note);
+    const timings = await this.timingsFor(row.ownerOrganisationId);
+    const payByDate = day(payBy(next, now, timings))!;
+    const updated = await this.move(actor, row, next, actionDueAfter(next, now, timings), 'REMINDER_SENT', note, {}, { payBy: payByDate });
     const lease = await this.lease(row.leaseId);
     const number = REMINDER_NUMBER[next]!;
     await this.notify([lease.createdBy], row, `rent-collection:${row.id}:${next}`, row.itemKind === 'RENT' ? `Rent reminder ${number}` : `Bill reminder ${number}`,
-      `${lease.unit.label}, ${lease.unit.asset.name}: the ${collectionItem(row.itemKind)} of ${money(row.currency, Number(row.amount))} for ${row.period} is unpaid. Please pay by ${day(payBy(next, now))}. Reminder letter ${number} (${row.id}) is on the lease.`, row.tenantOrganisationId);
+      `${lease.unit.label}, ${lease.unit.asset.name}: the ${collectionItem(row.itemKind)} of ${money(row.currency, Number(row.amount))} for ${row.period} is unpaid. Please pay by ${payByDate}. Reminder letter ${number} (${row.id}) is on the lease.`, row.tenantOrganisationId);
     return this.get(actor, updated.id);
   }
 
@@ -162,8 +188,9 @@ export class RentCollectionService {
       this.item(row),
     ]);
     const name = (orgId: string) => organisations.find((organisation) => organisation.id === orgId)?.name ?? orgId;
+    const letterPayBy = sent.payBy ?? day(payBy(stage, new Date(sent.at), await this.timingsFor(row.ownerOrganisationId)))!;
     const buffer = await renderReminderLetter({
-      number: number as 1 | 2 | 3, language: language === 'en' ? 'en' : 'ms', caseId: row.id, issuedOn: day(new Date(sent.at))!, payBy: day(payBy(stage, new Date(sent.at)))!,
+      number: number as 1 | 2 | 3, language: language === 'en' ? 'en' : 'ms', caseId: row.id, issuedOn: day(new Date(sent.at))!, payBy: letterPayBy,
       ownerName: name(row.ownerOrganisationId), tenantName: name(row.tenantOrganisationId), unit: lease.unit.label, asset: lease.unit.asset.name, leaseId: row.leaseId, leaseStart: day(lease.startDate)!,
       period: row.period, dueDate: day(item?.dueDate) ?? '', amount: money(row.currency, Number(row.amount)), item: row.itemKind, billReference: item?.billReference ?? undefined,
       totalOverdue: money(row.currency, Math.max(Number(row.amount), overdue)),
@@ -245,11 +272,11 @@ export class RentCollectionService {
     return rows.flatMap((row) => (row.history as unknown as HistoryEntry[]).filter((entry) => entry.action === 'REMINDER_SENT').map((entry) => ({ caseId: row.id, period: row.period, number: REMINDER_NUMBER[entry.stage]!, sentAt: entry.at, stage: row.stage })));
   }
 
-  // ---- Daily: open cases for months and utility bills unpaid past the grace days, and chase late steps ----
+  // ---- Daily: open cases for months and utility bills unpaid past each owner's grace days, and chase late steps ----
 
   async sweep(now = new Date()): Promise<number> {
     let changed = await this.closePaid({});
-    const cutoff = addDays(now, -COLLECTION_GRACE_DAYS);
+    const cutoff = addDays(now, -TIMING_LIMITS.min);
     const leaseSelect = { select: { ownerOrganisationId: true, tenantOrganisationId: true, countryNodeId: true, unit: { select: { label: true, asset: { select: { name: true, ownerUserId: true } } } } } } as const;
     const where = { status: 'DUE', dueDate: { lte: cutoff }, lease: { status: { in: ['APPROVED', 'ENDED'] } } };
     const [rent, bills] = await Promise.all([
@@ -258,12 +285,15 @@ export class RentCollectionService {
     ]);
     const unpaid = [...rent.map((item) => ({ ...item, itemKind: 'RENT' })), ...bills.map(({ kind, ...item }) => ({ ...item, itemKind: kind }))];
     const existing = new Set((await this.prisma.rentCollectionCase.findMany({ where: { paymentId: { in: unpaid.map((payment) => payment.id) } }, select: { paymentId: true } })).map((row) => row.paymentId));
-    for (const payment of unpaid.filter((item) => !existing.has(item.id) && shouldOpenCase(item.dueDate, now))) {
+    const timingsByOwner = await this.timingsForMany([...new Set(unpaid.map((item) => item.lease.ownerOrganisationId))]);
+    const timingsOf = (organisationId: string) => timingsByOwner.get(organisationId) ?? DEFAULT_TIMINGS;
+    for (const payment of unpaid.filter((item) => !existing.has(item.id) && shouldOpenCase(item.dueDate, now, timingsOf(item.lease.ownerOrganisationId)))) {
       const { lease } = payment;
-      const entry: HistoryEntry = { at: now.toISOString(), by: 'SYSTEM', byName: 'System', action: 'OPENED', stage: 'OPEN', note: `Unpaid ${COLLECTION_GRACE_DAYS} days after the due date ${day(payment.dueDate)}.` };
+      const timings = timingsOf(lease.ownerOrganisationId);
+      const entry: HistoryEntry = { at: now.toISOString(), by: 'SYSTEM', byName: 'System', action: 'OPENED', stage: 'OPEN', note: `Unpaid ${timings.graceDays} days after the due date ${day(payment.dueDate)}.` };
       const created = await this.prisma.rentCollectionCase.create({ data: {
         id: newCountryScopedId('COLL', lease.countryNodeId), leaseId: payment.leaseId, paymentId: payment.id, itemKind: payment.itemKind, period: payment.period, ownerOrganisationId: lease.ownerOrganisationId, tenantOrganisationId: lease.tenantOrganisationId,
-        countryNodeId: lease.countryNodeId, amount: payment.amount, currency: payment.currency, stage: 'OPEN', actionDueAt: actionDueAfter('OPEN', now), history: [entry] as unknown as Prisma.InputJsonValue, followUps: [],
+        countryNodeId: lease.countryNodeId, amount: payment.amount, currency: payment.currency, stage: 'OPEN', actionDueAt: actionDueAfter('OPEN', now, timings), history: [entry] as unknown as Prisma.InputJsonValue, followUps: [],
       } }).catch(() => null);
       if (!created) continue;
       const team = await this.dutyHolders(lease.ownerOrganisationId, 'COLLECTION');
@@ -281,6 +311,16 @@ export class RentCollectionService {
   }
 
   // ---- helpers ----
+
+  private async timingsFor(organisationId: string): Promise<CollectionTimings> {
+    return timingsFrom(await this.prisma.rentCollectionSettings.findUnique({ where: { organisationId } }));
+  }
+
+  private async timingsForMany(organisationIds: string[]): Promise<Map<string, CollectionTimings>> {
+    if (!organisationIds.length) return new Map();
+    const rows = await this.prisma.rentCollectionSettings.findMany({ where: { organisationId: { in: organisationIds } } });
+    return new Map(rows.map((row) => [row.organisationId, timingsFrom(row)]));
+  }
 
   /**
    * Cases whose month or bill has since been recorded as paid are closed as PAID. A utility bill the owner removed
@@ -326,8 +366,8 @@ export class RentCollectionService {
     return Math.round([...rent, ...bills].reduce((total, item) => total + Number(item.amount), 0) * 100) / 100;
   }
 
-  private async move(actor: AuthenticatedUser, row: { id: string; updatedAt: Date; history: Prisma.JsonValue; ownerOrganisationId: string; countryNodeId: string; leaseId: string; period: string; stage: string }, stage: CollectionStage, actionDueAt: Date, action: string, note?: string, extra: Prisma.RentCollectionCaseUpdateManyMutationInput = {}) {
-    const entry: HistoryEntry = { at: new Date().toISOString(), by: actor.userId, byName: actor.name, action, stage, ...(note ? { note } : {}) };
+  private async move(actor: AuthenticatedUser, row: { id: string; updatedAt: Date; history: Prisma.JsonValue; ownerOrganisationId: string; countryNodeId: string; leaseId: string; period: string; stage: string }, stage: CollectionStage, actionDueAt: Date, action: string, note?: string, extra: Prisma.RentCollectionCaseUpdateManyMutationInput = {}, entryExtra: Pick<HistoryEntry, 'payBy'> = {}) {
+    const entry: HistoryEntry = { at: new Date().toISOString(), by: actor.userId, byName: actor.name, action, stage, ...(note ? { note } : {}), ...entryExtra };
     const claimed = await this.prisma.rentCollectionCase.updateMany({ where: { id: row.id, updatedAt: row.updatedAt }, data: { stage, actionDueAt, history: [...(row.history as unknown as HistoryEntry[]), entry] as unknown as Prisma.InputJsonValue, ...extra } });
     if (!claimed.count) throw new ConflictException('The case changed meanwhile. Reload it.');
     await this.record(actor, `rent_collection.${action.toLowerCase()}`, row, { from: row.stage, to: stage, note: note ?? null });

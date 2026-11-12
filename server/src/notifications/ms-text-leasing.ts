@@ -68,6 +68,8 @@ export const MS_LEASING_TEXT: Record<string, string> = {
   'Collection case not found.': 'Kes kutipan tidak dijumpai.',
   "Rent collection is for the asset owner's team.": 'Kutipan sewa hanya untuk pasukan pemilik aset.',
   'This needs the collection duty. Ask the Asset Owner to give it to you.': 'Ini memerlukan tugas Kutipan. Minta Pemilik Aset menetapkannya kepada anda.',
+  'Only the Asset Owner of the organisation changes the collection timings.': 'Hanya Pemilik Aset organisasi boleh menukar tempoh kutipan.',
+  'Each timing is a whole number of days from 1 to 90.': 'Setiap tempoh mestilah nombor bulat antara 1 hingga 90 hari.',
   'Only the Asset Owner of the organisation assigns duties.': 'Hanya Pemilik Aset organisasi boleh menetapkan tugas.',
   'That person is not part of your organisation.': 'Orang itu bukan ahli organisasi anda.',
   'Waiting for the other side to respond.': 'Menunggu pihak satu lagi menjawab.',

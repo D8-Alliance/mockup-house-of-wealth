@@ -4,7 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { PrismaService } from '../prisma.service';
 import { renderReminderLetter } from './rent-collection-letter';
-import { actionDueAfter, nextReminder, shouldOpenCase } from './rent-collection-rules';
+import { actionDueAfter, nextReminder, shouldOpenCase, timingsFrom } from './rent-collection-rules';
 import { RentCollectionService } from './rent-collection.service';
 
 jest.mock('../prisma.service', () => ({ PrismaService: class {} }));
@@ -28,6 +28,13 @@ describe('rent collection rules', () => {
     expect(actionDueAfter('REMINDER_2', d('2026-11-24'))).toEqual(d('2026-12-01'));
     expect(actionDueAfter('REMINDER_3', d('2026-12-01'))).toEqual(d('2026-12-08'));
     expect([nextReminder('OPEN'), nextReminder('REMINDER_2'), nextReminder('REMINDER_3'), nextReminder('LEGAL')]).toEqual(['REMINDER_1', 'REMINDER_3', null, null]);
+  });
+
+  it("uses an owner's own timings, and the default for any missing or out of range", () => {
+    const timings = timingsFrom({ graceDays: 3, reminder1Days: 10, reminder2Days: 0, reminder3Days: 120, legalDays: null });
+    expect(timings).toEqual({ graceDays: 3, reminder1Days: 10, reminder2Days: 14, reminder3Days: 7, legalDays: 7 });
+    expect(shouldOpenCase(d('2026-11-01'), d('2026-11-04'), timings)).toBe(true);
+    expect(actionDueAfter('OPEN', d('2026-11-04'), timings)).toEqual(d('2026-11-14'));
   });
 
   it('writes the reminder letter as a PDF in Malay and English', async () => {
@@ -57,6 +64,7 @@ describe('RentCollectionService', () => {
       organisation: { findMany: jest.fn(async () => [{ id: 'ORG-TENANT', name: 'Teras Engineering' }]) },
       userRoleAssignment: { findMany: jest.fn(async () => []) },
       user: { findMany: jest.fn(async () => []) },
+      rentCollectionSettings: { findUnique: jest.fn(async () => null), findMany: jest.fn(async () => []), upsert: jest.fn(async () => ({})) },
     };
     notifications = { enqueue: jest.fn(async () => undefined) };
     service = new RentCollectionService(prisma as unknown as PrismaService, { recordActor: jest.fn(async () => undefined) } as unknown as AuditService, notifications as never);
@@ -90,6 +98,34 @@ describe('RentCollectionService', () => {
     prisma.leaseRentPayment.findMany.mockResolvedValueOnce([]);
     await service.sweep(d('2026-11-21'));
     expect(prisma.rentCollectionCase.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: 'COLL-MYS-1' }), data: expect.objectContaining({ stage: 'PAID' }) }));
+  });
+
+  it("opens cases on the owner's own grace days and gives reminder 1 the owner's days", async () => {
+    const unpaid = [{ id: 'PAY-1', leaseId: 'LEASE-MYS-1', period: '2026-11', dueDate: d('2026-11-01'), amount: new Prisma.Decimal(25500), currency: 'MYR', lease: { ownerOrganisationId: 'ORG-AHG', tenantOrganisationId: 'ORG-TENANT', countryNodeId: 'CN-MYS', unit: lease.unit } }];
+    prisma.leaseRentPayment.findMany.mockResolvedValueOnce(unpaid);
+    await service.sweep(d('2026-11-04'));
+    expect(prisma.rentCollectionCase.create).not.toHaveBeenCalled();
+    prisma.leaseRentPayment.findMany.mockResolvedValueOnce(unpaid);
+    prisma.rentCollectionSettings.findMany.mockResolvedValueOnce([{ organisationId: 'ORG-AHG', graceDays: 3, reminder1Days: 10, reminder2Days: 14, reminder3Days: 7, legalDays: 7 }]);
+    await service.sweep(d('2026-11-04'));
+    expect(prisma.rentCollectionCase.create).toHaveBeenCalledWith({ data: expect.objectContaining({ paymentId: 'PAY-1', actionDueAt: d('2026-11-14') }) });
+  });
+
+  it("keeps the pay-by date of each reminder, from the owner's timings when it was sent", async () => {
+    prisma.rentCollectionSettings.findUnique.mockResolvedValue({ organisationId: 'ORG-AHG', graceDays: 7, reminder1Days: 7, reminder2Days: 21, reminder3Days: 7, legalDays: 7 });
+    await service.remind(collector, 'COLL-MYS-1');
+    const sent = prisma.rentCollectionCase.updateMany.mock.calls[0][0].data.history.at(-1);
+    expect(sent).toEqual(expect.objectContaining({ action: 'REMINDER_SENT', stage: 'REMINDER_1' }));
+    expect(Date.parse(`${sent.payBy}T00:00:00Z`) - Date.parse(`${sent.at.slice(0, 10)}T00:00:00Z`)).toBe(21 * 24 * 60 * 60 * 1000);
+  });
+
+  it('lets only the Asset Owner change the timings, in whole days from 1 to 90', async () => {
+    const timings = { graceDays: 5, reminder1Days: 7, reminder2Days: 14, reminder3Days: 7, legalDays: 10 };
+    await expect(service.setTimings(collector, timings)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.setTimings(owner, { ...timings, legalDays: 0 })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.setTimings(owner, { ...timings, graceDays: 2.5 })).rejects.toBeInstanceOf(BadRequestException);
+    await service.setTimings(owner, timings);
+    expect(prisma.rentCollectionSettings.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { organisationId: 'ORG-AHG' }, create: expect.objectContaining({ ...timings, updatedBy: 'USR-AO' }) }));
   });
 
   it('keeps the case to the owner team: the tenant cannot open it', async () => {

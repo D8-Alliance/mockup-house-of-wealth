@@ -1,11 +1,11 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/identity.service';
 import { Roles } from '../auth/roles.decorator';
 import { RequireFeatureModule } from '../modules/feature-module.decorator';
 import { FeatureModuleGuard } from '../modules/feature-module.guard';
-import { CollectionAssignDto, CollectionFollowUpDto, CollectionNoteDto, CollectionReasonDto, SetDutyDto } from './leasing.dto';
+import { CollectionAssignDto, CollectionFollowUpDto, CollectionNoteDto, CollectionReasonDto, CollectionTimingsDto, SetDutyDto } from './leasing.dto';
 import { RentCollectionService } from './rent-collection.service';
 
 const OWNERS = ['Asset Owner', 'Asset Manager'] as const;
@@ -25,6 +25,14 @@ export class RentCollectionController {
   @Post('team/duties')
   @Roles(...OWNERS)
   setDuty(@CurrentUser() actor: AuthenticatedUser, @Body() body: SetDutyDto) { return this.collection.setDuty(actor, body); }
+
+  @Get('team/timings')
+  @Roles(...OWNERS)
+  timings(@CurrentUser() actor: AuthenticatedUser) { return this.collection.timings(actor); }
+
+  @Put('team/timings')
+  @Roles(...OWNERS)
+  setTimings(@CurrentUser() actor: AuthenticatedUser, @Body() body: CollectionTimingsDto) { return this.collection.setTimings(actor, body); }
 
   @Get('collections')
   @Roles(...OWNERS)

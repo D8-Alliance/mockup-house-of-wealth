@@ -641,6 +641,8 @@ export const apiClient = {
   // Rent collection: the owner's team chases unpaid months (server/src/leasing/rent-collection.service.ts).
   getLeasingTeam: () => request<LeasingTeam>('/leasing/team'),
   setLeasingDuty: (input: { userId: string; duty: OrganisationDuty; on: boolean }) => request<LeasingTeam>('/leasing/team/duties', { method: 'POST', body: JSON.stringify(input) }),
+  getCollectionTimings: () => request<CollectionTimingsView>('/leasing/team/timings'),
+  setCollectionTimings: (input: CollectionTimings) => request<CollectionTimingsView>('/leasing/team/timings', { method: 'PUT', body: JSON.stringify(input) }),
   getCollectionCases: () => request<CollectionCase[]>('/leasing/collections'),
   getCollectionCase: (id: string) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}`),
   sendCollectionReminder: (id: string, note?: string) => request<CollectionCase>(`/leasing/collections/${encodeURIComponent(id)}/remind`, { method: 'POST', body: JSON.stringify({ note }) }),
@@ -2410,6 +2412,18 @@ export type CollectionStage = 'OPEN' | 'REMINDER_1' | 'REMINDER_2' | 'REMINDER_3
 export interface LeasingTeam {
   canManage: boolean;
   members: Array<{ userId: string; name: string; email: string; role: string; duties: OrganisationDuty[] }>;
+}
+
+/** The days an owner allows at each collection step: before a case opens, for each reminder, and before Legal. */
+export interface CollectionTimings { graceDays: number; reminder1Days: number; reminder2Days: number; reminder3Days: number; legalDays: number }
+export interface CollectionTimingsView {
+  canManage: boolean;
+  timings: CollectionTimings;
+  defaults: CollectionTimings;
+  /** Whether the owner has set its own timings (otherwise the defaults apply). */
+  custom: boolean;
+  updatedAt: string | null;
+  limits: { min: number; max: number };
 }
 
 /** A month's rent the tenant has not paid, chased by the owner's collection team. */

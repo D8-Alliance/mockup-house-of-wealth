@@ -96,13 +96,13 @@ Each item lists who must answer, the question, the options, what happens while w
 
 **BM**
 - **Soalan 1 – skop OTG:** apa kerja sebenar pasukan lapangan (OTG) selepas peringatan 1 dan 2? Contoh: lawatan ke premis, semakan meter utiliti, pemeriksaan teknikal bangunan. Apa yang perlu direkod (gambar, lokasi GPS, nota, tandatangan penyewa)?
-- **Soalan 2 – tempoh:** tempoh kini tetap dalam kod: peringatan 1 dalam 7 hari, peringatan 2 dalam 14 hari, peringatan 3 dalam 7 hari, Legal 7 hari selepas itu. Adakah setiap pemilik aset perlu boleh mengubahnya?
-- **Selepas keputusan:** bina tugasan OTG di mini-app (Fasa 3) dan tetapan tempoh ikut pemilik.
+- **Soalan 2 – tempoh lalai:** sejak 12 November 2026 setiap Pemilik Aset boleh menetapkan tempoh sendiri (Kutipan › Pasukan). Sahkan sahaja nilai lalai: belum bayar 7 hari sebelum kes dibuka, peringatan 1 dalam 7 hari, peringatan 2 dalam 14 hari, peringatan 3 dalam 7 hari, Legal 7 hari selepas itu.
+- **Selepas keputusan:** bina tugasan OTG di mini-app (Fasa 3).
 
 **EN**
 - **Question 1 – OTG scope:** what does the field team (OTG) actually do after reminders 1 and 2? For example: visiting the premises, checking utility meters, technical inspection of the building. What must be recorded (photos, GPS location, notes, tenant signature)?
-- **Question 2 – periods:** the periods are fixed in code: reminder 1 within 7 days, reminder 2 within 14 days, reminder 3 within 7 days, Legal 7 days after that. Should each asset owner be able to change them?
-- **After the decision:** build OTG tasks in the mini-app (phase 3) and per-owner period settings.
+- **Question 2 – default periods:** since 12 November 2026 each Asset Owner can set its own periods (Collection > Team). Only confirm the defaults: unpaid 7 days before a case opens, reminder 1 within 7 days, reminder 2 within 14 days, reminder 3 within 7 days, Legal 7 days after that.
+- **After the decision:** build OTG tasks in the mini-app (phase 3).
 
 ### P5. Keputusan kecil / Small decisions (12) 🟢
 

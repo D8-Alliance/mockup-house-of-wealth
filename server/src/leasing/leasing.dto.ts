@@ -165,6 +165,15 @@ export class SetDutyDto {
   @IsBoolean() on!: boolean;
 }
 
+/** The owner's rent collection timings, in whole days (see rent-collection-rules.ts). */
+export class CollectionTimingsDto {
+  @IsInt() @Min(1) @Max(90) graceDays!: number;
+  @IsInt() @Min(1) @Max(90) reminder1Days!: number;
+  @IsInt() @Min(1) @Max(90) reminder2Days!: number;
+  @IsInt() @Min(1) @Max(90) reminder3Days!: number;
+  @IsInt() @Min(1) @Max(90) legalDays!: number;
+}
+
 export class CollectionNoteDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(2000) note?: string;
 }

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, ArrowLeft, FileText, Gavel, Send, UserCheck, Users } from 'lucide-react';
-import { apiClient, CollectionCase, CollectionStage, LeasingTeam, OrganisationDuty } from '../../services/apiClient';
+import { AlertTriangle, ArrowLeft, Clock, FileText, Gavel, Send, UserCheck, Users } from 'lucide-react';
+import { apiClient, CollectionCase, CollectionStage, CollectionTimings, CollectionTimingsView, LeasingTeam, OrganisationDuty } from '../../services/apiClient';
 import { useT } from '../i18n';
 
 const card = 'rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4';
@@ -23,6 +23,14 @@ const ACTIVE: CollectionStage[] = ['OPEN', 'REMINDER_1', 'REMINDER_2', 'REMINDER
 /** What a case chases: a month's rent, or a utility bill the owner recharged. */
 const ITEM_LABEL: Record<string, string> = { RENT: 'Rent for', ELECTRICITY: 'Electricity bill for', WATER: 'Water bill for', SEWERAGE: 'Sewerage bill for', OTHER: 'Utility bill for' };
 type Filter = 'action' | 'active' | 'legal' | 'closed';
+const DEFAULT_TIMINGS: CollectionTimings = { graceDays: 7, reminder1Days: 7, reminder2Days: 14, reminder3Days: 7, legalDays: 7 };
+const TIMING_FIELDS: Array<[keyof CollectionTimings, string]> = [
+  ['graceDays', 'Days after the due date before a case opens'],
+  ['reminder1Days', 'Days to send reminder 1'],
+  ['reminder2Days', 'Days from reminder 1 to reminder 2'],
+  ['reminder3Days', 'Days from reminder 2 to reminder 3'],
+  ['legalDays', 'Days from reminder 3 to Legal'],
+];
 
 function useMoney() {
   const { locale } = useT();
@@ -33,7 +41,8 @@ function useMoney() {
 const nextStepLabel = (t: ReturnType<typeof useT>['t'], step: CollectionStage | null) => (step === 'LEGAL' ? t('Hand to Legal') : step ? t('Send reminder {n}', { n: step.slice(-1) }) : '');
 
 /**
- * Rent collection for the owner's team: each month a tenant has not paid 7 days after it was due becomes a case.
+ * Rent collection for the owner's team: each month a tenant has not paid some days after it was due becomes a case
+ * (7 by default; each owner sets its own timings under Team).
  * The collection team sends reminders 1 to 3 (each a letter to the tenant), records every contact, and after the
  * third reminder hands the case to the owner's legal team. Recording the rent as received closes the case.
  */
@@ -45,6 +54,8 @@ export const LeaseCollections: React.FC = () => {
   const [filter, setFilter] = useState<Filter>('action');
   const [open, setOpen] = useState<string | null>(null);
   const [team, setTeam] = useState(false);
+  const [timings, setTimings] = useState<CollectionTimings>(DEFAULT_TIMINGS);
+  useEffect(() => { if (!team) apiClient.getCollectionTimings().then((view) => setTimings(view.timings)).catch(() => undefined); }, [team]);
   const load = useCallback(() => { setError(''); apiClient.getCollectionCases().then(setCases).catch((cause) => { setCases([]); setError(errorText(cause, t('The collection cases could not be loaded.'))); }); }, [t]);
   useEffect(load, [load]);
 
@@ -67,7 +78,7 @@ export const LeaseCollections: React.FC = () => {
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-black">{t('Rent collection')}</p>
-          <p className="text-[11px] text-slate-500">{t('Unpaid 7 days after the due date: reminder 1 within 7 days, reminder 2 within 14, reminder 3 within 7, then Legal.')}</p>
+          <p className="text-[11px] text-slate-500">{t('Unpaid {grace} days after the due date: reminder 1 within {r1} days, reminder 2 within {r2}, reminder 3 within {r3}, then Legal {legal} days later.', { grace: timings.graceDays, r1: timings.reminder1Days, r2: timings.reminder2Days, r3: timings.reminder3Days, legal: timings.legalDays })}</p>
         </div>
         <button type="button" onClick={() => setTeam(true)} className="shrink-0 flex items-center gap-1 rounded-xl border border-slate-300 dark:border-slate-600 px-3 py-2 text-xs font-black"><Users className="w-3.5 h-3.5" />{t('Team')}</button>
       </div>
@@ -263,6 +274,7 @@ const CollectionTeam: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <h2 className="text-lg font-black">{t('Team')}</h2>
         <p className="text-[11px] text-slate-500">{t('Who does what for your leases. Collection sends the reminders and follows up; Legal takes over after the third reminder.')}</p>
       </div>
+      <CollectionTimingsForm />
       {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{serverText(error)}</p>}
       {!team && !error && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
       {team?.members.map(member => (
@@ -280,6 +292,54 @@ const CollectionTeam: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       ))}
       {team && !team.canManage && <p className="text-[11px] text-slate-500">{t('Only the Asset Owner of your organisation changes duties.')}</p>}
     </div>
+  );
+};
+
+/** The owner's own days for each collection step; the Asset Owner changes them, everyone else sees them. */
+const CollectionTimingsForm: React.FC = () => {
+  const { t, locale, serverText } = useT();
+  const [view, setView] = useState<CollectionTimingsView | null>(null);
+  const [draft, setDraft] = useState<Record<keyof CollectionTimings, string> | null>(null);
+  const [error, setError] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const show = (next: CollectionTimingsView) => { setView(next); setDraft(Object.fromEntries(TIMING_FIELDS.map(([key]) => [key, String(next.timings[key])])) as Record<keyof CollectionTimings, string>); };
+  useEffect(() => { apiClient.getCollectionTimings().then(show).catch((cause) => setError(errorText(cause, t('The collection timings could not be loaded.')))); }, [t]);
+  if (!view || !draft) return error ? <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{serverText(error)}</p> : null;
+  const { min, max } = view.limits;
+  const values = Object.fromEntries(TIMING_FIELDS.map(([key]) => [key, Number(draft[key])])) as unknown as CollectionTimings;
+  const valid = TIMING_FIELDS.every(([key]) => Number.isInteger(values[key]) && values[key] >= min && values[key] <= max);
+  const changed = TIMING_FIELDS.some(([key]) => values[key] !== view.timings[key]);
+  const isDefault = TIMING_FIELDS.every(([key]) => view.timings[key] === view.defaults[key]);
+  const save = async (next: CollectionTimings) => {
+    setBusy(true); setError(''); setSaved(false);
+    try { show(await apiClient.setCollectionTimings(next)); setSaved(true); } catch (cause) { setError(errorText(cause, t('That did not go through.'))); } finally { setBusy(false); }
+  };
+  return (
+    <form className={`${card} space-y-2`} onSubmit={(event) => { event.preventDefault(); if (valid) void save(values); }}>
+      <div>
+        <h3 className="text-sm font-black flex items-center gap-1.5"><Clock className="w-4 h-4 text-emerald-600" />{t('Collection timings')}</h3>
+        <p className="text-[11px] text-slate-500">{view.custom && view.updatedAt ? t('Your own timings, changed {date}.', { date: new Date(view.updatedAt).toLocaleDateString(locale) }) : t('The default timings apply.')} {t('A change applies to new cases and to the next step of open cases.')}</p>
+      </div>
+      <div className="grid grid-cols-1 gap-2 in-[.leasing-web]:md:grid-cols-2">
+        {TIMING_FIELDS.map(([key, label]) => (
+          <label key={key} className="block text-xs font-bold text-slate-500">{t(label)}
+            {view.canManage
+              ? <input type="number" inputMode="numeric" required min={min} max={max} step={1} value={draft[key]} onChange={(event) => { setSaved(false); setDraft({ ...draft, [key]: event.target.value }); }} className={input} />
+              : <span className="mt-1 block text-sm font-black text-slate-900 dark:text-white">{t('{n} days', { n: view.timings[key] })}</span>}
+          </label>
+        ))}
+      </div>
+      {error && <p role="alert" className="rounded-xl bg-rose-50 dark:bg-rose-500/10 p-3 text-xs font-bold text-rose-700 dark:text-rose-300">{serverText(error)}</p>}
+      {saved && <p role="status" className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{t('Timings saved.')}</p>}
+      {view.canManage && !valid && <p className="text-[11px] font-bold text-rose-600">{t('Each timing is a whole number of days from {min} to {max}.', { min, max })}</p>}
+      {view.canManage ? (
+        <div className="grid grid-cols-2 gap-2 in-[.leasing-web]:flex">
+          <button type="button" disabled={busy || isDefault} onClick={() => void save(view.defaults)} className={secondary}>{t('Use the defaults')}</button>
+          <button type="submit" disabled={busy || !valid || !changed} className={primary}>{t('Save timings')}</button>
+        </div>
+      ) : <p className="text-[11px] text-slate-500">{t('Only the Asset Owner of your organisation changes the timings.')}</p>}
+    </form>
   );
 };
 

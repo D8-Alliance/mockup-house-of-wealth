@@ -75,6 +75,7 @@ describe('legal pack', () => {
     prisma = {
       rentCollectionCase: { findFirst: jest.fn(async () => row), findUnique: jest.fn(async () => row) },
       organisationDuty: { findMany: jest.fn(async ({ where }) => (where.duty === 'COLLECTION' ? [{ userId: 'USR-AZIMAH' }] : where.duty === 'LEGAL' ? [{ userId: 'USR-LEGAL' }] : [])) },
+      rentCollectionSettings: { findUnique: jest.fn(async () => null), findMany: jest.fn(async () => []) },
       assetLease: { findUniqueOrThrow: jest.fn(async () => ({ id: 'LEASE-MYS-1', startDate: d('2026-08-01'), createdBy: 'USR-TN', unit: { label: 'Tingkat 7', asset: { name: 'Menara Hidayah', ownerUserId: 'USR-AO' } } })) },
       organisation: { findMany: jest.fn(async () => [{ id: 'ORG-AHG', name: 'Al Hidayah Group' }, { id: 'ORG-TENANT', name: 'Teras Engineering' }]) },
       leaseRentPayment: { findMany: jest.fn(async () => [{ amount: new Prisma.Decimal(25500), dueDate: d('2026-11-01') }]), findUnique: jest.fn(async () => ({ dueDate: d('2026-11-01') })) },

@@ -2827,6 +2827,18 @@ model LeaseStatement {
   @@index([leaseId])
 }
 
+/// An owner organisation's own rent collection timings in days; no row means the defaults (7, 7, 14, 7, 7).
+model RentCollectionSettings {
+  organisationId String   @id
+  graceDays      Int
+  reminder1Days  Int
+  reminder2Days  Int
+  reminder3Days  Int
+  legalDays      Int
+  updatedBy      String
+  updatedAt      DateTime @updatedAt
+}
+
 /// A month's rent not paid in time, chased by the owner's collection team: reminders 1 to 3, then the owner's legal team.
 model RentCollectionCase {
   id                   String    @id
