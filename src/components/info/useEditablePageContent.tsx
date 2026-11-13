@@ -61,7 +61,7 @@ export function EditablePageAdminBar({
 }) {
   if (!canEdit) return null;
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-2 mb-4">
+    <div className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 -mt-2 mb-4">
       <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10">
         <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
           status === 'published'

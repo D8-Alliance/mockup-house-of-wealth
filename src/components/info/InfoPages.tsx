@@ -84,7 +84,7 @@ function PageBanner({ title, blurb }: { title: string; blurb: string }) {
   return (
     <section className="relative overflow-hidden">
       <div className="absolute top-0 right-0 w-[30rem] h-[30rem] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+      <div className="relative max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-12 sm:py-16">
         <div className="max-w-3xl">
           <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
             Islamic Circular Economy Platform
@@ -111,8 +111,8 @@ function InfoHeader({
   const countries = useNetworkCountries();
   return (
     <>
-      <div className="bg-slate-950 text-white border-b border-slate-800 py-2.5 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div className="bg-slate-950 text-white border-b border-slate-800 py-2.5 px-4 sm:px-6 lg:px-8 2xl:px-12">
+        <div className="max-w-[2400px] mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5">
             <span className="text-slate-400 font-medium">D-8 Member States:</span>
             <span className="text-emerald-400 font-extrabold uppercase tracking-wider text-[10px]">
@@ -135,7 +135,7 @@ function InfoHeader({
       </div>
 
       <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12">
           <div className="flex justify-between items-center h-16 gap-4">
             <button onClick={() => onNavigate('home')} className="flex items-center gap-3 cursor-pointer bg-transparent border-0">
               <WealthPoolingLogo compact />
@@ -176,7 +176,7 @@ export function InfoPageLayout({ children, pageId, onNavigate, onSignIn }: InfoP
       <InfoHeader pageId={pageId} onNavigate={onNavigate} onSignIn={onSignIn} />
 
       <div className="lg:hidden border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap gap-2">
+        <div className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-3 flex flex-wrap gap-2">
           {NAV_LINKS.map((link) => (
             <button
               key={link.id}
@@ -196,7 +196,7 @@ export function InfoPageLayout({ children, pageId, onNavigate, onSignIn }: InfoP
       <main className="flex-grow">{children}</main>
 
       <footer className="bg-slate-950 text-slate-400 py-8 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
+        <div className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-emerald-500" />
             <span className="font-bold text-white">Wealth Pooling</span>
@@ -210,7 +210,7 @@ export function InfoPageLayout({ children, pageId, onNavigate, onSignIn }: InfoP
             <span>AAOIFI standards referenced</span>
           </div>
         </div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4 text-[10px] text-slate-600">
+        <div className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 mt-4 text-[10px] text-slate-600">
           Public demonstration portal. Guest-tier content is limited to marketplace & ecosystem overview.
           Authorised roles unlock role-scoped financial workspaces after identity gateway sign-in.
         </div>
@@ -249,7 +249,7 @@ export function AboutD8Page() {
 
       <EditablePageAdminBar schemaLabel="About D-8" status={status} canEdit={canEdit} onEdit={openEditor} />
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 pb-8">
         {content.meta.intro && (
           <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed max-w-3xl mb-8">{content.meta.intro}</p>
         )}
@@ -273,7 +273,7 @@ export function AboutD8Page() {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         <SectionHeading
           icon={<Landmark className="w-4 h-4" />}
           title="Our Four Strategic Pillars"
@@ -291,7 +291,7 @@ export function AboutD8Page() {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         <SectionHeading
           icon={<ScrollText className="w-4 h-4" />}
           title="Our Journey"
@@ -352,7 +352,7 @@ export function MemberStatesPage() {
 
       <EditablePageAdminBar schemaLabel="Member States" status={status} canEdit={canEdit} onEdit={openEditor} />
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         <div className="flex flex-wrap gap-2">
           {countries.map((c) => (
             <button
@@ -404,7 +404,7 @@ export function MemberStatesPage() {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         <SectionHeading icon={<Users className="w-4 h-4" />} title="Member States Overview" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {countries.map((c) => (
@@ -501,7 +501,7 @@ export function ShariahGovernancePage() {
       />
 
       {canEdit && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-2 mb-4">
+        <div className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 -mt-2 mb-4">
           <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-purple-200 dark:border-purple-500/30 bg-purple-50 dark:bg-purple-500/10">
             <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
               status === 'published'
@@ -526,7 +526,7 @@ export function ShariahGovernancePage() {
       )}
 
       {/* Core Values intro */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         <SectionHeading
           icon={<Award className="w-4 h-4" />}
           title="The 10 Islamic Intangible Core Values"
@@ -578,7 +578,7 @@ export function ShariahGovernancePage() {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         <SectionHeading icon={<ShieldCheck className="w-4 h-4" />} title="Core Shariah Principles" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {principles.map((p) => (
@@ -595,7 +595,7 @@ export function ShariahGovernancePage() {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         <SectionHeading
           icon={<BookOpen className="w-4 h-4" />}
           title="Shariah-Compliant Structures"
@@ -615,7 +615,7 @@ export function ShariahGovernancePage() {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         <SectionHeading icon={<Scale className="w-4 h-4" />} title="Three-Tier Assurance Framework" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {reassurance.map((t) => (
@@ -670,7 +670,7 @@ export function NewsUpdatesPage() {
 
       <EditablePageAdminBar schemaLabel="News & Updates" status={status} canEdit={canEdit} onEdit={openEditor} />
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         <div className="rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
           <div className="grid grid-cols-1 lg:grid-cols-5">
             <div className="lg:col-span-2 h-56 lg:h-auto bg-gradient-to-br from-emerald-600 to-teal-700 relative">
@@ -696,7 +696,7 @@ export function NewsUpdatesPage() {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         <SectionHeading icon={<Newspaper className="w-4 h-4" />} title="Latest Updates" />
         <div className="space-y-4">
           {items.map((n, i) => (
@@ -748,7 +748,7 @@ export function ContactPage() {
 
       <EditablePageAdminBar schemaLabel="Contact" status={status} canEdit={canEdit} onEdit={openEditor} />
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card>
             <SectionHeading

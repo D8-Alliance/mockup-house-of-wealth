@@ -13,7 +13,7 @@ export const LiveOpenPoolsPreview: React.FC<{ onSignIn: () => void; onExplore: (
   React.useEffect(() => { apiClient.getPublicOpenPools().then(setPools).catch(() => setPools([])); }, []);
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
+    <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 pb-12">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex flex-wrap items-center gap-2">
           <HandCoins className="w-5 h-5 text-emerald-500" />
