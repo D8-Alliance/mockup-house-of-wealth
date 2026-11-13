@@ -83,7 +83,7 @@ function Card({ children }: { children: React.ReactNode }) {
 function PageBanner({ title, blurb }: { title: string; blurb: string }) {
   return (
     <section className="relative overflow-hidden">
-      <div className="absolute top-0 right-0 w-[30rem] h-[30rem] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-120 h-120 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="relative max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-12 sm:py-16">
         <div className="max-w-3xl">
           <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
@@ -193,7 +193,7 @@ export function InfoPageLayout({ children, pageId, onNavigate, onSignIn }: InfoP
         </div>
       </div>
 
-      <main className="flex-grow">{children}</main>
+      <main className="grow">{children}</main>
 
       <footer className="bg-slate-950 text-slate-400 py-8 border-t border-slate-800">
         <div className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
@@ -300,7 +300,7 @@ export function AboutD8Page() {
         <div className="relative border-l border-slate-200 dark:border-slate-700 ml-3 pl-8 space-y-8">
           {milestones.map((m) => (
             <div key={m.id} className="relative">
-              <span className="absolute -left-[2.35rem] top-0 w-4 h-4 rounded-full bg-emerald-500 border-4 border-white dark:border-slate-900" />
+              <span className="absolute left-[-2.35rem] top-0 w-4 h-4 rounded-full bg-emerald-500 border-4 border-white dark:border-slate-900" />
               <div className="flex items-center gap-3 mb-1">
                 <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-xs font-bold border border-emerald-500/20">
                   {m.values.year}
@@ -370,7 +370,7 @@ export function MemberStatesPage() {
           ))}
         </div>
 
-        <div className="mt-6 p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white border border-slate-700/60 shadow-2xl">
+        <div className="mt-6 p-6 rounded-3xl bg-linear-to-br from-slate-900 via-slate-800 to-emerald-950 text-white border border-slate-700/60 shadow-2xl">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-5">
             <img
               src={active.flagUrl}
@@ -673,7 +673,7 @@ export function NewsUpdatesPage() {
       <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         <div className="rounded-3xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
           <div className="grid grid-cols-1 lg:grid-cols-5">
-            <div className="lg:col-span-2 h-56 lg:h-auto bg-gradient-to-br from-emerald-600 to-teal-700 relative">
+            <div className="lg:col-span-2 h-56 lg:h-auto bg-linear-to-br from-emerald-600 to-teal-700 relative">
               <div className="absolute inset-0 flex items-center justify-center text-white/90">
                 <Newspaper className="w-24 h-24" />
               </div>

@@ -175,7 +175,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[40rem] h-[40rem] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-160 h-160 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative w-full max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-12 sm:py-16">
@@ -190,9 +190,9 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
                 </span>
               </div>
 
-              <h1 className="min-w-0 break-words text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+              <h1 className="min-w-0 wrap-break-word text-3xl sm:text-5xl font-black tracking-tight leading-tight">
                 Cross-Border Islamic
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-400"> Circular Economy</span>
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-500 to-teal-400"> Circular Economy</span>
               </h1>
 
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed">
@@ -244,7 +244,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
             {/* Right: Selected Country Card */}
             <div className="min-w-0 space-y-4">
-              <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white border border-slate-700/60 shadow-2xl">
+              <div className="p-6 rounded-3xl bg-linear-to-br from-slate-900 via-slate-800 to-emerald-950 text-white border border-slate-700/60 shadow-2xl">
                 <div className="flex items-center gap-4 mb-4">
                   <img
                     src={selectedCountry.flagUrl}
@@ -400,7 +400,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
       {/* Login Call-to-Action */}
       <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 pb-16">
-        <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-8 sm:p-10 text-center border border-slate-700/60">
+        <div className="rounded-3xl bg-linear-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-8 sm:p-10 text-center border border-slate-700/60">
           <h2 className="text-2xl sm:text-3xl font-black mb-3">Ready to Participate in the D-8 Circular Economy?</h2>
           <p className="text-sm text-slate-300 max-w-2xl mx-auto mb-6">
             Sign in to access your secure, role-based workspace — manage assets, originate

@@ -21,6 +21,7 @@ async function main() {
   const lease = await prisma.assetLease.findUnique({ where: { id: leaseId }, include: { unit: { select: { label: true, asset: { select: { name: true } } } }, payments: { select: { period: true, status: true } } } });
   if (!lease) throw new Error(`No lease ${leaseId}.`);
   if (lease.status !== 'ENDED' || !lease.endedAt) throw new Error(`${leaseId} is ${lease.status}; only a lease the owner ended can be reopened.`);
+  const endedAt = lease.endedAt;
   if (lease.depositReturnedAt || (Array.isArray(lease.depositRefunds) && lease.depositRefunds.length)) throw new Error('Its deposits were already refunded; reopening would leave the refund recorded against a running lease.');
   const holder = await prisma.assetLease.findFirst({ where: { unitId: lease.unitId, id: { not: leaseId }, status: { in: ['ACCEPTED', 'APPROVED'] }, startDate: { lte: lease.endDate }, endDate: { gte: lease.startDate } }, select: { id: true } });
   if (holder) throw new Error(`${holder.id} now holds this unit for an overlapping period.`);
@@ -50,7 +51,7 @@ async function main() {
     await tx.auditEvent.create({ data: {
       userId: actor.id, userEmail: actor.email, action: 'asset_lease.reopened', resourceType: 'AssetLease', resourceId: leaseId,
       organisationId: lease.ownerOrganisationId, countryNodeId: lease.countryNodeId, result: 'Success',
-      metadata: { reason: reason.trim(), via: 'scripts/reopen-ended-lease.ts', removedHistoryEntry: ended, endedAt: lease.endedAt.toISOString(), rentPeriodsAddedBack: missing.map((row) => row.period) } as Prisma.InputJsonValue,
+      metadata: { reason: reason.trim(), via: 'scripts/reopen-ended-lease.ts', removedHistoryEntry: ended, endedAt: endedAt.toISOString(), rentPeriodsAddedBack: missing.map((row) => row.period) } as Prisma.InputJsonValue,
     } });
   });
   console.log('\nReopened: the lease is approved again.');

@@ -209,7 +209,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
   return (
     <div className="space-y-6 pb-16 animate-fadeIn font-sans text-xs">
       {/* AI Center Banner with Live Credit Balance Pill */}
-      <div className="p-6 md:p-8 rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-purple-950 text-white shadow-xl relative overflow-hidden">
+      <div className="p-6 md:p-8 rounded-3xl bg-linear-to-r from-slate-900 via-slate-800 to-purple-950 text-white shadow-xl relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
             <div className="flex items-center gap-2 flex-wrap">
@@ -270,7 +270,7 @@ export const AIWealthEngineView: React.FC<AIWealthEngineViewProps> = ({ onNaviga
           const isActive = activeTab === tab.id;
           return (
             <button key={tab.id} onClick={() => selectTab(tab.id)} className={`flex items-center gap-2 px-3.5 py-2.5 rounded-2xl font-bold text-xs whitespace-nowrap transition-all cursor-pointer ${isActive ? 'bg-purple-700 text-white shadow-lg shadow-purple-700/20' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 border border-slate-200 dark:border-slate-700'}`}>
-              {tab.icon}<span>{tab.label}</span>{tab.badge && <span className={`text-[9px] font-black px-1.5 py-[2px] rounded-full font-mono ${isActive ? 'bg-white/20 text-white' : 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'}`}>{tab.badge}</span>}
+              {tab.icon}<span>{tab.label}</span>{tab.badge && <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full font-mono ${isActive ? 'bg-white/20 text-white' : 'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300'}`}>{tab.badge}</span>}
             </button>
           );
         })}
