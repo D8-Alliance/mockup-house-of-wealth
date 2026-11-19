@@ -62,7 +62,7 @@ export class EstateCasesService {
     if (!row.reporterEmail || !this.delivery) return;
     const language = notificationLanguage(null, row.countryNodeId);
     const [subject, body] = [inLanguage(title, language), inLanguage(message, language)];
-    await this.delivery.deliverEach({ channels: 'EMAIL', recipientEmail: row.reporterEmail, ...(language === 'ms'
+    await this.delivery.deliverEach({ channels: 'EMAIL', recipientEmail: row.reporterEmail, language, ...(language === 'ms'
       ? { title: `${subject} (kes ${row.caseNumber})`, message: `Kepada ${row.reporterName}, ${body} Sebut kes ${row.caseNumber} jika anda menghubungi kami.` }
       : { title: `${subject} (case ${row.caseNumber})`, message: `Dear ${row.reporterName}, ${body} Quote case ${row.caseNumber} if you contact us.` }) }).catch(() => undefined);
   }

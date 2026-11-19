@@ -131,7 +131,7 @@ export class EstateService {
     if (origin && row.email && this.delivery) {
       // The recipient usually has no account yet, so the country decides the language.
       const language = notificationLanguage(null, row.countryNodeId);
-      const results = await this.delivery.deliverEach({ channels: 'EMAIL', recipientEmail: row.email, title: inLanguage(`${actor.name} offers you a hibah`, language), message: inLanguage(`${actor.name} has made you a hibah (gift) of part of their investments on Wealth Pooling, to pass to you as set out in their estate instructions. To accept or decline it (qabul), open ${origin}/m/hibah/${token} before ${expiresAt.toISOString().slice(0, 10)}. You will need the last four characters of your ID number. If you did not expect this, ignore it.`, language) }).catch(() => []);
+      const results = await this.delivery.deliverEach({ channels: 'EMAIL', recipientEmail: row.email, language, title: inLanguage(`${actor.name} offers you a hibah`, language), message: inLanguage(`${actor.name} has made you a hibah (gift) of part of their investments on Wealth Pooling, to pass to you as set out in their estate instructions. To accept or decline it (qabul), open ${origin}/m/hibah/${token} before ${expiresAt.toISOString().slice(0, 10)}. You will need the last four characters of your ID number. If you did not expect this, ignore it.`, language) }).catch(() => []);
       emailed = results.some((result) => result.outcome === 'SENT');
     }
     await this.audit.recordActor(actor, { action: 'estate.hibah.qabul_requested', resourceType: 'EstateBeneficiary', resourceId: id, organisationId: row.organisationId, countryNodeId: row.countryNodeId, metadata: { expiresAt: expiresAt.toISOString(), emailed } });

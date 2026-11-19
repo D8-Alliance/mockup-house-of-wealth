@@ -2,8 +2,12 @@ import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { createTransport, Transporter } from 'nodemailer';
 import { FcmClient, loadServiceAccount } from './fcm-client';
 import { emailProvider, smtpOptions } from './email-config';
+import { renderEmailHtml } from './email-layout';
+import { EMAIL_LOGO_CID, EMAIL_LOGO_FILE, EMAIL_LOGO_PNG_BASE64 } from './email-logo';
+import type { NotificationLanguage } from './notification-language';
 
-type DeliveryInput = { channels: string; title: string; message: string; recipientEmail?: string; recipientPhone?: string; pushToken?: string; attachment?: { filename: string; content: Buffer } };
+/** recipientName adds a "Dear …" line to the email; language sets the email's greeting and footer wording. */
+type DeliveryInput = { channels: string; title: string; message: string; recipientEmail?: string; recipientName?: string; language?: NotificationLanguage; recipientPhone?: string; pushToken?: string; attachment?: { filename: string; content: Buffer } };
 
 /** What happened on one channel: SKIPPED means it cannot be sent here (not set up, no address), so retrying will not help. */
 export interface ChannelResult { channel: string; outcome: 'SENT' | 'SKIPPED' | 'FAILED'; reason?: string }
@@ -44,16 +48,20 @@ export class NotificationDeliveryService {
     return true;
   }
 
-  private async email(input: { title: string; message: string; recipientEmail?: string; attachment?: { filename: string; content: Buffer } }) {
+  private async email(input: DeliveryInput) {
     // Email is optional while Firebase Push is the active delivery channel.
     const provider = emailProvider();
     if (!provider || !input.recipientEmail) throw new ServiceUnavailableException('Email notification is not configured.');
     const { attachment } = input;
+    // The designed HTML version, with the plain text alongside for mail apps that do not show HTML.
+    // The logo travels inside the email (an inline attachment the HTML shows by its content id).
+    const html = renderEmailHtml(input);
+    const text = input.recipientName ? `${input.language === 'ms' ? 'Kepada' : 'Dear'} ${input.recipientName},\n\n${input.message}` : input.message;
     if (provider === 'smtp') {
-      await this.smtp().sendMail({ from: process.env.NOTIFICATION_EMAIL_FROM, to: input.recipientEmail, subject: input.title, text: input.message, ...(attachment ? { attachments: [{ filename: attachment.filename, content: attachment.content }] } : {}) });
+      await this.smtp().sendMail({ from: process.env.NOTIFICATION_EMAIL_FROM, to: input.recipientEmail, subject: input.title, text, html, attachments: [{ filename: EMAIL_LOGO_FILE, content: Buffer.from(EMAIL_LOGO_PNG_BASE64, 'base64'), cid: EMAIL_LOGO_CID }, ...(attachment ? [{ filename: attachment.filename, content: attachment.content }] : [])] });
       return;
     }
-    const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: process.env.NOTIFICATION_EMAIL_FROM, to: [input.recipientEmail], subject: input.title, text: input.message, ...(attachment ? { attachments: [{ filename: attachment.filename, content: attachment.content.toString('base64') }] } : {}) }) });
+    const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: process.env.NOTIFICATION_EMAIL_FROM, to: [input.recipientEmail], subject: input.title, text, html, attachments: [{ filename: EMAIL_LOGO_FILE, content: EMAIL_LOGO_PNG_BASE64, content_id: EMAIL_LOGO_CID }, ...(attachment ? [{ filename: attachment.filename, content: attachment.content.toString('base64') }] : [])] }) });
     if (!response.ok) throw new Error(`Email provider returned ${response.status}`);
   }
 

@@ -115,7 +115,7 @@ export class NotificationService {
       const claimed = await this.prisma.notificationOutbox.updateMany({ where: { id: row.id, status: 'PENDING' }, data: { status: 'PROCESSING', attempts: { increment: 1 } } });
       if (!claimed.count) continue;
       try {
-        const recipient = await this.prisma.user.findUnique({ where: { id: row.recipientUserId }, select: { email: true, profile: true } });
+        const recipient = await this.prisma.user.findUnique({ where: { id: row.recipientUserId }, select: { email: true, name: true, profile: true } });
         const profile = recipient?.profile && typeof recipient.profile === 'object' && !Array.isArray(recipient.profile) ? recipient.profile as Record<string, unknown> : {};
         await this.prisma.notification.upsert({ where: { dedupeKey: row.dedupeKey }, update: {}, create: { recipientUserId: row.recipientUserId, organisationId: row.organisationId, countryNodeId: row.countryNodeId, type: row.type, title: row.title, message: row.message, resourceType: row.resourceType, resourceId: row.resourceId, dedupeKey: row.dedupeKey, createdAt: row.createdAt } });
         // Only the channels not yet done: a retry never repeats an email or push that already went out.
@@ -123,7 +123,7 @@ export class NotificationService {
         const pending = channelsForRecipient(row.channels, profile).split(',').filter((channel) => channel && !done.has(channel.trim().toUpperCase())).join(',');
         // The record above stays in English; what is sent out reads in the recipient's language.
         const language = notificationLanguage(profile, row.countryNodeId);
-        const results = await this.delivery.deliverEach({ channels: pending, title: inLanguage(row.title, language), message: inLanguage(row.message, language), recipientEmail: recipient?.email, recipientPhone: typeof profile.phone === 'string' ? profile.phone : undefined, pushToken: typeof profile.pushToken === 'string' ? profile.pushToken : undefined, ...(row.attachment && row.attachmentName ? { attachment: { filename: row.attachmentName, content: Buffer.from(row.attachment) } } : {}) });
+        const results = await this.delivery.deliverEach({ channels: pending, title: inLanguage(row.title, language), message: inLanguage(row.message, language), recipientEmail: recipient?.email, recipientName: recipient?.name || undefined, language, recipientPhone: typeof profile.phone === 'string' ? profile.phone : undefined, pushToken: typeof profile.pushToken === 'string' ? profile.pushToken : undefined, ...(row.attachment && row.attachmentName ? { attachment: { filename: row.attachmentName, content: Buffer.from(row.attachment) } } : {}) });
         for (const result of results) if (result.outcome !== 'FAILED') done.add(result.channel);
         const failed = results.filter((result) => result.outcome === 'FAILED');
         const skipped = results.filter((result) => result.outcome === 'SKIPPED');

@@ -86,7 +86,7 @@ export class AgreementSigningService {
       if (!this.delivery) throw new ServiceUnavailableException('Email delivery is not available.');
       const signer = await this.prisma.user.findUnique({ where: { id: actor.userId }, select: { profile: true } });
       const language = notificationLanguage(signer?.profile, actor.countryNodeId);
-      await this.delivery.deliver({ channels: 'EMAIL', recipientEmail: actor.email, title: inLanguage(`Your code to sign ${contract.contractNumber}`, language), message: inLanguage(`Your code to sign ${contract.contractNumber} (version ${contract.version}) is ${code}. It expires in ${CODE_MINUTES} minutes. If you did not ask for it, do not share it and tell the platform.`, language) });
+      await this.delivery.deliver({ channels: 'EMAIL', recipientEmail: actor.email, language, title: inLanguage(`Your code to sign ${contract.contractNumber}`, language), message: inLanguage(`Your code to sign ${contract.contractNumber} (version ${contract.version}) is ${code}. It expires in ${CODE_MINUTES} minutes. If you did not ask for it, do not share it and tell the platform.`, language) });
     }
     await this.audit.recordActor(actor, { action: 'agreement.sign_code_sent', resourceType: 'Contract', resourceId: contract.id, organisationId: actor.organisationId, countryNodeId: actor.countryNodeId, metadata: { channel, destination, version: contract.version, challengeId: id } });
     return { challengeId: id, channel, destination, expiresAt: expiresAt.toISOString(), ...(channel === 'TEST' ? { testCode: code } : {}) };

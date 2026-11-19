@@ -58,11 +58,13 @@ describe('NotificationDeliveryService email attachment', () => {
     const content = Buffer.from('%PDF-1.7 statement');
     await new NotificationDeliveryService().deliverEach({ channels: 'IN_APP,EMAIL', title: 'Statement of account 2026-12', message: 'Ready.', recipientEmail: 'tenant@example.test', attachment: { filename: 'LEASE-1-statement-2026-12.pdf', content } });
     const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
-    expect(body.attachments).toEqual([{ filename: 'LEASE-1-statement-2026-12.pdf', content: content.toString('base64') }]);
+    expect(body.attachments).toEqual([expect.objectContaining({ filename: 'wealth-pooling-logo.png', content_id: 'wealth-pooling-logo' }), { filename: 'LEASE-1-statement-2026-12.pdf', content: content.toString('base64') }]);
   });
 
-  it('sends a plain email when there is no file', async () => {
+  it('sends only the logo when there is no file', async () => {
     await new NotificationDeliveryService().deliverEach({ channels: 'EMAIL', title: 'Hello', message: 'Body', recipientEmail: 'tenant@example.test' });
-    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).attachments).toBeUndefined();
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.attachments.map((file: { filename: string }) => file.filename)).toEqual(['wealth-pooling-logo.png']);
+    expect(body.html).toContain('src="cid:wealth-pooling-logo"');
   });
 });
