@@ -174,7 +174,7 @@ const CollectionCaseDetail: React.FC<{ id: string; onBack: () => void }> = ({ id
       {!mode && (
         <div className="grid grid-cols-2 gap-2 in-[.leasing-web]:flex in-[.leasing-web]:flex-wrap">
           {item.canRemind && <button type="button" onClick={() => setMode('remind')} className={`${primary} col-span-2 flex items-center justify-center gap-1.5`}><Send className="w-4 h-4" />{nextStepLabel(t, item.nextStep)}</button>}
-          {item.canEscalate && <button type="button" onClick={() => setMode('legal')} className={`${primary} col-span-2 flex items-center justify-center gap-1.5 !bg-slate-800`}><Gavel className="w-4 h-4" />{t('Hand to Legal')}</button>}
+          {item.canEscalate && <button type="button" onClick={() => setMode('legal')} className={`${primary} col-span-2 flex items-center justify-center gap-1.5 bg-slate-800!`}><Gavel className="w-4 h-4" />{t('Hand to Legal')}</button>}
           {item.canFollowUp && <button type="button" onClick={() => setMode('follow')} className={secondary}>{t('Record a follow-up')}</button>}
           {item.canAssign && <button type="button" onClick={() => { setAssignee(item.assignedUserId ?? collectors[0]?.userId ?? ''); setMode('assign'); }} className={`${secondary} flex items-center justify-center gap-1`}><UserCheck className="w-4 h-4" />{t('Assign')}</button>}
           {item.canClose && <button type="button" onClick={() => setMode('close')} className={`${secondary} col-span-2`}>{t('Close without payment')}</button>}

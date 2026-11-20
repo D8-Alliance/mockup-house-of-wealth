@@ -156,7 +156,7 @@ export const AIContractAdvisor: React.FC<AIContractAdvisorProps> = ({ user, proj
 
       {error && <p role="alert" className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 text-xs font-semibold">{error}</p>}
 
-      {analysis && (
+      {analysis && project && (
         <div className="space-y-6">
            <AIRecommendationCard
              title={`Recommended Structure: ${analysis.recommendation.primaryStructure || 'Review Required'} vs ${project.proposedShariahContract}`}

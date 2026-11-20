@@ -183,7 +183,7 @@ export const MobileInvestorDashboard: React.FC<{ onOpen: (tab: MobileTab) => voi
         {profitRows.some(position => position.profitEarned > 0) && profitRows.map(position => (
           <div key={position.poolId} className="space-y-1">
             <div className="flex justify-between gap-2 text-xs"><span className="font-bold truncate">{position.poolName}</span><span className="font-black whitespace-nowrap">{money2(position.profitEarned, currency)}</span></div>
-            <div className="h-2.5 rounded-full bg-[var(--viz-track)] overflow-hidden" role="img" aria-label={t('{pool}: {amount}, {pct}% return', { pool: position.poolName, amount: money2(position.profitEarned, currency, locale), pct: position.returnPct.toFixed(2) })}>
+            <div className="h-2.5 rounded-full bg-(--viz-track) overflow-hidden" role="img" aria-label={t('{pool}: {amount}, {pct}% return', { pool: position.poolName, amount: money2(position.profitEarned, currency, locale), pct: position.returnPct.toFixed(2) })}>
               <div className="h-full rounded-full" style={{ width: `${(position.profitEarned / maxProfit) * 100}%`, background: 'var(--s1)' }} />
             </div>
             <p className="text-[11px] text-slate-500">{t('{pct}% return on {amount}', { pct: position.returnPct.toFixed(2), amount: formatProjectMoney(position.capital, currency) })}</p>

@@ -110,7 +110,7 @@ export const LeaseReport: React.FC = () => {
             <div className="flex items-end gap-1 h-36" role="img" aria-label={t('Rent by month, {year}', { year })}>
               {data.months.map(month => (
                 <button key={month.key} type="button" onClick={() => setOpenMonth(openMonth === month.key ? null : month.key)} aria-label={`${monthName(month.key)}: ${money(month.received)} / ${money(month.expected)}`} className={`flex-1 h-full flex flex-col justify-end items-stretch gap-1 rounded-md ${openMonth === month.key ? 'bg-slate-100 dark:bg-slate-800' : ''}`}>
-                  <span className="flex flex-col-reverse rounded-t-[4px] overflow-hidden gap-0.5" style={{ height: `${(month.expected / max) * 100}%` }}>
+                  <span className="flex flex-col-reverse rounded-t-sm overflow-hidden gap-0.5" style={{ height: `${(month.expected / max) * 100}%` }}>
                     {month.received > 0 && <span className={RECEIVED} style={{ flexGrow: month.received }} />}
                     {month.overdue > 0 && <span className={OVERDUE} style={{ flexGrow: month.overdue }} />}
                     {month.upcoming > 0 && <span className={UPCOMING} style={{ flexGrow: month.upcoming }} />}
@@ -158,7 +158,7 @@ export const LeaseReport: React.FC = () => {
                 <span className="font-black">{row.year}</span>
                 <span>{row.rate !== null ? t('{rate}% collected', { rate: row.rate }) : t('Not due yet')}</span>
               </div>
-              <div className="flex h-3 rounded-[4px] overflow-hidden gap-0.5 bg-slate-100 dark:bg-slate-800">
+              <div className="flex h-3 rounded-sm overflow-hidden gap-0.5 bg-slate-100 dark:bg-slate-800">
                 {row.received > 0 && <span className={RECEIVED} style={{ flexGrow: row.received }} />}
                 {row.overdue > 0 && <span className={OVERDUE} style={{ flexGrow: row.overdue }} />}
                 {row.upcoming > 0 && <span className={UPCOMING} style={{ flexGrow: row.upcoming }} />}
