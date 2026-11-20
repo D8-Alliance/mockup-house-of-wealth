@@ -86,7 +86,7 @@ function MobileSignIn({ error }: { error: string | null }) {
   };
   const shownError = error || demoError;
   return (
-    <main className="relative min-h-dvh flex flex-col items-center justify-center gap-6 px-6 bg-gradient-to-b from-emerald-950 via-emerald-900 to-slate-950 text-white text-center">
+    <main className="relative min-h-dvh flex flex-col items-center justify-center gap-6 px-6 bg-linear-to-b from-emerald-950 via-emerald-900 to-slate-950 text-white text-center">
       <div className="absolute top-4 right-4"><LanguageToggle /></div>
       <div className="w-24 h-24 rounded-full bg-white/95 border-2 border-amber-400/60 flex items-center justify-center shadow-xl">
         <img src="/wealth-pooling-logo.svg" alt="" className="w-16 h-16" />

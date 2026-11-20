@@ -92,7 +92,7 @@ export const MobileShell: React.FC = () => {
         </button>
         <button type="button" onClick={() => setOverlay('notifications')} aria-label={unread ? t('Notifications, {count} unread', { count: unread }) : t('Notifications')} className="relative w-9 h-9 shrink-0 rounded-full flex items-center justify-center hover:bg-white/10">
           <Bell className="w-5 h-5" />
-          {unread > 0 && <span aria-hidden className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-400 text-emerald-950 text-[10px] font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>}
+          {unread > 0 && <span aria-hidden className="absolute -top-0.5 -right-0.5 min-w-4.5 h-4.5 px-1 rounded-full bg-amber-400 text-emerald-950 text-[10px] font-black flex items-center justify-center">{unread > 99 ? '99+' : unread}</span>}
         </button>
         <button type="button" onClick={() => openTab('account')} aria-label={t('My profile')} className="w-9 h-9 shrink-0 rounded-full overflow-hidden border-2 border-amber-300/70 bg-emerald-800 flex items-center justify-center text-[11px] font-black uppercase">
           {avatar ? <img src={avatar} alt="" className="w-full h-full object-cover" /> : initials}

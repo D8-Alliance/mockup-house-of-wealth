@@ -34,7 +34,7 @@ export const MobileHome: React.FC<{ onOpen: (tab: MobileTab) => void; onOpenKyc:
 
   return (
     <div className="space-y-4">
-      <section className="rounded-3xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white p-5 shadow">
+      <section className="rounded-3xl bg-linear-to-br from-emerald-800 to-emerald-950 text-white p-5 shadow">
         <p className="text-xs text-emerald-100/80">Assalamualaikum,</p>
         <h1 className="text-xl font-black">{activeUser.name}</h1>
         <p className="text-xs text-amber-200 font-semibold mt-1">{t(currentRole)}</p>

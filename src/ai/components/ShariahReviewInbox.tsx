@@ -107,13 +107,13 @@ export const ShariahReviewInbox: React.FC<ShariahReviewInboxProps> = ({ role }) 
             </div>}
 
             <div className="grid h-auto items-start gap-4 lg:grid-cols-2">
-              <div className="flex h-auto min-h-[250px] min-w-0 flex-col overflow-visible rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+              <div className="flex h-auto min-h-62.5 min-w-0 flex-col overflow-visible rounded-xl border border-slate-200 p-3 dark:border-slate-700">
                 <p className="text-[10px] font-black uppercase tracking-wider text-purple-600">Term Sheet Submitted</p>
-                <div className="mt-2 h-auto min-h-[220px] text-[10px] leading-relaxed text-slate-600 dark:text-slate-300">
-                  {(review.aiResult?.draftText || 'No draft content was attached to this submission.').split('\n').map((line, index) => <div key={`${index}-${line}`} className="break-words">{line || '\u00a0'}</div>)}
+                <div className="mt-2 h-auto min-h-55 text-[10px] leading-relaxed text-slate-600 dark:text-slate-300">
+                  {(review.aiResult?.draftText || 'No draft content was attached to this submission.').split('\n').map((line, index) => <div key={`${index}-${line}`} className="wrap-break-word">{line || '\u00a0'}</div>)}
                 </div>
               </div>
-              <div className="flex h-auto min-h-[250px] min-w-0 flex-col overflow-visible rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+              <div className="flex h-auto min-h-62.5 min-w-0 flex-col overflow-visible rounded-xl border border-slate-200 p-3 dark:border-slate-700">
                 <p className="text-[10px] font-black uppercase tracking-wider text-blue-600">Project Evidence ({projectDocuments.length})</p>
                 {projectDocuments.length === 0 ? <p className="mt-2 text-[10px] text-amber-700">No project documents available for review.</p> : <ul className="mt-2 space-y-1 text-[10px] text-slate-600 dark:text-slate-300">{projectDocuments.map((document) => <li key={document.id}><button disabled={downloadingId === document.id} onClick={async () => { setDownloadingId(document.id); try { await apiClient.downloadProjectDocument(review.projectId, document.id); } catch (downloadError) { setError(downloadError instanceof Error ? downloadError.message : 'Unable to download the project document.'); } finally { setDownloadingId(''); } }} className="inline-flex items-center gap-1 text-left text-blue-700 underline hover:text-blue-900 disabled:opacity-50"><Download className="h-3 w-3" /> {document.fileName}</button> <span className="text-slate-400">({document.extractionStatus})</span></li>)}</ul>}
               </div>

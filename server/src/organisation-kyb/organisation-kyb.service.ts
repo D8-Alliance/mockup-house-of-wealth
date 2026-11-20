@@ -59,7 +59,7 @@ export class OrganisationKybService {
     const organisation = await this.load(actor.organisationId);
     this.assertEditable(organisation.kybStatus);
     const integrity = inspectDocument(file.buffer);
-    const document = await this.prisma.organisationKybDocument.create({ data: { organisationId: organisation.id, documentType, fileName: file.originalname.slice(0, 200), mimeType, fileSize: file.size, fileContent: file.buffer, sha256: integrity.sha256, integrity: integrity as unknown as Prisma.InputJsonValue, uploadedBy: actor.userId }, select: { id: true } });
+    const document = await this.prisma.organisationKybDocument.create({ data: { organisationId: organisation.id, documentType, fileName: file.originalname.slice(0, 200), mimeType, fileSize: file.size, fileContent: new Uint8Array(file.buffer), sha256: integrity.sha256, integrity: integrity as unknown as Prisma.InputJsonValue, uploadedBy: actor.userId }, select: { id: true } });
     await this.record(actor, 'organisation.kyb.document_uploaded', organisation.id, { documentId: document.id, documentType, sha256: integrity.sha256 });
     return this.mine(actor);
   }

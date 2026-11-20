@@ -48,7 +48,7 @@ export const TimelineView: React.FC = () => {
         <div className="space-y-6 relative border-l-2 border-slate-200 dark:border-slate-700 ml-3 pl-6">
           {events.map(ev => (
             <div key={ev.id} className="relative group">
-              <div className="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-emerald-500 border-4 border-white dark:border-slate-800" />
+              <div className="absolute -left-7.75 top-1 w-4 h-4 rounded-full bg-emerald-500 border-4 border-white dark:border-slate-800" />
               <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
                 <span className="font-bold text-emerald-600 dark:text-emerald-400">{ev.category} • {ev.user}</span>
                 <span>{ev.time}</span>

@@ -135,7 +135,7 @@ export const PromotionAnalyticsDashboard: React.FC = () => {
                   </div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
                     <div
-                      className="bg-gradient-to-r from-amber-500 via-purple-500 to-emerald-500 h-full rounded-full transition-all duration-500"
+                      className="bg-linear-to-r from-amber-500 via-purple-500 to-emerald-500 h-full rounded-full transition-all duration-500"
                       style={{ width: `${pct}%` }}
                     />
                   </div>

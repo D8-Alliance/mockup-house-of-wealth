@@ -115,7 +115,7 @@ export class KycLivenessService {
     const advanced = await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.kycLivenessSession.updateMany({ where: { id: sessionId, status: 'IN_PROGRESS', currentStep: session.currentStep }, data: { currentStep: nextStep, stepStartedAt: new Date() } });
       if (!claimed.count) return false;
-      await tx.kycLivenessFrame.create({ data: { sessionId, step, mimeType, content: file.buffer, metrics: verdict.metrics as Prisma.InputJsonObject } });
+      await tx.kycLivenessFrame.create({ data: { sessionId, step, mimeType, content: new Uint8Array(file.buffer), metrics: verdict.metrics as Prisma.InputJsonObject } });
       return true;
     });
     if (!advanced) throw new ConflictException('This step was already completed.');

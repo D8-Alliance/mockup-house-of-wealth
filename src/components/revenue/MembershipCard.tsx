@@ -65,7 +65,7 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
   const needsRenewal = membershipStatus?.lifecycleStatus === 'EXPIRING_SOON' || membershipStatus?.lifecycleStatus === 'GRACE';
 
   return (
-    <div className={`rounded-3xl p-6 sm:p-8 bg-gradient-to-r ${getTierColor(membership.tier)} border shadow-xl text-white space-y-6`}>
+    <div className={`rounded-3xl p-6 sm:p-8 bg-linear-to-r ${getTierColor(membership.tier)} border shadow-xl text-white space-y-6`}>
       {/* Top Header & Positioning Statement */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
         <div>
@@ -111,7 +111,7 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
           )}
           <button
             onClick={onOpenUpgradeModal}
-            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all cursor-pointer transform hover:scale-105"
+            className="px-5 py-2.5 rounded-xl bg-linear-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all cursor-pointer transform hover:scale-105"
           >
             <Sparkles className="w-4 h-4" />
             <span>{isFree ? 'Upgrade to Plus / Pro' : 'Change Plan'}</span>
@@ -143,7 +143,7 @@ export const MembershipCard: React.FC<MembershipCardProps> = ({
 
           <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
             <div 
-              className="bg-gradient-to-r from-amber-400 to-emerald-400 h-2.5 rounded-full transition-all duration-500" 
+              className="bg-linear-to-r from-amber-400 to-emerald-400 h-2.5 rounded-full transition-all duration-500" 
               style={{ width: `${Math.min(100, Math.max(5, percentCredits))}%` }}
             />
           </div>

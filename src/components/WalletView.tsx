@@ -92,7 +92,7 @@ export const WalletView: React.FC<{ accounts: BackendFinancialAccount[]; onRefre
       </div>
 
       {/* Global Net Worth Banner */}
-      <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-900 text-white rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+      <div className="bg-linear-to-r from-emerald-700 via-teal-700 to-emerald-900 text-white rounded-3xl p-6 shadow-xl relative overflow-hidden flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
           <div className="text-xs font-bold uppercase tracking-wider text-emerald-200 mb-1">Total Vault Net Assets</div>
           <div className="text-4xl font-black tracking-tight">${totalBalance.toLocaleString()} USD</div>

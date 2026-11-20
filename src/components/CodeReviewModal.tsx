@@ -49,7 +49,7 @@ export const CodeReviewModal: React.FC<CodeReviewModalProps> = ({ onClose }) => 
         </div>
 
         {/* Executive Summary */}
-        <div className="bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent p-5 rounded-2xl border border-emerald-500/20 space-y-2">
+        <div className="bg-linear-to-r from-emerald-500/10 via-emerald-500/5 to-transparent p-5 rounded-2xl border border-emerald-500/20 space-y-2">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
             <h3 className="font-extrabold text-slate-900 dark:text-white text-base">Executive Code Review Summary</h3>

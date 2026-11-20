@@ -233,7 +233,7 @@ export const ApprovalMatrixPanel: React.FC = () => {
               }`}
             >
               <span>Pending Queue</span>
-              <span className="px-1.5 py-[2px] rounded-full text-[10px] bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
                 {approvalItems.filter(i => i.status === 'PENDING').length}
               </span>
             </button>
@@ -282,7 +282,7 @@ export const ApprovalMatrixPanel: React.FC = () => {
         <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm">
           <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Active Signer Role</span>
           <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-sm font-black text-slate-900 dark:text-white truncate max-w-[150px]">
+            <span className="text-sm font-black text-slate-900 dark:text-white truncate max-w-37.5">
               {currentRole}
             </span>
           </div>

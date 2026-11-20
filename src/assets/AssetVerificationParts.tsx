@@ -5,7 +5,7 @@ import { ASSET_STATUS, BUILDING_TITLE_KIND_LABELS, BUILDING_USE_LABELS, document
 import { mapLinkUrl } from './LocationPicker';
 
 const row = (label: string, value: React.ReactNode) => (
-  <div><dt className="text-slate-400 font-bold">{label}</dt><dd className="text-slate-800 dark:text-slate-100 break-words">{value || '-'}</dd></div>
+  <div><dt className="text-slate-400 font-bold">{label}</dt><dd className="text-slate-800 dark:text-slate-100 wrap-break-word">{value || '-'}</dd></div>
 );
 
 const heading = (title: string) => <h3 className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase">{title}</h3>;
@@ -172,7 +172,7 @@ export const SitePhotoCapture: React.FC<{ asset: RegisteredAsset; onUploaded: (a
     <>
       <button type="button" onClick={() => setOpen(true)} className="px-4 py-2 rounded-xl border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer"><Camera className="w-3.5 h-3.5" />Take site photo</button>
       {open && (
-        <div className="fixed inset-0 z-[60] bg-slate-900/80 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-60 bg-slate-900/80 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           <div onClick={(event) => event.stopPropagation()} className="w-full max-w-lg bg-white dark:bg-slate-800 rounded-3xl p-5 space-y-3">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-black text-slate-900 dark:text-white">Site photo</h3>
@@ -239,9 +239,9 @@ export const AssetCheckResults: React.FC<{ asset: RegisteredAsset; canReview: bo
               {findings.map((finding, index) => (
                 <tr key={index} className="border-t border-slate-100 dark:border-slate-700 align-top">
                   <td className="py-1 pr-2"><div className="font-bold text-slate-700 dark:text-slate-200">{finding.field}</div><div className="text-slate-400">{finding.source}</div></td>
-                  <td className="pr-2 text-slate-600 dark:text-slate-300 break-words">{finding.entered ?? '-'}</td>
-                  <td className="pr-2 font-mono text-slate-600 dark:text-slate-300 break-words">{finding.found ?? (finding.result === 'MATCH' ? 'same as entered' : '-')}</td>
-                  <td className={`font-bold whitespace-nowrap ${RESULT[finding.result].className}`}>{RESULT[finding.result].label}{finding.note && <div className="font-normal text-slate-500 whitespace-normal max-w-[16rem]">{finding.note}</div>}</td>
+                  <td className="pr-2 text-slate-600 dark:text-slate-300 wrap-break-word">{finding.entered ?? '-'}</td>
+                  <td className="pr-2 font-mono text-slate-600 dark:text-slate-300 wrap-break-word">{finding.found ?? (finding.result === 'MATCH' ? 'same as entered' : '-')}</td>
+                  <td className={`font-bold whitespace-nowrap ${RESULT[finding.result].className}`}>{RESULT[finding.result].label}{finding.note && <div className="font-normal text-slate-500 whitespace-normal max-w-64">{finding.note}</div>}</td>
                 </tr>
               ))}
             </tbody>

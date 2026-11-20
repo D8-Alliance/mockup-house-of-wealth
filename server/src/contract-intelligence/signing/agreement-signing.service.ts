@@ -169,7 +169,7 @@ export class AgreementSigningService {
     const seal = this.sealCredentials();
     const sealed = await sealPdf(pdf, seal, { reason: `Signed by both parties; sealed by the platform`, location: 'Malaysia', contact: 'Wealth Pooling platform', signingTime: completedAt });
     const sha256 = sha256Hex(sealed);
-    await this.prisma.signedAgreementDocument.create({ data: { contractId, version: version.version, pdf: sealed, sha256, sealedAt: completedAt, sealCertSha256: certificateFingerprint(seal) } });
+    await this.prisma.signedAgreementDocument.create({ data: { contractId, version: version.version, pdf: new Uint8Array(sealed), sha256, sealedAt: completedAt, sealCertSha256: certificateFingerprint(seal) } });
     await this.audit.record({ userId: 'SYSTEM', action: 'agreement.sealed', resourceType: 'Contract', resourceId: contractId, organisationId: contract.organisationId, countryNodeId: contract.countryNodeId, metadata: { version: version.version, sha256, certificateSha256: certificateFingerprint(seal) } });
     await this.timestamp(contractId);
   }

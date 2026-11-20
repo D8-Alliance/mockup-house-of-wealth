@@ -105,7 +105,7 @@ export const ProblemProjectsSection: React.FC = () => {
                       </div>
                       {project.hasSettledMoney && !project.archivedAt && !project.suspendedAt && <p className="mt-1 text-[11px] text-slate-500">Investors have settled money here, so it can be suspended but not archived.</p>}
                     </td>
-                    <td className={`${TD} min-w-[240px]`}>
+                    <td className={`${TD} min-w-60`}>
                       {open ? (
                         <div className="space-y-2">
                           <p className="text-[11px] text-slate-600 dark:text-slate-300">{ACTION_HINT[acting.action]}</p>

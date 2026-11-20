@@ -187,7 +187,7 @@ export const MobileFaceCheck: React.FC<MobileFaceCheckProps> = ({ onFinished, on
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black text-white" role="dialog" aria-label={t('Face verification')}>
       {/* Top: steps, time left, close; then the instruction in large type. */}
-      <div className="px-4 pt-[max(env(safe-area-inset-top),12px)] pb-3 space-y-2 bg-gradient-to-b from-black to-black/70">
+      <div className="px-4 pt-[max(env(safe-area-inset-top),12px)] pb-3 space-y-2 bg-linear-to-b from-black to-black/70">
         <div className="flex items-center justify-between gap-3">
           <div className="flex gap-1.5" aria-label={session ? `Step ${session.currentStep + 1} of ${session.steps.length}` : undefined}>
             {session?.steps.map((item, index) => <span key={`${item}-${index}`} className={`h-1.5 w-7 rounded-full ${index < session.currentStep ? 'bg-emerald-500' : index === session.currentStep ? 'bg-white' : 'bg-white/25'}`} />)}

@@ -75,7 +75,7 @@ export const MobilePortfolio: React.FC<{ onOpenStatements: () => void; onOpenZak
       {!positions && <p className="text-sm text-slate-500">{t('Loading...')}</p>}
 
       {[...totals.entries()].map(([currency, row]) => (
-        <section key={currency} className="rounded-3xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white p-5 shadow">
+        <section key={currency} className="rounded-3xl bg-linear-to-br from-emerald-800 to-emerald-950 text-white p-5 shadow">
           <p className="text-xs text-emerald-100/80">{t('Invested ({currency})', { currency })}</p>
           <p className="text-2xl font-black">{formatProjectMoney(row.capital, currency)}</p>
           <div className="mt-3 grid grid-cols-2 gap-3 text-xs">

@@ -153,7 +153,7 @@ export class AssetsService {
     const reused = await this.prisma.assetDocument.count({ where: { sha256: integrity.sha256, asset: { organisationId: { not: asset.organisationId } } } });
     const flags = reused ? [...integrity.flags, { code: 'REUSED_ELSEWHERE', message: `The same file is attached to ${reused} asset(s) of another owner.` }] : integrity.flags;
     const document = await this.prisma.assetDocument.create({
-      data: { assetId: id, documentType, fileName: file.originalname.slice(0, 200), mimeType, fileSize: file.size, fileContent: file.buffer, sha256: integrity.sha256, integrity: { ...integrity, flags } as unknown as Prisma.InputJsonValue, uploadedBy: actor.userId, ...(documentType === 'SITE_PHOTO' && location?.latitude !== undefined && location.longitude !== undefined ? { metadata: { latitude: location.latitude, longitude: location.longitude, accuracyMetres: location.accuracyMetres ?? null, capturedAt: new Date().toISOString() } } : {}) },
+      data: { assetId: id, documentType, fileName: file.originalname.slice(0, 200), mimeType, fileSize: file.size, fileContent: new Uint8Array(file.buffer), sha256: integrity.sha256, integrity: { ...integrity, flags } as unknown as Prisma.InputJsonValue, uploadedBy: actor.userId, ...(documentType === 'SITE_PHOTO' && location?.latitude !== undefined && location.longitude !== undefined ? { metadata: { latitude: location.latitude, longitude: location.longitude, accuracyMetres: location.accuracyMetres ?? null, capturedAt: new Date().toISOString() } } : {}) },
       select: DOCUMENT_SELECT,
     });
     await this.record(actor, 'asset.document.upload', asset, { documentId: document.id, documentType, sha256: document.sha256, flags: flags.map((flag) => flag.code) });

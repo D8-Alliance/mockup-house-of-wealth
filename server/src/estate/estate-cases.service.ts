@@ -104,7 +104,7 @@ export class EstateCasesService {
         reporterEmail: input.reporterEmail?.trim() || null, reporterPhone: input.reporterPhone?.trim() || null,
         reportEvidence: { ip: evidence.ip ?? null, userAgent: evidence.userAgent?.slice(0, 300) ?? null, at: new Date().toISOString() },
         history: history as unknown as Prisma.InputJsonValue,
-        documents: { create: { documentType: 'DEATH_CERTIFICATE', fileName: file.originalname.slice(0, 200), mimeType, fileSize: file.size, fileContent: file.buffer, sha256, uploadedBy: 'REPORTER' } },
+        documents: { create: { documentType: 'DEATH_CERTIFICATE', fileName: file.originalname.slice(0, 200), mimeType, fileSize: file.size, fileContent: new Uint8Array(file.buffer), sha256, uploadedBy: 'REPORTER' } },
       },
     });
     await this.audit.record({ userId: 'ESTATE-REPORTER', action: 'estate.death_report.received', resourceType: 'EstateCase', resourceId: created.id, countryNodeId, metadata: { caseNumber, reporterKind: reporter.kind, certificateSha256: sha256, ip: evidence.ip ?? null } });
@@ -230,7 +230,7 @@ export class EstateCasesService {
     const mimeType = detectDocumentType(file.buffer);
     if (!mimeType) throw new BadRequestException('The file is not a valid PDF, JPG or PNG.');
     const sha256 = createHash('sha256').update(file.buffer).digest('hex');
-    const document = await this.prisma.estateCaseDocument.create({ data: { caseId: id, documentType, fileName: file.originalname.slice(0, 200), mimeType, fileSize: file.size, fileContent: file.buffer, sha256, uploadedBy: actor.userId }, select: { id: true } });
+    const document = await this.prisma.estateCaseDocument.create({ data: { caseId: id, documentType, fileName: file.originalname.slice(0, 200), mimeType, fileSize: file.size, fileContent: new Uint8Array(file.buffer), sha256, uploadedBy: actor.userId }, select: { id: true } });
     await this.audit.recordActor(actor, { action: 'estate.case.document_uploaded', resourceType: 'EstateCase', resourceId: id, countryNodeId: row.countryNodeId, metadata: { documentId: document.id, documentType, sha256 } });
     return this.get(actor, id);
   }

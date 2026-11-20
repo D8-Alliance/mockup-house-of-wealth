@@ -97,7 +97,7 @@ export class CapitalTakafulService {
     const { mimeType, integrity } = this.checkFile(file);
     const claimed = await this.prisma.projectCapitalCommitment.updateMany({
       where: { id: commitmentId, status: commitment.status },
-      data: { status: 'EVIDENCE_SUBMITTED', evidenceFileName: file!.originalname.slice(0, 200), evidenceMimeType: mimeType, evidenceContent: file!.buffer, evidenceSha256: integrity.sha256, reviewNote: null, history: [...this.history(commitment), this.entry(actor, 'EVIDENCE_SUBMITTED', file!.originalname.slice(0, 200))] as unknown as Prisma.InputJsonValue },
+      data: { status: 'EVIDENCE_SUBMITTED', evidenceFileName: file!.originalname.slice(0, 200), evidenceMimeType: mimeType, evidenceContent: new Uint8Array(file!.buffer), evidenceSha256: integrity.sha256, reviewNote: null, history: [...this.history(commitment), this.entry(actor, 'EVIDENCE_SUBMITTED', file!.originalname.slice(0, 200))] as unknown as Prisma.InputJsonValue },
     });
     if (!claimed.count) throw new ConflictException('The pledge was changed by someone else. Reload and try again.');
     await this.record(actor, 'capital.evidence_submitted', projectId, project, { commitmentId, sha256: integrity.sha256 });
@@ -172,7 +172,7 @@ export class CapitalTakafulService {
       id, projectId, organisationId: project.organisationId, countryNodeId: project.countryNodeId, coverType: input.coverType, assetId: input.assetId || null,
       provider: input.provider, policyNumber: input.policyNumber, sumCovered: input.sumCovered, contribution: input.contribution ?? null, currency,
       startDate: start, endDate: end, lossPayee: input.lossPayee, conventional: input.conventional, shariahApprovalNote: input.shariahApprovalNote?.trim() || null,
-      fileName: file!.originalname.slice(0, 200), mimeType, fileContent: file!.buffer, sha256: integrity.sha256, integrity: integrity as unknown as Prisma.InputJsonValue, uploadedBy: actor.userId,
+      fileName: file!.originalname.slice(0, 200), mimeType, fileContent: new Uint8Array(file!.buffer), sha256: integrity.sha256, integrity: integrity as unknown as Prisma.InputJsonValue, uploadedBy: actor.userId,
     } });
     await this.record(actor, 'takaful.policy_added', projectId, project, { policyId: id, coverType: input.coverType, assetId: input.assetId, sumCovered: input.sumCovered, endDate: input.endDate, conventional: input.conventional, sha256: integrity.sha256 });
     // Risk Officers decide; where a country has none, Compliance and the Country Admin stand in.

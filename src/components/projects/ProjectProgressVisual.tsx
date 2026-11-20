@@ -25,12 +25,12 @@ export const ProjectProgressVisual: React.FC<{ stage: WorkflowStage; compact?: b
         <span className="font-black uppercase tracking-wider text-slate-500">Project progress</span>
         <span className="font-black text-emerald-600">{progress}% · {stage}</span>
       </div>
-      <div className="mb-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-purple-600 transition-all" style={{ width: `${Math.max(progress, 8)}%` }} /></div>
-       <div className="grid min-h-[58px] grid-cols-3 gap-x-2 gap-y-3 sm:grid-cols-6">
+      <div className="mb-3 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"><div className="h-full rounded-full bg-linear-to-r from-emerald-500 to-purple-600 transition-all" style={{ width: `${Math.max(progress, 8)}%` }} /></div>
+       <div className="grid min-h-14.5 grid-cols-3 gap-x-2 gap-y-3 sm:grid-cols-6">
         {stages.map((item, index) => {
           const complete = index < current;
           const active = index === current;
-           return <div key={item.label} className={`flex min-w-0 flex-col items-center gap-1 text-center leading-tight ${index <= current ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400'}`}><span>{complete ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> : active ? <Clock3 className="h-4 w-4 shrink-0 text-amber-500" /> : <Circle className="h-4 w-4 shrink-0" />}</span><span className="break-words">{item.label}</span></div>;
+           return <div key={item.label} className={`flex min-w-0 flex-col items-center gap-1 text-center leading-tight ${index <= current ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400'}`}><span>{complete ? <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" /> : active ? <Clock3 className="h-4 w-4 shrink-0 text-amber-500" /> : <Circle className="h-4 w-4 shrink-0" />}</span><span className="wrap-break-word">{item.label}</span></div>;
         })}
       </div>
     </div>

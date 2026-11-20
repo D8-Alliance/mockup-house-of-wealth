@@ -53,7 +53,7 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
         {/* Assigned Roles */}
         <div className="space-y-2 text-xs">
-          <h4 className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px] tracking-wider text-slate-400">
+          <h4 className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px] tracking-wider">
             Assigned Access Roles ({user.assignedRoles.length})
           </h4>
           <div className="flex flex-wrap gap-1.5">
@@ -67,7 +67,7 @@ export const UserDetailModal: React.FC<UserDetailModalProps> = ({
 
         {/* Role Assignment History */}
         <div className="space-y-2 text-xs">
-          <h4 className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px] tracking-wider text-slate-400 flex items-center gap-1">
+          <h4 className="font-bold text-slate-800 dark:text-slate-200 uppercase text-[10px] tracking-wider flex items-center gap-1">
             <History className="w-3.5 h-3.5 text-purple-600" />
             <span>Role Audit & Assignment History</span>
           </h4>

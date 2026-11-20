@@ -134,14 +134,14 @@ export const ProjectSafeguardsPanel: React.FC<{ projectId: string; onChanged?: (
               )}
               {access.reviewCapital && item.status === 'EVIDENCE_SUBMITTED' && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <input value={notes[item.id] ?? ''} onChange={(event) => setNote(item.id, event.target.value)} placeholder="What the evidence shows (required)" className={`${INPUT} flex-1 min-w-[220px]`} />
+                  <input value={notes[item.id] ?? ''} onChange={(event) => setNote(item.id, event.target.value)} placeholder="What the evidence shows (required)" className={`${INPUT} flex-1 min-w-55`} />
                   <button type="button" disabled={busy || note(item.id).length < 3} onClick={() => void run(() => apiClient.reviewCapital(projectId, item.id, { decision: 'REJECT', note: note(item.id) }), () => setNote(item.id, ''))} className="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-600 font-bold cursor-pointer disabled:opacity-50">Not accepted</button>
                   <button type="button" disabled={busy || note(item.id).length < 3} onClick={() => void run(() => apiClient.reviewCapital(projectId, item.id, { decision: 'VERIFY', note: note(item.id) }), () => setNote(item.id, ''))} className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold cursor-pointer disabled:opacity-50">Proved</button>
                 </div>
               )}
               {access.reviewCapital && item.status === 'EVIDENCED' && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <input value={notes[`dep-${item.id}`] ?? ''} onChange={(event) => setNote(`dep-${item.id}`, event.target.value)} placeholder="Bank reference of the credit to the project account" className={`${INPUT} flex-1 min-w-[220px]`} />
+                  <input value={notes[`dep-${item.id}`] ?? ''} onChange={(event) => setNote(`dep-${item.id}`, event.target.value)} placeholder="Bank reference of the credit to the project account" className={`${INPUT} flex-1 min-w-55`} />
                   <button type="button" disabled={busy || note(`dep-${item.id}`).length < 3} onClick={() => void run(() => apiClient.recordCapitalDeposit(projectId, item.id, note(`dep-${item.id}`)), () => setNote(`dep-${item.id}`, ''))} className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold cursor-pointer disabled:opacity-50">Record deposit</button>
                 </div>
               )}
@@ -209,7 +209,7 @@ export const ProjectSafeguardsPanel: React.FC<{ projectId: string; onChanged?: (
               {item.reviewNote && <p className="text-slate-500">Risk: {item.reviewNote}</p>}
               {access.reviewTakaful && item.status === 'SUBMITTED' && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <input value={notes[item.id] ?? ''} onChange={(event) => setNote(item.id, event.target.value)} placeholder="What you checked in the schedule (required)" className={`${INPUT} flex-1 min-w-[220px]`} />
+                  <input value={notes[item.id] ?? ''} onChange={(event) => setNote(item.id, event.target.value)} placeholder="What you checked in the schedule (required)" className={`${INPUT} flex-1 min-w-55`} />
                   <button type="button" disabled={busy || note(item.id).length < 3} onClick={() => void run(() => apiClient.reviewTakafulPolicy(projectId, item.id, { decision: 'REJECT', note: note(item.id) }), () => setNote(item.id, ''))} className="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-600 font-bold cursor-pointer disabled:opacity-50">Not accepted</button>
                   <button type="button" disabled={busy || note(item.id).length < 3} onClick={() => void run(() => apiClient.reviewTakafulPolicy(projectId, item.id, { decision: 'VERIFY', note: note(item.id) }), () => setNote(item.id, ''))} className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold cursor-pointer disabled:opacity-50">Verify</button>
                 </div>

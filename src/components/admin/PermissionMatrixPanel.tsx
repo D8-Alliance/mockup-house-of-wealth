@@ -121,7 +121,7 @@ export const PermissionMatrixPanel: React.FC = () => {
       </div>
 
       {/* Interactive Permission Policy Simulator */}
-      <div className="bg-gradient-to-r from-slate-900 via-purple-950 to-slate-900 rounded-3xl p-6 text-white shadow-lg border border-purple-500/30 space-y-4">
+      <div className="bg-linear-to-r from-slate-900 via-purple-950 to-slate-900 rounded-3xl p-6 text-white shadow-lg border border-purple-500/30 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-purple-400" />
@@ -270,14 +270,14 @@ export const PermissionMatrixPanel: React.FC = () => {
       {/* Main Matrix Table */}
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
+          <table className="w-full text-left border-collapse min-w-225">
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-700 text-[11px] font-black uppercase text-slate-500 tracking-wider">
                 <th className="py-3.5 px-4 sticky left-0 bg-slate-50 dark:bg-slate-900/90 z-10 w-64">
                   Security Role & Category
                 </th>
                 {displayedModules.map(m => (
-                  <th key={m.key} className="py-3.5 px-3 text-center min-w-[100px]">
+                  <th key={m.key} className="py-3.5 px-3 text-center min-w-25">
                     <span className="block text-slate-900 dark:text-white font-bold">{m.label}</span>
                     <span className="text-[9px] font-normal text-slate-400">{m.iconDesc}</span>
                   </th>
@@ -298,16 +298,16 @@ export const PermissionMatrixPanel: React.FC = () => {
                     <td className="py-3 px-4 sticky left-0 bg-white dark:bg-slate-800 z-10 border-r border-slate-100 dark:border-slate-700/60 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                       <div className="flex flex-col">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-black text-slate-900 dark:text-white truncate max-w-[180px]">
+                          <span className="font-black text-slate-900 dark:text-white truncate max-w-45">
                             {role.role}
                           </span>
                           {isCurrent && (
-                            <span className="px-1.5 py-[2px] rounded text-[9px] font-bold bg-emerald-500 text-white">
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500 text-white">
                               You
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-slate-400 truncate max-w-[200px]">
+                        <span className="text-[10px] text-slate-400 truncate max-w-50">
                           {role.category}
                         </span>
                       </div>

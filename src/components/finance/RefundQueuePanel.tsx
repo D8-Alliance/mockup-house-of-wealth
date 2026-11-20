@@ -50,7 +50,7 @@ export const RefundQueuePanel: React.FC<{ hideWhenEmpty?: boolean }> = ({ hideWh
                   <td className="p-2.5"><p className="font-bold">{order.pool.poolName}</p><p className="text-[11px] text-slate-500">{order.pool.project.projectName}{order.pool.minimumRaise ? ` · minimum ${money(order.currency, Number(order.pool.minimumRaise))}` : ''}</p></td>
                   <td className="p-2.5 text-right font-black">{money(order.currency, Number(order.amount))}</td>
                   <td className="p-2.5 text-[11px] text-slate-500">{order.paymentReference ?? '-'}</td>
-                  <td className="p-2.5 min-w-[240px]">
+                  <td className="p-2.5 min-w-60">
                     <div className="flex gap-1.5">
                       <input value={refs[order.id] ?? ''} onChange={(event) => setRefs((current) => ({ ...current, [order.id]: event.target.value }))} placeholder="Bank reference of the refund" className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2" />
                       <button type="button" disabled={busy === order.id || (refs[order.id] ?? '').trim().length < 4} onClick={() => void refund(order)} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 px-3 py-2 font-bold text-white cursor-pointer disabled:opacity-50">{busy === order.id ? 'Saving…' : 'Refunded'}</button>

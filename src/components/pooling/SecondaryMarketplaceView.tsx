@@ -27,7 +27,7 @@ export const SecondaryMarketplaceView: React.FC<SecondaryMarketplaceViewProps> =
     <div className="space-y-6">
       
       {/* Header Banner */}
-      <div className="p-5 bg-gradient-to-r from-slate-900 to-emerald-950 rounded-3xl text-white border border-slate-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="p-5 bg-linear-to-r from-slate-900 to-emerald-950 rounded-3xl text-white border border-slate-800 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
             Shariah Compliant Peer-to-Peer Orderbook

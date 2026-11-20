@@ -94,7 +94,7 @@ export const MobileZakat: React.FC<{ onBack: () => void }> = ({ onBack }) => {
       </div>
 
       {result && (
-        <section className="rounded-3xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white p-5 shadow space-y-3">
+        <section className="rounded-3xl bg-linear-to-br from-emerald-800 to-emerald-950 text-white p-5 shadow space-y-3">
           <div>
             <p className="text-xs text-emerald-100/80">{t('Zakat due')}{result.asOfDate ? ` · ${result.asOfDate}` : ''}</p>
             <p className="text-2xl font-black text-amber-200">{money(result.zakatDue, result.currency)}</p>

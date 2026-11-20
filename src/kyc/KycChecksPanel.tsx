@@ -147,11 +147,11 @@ export const KycChecksPanel: React.FC<KycChecksPanelProps> = ({ application, onU
                 {check.findings!.map((finding, index) => (
                   <tr key={index} className="border-t border-slate-100 dark:border-slate-700 align-top">
                     <td className="py-1 pr-2"><div className="font-bold text-slate-700 dark:text-slate-200">{serverText(finding.field)}</div><div className="text-slate-400">{serverText(finding.source)}</div></td>
-                    <td className="pr-2 text-slate-600 dark:text-slate-300 break-words">{finding.entered ? serverText(finding.entered) : '-'}</td>
-                    <td className="pr-2 font-mono text-slate-600 dark:text-slate-300 break-words">{finding.found ? serverText(finding.found) : finding.result === 'MATCH' ? t('same as entered') : '-'}</td>
+                    <td className="pr-2 text-slate-600 dark:text-slate-300 wrap-break-word">{finding.entered ? serverText(finding.entered) : '-'}</td>
+                    <td className="pr-2 font-mono text-slate-600 dark:text-slate-300 wrap-break-word">{finding.found ? serverText(finding.found) : finding.result === 'MATCH' ? t('same as entered') : '-'}</td>
                     <td className={`font-bold whitespace-nowrap ${FINDING_RESULT[finding.result].className}`}>
                       {t(FINDING_RESULT[finding.result].label)}
-                      {finding.note && <div className="font-normal text-slate-500 whitespace-normal max-w-[14rem]">{serverText(finding.note)}</div>}
+                      {finding.note && <div className="font-normal text-slate-500 whitespace-normal max-w-56">{serverText(finding.note)}</div>}
                     </td>
                   </tr>
                 ))}

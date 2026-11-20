@@ -101,7 +101,7 @@ function MainAppContent({ user, setUser }: { user: UserProfile; setUser: React.D
         onOpenPdpRegister={() => setPdpRegisterOpen(true)}
       />
 
-      <main className="flex-grow min-w-0 max-w-[2400px] w-full mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
+      <main className="grow min-w-0 max-w-600 w-full mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-8">
         {currentTab === 'dashboard' && <MembershipExpiryBanner onRenew={() => setTab('membership')} />}
         <MainTabViews
           currentTab={currentTab}

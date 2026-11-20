@@ -43,7 +43,7 @@ const MobileCrash = (error: Error | null) => (
     <div className="max-w-sm w-full rounded-2xl bg-white/10 p-5 text-center space-y-3">
       <p className="text-lg font-black">Ada masalah memaparkan skrin ini</p>
       <p className="text-xs text-white/70">Something went wrong showing this screen.</p>
-      {error?.message && <p className="text-[11px] text-white/60 break-words">{error.message}</p>}
+      {error?.message && <p className="text-[11px] text-white/60 wrap-break-word">{error.message}</p>}
       <button type="button" onClick={() => window.location.reload()} className="w-full rounded-xl bg-emerald-500 py-3 text-sm font-black text-emerald-950">Muat semula / Reload</button>
     </div>
   </div>
@@ -64,7 +64,7 @@ createRoot(document.getElementById('root')!).render(
     )}
     {IS_STATIC_DEMO && (
       // In the mini-app the bottom of the screen holds the tabs, so the badge sits under the header instead.
-      <div role="status" className={`fixed ${mobile ? 'top-16' : 'bottom-3'} left-3 z-[70] max-w-[calc(100vw-1.5rem)] rounded-full bg-amber-500 px-3.5 py-1.5 text-[11px] font-bold text-slate-950 shadow-lg pointer-events-none`}>
+      <div role="status" className={`fixed ${mobile ? 'top-16' : 'bottom-3'} left-3 z-70 max-w-[calc(100vw-1.5rem)] rounded-full bg-amber-500 px-3.5 py-1.5 text-[11px] font-bold text-slate-950 shadow-lg pointer-events-none`}>
         Demo mode: recorded sample data, actions are not saved
       </div>
     )}

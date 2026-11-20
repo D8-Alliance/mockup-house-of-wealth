@@ -35,7 +35,7 @@ export const AIInvestorDiscovery: React.FC = () => {
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            className="flex-grow p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-semibold text-xs"
+            className="grow p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-semibold text-xs"
             placeholder="Type your preferences in plain English..."
           />
           <button

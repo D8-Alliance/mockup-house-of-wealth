@@ -33,7 +33,7 @@ export const PDPSubscriptionCard: React.FC<PDPSubscriptionCardProps> = ({
   };
 
   return (
-    <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 rounded-2xl p-6 shadow-xl text-white space-y-6">
+    <div className="bg-linear-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/30 rounded-2xl p-6 shadow-xl text-white space-y-6">
       
       {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-5">
@@ -57,7 +57,7 @@ export const PDPSubscriptionCard: React.FC<PDPSubscriptionCardProps> = ({
 
         <button
           onClick={() => setShowPlansModal(true)}
-          className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl shadow-lg flex items-center gap-1.5 transition-all cursor-pointer transform hover:scale-105 shrink-0"
+          className="px-4 py-2 bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl shadow-lg flex items-center gap-1.5 transition-all cursor-pointer transform hover:scale-105 shrink-0"
         >
           <Sparkles className="w-4 h-4" />
           <span>Manage PDP Plan</span>

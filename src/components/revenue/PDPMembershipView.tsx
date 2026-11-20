@@ -51,7 +51,7 @@ export const PDPMembershipView: React.FC<PDPMembershipViewProps> = ({
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header Statement */}
-      <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white border border-blue-500/30 space-y-4 shadow-xl">
+      <div className="bg-linear-to-r from-slate-900 via-blue-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white border border-blue-500/30 space-y-4 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-2 max-w-2xl">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
@@ -184,7 +184,7 @@ export const PDPMembershipView: React.FC<PDPMembershipViewProps> = ({
                       <TrendingUp className="w-3.5 h-3.5 text-teal-500" />
                       Analytics Suite:
                     </span>
-                    <span className="font-bold text-slate-900 dark:text-white text-[11px] text-right truncate max-w-[140px]" title={getAnalyticsType(plan.tier)}>
+                    <span className="font-bold text-slate-900 dark:text-white text-[11px] text-right truncate max-w-35" title={getAnalyticsType(plan.tier)}>
                       {getAnalyticsType(plan.tier)}
                     </span>
                   </div>

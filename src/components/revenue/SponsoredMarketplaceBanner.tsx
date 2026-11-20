@@ -23,7 +23,7 @@ export const SponsoredMarketplaceBanner: React.FC<SponsoredMarketplaceBannerProp
   if (banner.status !== 'ACTIVE') return null;
 
   return (
-    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-purple-950/60 to-slate-900 border border-purple-500/30 text-white p-6 shadow-xl space-y-4">
+    <div className="relative overflow-hidden rounded-3xl bg-linear-to-r from-slate-900 via-purple-950/60 to-slate-900 border border-purple-500/30 text-white p-6 shadow-xl space-y-4">
       {/* Background Subtle Ambient Glow */}
       <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-80 h-80 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -53,7 +53,7 @@ export const SponsoredMarketplaceBanner: React.FC<SponsoredMarketplaceBannerProp
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
           <button
             onClick={() => onExploreClick && onExploreClick(banner.targetLinkCategory)}
-            className="px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            className="px-5 py-3 rounded-2xl bg-linear-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             <span>{banner.ctaText}</span>
             <ArrowRight className="w-4 h-4" />

@@ -90,7 +90,7 @@ export const BillingRecordsTable: React.FC<BillingRecordsTableProps> = ({
                     <span className="text-[10px] text-slate-400">{item.category}</span>
                   </td>
 
-                  <td className="p-3.5 max-w-[200px]">
+                  <td className="p-3.5 max-w-50">
                     <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">{item.customerName}</span>
                     <span className="text-[10px] text-slate-400 truncate block">{item.customerOrg}</span>
                   </td>

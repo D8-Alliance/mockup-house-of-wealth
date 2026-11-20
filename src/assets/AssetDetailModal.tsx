@@ -59,7 +59,7 @@ export const AssetDetailModal: React.FC<AssetDetailModalProps> = ({ asset, canEd
 
   const status = ASSET_STATUS[asset.status];
   const row = (label: string, value: React.ReactNode) => (
-    <div><dt className="text-slate-400 font-bold">{label}</dt><dd className="text-slate-800 dark:text-slate-100 break-words">{value || '-'}</dd></div>
+    <div><dt className="text-slate-400 font-bold">{label}</dt><dd className="text-slate-800 dark:text-slate-100 wrap-break-word">{value || '-'}</dd></div>
   );
 
   return (

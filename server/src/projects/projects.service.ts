@@ -425,7 +425,7 @@ export class ProjectsService {
         fileName: file.originalname,
         mimeType: file.mimetype,
         fileSize: file.size,
-        fileContent: file.buffer,
+        fileContent: new Uint8Array(file.buffer),
         extractedText,
         extractionStatus,
         extractionError,

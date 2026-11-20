@@ -84,7 +84,7 @@ export const AICreditSalesTab: React.FC<AICreditSalesTabProps> = ({
                       <span className="text-[10px] text-slate-400">{sale.date}</span>
                     </td>
 
-                    <td className="p-3.5 max-w-[180px]">
+                    <td className="p-3.5 max-w-45">
                       <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">{sale.customerName}</span>
                       <span className="text-[10px] text-slate-400 truncate block">{sale.customerOrg} • {sale.country}</span>
                     </td>
@@ -99,11 +99,11 @@ export const AICreditSalesTab: React.FC<AICreditSalesTabProps> = ({
                       {(sale.tokenCount / 1000).toLocaleString()}k
                     </td>
 
-                    <td className="p-3.5 max-w-[200px] text-slate-600 dark:text-slate-400 truncate">
+                    <td className="p-3.5 max-w-50 text-slate-600 dark:text-slate-400 truncate">
                       {sale.usagePurpose}
                     </td>
 
-                    <td className="p-3.5 min-w-[140px]">
+                    <td className="p-3.5 min-w-35">
                       <div className="flex justify-between text-[10px] font-mono text-slate-500 mb-1">
                         <span>{consumedPct}%</span>
                         <span>{(sale.consumedSoFar / 1000).toFixed(0)}k used</span>

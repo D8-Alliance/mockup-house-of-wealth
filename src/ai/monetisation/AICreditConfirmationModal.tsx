@@ -72,11 +72,11 @@ export const AICreditConfirmationModal: React.FC<AICreditConfirmationModalProps>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-[2px] rounded-full border border-purple-500/20">
+              <span className="text-[10px] font-black uppercase text-purple-600 dark:text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">
                 {op.category} Operation
               </span>
               {op.badge && (
-                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-[2px] rounded">
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                   {op.badge}
                 </span>
               )}
@@ -198,7 +198,7 @@ export const AICreditConfirmationModal: React.FC<AICreditConfirmationModalProps>
               type="button"
               onClick={handleExecute}
               disabled={isProcessing || isSuccess}
-              className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-lg shadow-purple-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+              className="flex-1 py-2.5 rounded-xl bg-linear-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-lg shadow-purple-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
             >
               {isProcessing ? (
                 <span>Consuming {op.creditCost} Credits...</span>

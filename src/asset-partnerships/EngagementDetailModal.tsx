@@ -21,7 +21,7 @@ const DETAIL_LABELS: Record<string, string> = {
 };
 
 const row = (label: string, value: React.ReactNode) => (
-  <div><dt className="text-slate-400 font-bold">{label}</dt><dd className="text-slate-800 dark:text-slate-100 break-words">{value === undefined || value === null || value === '' ? '-' : value}</dd></div>
+  <div><dt className="text-slate-400 font-bold">{label}</dt><dd className="text-slate-800 dark:text-slate-100 wrap-break-word">{value === undefined || value === null || value === '' ? '-' : value}</dd></div>
 );
 
 interface Props {

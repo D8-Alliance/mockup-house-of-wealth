@@ -74,7 +74,7 @@ export const CreditBalanceModal: React.FC<CreditBalanceModalProps> = ({
         </div>
 
         {/* Current Balance Display */}
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-transparent border border-amber-500/20 flex items-center justify-between">
+        <div className="p-4 rounded-2xl bg-linear-to-r from-amber-500/10 via-emerald-500/10 to-transparent border border-amber-500/20 flex items-center justify-between">
           <div>
             <span className="text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 block">
               Available Credit Balance
@@ -140,7 +140,7 @@ export const CreditBalanceModal: React.FC<CreditBalanceModalProps> = ({
                   }`}
                 >
                   {pack.popular && (
-                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-[2px] rounded-full text-[9px] font-black uppercase bg-amber-500 text-white shadow">
+                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-500 text-white shadow">
                       Best Value
                     </span>
                   )}

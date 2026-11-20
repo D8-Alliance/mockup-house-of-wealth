@@ -233,8 +233,8 @@ export const UserProfileSettingsView: React.FC<UserProfileSettingsViewProps> = (
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-lg transition-colors">
         
         {/* Cover Pattern Banner */}
-        <div className="h-36 sm:h-44 bg-gradient-to-r from-emerald-800 via-emerald-600 to-teal-700 relative p-6 flex justify-between items-start">
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
+        <div className="h-36 sm:h-44 bg-linear-to-r from-emerald-800 via-emerald-600 to-teal-700 relative p-6 flex justify-between items-start">
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] bg-size-[16px_16px]" />
           
           <div className="relative z-10 flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-white border border-white/20 text-xs font-semibold">
             <Globe className="w-3.5 h-3.5" />

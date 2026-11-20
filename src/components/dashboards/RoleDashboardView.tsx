@@ -120,8 +120,8 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
     <div className="space-y-8 animate-fadeIn">
       
       {/* Role Banner Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 sm:p-8 text-white border border-slate-700/60 shadow-xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -z-0 pointer-events-none" />
+      <div className="bg-linear-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 sm:p-8 text-white border border-slate-700/60 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl z-0 pointer-events-none" />
         
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="space-y-2 max-w-2xl">
@@ -214,7 +214,7 @@ export const RoleDashboardView: React.FC<RoleDashboardViewProps> = ({
 
       {/* PDP Onboarding Opportunity Banner */}
       {showPdpOnboarding && (
-        <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-900/40 via-purple-950/20 to-slate-900/60 border border-purple-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+        <div className="p-6 rounded-3xl bg-linear-to-r from-purple-900/40 via-purple-950/20 to-slate-900/60 border border-purple-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">

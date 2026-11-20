@@ -61,7 +61,7 @@ export const SubscriptionStatusTable: React.FC<SubscriptionStatusTableProps> = (
               const amount = currency === 'MYR' ? sub.monthlyAmountMYR : sub.monthlyAmountUSD;
               return (
                 <tr key={sub.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                  <td className="p-3.5 max-w-[200px]">
+                  <td className="p-3.5 max-w-50">
                     <span className="font-bold text-slate-900 dark:text-white block truncate">{sub.subscriberName}</span>
                     <span className="text-[10px] text-slate-400 truncate block">{sub.subscriberOrg} • {sub.country}</span>
                   </td>

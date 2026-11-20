@@ -147,7 +147,7 @@ export const CountryNodeList: React.FC<CountryNodeListProps> = ({
             </div>
 
             <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 bg-slate-50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
-              <strong className="text-slate-800 dark:text-slate-200 block text-[10px] uppercase text-slate-400">Regulator:</strong>
+              <strong className="text-slate-800 dark:text-slate-200 block text-[10px] uppercase">Regulator:</strong>
               {node.regulatoryProfile}
             </p>
 

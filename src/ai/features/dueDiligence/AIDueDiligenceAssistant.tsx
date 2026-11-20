@@ -37,7 +37,7 @@ export const AIDueDiligenceAssistant: React.FC<{ user: any }> = () => {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-          <select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="max-w-[260px] p-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-semibold text-xs">
+          <select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="max-w-65 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-semibold text-xs">
             <option value="">Select project</option>
             {projects.map((project) => <option key={project.projectId} value={project.projectId}>{project.projectName}</option>)}
           </select>

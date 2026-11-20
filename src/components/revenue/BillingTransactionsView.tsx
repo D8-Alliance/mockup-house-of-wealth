@@ -50,7 +50,7 @@ export const BillingTransactionsView: React.FC = () => {
   };
   const visible = filter === 'ALL' ? transactions : filter === 'GATEWAY' ? transactions.filter((item) => item.method === 'ToyyibPay') : transactions.filter((item) => item.type === filter);
   return <div className="space-y-5 animate-fadeIn">
-    <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-6 rounded-3xl bg-linear-to-r from-slate-900 via-emerald-950 to-slate-900 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div><span className="text-[10px] uppercase font-black tracking-wider text-emerald-300">Account Finance</span><h1 className="text-2xl font-black mt-1">Billing & Transactions</h1><p className="text-xs text-slate-300 mt-1">Membership, AI credits, project promotion and ToyyibPay payments in one history.</p></div>
       <button onClick={refresh} className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold flex items-center gap-2"><RefreshCw className="w-4 h-4" /> Refresh</button>
     </div>

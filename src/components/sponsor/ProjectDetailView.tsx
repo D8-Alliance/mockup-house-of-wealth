@@ -345,7 +345,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, o
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{raisedPct}% Funded</span>
               </div>
               <div className="w-full bg-slate-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden">
-                <div className="bg-gradient-to-r from-amber-500 to-emerald-500 h-full transition-all duration-500" style={{ width: `${raisedPct}%` }} />
+                <div className="bg-linear-to-r from-amber-500 to-emerald-500 h-full transition-all duration-500" style={{ width: `${raisedPct}%` }} />
               </div>
               <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
                 <span>Raised: {formatProjectMoney(project.raisedFunding, currency)}</span>

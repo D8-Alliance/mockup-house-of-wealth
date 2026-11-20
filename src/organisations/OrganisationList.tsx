@@ -172,7 +172,7 @@ export const OrganisationList: React.FC<OrganisationListProps> = ({
                 </div>
                 <div className="flex justify-between text-slate-500">
                   <span>Contact:</span>
-                  <span className="text-slate-800 dark:text-slate-200 truncate max-w-[160px]">{org.contactEmail}</span>
+                  <span className="text-slate-800 dark:text-slate-200 truncate max-w-40">{org.contactEmail}</span>
                 </div>
               </div>
 

@@ -90,7 +90,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md transition-colors">
-      <div className="w-full max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12">
+      <div className="w-full max-w-600 mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12">
         <div className="flex min-w-0 justify-between items-center h-16 gap-4">
           
           {/* Brand Logo */}

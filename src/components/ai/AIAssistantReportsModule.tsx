@@ -55,7 +55,7 @@ export const AIAssistantReportsModule: React.FC = () => {
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       
       {/* AI Chat Assistant */}
-      <div className="lg:col-span-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-sm space-y-4 flex flex-col justify-between h-[520px]">
+      <div className="lg:col-span-6 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200/80 dark:border-slate-700/80 p-6 shadow-sm space-y-4 flex flex-col justify-between h-130">
         <div>
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
             <div className="flex items-center gap-2">
@@ -69,7 +69,7 @@ export const AIAssistantReportsModule: React.FC = () => {
             </span>
           </div>
 
-          <div className="space-y-3 overflow-y-auto max-h-[360px] p-2 mt-2">
+          <div className="space-y-3 overflow-y-auto max-h-90 p-2 mt-2">
             {messages.map((m, i) => (
               <div 
                 key={i} 

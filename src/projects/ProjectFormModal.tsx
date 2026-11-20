@@ -182,7 +182,7 @@ export const ProjectFormModal: React.FC<ProjectFormModalProps> = ({ isOpen, onCl
               <select
                 value={proposedShariahContract}
                 onChange={e => setProposedShariahContract(e.target.value as any)}
-                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-purple-600"
+                className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white font-bold"
               >
                 <option value="Mudarabah">Mudarabah (Profit Sharing)</option>
                 <option value="Musharakah">Musharakah (Partnership Equity)</option>

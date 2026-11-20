@@ -85,7 +85,7 @@ export const BuyAICreditsModal: React.FC<BuyAICreditsModalProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-[2px] rounded-full border border-amber-500/20">
+              <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
                 On-Demand Top-Up
               </span>
               <span className="text-[10px] text-slate-400">Never Expire</span>
@@ -248,7 +248,7 @@ export const BuyAICreditsModal: React.FC<BuyAICreditsModalProps> = ({
             type="button"
             onClick={handlePurchase}
             disabled={isProcessing || isDone}
-            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-lg shadow-purple-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+            className="flex-1 py-2.5 rounded-xl bg-linear-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs shadow-lg shadow-purple-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
           >
             {isProcessing ? (
               <span>{method === 'FPX' ? 'Redirecting to ToyyibPay...' : 'Processing Payment...'}</span>

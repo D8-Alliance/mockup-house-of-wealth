@@ -22,7 +22,7 @@ export const CountryAdminDashboard: React.FC<CountryAdminDashboardProps> = ({
   return (
     <div className="space-y-6">
       {/* Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 sm:p-8 rounded-3xl text-white shadow-xl border border-indigo-500/30">
+      <div className="bg-linear-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 sm:p-8 rounded-3xl text-white shadow-xl border border-indigo-500/30">
         <div className="flex items-center gap-4 mb-3">
           <img src={node.flagUrl} alt={node.countryName} className="w-12 h-8 rounded-lg object-cover border border-white/20" />
           <div>

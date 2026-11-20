@@ -27,7 +27,7 @@ const StatusControl: React.FC<{ status: string; busy: boolean; onChange: (status
   const next = status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
   if (!open) return <button type="button" onClick={() => setOpen(true)} className={`font-bold cursor-pointer ${next === 'SUSPENDED' ? 'text-rose-600' : 'text-emerald-600'}`}>{next === 'SUSPENDED' ? 'Suspend' : 'Reactivate'}</button>;
   return (
-    <div className="flex flex-col gap-1.5 min-w-[220px]">
+    <div className="flex flex-col gap-1.5 min-w-55">
       <p className="text-[11px] text-slate-500">{next === 'SUSPENDED' ? `Everyone in this ${what} is signed out and cannot sign in until it is reactivated.` : `People in this ${what} can sign in again.`}</p>
       <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Reason (kept in the audit log)" className={INPUT} />
       <div className="flex gap-1.5">

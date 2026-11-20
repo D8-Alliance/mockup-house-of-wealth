@@ -105,7 +105,7 @@ export const RevenueTransactionsTable: React.FC<RevenueTransactionsTableProps> =
                     <span className="text-[10px] text-slate-400">{txn.date}</span>
                   </td>
 
-                  <td className="p-3.5 max-w-[200px]">
+                  <td className="p-3.5 max-w-50">
                     <span className="font-bold text-slate-800 dark:text-slate-200 block truncate">{txn.customerName}</span>
                     <span className="text-[10px] text-slate-400 truncate block">{txn.customerOrg} • {txn.country}</span>
                   </td>
@@ -116,7 +116,7 @@ export const RevenueTransactionsTable: React.FC<RevenueTransactionsTableProps> =
                     </span>
                   </td>
 
-                  <td className="p-3.5 max-w-[240px]">
+                  <td className="p-3.5 max-w-60">
                     <span className="text-slate-700 dark:text-slate-300 font-medium block line-clamp-1">{txn.description}</span>
                     {txn.promotionBadge && txn.promotionBadge !== 'None' && (
                       <span className="text-[9px] font-bold text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">
@@ -131,7 +131,7 @@ export const RevenueTransactionsTable: React.FC<RevenueTransactionsTableProps> =
                   </td>
 
                   <td className="p-3.5 text-center">
-                    <span className="text-[10px] text-slate-500 font-medium block truncate max-w-[120px]">
+                    <span className="text-[10px] text-slate-500 font-medium block truncate max-w-30">
                       {txn.paymentGateway}
                     </span>
                   </td>

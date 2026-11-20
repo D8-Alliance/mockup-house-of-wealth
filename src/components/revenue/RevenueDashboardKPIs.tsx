@@ -178,7 +178,7 @@ export const RevenueDashboardKPIs: React.FC<RevenueDashboardKPIsProps> = ({
             key={item.id}
             className={`p-4 sm:p-5 rounded-3xl border transition-all hover:shadow-md flex flex-col justify-between ${
               item.highlight
-                ? 'bg-gradient-to-br from-emerald-500/10 via-white to-emerald-500/5 dark:from-emerald-950/30 dark:via-slate-900 dark:to-slate-900 border-emerald-500/30 dark:border-emerald-500/30'
+                ? 'bg-linear-to-br from-emerald-500/10 via-white to-emerald-500/5 dark:from-emerald-950/30 dark:via-slate-900 dark:to-slate-900 border-emerald-500/30 dark:border-emerald-500/30'
                 : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800'
             }`}
           >

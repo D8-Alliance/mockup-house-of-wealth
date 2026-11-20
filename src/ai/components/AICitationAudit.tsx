@@ -169,7 +169,7 @@ export const AICitationAudit: React.FC<{ userRole: string }> = ({ userRole }) =>
           </select>
           <label className="text-[10px] font-bold text-slate-500">From <input type="date" value={filter.from} onChange={(event) => update({ from: event.target.value })} className={`block ${inputClass}`} /></label>
           <label className="text-[10px] font-bold text-slate-500">To <input type="date" value={filter.to} onChange={(event) => update({ to: event.target.value })} className={`block ${inputClass}`} /></label>
-          <input value={filter.search} onChange={(event) => update({ search: event.target.value })} placeholder="Document title..." className={`min-w-[140px] flex-1 ${inputClass}`} />
+          <input value={filter.search} onChange={(event) => update({ search: event.target.value })} placeholder="Document title..." className={`min-w-35 flex-1 ${inputClass}`} />
           <button onClick={() => { setPage(1); setFilter(EMPTY_FILTER); }} className="inline-flex items-center gap-1 rounded-xl border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-600 dark:border-slate-600 dark:text-slate-300"><RotateCcw className="h-3 w-3" /> Reset</button>
         </div>
         {filter.documentId && <p className="mt-2 text-[11px] text-purple-700">Showing one document only. <button onClick={() => update({ documentId: '' })} className="underline">Show all</button></p>}

@@ -98,7 +98,7 @@ export const MobileInvestorDashboard: React.FC<{ onOpen: (tab: MobileTab) => voi
       <style>{VIZ_STYLE}</style>
 
       {/* Headline */}
-      <section className="rounded-3xl bg-gradient-to-br from-emerald-800 to-emerald-950 text-white p-5 shadow">
+      <section className="rounded-3xl bg-linear-to-br from-emerald-800 to-emerald-950 text-white p-5 shadow">
         <p className="text-xs text-emerald-100/80">{t('Invested ({currency})', { currency })}</p>
         <p className="text-3xl font-black">{formatProjectMoney(capital, currency)}</p>
         <div className="mt-3 flex items-center gap-4 text-xs">

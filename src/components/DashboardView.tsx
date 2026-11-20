@@ -94,7 +94,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* PDP Onboarding Opportunity Banner */}
-      <div className="bg-gradient-to-r from-purple-950 via-slate-900 to-slate-900 rounded-3xl p-6 border border-purple-800/40 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-linear-to-r from-purple-950 via-slate-900 to-slate-900 rounded-3xl p-6 border border-purple-800/40 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-3.5 rounded-2xl bg-purple-600/20 text-purple-300 border border-purple-500/30 shrink-0">
             <Building2 className="w-7 h-7" />
@@ -197,7 +197,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Total Assets Pooled */}
-        <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white p-6 rounded-2xl shadow-lg shadow-emerald-600/20 relative overflow-hidden">
+        <div className="bg-linear-to-br from-emerald-600 to-emerald-800 text-white p-6 rounded-2xl shadow-lg shadow-emerald-600/20 relative overflow-hidden">
           <div className="absolute -right-6 -bottom-6 opacity-15">
             <PieChart className="w-32 h-32" />
           </div>
@@ -416,7 +416,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </h3>
             <div className="relative pl-4 border-l-2 border-slate-200 dark:border-slate-700 space-y-5 text-xs">
               <div className="relative">
-                <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-white dark:ring-slate-800" />
+                <div className="absolute -left-5.25 top-1 w-3 h-3 rounded-full bg-emerald-500 ring-4 ring-white dark:ring-slate-800" />
                 <p className="text-[10px] text-slate-400 mb-0.5">Today, 10:23 AM</p>
                 <p className="text-slate-900 dark:text-white font-semibold">
                   Profit distributed for <span className="text-emerald-600 dark:text-emerald-400">Istanbul Real Estate</span>
@@ -425,7 +425,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
 
               <div className="relative">
-                <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-600 ring-4 ring-white dark:ring-slate-800" />
+                <div className="absolute -left-5.25 top-1 w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-600 ring-4 ring-white dark:ring-slate-800" />
                 <p className="text-[10px] text-slate-400 mb-0.5">Yesterday, 4:00 PM</p>
                 <p className="text-slate-900 dark:text-white">
                   New contract signed: <span className="font-semibold">Solar Grid Sukuk</span>
@@ -433,7 +433,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
 
               <div className="relative">
-                <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-amber-400 ring-4 ring-white dark:ring-slate-800" />
+                <div className="absolute -left-5.25 top-1 w-3 h-3 rounded-full bg-amber-400 ring-4 ring-white dark:ring-slate-800" />
                 <p className="text-[10px] text-slate-400 mb-0.5">Aug 01, 2026</p>
                 <p className="text-slate-900 dark:text-white">
                   Zakat calculation updated for 2026 lunar cycle

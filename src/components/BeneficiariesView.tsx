@@ -277,7 +277,7 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
       </div>
 
       {/* Shariah Guidance Box */}
-      <div className="p-5 rounded-3xl bg-gradient-to-r from-emerald-950 via-slate-900 to-slate-900 border border-emerald-500/30 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="p-5 rounded-3xl bg-linear-to-r from-emerald-950 via-slate-900 to-slate-900 border border-emerald-500/30 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-start gap-4">
           <div className="p-3 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
             <Scale className="w-6 h-6" />
@@ -398,7 +398,7 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
               key={ben.id}
               className={`p-6 rounded-3xl border transition-all flex flex-col justify-between space-y-5 ${
                 ben.isPrimary 
-                  ? 'bg-gradient-to-b from-emerald-500/5 to-white dark:to-slate-800 border-emerald-500/40 dark:border-emerald-500/30 shadow-md ring-1 ring-emerald-500/20' 
+                  ? 'bg-linear-to-b from-emerald-500/5 to-white dark:to-slate-800 border-emerald-500/40 dark:border-emerald-500/30 shadow-md ring-1 ring-emerald-500/20' 
                   : 'bg-white dark:bg-slate-800 border-slate-200/80 dark:border-slate-700/60 shadow-sm hover:border-slate-300 dark:hover:border-slate-600'
               }`}
             >
@@ -504,7 +504,7 @@ export const BeneficiariesView: React.FC<BeneficiariesViewProps> = ({
                       <Wallet className="w-3.5 h-3.5 text-emerald-500" />
                       <span>Settlement:</span>
                     </span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200 text-right truncate max-w-[200px]">
+                    <span className="font-bold text-slate-800 dark:text-slate-200 text-right truncate max-w-50">
                       {ben.payoutMethod}
                     </span>
                   </div>

@@ -13,7 +13,7 @@ export const SponsorWorkflowBar: React.FC<SponsorWorkflowBarProps> = ({ currentS
 
   return (
     <div className="w-full bg-slate-900/90 dark:bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-lg overflow-x-auto">
-      <div className="flex items-center justify-between gap-2 min-w-[760px]">
+      <div className="flex items-center justify-between gap-2 min-w-190">
         {WORKFLOW_STAGES_LIST.map((stage, idx) => {
           const isPassed = idx < currentIndex;
           const isCurrent = idx === currentIndex;

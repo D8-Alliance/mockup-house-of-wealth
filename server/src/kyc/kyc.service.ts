@@ -98,7 +98,7 @@ export class KycService {
     if (!open) throw new BadRequestException('Save your KYC details before uploading documents.');
     this.assertEditable(open.status);
     // Stored with the detected type, so downloads and document reading use what the file really is.
-    const content = { fileName: file.originalname, mimeType: actualType, fileSize: file.size, fileContent: file.buffer, sha256: createHash('sha256').update(file.buffer).digest('hex'), uploadedBy: actor.userId };
+    const content = { fileName: file.originalname, mimeType: actualType, fileSize: file.size, fileContent: new Uint8Array(file.buffer), sha256: createHash('sha256').update(file.buffer).digest('hex'), uploadedBy: actor.userId };
     const document = await this.prisma.kycDocument.upsert({
       where: { applicationId_documentType: { applicationId: open.id, documentType } },
       update: { ...content, createdAt: new Date() },

@@ -68,7 +68,7 @@ async function main() {
     const history = [...(Array.isArray(organisation.kybHistory) ? organisation.kybHistory : []), { at: now.toISOString(), by: reviewer.id, byName: reviewer.name, role: 'Super Admin', action: 'APPROVE', note }];
     await prisma.$transaction([
       prisma.organisationKybDocument.deleteMany({ where: { organisationId: organisation.id, fileName: 'placeholder-ssm-profile.pdf' } }),
-      prisma.organisationKybDocument.create({ data: { organisationId: organisation.id, documentType: 'SSM_PROFILE', fileName: 'placeholder-ssm-profile.pdf', mimeType: 'application/pdf', fileSize: content.length, fileContent: content, sha256: integrity.sha256, integrity: integrity as unknown as Prisma.InputJsonValue, uploadedBy: reviewer.id } }),
+      prisma.organisationKybDocument.create({ data: { organisationId: organisation.id, documentType: 'SSM_PROFILE', fileName: 'placeholder-ssm-profile.pdf', mimeType: 'application/pdf', fileSize: content.length, fileContent: new Uint8Array(content), sha256: integrity.sha256, integrity: integrity as unknown as Prisma.InputJsonValue, uploadedBy: reviewer.id } }),
       prisma.organisation.update({ where: { id: organisation.id }, data: { registrationNumber: number, registeredAddress: address, kybStatus: 'APPROVED', kybSubmittedAt: now, kybReviewedBy: reviewer.id, kybReviewedAt: now, kybNote: note, kybHistory: history as unknown as Prisma.InputJsonValue } }),
     ]);
     console.log(`${organisation.id}  ${organisation.name}: KYB verified (placeholder), ${number}`);

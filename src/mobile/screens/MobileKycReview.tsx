@@ -94,7 +94,7 @@ const KycReviewDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onB
       setApplication(await apiClient.reviewKycApplication(application.id, { decision, comment, kycLevel: approving ? kycLevel : undefined, acknowledgeWarnings: approving && hasWarnings ? acknowledged : undefined, overrideReason: approving && needsOverride ? overrideReason.trim() : undefined }));
     } catch (cause) { setError(apiErrorMessage(cause, t('The decision could not be saved.'))); } finally { setSaving(false); }
   };
-  const row = (label: string, value: React.ReactNode) => <div className="flex justify-between gap-3 py-1.5"><dt className="text-slate-500">{label}</dt><dd className="font-bold text-right break-words min-w-0">{value}</dd></div>;
+  const row = (label: string, value: React.ReactNode) => <div className="flex justify-between gap-3 py-1.5"><dt className="text-slate-500">{label}</dt><dd className="font-bold text-right wrap-break-word min-w-0">{value}</dd></div>;
 
   return (
     <div className="space-y-4">

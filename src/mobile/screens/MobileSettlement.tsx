@@ -53,7 +53,7 @@ export const MobileSettlement: React.FC = () => {
         {sections.map(([value, text, count]) => (
           <button key={value} type="button" role="tab" aria-selected={section === value} onClick={() => setSection(value)} className={`relative py-2.5 px-1 rounded-xl text-[11px] font-black border ${section === value ? 'bg-emerald-600 text-white border-emerald-600' : 'border-slate-300 dark:border-slate-600'}`}>
             {text}
-            {count > 0 && <span className="absolute -top-1.5 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-400 text-emerald-950 text-[10px] font-black flex items-center justify-center">{count}</span>}
+            {count > 0 && <span className="absolute -top-1.5 -right-1 min-w-4.5 h-4.5 px-1 rounded-full bg-amber-400 text-emerald-950 text-[10px] font-black flex items-center justify-center">{count}</span>}
           </button>
         ))}
       </div>

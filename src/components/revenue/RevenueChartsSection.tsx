@@ -170,7 +170,7 @@ export const RevenueChartsSection: React.FC<RevenueChartsSectionProps> = ({ curr
                   </span>
                   <div
                     style={{ height: `${hPct}%` }}
-                    className="w-full max-w-[48px] rounded-t-xl bg-gradient-to-t from-emerald-600 via-teal-500 to-emerald-400 group-hover:opacity-90 transition-all relative"
+                    className="w-full max-w-12 rounded-t-xl bg-linear-to-t from-emerald-600 via-teal-500 to-emerald-400 group-hover:opacity-90 transition-all relative"
                   >
                     <div className="absolute inset-x-0 bottom-0 bg-emerald-700/40 rounded-t-xl h-[45%]" />
                   </div>
@@ -244,7 +244,7 @@ export const RevenueChartsSection: React.FC<RevenueChartsSectionProps> = ({ curr
           <div className="h-56 flex items-end gap-3 pt-6 pb-2 px-2 border-b border-slate-100 dark:border-slate-800">
             {membershipGrowthData.map(m => (
               <div key={m.month} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
-                <div className="w-full max-w-[36px] flex flex-col-reverse rounded-t-xl overflow-hidden" style={{ height: `${(m.plus + m.pro + m.ent) / 25}%` }}>
+                <div className="w-full max-w-9 flex flex-col-reverse rounded-t-xl overflow-hidden" style={{ height: `${(m.plus + m.pro + m.ent) / 25}%` }}>
                   <div style={{ height: '70%' }} className="bg-emerald-500" title="Plus Tier" />
                   <div style={{ height: '25%' }} className="bg-blue-500" title="Pro Tier" />
                   <div style={{ height: '5%' }} className="bg-purple-600" title="Enterprise" />
@@ -317,7 +317,7 @@ export const RevenueChartsSection: React.FC<RevenueChartsSectionProps> = ({ curr
             {pdpGrowthData.map(p => (
               <div key={p.month} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
                 <span className="text-[10px] font-mono font-bold text-sky-600">{p.activePDP} PDPs</span>
-                <div style={{ height: `${(p.activePDP / 45) * 100}%` }} className="w-full max-w-[40px] rounded-t-xl bg-sky-500" />
+                <div style={{ height: `${(p.activePDP / 45) * 100}%` }} className="w-full max-w-10 rounded-t-xl bg-sky-500" />
                 <span className="text-[11px] font-bold text-slate-500">{p.month}</span>
               </div>
             ))}

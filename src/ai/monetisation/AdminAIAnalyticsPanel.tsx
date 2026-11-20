@@ -48,7 +48,7 @@ export const AdminAIAnalyticsPanel: React.FC = () => {
   return (
     <div className="space-y-6 animate-fadeIn font-sans text-xs">
       {/* Top Banner */}
-      <div className="p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-950 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="p-6 rounded-3xl bg-linear-to-r from-slate-900 via-indigo-950 to-purple-950 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
@@ -249,7 +249,7 @@ export const AdminAIAnalyticsPanel: React.FC = () => {
                 <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50">
                   <td className="p-3 font-sans">
                     <div className="font-bold text-slate-900 dark:text-white">{log.userName}</div>
-                    <span className="text-[9.5px] font-mono text-purple-600 bg-purple-500/10 px-1.5 py-[2px] rounded">
+                    <span className="text-[9.5px] font-mono text-purple-600 bg-purple-500/10 px-1.5 py-0.5 rounded">
                       {log.userTier}
                     </span>
                   </td>

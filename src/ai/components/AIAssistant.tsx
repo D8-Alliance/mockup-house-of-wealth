@@ -159,9 +159,9 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ userRole, userName, pr
   };
 
   return (
-    <div className="flex h-[600px] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white font-sans text-xs shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+    <div className="flex h-150 w-full max-w-md flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white font-sans text-xs shadow-2xl dark:border-slate-800 dark:bg-slate-900">
       {/* Header */}
-      <div className="flex shrink-0 items-center justify-between bg-gradient-to-r from-slate-900 to-purple-950 p-4 text-white">
+      <div className="flex shrink-0 items-center justify-between bg-linear-to-r from-slate-900 to-purple-950 p-4 text-white">
         <div className="flex items-center gap-2.5">
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/20 p-2"><Bot className="h-5 w-5 text-emerald-400" /></div>
           <div>
@@ -194,7 +194,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ userRole, userName, pr
       )}
 
       {/* Messages */}
-      <div className="flex-grow space-y-3 overflow-y-auto p-4">
+      <div className="grow space-y-3 overflow-y-auto p-4">
         {messages.length === 0 && (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
             <p>Assalamu Alaikum {userName}. I answer questions about Islamic finance using only the approved knowledge base (AAOIFI standards, country guidance{projectId ? ', and this project\'s documents' : ''}), and I cite the source of every statement. I do not give Shariah rulings, legal, financial or investment advice.</p>
@@ -253,7 +253,7 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({ userRole, userName, pr
           onChange={(event) => setInputQuery(event.target.value)}
           disabled={isSending}
           placeholder="Ask about Islamic finance standards, contracts, Zakah..."
-          className="flex-grow rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          className="grow rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-emerald-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
         />
         <button type="submit" disabled={isSending || !inputQuery.trim()} className="flex items-center gap-1 rounded-xl bg-emerald-600 p-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50">
           <Send className="h-3.5 w-3.5" />

@@ -86,12 +86,12 @@ export const FeatureMatrixTable: React.FC<FeatureMatrixTableProps> = ({
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/60">
-              <th className="p-4 sm:p-5 font-black text-slate-900 dark:text-white w-2/5 min-w-[220px]">
+              <th className="p-4 sm:p-5 font-black text-slate-900 dark:text-white w-2/5 min-w-55">
                 Platform Capabilities & Features
               </th>
               
               {/* Free Column */}
-              <th className={`p-4 font-black text-center min-w-[130px] ${currentTier === 'FREE' ? 'bg-slate-100/80 dark:bg-slate-800' : ''}`}>
+              <th className={`p-4 font-black text-center min-w-32.5 ${currentTier === 'FREE' ? 'bg-slate-100/80 dark:bg-slate-800' : ''}`}>
                 <div className="space-y-1">
                   <div className="text-slate-900 dark:text-white font-bold text-sm">Free</div>
                   <div className="text-[11px] text-slate-500 font-normal">RM0</div>
@@ -104,7 +104,7 @@ export const FeatureMatrixTable: React.FC<FeatureMatrixTableProps> = ({
               </th>
 
               {/* Plus Column */}
-              <th className={`p-4 font-black text-center min-w-[140px] ${currentTier === 'PLUS' ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''}`}>
+              <th className={`p-4 font-black text-center min-w-35 ${currentTier === 'PLUS' ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''}`}>
                 <div className="space-y-1">
                   <div className="text-slate-900 dark:text-white font-bold text-sm flex items-center justify-center gap-1">
                     <span>Plus</span>
@@ -127,7 +127,7 @@ export const FeatureMatrixTable: React.FC<FeatureMatrixTableProps> = ({
               </th>
 
               {/* Professional Column */}
-              <th className={`p-4 font-black text-center min-w-[140px] ${currentTier === 'PROFESSIONAL' ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
+              <th className={`p-4 font-black text-center min-w-35 ${currentTier === 'PROFESSIONAL' ? 'bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
                 <div className="space-y-1">
                   <div className="text-slate-900 dark:text-white font-bold text-sm">Professional</div>
                   <div className="text-[11px] text-blue-600 dark:text-blue-400 font-bold">RM149/mo</div>
@@ -147,7 +147,7 @@ export const FeatureMatrixTable: React.FC<FeatureMatrixTableProps> = ({
               </th>
 
               {/* Enterprise Column */}
-              <th className={`p-4 font-black text-center min-w-[140px] ${currentTier === 'ENTERPRISE' ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}>
+              <th className={`p-4 font-black text-center min-w-35 ${currentTier === 'ENTERPRISE' ? 'bg-purple-50/50 dark:bg-purple-950/20' : ''}`}>
                 <div className="space-y-1">
                   <div className="text-slate-900 dark:text-white font-bold text-sm">Enterprise</div>
                   <div className="text-[11px] text-purple-600 dark:text-purple-400 font-bold">Custom</div>
@@ -180,7 +180,7 @@ export const FeatureMatrixTable: React.FC<FeatureMatrixTableProps> = ({
                       <span className="font-bold text-slate-900 dark:text-white">
                         {item.name}
                       </span>
-                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-[2px] rounded">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
                         {item.category}
                       </span>
                     </div>

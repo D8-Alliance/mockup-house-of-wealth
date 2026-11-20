@@ -94,7 +94,7 @@ export const AIUsageDashboard: React.FC<AIUsageDashboardProps> = ({
 
       {/* Credit Balance 4-Metric Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-3xl bg-gradient-to-br from-purple-900 via-indigo-900 to-slate-900 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
+        <div className="p-5 rounded-3xl bg-linear-to-br from-purple-900 via-indigo-900 to-slate-900 text-white shadow-xl relative overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-purple-200 uppercase tracking-wider">{exempt ? 'Staff access' : 'Remaining Balance'}</span>
             <div className="p-2 rounded-xl bg-purple-500/20 border border-purple-400/30">

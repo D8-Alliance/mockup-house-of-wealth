@@ -56,7 +56,7 @@ export class NotificationService {
   async enqueue(input: NotificationInput, tx?: Prisma.TransactionClient) {
     const client = tx || this.prisma;
     const { attachment, ...rest } = input;
-    return client.notificationOutbox.upsert({ where: { dedupeKey: input.dedupeKey }, update: {}, create: { ...rest, channels: input.channels || process.env.NOTIFICATION_DEFAULT_CHANNELS || DEFAULT_CHANNELS, ...(attachment ? { attachmentName: attachment.filename, attachment: attachment.content } : {}) } });
+    return client.notificationOutbox.upsert({ where: { dedupeKey: input.dedupeKey }, update: {}, create: { ...rest, channels: input.channels || process.env.NOTIFICATION_DEFAULT_CHANNELS || DEFAULT_CHANNELS, ...(attachment ? { attachmentName: attachment.filename, attachment: new Uint8Array(attachment.content) } : {}) } });
   }
 
   /**

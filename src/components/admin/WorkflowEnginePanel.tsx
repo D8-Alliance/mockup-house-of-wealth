@@ -258,7 +258,7 @@ export const WorkflowEnginePanel: React.FC = () => {
               }`}
             >
               <span>Live Instances</span>
-              <span className="px-1.5 py-[2px] rounded-full text-[10px] bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
                 {instances.length}
               </span>
             </button>
@@ -367,7 +367,7 @@ export const WorkflowEnginePanel: React.FC = () => {
             </div>
 
             {/* Visual Steps Timeline */}
-            <div className="space-y-3 max-h-[550px] overflow-y-auto pr-1">
+            <div className="space-y-3 max-h-137.5 overflow-y-auto pr-1">
               {selectedWorkflow.steps.map((step, idx) => {
                 const isAuto = step.type === 'AUTOMATED' || step.type === 'SMART_CONTRACT';
                 return (

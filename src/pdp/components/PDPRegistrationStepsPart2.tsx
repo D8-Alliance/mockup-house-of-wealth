@@ -196,7 +196,7 @@ export const Step7Documents: React.FC<StepProps> = ({ formData, setFormData }) =
                     <div className="flex items-center gap-2 bg-white dark:bg-slate-900 p-2 rounded-xl border border-slate-200 dark:border-slate-700">
                       <FileText className="w-4 h-4 text-purple-600" />
                       <div className="text-left">
-                        <span className="font-bold text-[11px] text-slate-800 dark:text-slate-200 block truncate max-w-[160px]">
+                        <span className="font-bold text-[11px] text-slate-800 dark:text-slate-200 block truncate max-w-40">
                           {uploaded.title}
                         </span>
                         <span className="text-[9px] text-slate-400 font-mono">{uploaded.fileSize} • {uploaded.status}</span>

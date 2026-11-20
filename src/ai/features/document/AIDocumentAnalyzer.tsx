@@ -34,14 +34,14 @@ export const AIDocumentAnalyzer: React.FC = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
-          <select value={projectId} onChange={e => setProjectId(e.target.value)} className="flex-grow p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-semibold">
+          <select value={projectId} onChange={e => setProjectId(e.target.value)} className="grow p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-semibold">
             <option value="">Select project</option>
             {projects.map((project) => <option key={project.projectId} value={project.projectId}>{project.projectName}</option>)}
           </select>
           <select
             value={selectedDoc}
             onChange={e => setSelectedDoc(e.target.value)}
-            className="flex-grow p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-semibold"
+            className="grow p-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-semibold"
           >
             <option value="">Select document</option>
             {documents.map((document) => <option key={document.id} value={document.id}>{document.fileName}</option>)}

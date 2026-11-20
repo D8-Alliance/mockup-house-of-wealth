@@ -289,7 +289,7 @@ export const ProjectRegistrationModal: React.FC<ProjectRegistrationModalProps> =
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 bg-gradient-to-r from-amber-500 to-emerald-600 hover:from-amber-600 hover:to-emerald-700 text-white font-semibold rounded-xl flex items-center gap-1.5 shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+              className="px-5 py-2 bg-linear-to-r from-amber-500 to-emerald-600 hover:from-amber-600 hover:to-emerald-700 text-white font-semibold rounded-xl flex items-center gap-1.5 shadow-md disabled:cursor-not-allowed disabled:opacity-60"
             >
               <CheckCircle2 className="w-4 h-4" /> {isSubmitting ? 'Saving...' : editing ? 'Save changes' : 'Save as Draft'}
             </button>

@@ -184,7 +184,7 @@ export const PDPApplicationDetailModal: React.FC<PDPApplicationDetailModalProps>
         </div>
 
         {/* Tab Contents */}
-        <div className="min-h-[280px] text-xs">
+        <div className="min-h-70 text-xs">
           {activeTab === 'entity' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700">
               <div>

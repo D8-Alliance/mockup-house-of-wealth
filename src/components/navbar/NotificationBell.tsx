@@ -51,7 +51,7 @@ export const NotificationBell: React.FC<{ setTab: (tab: NavTab) => void }> = ({ 
         className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors relative cursor-pointer"
       >
         <Bell className="w-4 h-4" />
-        {unread > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-600 text-white text-[9px] font-black leading-4 text-center ring-2 ring-white dark:ring-slate-900">{unread > 9 ? '9+' : unread}</span>}
+        {unread > 0 && <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[9px] font-black leading-4 text-center ring-2 ring-white dark:ring-slate-900">{unread > 9 ? '9+' : unread}</span>}
       </button>
 
       {open && (

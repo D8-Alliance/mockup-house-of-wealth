@@ -100,7 +100,7 @@ export const LiveAuditDashboard: React.FC = () => {
             <div className="space-y-1.5">
               <p className="text-xs font-black text-slate-700 dark:text-slate-200">Events per day</p>
               <div className="flex items-end gap-1 h-24" role="img" aria-label="Audit events per day over the last 30 days">
-                {data.perDay.map((row) => <div key={row.day} title={`${row.day}: ${row.events}`} className="flex-1 min-w-[4px] rounded-t bg-purple-500/70" style={{ height: `${Math.max(4, (row.events / peak) * 100)}%` }} />)}
+                {data.perDay.map((row) => <div key={row.day} title={`${row.day}: ${row.events}`} className="flex-1 min-w-1 rounded-t bg-purple-500/70" style={{ height: `${Math.max(4, (row.events / peak) * 100)}%` }} />)}
               </div>
             </div>
           )}

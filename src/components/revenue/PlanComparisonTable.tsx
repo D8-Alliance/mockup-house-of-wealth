@@ -58,7 +58,7 @@ export const PlanComparisonTable: React.FC<PlanComparisonTableProps> = ({
               }`}
             >
               <span>Annual (Save 17%)</span>
-              <span className="px-1.5 py-[2px] bg-emerald-700 text-white rounded text-[10px]">2 mo free</span>
+              <span className="px-1.5 py-0.5 bg-emerald-700 text-white rounded text-[10px]">2 mo free</span>
             </button>
           </div>
 
@@ -116,7 +116,7 @@ export const PlanComparisonTable: React.FC<PlanComparisonTableProps> = ({
                   <h3 className="text-xl font-black text-slate-900 dark:text-white">
                     {plan.name}
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 min-h-[32px]">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 min-h-8">
                     {plan.description}
                   </p>
                 </div>

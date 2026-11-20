@@ -163,7 +163,7 @@ export const PDPRegistrationModal: React.FC<PDPRegistrationModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto animate-fadeIn">
       <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-4xl w-full p-6 md:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-6 relative my-auto max-h-[90vh] flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 shrink-0">
@@ -205,7 +205,7 @@ export const PDPRegistrationModal: React.FC<PDPRegistrationModalProps> = ({
 
           <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full transition-all duration-300"
+              className="h-full bg-linear-to-r from-purple-600 to-indigo-600 rounded-full transition-all duration-300"
               style={{ width: `${(currentStep / 10) * 100}%` }}
             />
           </div>

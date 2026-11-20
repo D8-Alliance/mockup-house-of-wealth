@@ -32,7 +32,7 @@ export const UpgradePromptBanner: React.FC<UpgradePromptBannerProps> = ({
 
   if (compact) {
     return (
-      <div className={`p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${className}`}>
+      <div className={`p-3.5 rounded-2xl bg-linear-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${className}`}>
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 shrink-0">
             <Sparkles className="w-4 h-4" />
@@ -40,7 +40,7 @@ export const UpgradePromptBanner: React.FC<UpgradePromptBannerProps> = ({
           <div>
             <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <span>{title}</span>
-              <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-[2px] rounded-full border border-emerald-500/20">
+              <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                 {getBadge()}
               </span>
             </div>
@@ -62,7 +62,7 @@ export const UpgradePromptBanner: React.FC<UpgradePromptBannerProps> = ({
   }
 
   return (
-    <div className={`p-6 rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-emerald-500/30 text-white shadow-lg space-y-4 ${className}`}>
+    <div className={`p-6 rounded-3xl bg-linear-to-r from-slate-900 via-slate-800 to-slate-900 border border-emerald-500/30 text-white shadow-lg space-y-4 ${className}`}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1.5 max-w-xl">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">

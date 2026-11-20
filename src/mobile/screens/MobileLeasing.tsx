@@ -50,7 +50,7 @@ const SummaryCards: React.FC<{ items: Array<[string, React.ReactNode]> }> = ({ i
     {items.map(([label, value]) => (
       <div key={label} className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
         <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">{label}</div>
-        <div className="text-xl font-black text-slate-900 dark:text-white mt-1 break-words">{value}</div>
+        <div className="text-xl font-black text-slate-900 dark:text-white mt-1 wrap-break-word">{value}</div>
       </div>
     ))}
   </div>

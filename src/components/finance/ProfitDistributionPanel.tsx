@@ -55,7 +55,7 @@ export const ProfitDistributionPanel: React.FC = () => {
           {sections.map(([value, text, count]) => (
             <button key={value} type="button" role="tab" aria-selected={section === value} onClick={() => setSection(value)} className={`relative px-4 py-2 rounded-xl text-xs font-bold border cursor-pointer ${section === value ? 'bg-emerald-600 text-white border-emerald-600' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'}`}>
               {text}
-              {count > 0 && <span className="ml-1.5 inline-flex min-w-[18px] h-[18px] px-1 rounded-full bg-amber-400 text-emerald-950 text-[10px] font-black items-center justify-center">{count}</span>}
+              {count > 0 && <span className="ml-1.5 inline-flex min-w-4.5 h-4.5 px-1 rounded-full bg-amber-400 text-emerald-950 text-[10px] font-black items-center justify-center">{count}</span>}
             </button>
           ))}
         </div>
@@ -102,7 +102,7 @@ const PoolsSection: React.FC<{ onChanged: () => void }> = ({ onChanged }) => {
                     <td className="p-2.5 text-right font-black text-emerald-700 dark:text-emerald-400">{money(pool.currency, pool.available)}</td>
                     <td className="p-2.5 text-[11px] text-slate-500">{pool.lastPeriod ? `${pool.lastPeriod.periodName} (${KIND_LABEL[pool.lastPeriod.kind] ?? pool.lastPeriod.kind}, ${STATUS_LABEL[pool.lastPeriod.status] ?? pool.lastPeriod.status})` : 'None yet'}</td>
                     <td className="p-2.5">
-                      <div className="flex flex-col gap-1.5 min-w-[120px]">
+                      <div className="flex flex-col gap-1.5 min-w-30">
                         <button type="button" onClick={() => setOpen({ pool, mode: 'income' })} className={SECONDARY}>Record income</button>
                         <button type="button" onClick={() => setOpen({ pool, mode: 'period' })} className={PRIMARY}>New period</button>
                       </div>
@@ -274,7 +274,7 @@ const DistributionCard: React.FC<{ item: SettlementDistribution; onChanged: () =
                       <p className="text-[11px] text-slate-500">{allocation.destination ? `${allocation.destination.provider} ${allocation.destination.maskedReference}${allocation.destination.accountHolder ? ` · ${allocation.destination.accountHolder}` : ''}` : ''}</p>
                     </td>
                     <td className="p-2 text-right font-black">{money(item.currency, num(allocation.amount))}</td>
-                    <td className="p-2 min-w-[210px] space-y-1.5">
+                    <td className="p-2 min-w-52.5 space-y-1.5">
                       {instruction && <p className={`text-[11px] font-black ${instruction.status === 'SETTLED' ? 'text-emerald-700 dark:text-emerald-400' : instruction.status === 'FAILED' ? 'text-rose-700 dark:text-rose-400' : 'text-amber-700 dark:text-amber-300'}`}>{PAYOUT_LABEL[instruction.status]}{instruction.providerReference ? ` · ${instruction.providerReference}` : ''}{instruction.failureReason ? ` · ${instruction.failureReason}` : ''}</p>}
                       {instruction?.status === 'QUEUED' && (
                         <div className="flex gap-1.5">
@@ -315,7 +315,7 @@ const DistributionCard: React.FC<{ item: SettlementDistribution; onChanged: () =
       )}
       {rejecting && (
         <div className="flex flex-wrap gap-2">
-          <input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Reason for rejecting" className={`${INPUT} mt-0 flex-1 min-w-[200px]`} />
+          <input value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Reason for rejecting" className={`${INPUT} mt-0 flex-1 min-w-50`} />
           <button type="button" disabled={busy || comment.trim().length < 3} onClick={() => void act(() => apiClient.rejectDistribution(item.id, comment.trim()))} className={PRIMARY}>Reject</button>
           <button type="button" onClick={() => setRejecting(false)} className={SECONDARY}>Cancel</button>
         </div>
