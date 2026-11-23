@@ -13,7 +13,7 @@ export const LiveOpenPoolsPreview: React.FC<{ onSignIn: () => void; onExplore: (
   React.useEffect(() => { apiClient.getPublicOpenPools().then(setPools).catch(() => setPools([])); }, []);
 
   return (
-    <section className="max-w-600 mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 pb-12">
+    <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 pb-12">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex flex-wrap items-center gap-2">
           <HandCoins className="w-5 h-5 text-emerald-500" />
@@ -33,7 +33,7 @@ export const LiveOpenPoolsPreview: React.FC<{ onSignIn: () => void; onExplore: (
             const pct = pool.target > 0 ? Math.min(100, Math.round((pool.raised / pool.target) * 1000) / 10) : 0;
             return (
               <div key={pool.poolId} className="rounded-3xl overflow-hidden border border-slate-200 bg-white shadow-sm flex flex-col">
-                <div className="px-5 py-4 bg-linear-to-br from-emerald-700 to-slate-900 text-white">
+                <div className="px-5 py-4 bg-gradient-to-br from-emerald-700 to-slate-900 text-white">
                   <span className="inline-block px-2.5 py-1 rounded-full bg-white/15 text-[10px] font-bold">{pool.sector}</span>
                   <p className="mt-2 text-[11px] text-emerald-100">{pool.country} · {pool.akad}</p>
                 </div>

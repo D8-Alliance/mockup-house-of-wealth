@@ -83,7 +83,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
       <SignInErrorBanner />
       {/* Top Utility Bar */}
       <div className="bg-slate-950 text-white border-b border-slate-800 py-2.5 px-4 sm:px-6 lg:px-8 2xl:px-12">
-        <div className="w-full max-w-600 mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="w-full max-w-[2400px] mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2.5">
             <span className="text-slate-400 font-medium">D-8 Member States:</span>
             <span className="text-emerald-400 font-extrabold uppercase tracking-wider text-[10px]">
@@ -100,7 +100,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
       {/* Hero Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md">
-        <div className="w-full max-w-600 mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12">
+        <div className="w-full max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12">
           <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center h-16 gap-3">
             <div className="flex min-w-0 max-w-full items-center gap-3 cursor-pointer">
               <WealthPoolingLogo compact />
@@ -144,7 +144,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
       {/* Country Selector Banner — default Malaysia */}
       <div className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-        <div className="max-w-600 mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-4">
+        <div className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-4">
           <div className="flex flex-col md:flex-row md:items-center gap-4">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">
               <Globe2 className="w-4 h-4 text-emerald-500" />
@@ -175,10 +175,10 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
       {/* Hero Section */}
       <section className="relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-160 h-160 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-[40rem] h-[40rem] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative w-full max-w-600 mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-12 sm:py-16">
+        <div className="relative w-full max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-12 sm:py-16">
           <div className="grid min-w-0 grid-cols-1 lg:grid-cols-2 gap-10 items-center">
             <div className="min-w-0 space-y-6">
               <div className="flex items-center gap-2">
@@ -190,9 +190,9 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
                 </span>
               </div>
 
-              <h1 className="min-w-0 wrap-break-word text-3xl sm:text-5xl font-black tracking-tight leading-tight">
+              <h1 className="min-w-0 break-words text-3xl sm:text-5xl font-black tracking-tight leading-tight">
                 Cross-Border Islamic
-                <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-500 to-teal-400"> Circular Economy</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-400"> Circular Economy</span>
               </h1>
 
               <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-xl leading-relaxed">
@@ -244,7 +244,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
             {/* Right: Selected Country Card */}
             <div className="min-w-0 space-y-4">
-              <div className="p-6 rounded-3xl bg-linear-to-br from-slate-900 via-slate-800 to-emerald-950 text-white border border-slate-700/60 shadow-2xl">
+              <div className="p-6 rounded-3xl bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white border border-slate-700/60 shadow-2xl">
                 <div className="flex items-center gap-4 mb-4">
                   <img
                     src={selectedCountry.flagUrl}
@@ -303,7 +303,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
       </section>
 
       {/* D-8 Member States Grid */}
-      <section className="max-w-600 mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-12">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 py-12">
         <div className="flex items-center gap-2 mb-6">
           <Users className="w-5 h-5 text-emerald-500" />
           <h2 className="text-xl sm:text-2xl font-black">The {countries.length} Member States of the D-8</h2>
@@ -338,7 +338,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
       {authMode !== 'DEMO' && <LiveOpenPoolsPreview onSignIn={() => setShowLoginModal(true)} onExplore={onEnterPublicGuest} />}
 
       {/* Public Marketplace Preview (Guest-tier) */}
-      {authMode === 'DEMO' && <section className="max-w-600 mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 pb-12">
+      {authMode === 'DEMO' && <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 pb-12">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <Landmark className="w-5 h-5 text-emerald-500" />
@@ -399,8 +399,8 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
       </section>}
 
       {/* Login Call-to-Action */}
-      <section className="max-w-600 mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 pb-16">
-        <div className="rounded-3xl bg-linear-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-8 sm:p-10 text-center border border-slate-700/60">
+      <section className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 pb-16">
+        <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-emerald-950 to-slate-900 text-white p-8 sm:p-10 text-center border border-slate-700/60">
           <h2 className="text-2xl sm:text-3xl font-black mb-3">Ready to Participate in the D-8 Circular Economy?</h2>
           <p className="text-sm text-slate-300 max-w-2xl mx-auto mb-6">
             Sign in to access your secure, role-based workspace — manage assets, originate
@@ -427,7 +427,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
 
       {/* Footer */}
       <footer className="bg-slate-950 text-slate-400 py-8 border-t border-slate-800">
-        <div className="max-w-600 mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
+        <div className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-emerald-500" />
             <span className="font-bold text-white">Wealth Pooling</span>
@@ -441,7 +441,7 @@ export const PublicLandingPage: React.FC<PublicLandingPageProps> = ({ onEnterPub
             <span>AAOIFI standards referenced</span>
           </div>
         </div>
-        <div className="max-w-600 mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 mt-4 text-[10px] text-slate-600">
+        <div className="max-w-[2400px] mx-auto px-4 sm:px-6 lg:px-8 2xl:px-12 mt-4 text-[10px] text-slate-600">
           Public demonstration portal. Guest-tier content is limited to marketplace &amp; ecosystem overview.
           Authorised roles unlock role-scoped financial workspaces after identity gateway sign-in.
         </div>
