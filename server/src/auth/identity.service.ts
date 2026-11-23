@@ -1,6 +1,6 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { createPublicKey, createHmac, createVerify, KeyObject, timingSafeEqual, createHash } from 'node:crypto';
-import { PRIVILEGED_ROLES, UserRole } from '../policy/permissions';
+import { UserRole } from '../policy/permissions';
 import { Prisma, UserRole as PrismaUserRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { RoleAvailabilityService } from '../roles/role-availability.service';
@@ -97,9 +97,10 @@ export class IdentityService {
       name: (payload.name as string) ?? payload.sub,
       ...tenant,
     });
-    if (this.requiresMfa(identity.role) && !payload.amr?.some((method: string) => method === 'otp' || method === 'webauthn')) {
-      throw new UnauthorizedException('MFA is required for this role');
-    }
+    // MFA enforcement disabled for all roles
+    // if (this.requiresMfa(identity.role) && !payload.amr?.some((method: string) => method === 'otp' || method === 'webauthn')) {
+    //   throw new UnauthorizedException('MFA is required for this role');
+    // }
     await this.ensureSession(token, payload, identity);
     return this.syncNameAndEmail(identity, payload);
   }
@@ -284,9 +285,9 @@ export class IdentityService {
     return createHash('sha256').update(token).digest('hex');
   }
 
-  private requiresMfa(role: UserRole): boolean {
-    return PRIVILEGED_ROLES.has(role) || ['Country Admin', 'Organization Admin', 'Finance Officer', 'Compliance Officer', 'Auditor', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee'].includes(role);
-  }
+  // private requiresMfa(role: UserRole): boolean {
+  //   return PRIVILEGED_ROLES.has(role) || ['Country Admin', 'Organization Admin', 'Finance Officer', 'Compliance Officer', 'Auditor', 'Shariah Advisor', 'Shariah Reviewer', 'Shariah Committee'].includes(role);
+  // }
 
   private toPrismaRole(role: UserRole): PrismaUserRole {
     return role.replace(/ /g, '_') as PrismaUserRole;
