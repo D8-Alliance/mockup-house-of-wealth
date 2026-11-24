@@ -10,7 +10,7 @@
                         <span class="brand-mark__icon" aria-hidden="true">
                             <svg viewBox="0 0 32 32" fill="none"><path d="M7 14.5 16 7l9 7.5v10H7v-10Z" stroke="currentColor" stroke-width="1.8"/><path d="M10.5 14.5h11M12 17.5h8M13.5 20.5h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 4.5v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
                         </span>
-                        <span><strong>House of</strong> Wealth</span>
+                        <span><strong>Wealth</strong> Pooling</span>
                     </span>
                     <span class="brand-badge">D-8</span>
                 </header>
@@ -36,7 +36,7 @@
 
                     <div class="form-heading">
                         <span class="form-heading__kicker">Create your account</span>
-                        <h2>Join House of Wealth</h2>
+                        <h2>Join Wealth Pooling</h2>
                         <p>Create your secure access to the D-8 network.</p>
                     </div>
 
