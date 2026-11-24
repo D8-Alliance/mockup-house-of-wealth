@@ -370,9 +370,22 @@ Sebagai pengguna `how` di droplet:
 cd /opt/how
 git pull
 # Backend
-cd server && npm ci && npm run prisma:generate && npm run build && npm run prisma:migrate:deploy && pm2 restart how-api && cd ..
+cd server 
+npm ci
+npm run prisma:generate
+
+npx tsc -p tsconfig.json --incremental false
+Check that the entry file exists:
+ls -l dist/main.js
+@
+npm run build
+
+npm run prisma:migrate:deploy
+pm2 restart how-api
+pm2 status
 # Frontend
-npm ci && npx vite build --outDir /opt/how-web --emptyOutDir
+npm ci
+npx vite build --outDir /opt/how-web --emptyOutDir
 ```
 
 Jika fail dalam `server/keycloak/themes/` (halaman log masuk dan daftar) berubah, cipta semula container Keycloak juga. Jangan guna `restart` sahaja: Keycloak menyimpan salinan fail CSS dan JS yang dimampatkan (gzip) dalam container, dan salinan itu tidak dipadam bila Keycloak dimulakan semula. Pelayar akan terus menerima CSS lama.

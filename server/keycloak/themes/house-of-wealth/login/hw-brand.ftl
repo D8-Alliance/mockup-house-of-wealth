@@ -10,7 +10,7 @@
         <div class="brand-panel__glow brand-panel__glow--top"></div>
         <div class="brand-panel__glow brand-panel__glow--bottom"></div>
         <header class="brand-header">
-            <span class="brand-mark"><@logoIcon/><span><strong>House of</strong> Wealth</span></span>
+            <span class="brand-mark"><@logoIcon/><span><strong>Wealth</strong> Pooling</span></span>
             <span class="brand-badge">D-8</span>
         </header>
         <div class="brand-copy">
